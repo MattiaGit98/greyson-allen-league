@@ -11,8 +11,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <section className="login-page">
       <div className="login-copy">
         <p className="eyebrow">Area riservata</p>
-        <h1>Gestisci la lega.</h1>
-        <p>Le pagine pubbliche rimangono aperte a tutti. Qui entrano soltanto gli amministratori autorizzati.</p>
+        <h1>Amministrazione</h1>
       </div>
       <form action={login} className="login-card">
         <h2>Accedi</h2>
@@ -20,7 +19,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <label>Email<input type="email" name="email" autoComplete="email" required /></label>
         <label>Password<input type="password" name="password" autoComplete="current-password" required /></label>
         <button className="button primary" type="submit">Entra nell’area admin</button>
-        <small>L’account deve essere creato e autorizzato dal commissioner.</small>
       </form>
     </section>
   );

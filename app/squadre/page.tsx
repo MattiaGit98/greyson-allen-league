@@ -6,7 +6,6 @@ export default function TeamsPage() {
     <section className="section page-top">
       <p className="eyebrow">Stagione 2025/26</p>
       <h1>Tutte le squadre</h1>
-      <p className="lede">Cap e consistenza delle rose rilevati dal file ufficiale.</p>
       <div className="list-table">
         <div className="table-head"><span>Squadra</span><span>Giocatori</span><span>Costo</span><span>Cap libero</span></div>
         {teams.map((team) => (

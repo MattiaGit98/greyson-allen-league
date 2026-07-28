@@ -22,8 +22,7 @@ export default async function HomePage() {
       <section className="hero">
         <div>
           <p className="eyebrow">Stagione {seasonName} · {phase.label}</p>
-          <h1>La lega, finalmente<br />fuori dal foglio.</h1>
-          <p className="hero-copy">Rose, cap e contratti in un’unica vista. Dati reali importati dal roster ufficiale.</p>
+          <h1>Greyson Allen<br />League</h1>
           <div className="actions">
             <Link className="button primary" href="/squadre">Esplora le squadre</Link>
             <Link className="button secondary" href="/asta">Apri asta live</Link>
@@ -42,7 +41,7 @@ export default async function HomePage() {
       </section>
       <section className="section">
         <div className="section-heading">
-          <div><p className="eyebrow">League board</p><h2>Situazione squadre</h2></div>
+          <div><p className="eyebrow">Squadre</p><h2>Situazione generale</h2></div>
           <Link href="/squadre">Vedi classifica cap →</Link>
         </div>
         <div className="team-grid">

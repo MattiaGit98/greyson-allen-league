@@ -2,10 +2,10 @@ import Link from "next/link";
 import { qualifyingOfferRights, rosterEntries, teams } from "@/lib/demo-data";
 
 const actions = [
-  { href: "/admin/operazioni", number: "01", title: "Operazioni", text: "Acquisto, taglio e scambio con anteprima delle regole." },
-  { href: "/admin/qualifying-offer", number: "02", title: "Qualifying offer", text: "Controlla i diritti disponibili per la prossima asta." },
-  { href: "/admin/impostazioni", number: "03", title: "Fase della lega", text: "Passa da offseason ad asta e poi alla stagione." },
-  { href: "/asta", number: "04", title: "Pannello asta", text: "Prepara e controlla la sessione live." },
+  { href: "/admin/operazioni", number: "01", title: "Operazioni", text: "Acquisti, tagli e scambi." },
+  { href: "/admin/qualifying-offer", number: "02", title: "Qualifying offer", text: "Diritti QO." },
+  { href: "/admin/impostazioni", number: "03", title: "Fase della lega", text: "Offseason, asta e stagione." },
+  { href: "/asta", number: "04", title: "Pannello asta", text: "Gestione asta." },
 ];
 
 export default function AdminDashboardPage() {
@@ -16,7 +16,6 @@ export default function AdminDashboardPage() {
     <section className="section page-top admin-dashboard">
       <p className="eyebrow">Amministrazione · Offseason</p>
       <h1>Centro di controllo</h1>
-      <p className="lede">Le attività rilevanti sono raggruppate per operazione, non per tabella del database.</p>
       <div className="admin-kpis">
         <article><span>Diritti QO</span><strong>{qualifyingOfferRights.length}</strong><small>per la prossima asta</small></article>
         <article><span>Contratti “27”</span><strong>{expiring.length}</strong><small>da verificare in offseason</small></article>

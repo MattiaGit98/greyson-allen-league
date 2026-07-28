@@ -105,8 +105,7 @@ function Preview({ valid, errors, warnings, children }: { valid: boolean; errors
       <div className="preview-metrics">{children}</div>
       {errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
       {warnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
-      <button className="button primary" type="button" disabled>{valid ? "Anteprima valida · collega Supabase" : "Completa i dati"}</button>
-      <small>Il salvataggio si attiverà collegando Supabase; l’anteprima usa già le regole della lega.</small>
+      <button className="button primary" type="button" disabled>{valid ? "Conferma" : "Completa i dati"}</button>
     </aside>
   );
 }

@@ -11,7 +11,6 @@ export default function PlayersPage() {
     <section className="section page-top">
       <p className="eyebrow">Anagrafica contrattuale</p>
       <h1>Giocatori</h1>
-      <p className="lede">Ricerca nelle rose e nei contratti importati. Squadra NBA e stato Dunkest saranno disponibili con il nuovo listone.</p>
       <PlayerExplorer rows={rows} />
     </section>
   );

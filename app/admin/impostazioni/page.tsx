@@ -24,10 +24,9 @@ export default async function LeagueSettingsPage({
     <section className="section page-top admin-settings">
       <p className="eyebrow">Amministrazione · {seasonName}</p>
       <h1>Momento della lega</h1>
-      <p className="lede">La fase selezionata determina quali operazioni e quali regole sono disponibili.</p>
       {query.updated && <p className="notice success">Fase aggiornata correttamente.</p>}
       {query.error && <p className="notice error">Aggiornamento non riuscito: {query.error}</p>}
-      {!supabase && <p className="notice">Anteprima locale: collega Supabase per salvare la modifica nel database.</p>}
+      {!supabase && <p className="notice">Configurazione non disponibile.</p>}
       <form action={changeLeaguePhase} className="phase-form">
         {phases.map((phase) => (
           <label className="phase-option" key={phase.value}>
@@ -42,7 +41,6 @@ export default async function LeagueSettingsPage({
         ))}
         <button className="button primary" type="submit" disabled={!supabase}>Salva fase</button>
       </form>
-      <p className="form-help">Ogni cambio viene registrato nell’audit log. Le transizioni ordinarie sono Offseason → Asta → Stagione.</p>
     </section>
   );
 }

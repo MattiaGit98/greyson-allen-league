@@ -80,7 +80,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
           <div className="content-heading small"><h2>Qualifying offer</h2><span>{rights.length}</span></div>
           {rights.length ? rights.map((right) => (
             <article className="compact-item" key={right.playerName}>
-              <div><strong>{right.playerName}</strong><small>Esercitabile alla prossima asta</small></div>
+              <div><strong>{right.playerName}</strong><small>Diritto registrato</small></div>
               <b>{right.qualifyingAmount} CR</b>
             </article>
           )) : <p className="quiet">Nessun diritto disponibile.</p>}
