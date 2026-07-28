@@ -34,7 +34,7 @@ export function TeamAccordion({
 
   return (
     <div className="team-accordion">
-      {teams.map((team) => {
+      {teams.map((team, index) => {
         const expanded = openTeam === team.code;
         return (
           <article className={`team-accordion-item ${expanded ? "open" : ""}`} key={team.code}>
@@ -44,7 +44,7 @@ export function TeamAccordion({
               aria-expanded={expanded}
               onClick={() => setOpenTeam(expanded ? null : team.code)}
             >
-              <b>{team.code}</b>
+              <b className={`team-code-badge team-hue-${index % 7}`}>{team.code}</b>
               <strong>{team.name}</strong>
               <span>{team.owner}</span>
               <i aria-hidden="true">{expanded ? "−" : "+"}</i>
