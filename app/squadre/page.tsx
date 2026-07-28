@@ -1,18 +1,29 @@
-import Link from "next/link";
-import { teams } from "@/lib/demo-data";
+import { TeamAccordion } from "./team-accordion";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { draftAssets, qualifyingOfferRights, rosterEntries, season, teams } from "@/lib/demo-data";
 
-export default function TeamsPage() {
+export default async function TeamsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ team?: string }>;
+}) {
+  const query = await searchParams;
+  const supabase = await createSupabaseServerClient();
+  const response = supabase
+    ? await supabase.from("seasons").select("status").eq("is_active", true).maybeSingle()
+    : null;
+  const phase = response?.data?.status ?? season.phase;
+
   return (
     <section className="section teams-page">
-      <div className="list-table">
-        <div className="table-head"><span>Squadra</span><span>Giocatori</span><span>Costo</span><span>Cap libero</span></div>
-        {teams.map((team) => (
-          <Link href={`/squadre/${team.slug}`} className="table-row" key={team.code}>
-            <span><b>{team.code}</b><span><strong>{team.name}</strong><small>{team.owner}</small></span></span>
-            <span>{team.players}</span><span>{team.cost}</span><span className="credit">{team.credits} CR</span>
-          </Link>
-        ))}
-      </div>
+      <TeamAccordion
+        teams={teams}
+        rosterEntries={rosterEntries}
+        draftAssets={draftAssets}
+        qualifyingOfferRights={qualifyingOfferRights}
+        initialTeam={query.team?.toUpperCase()}
+        showQualifyingOffers={phase === "offseason"}
+      />
     </section>
   );
 }

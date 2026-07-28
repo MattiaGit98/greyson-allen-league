@@ -18,7 +18,7 @@ const playerMap = new Map<string, { name: string; role: string | null }>();
 for (const entry of snapshot.rosterEntries) {
   const key = normalized(entry.name);
   const existing = playerMap.get(key);
-  const validRole = entry.state === "active" && ["G", "A", "C"].includes(entry.role ?? "")
+  const validRole = entry.state === "active" && entry.slot !== "dpe" && ["G", "A", "C"].includes(entry.role ?? "")
     ? entry.role ?? null
     : null;
   playerMap.set(key, { name: entry.name, role: validRole ?? existing?.role ?? null });
@@ -73,7 +73,7 @@ for (const entry of snapshot.rosterEntries) {
   const extensionCount = contract.includes("(E)") ? 1 : 0;
   lines.push(
     "insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)",
-    `select s.id, t.id, p.id, 'regular', ${sql(entry.state)}::public.roster_status, 'initial_import', ${sql(entry.cost)}, ${sql(entry.cost)}, ${option}, ${extensionCount}`,
+    `select s.id, t.id, p.id, ${sql(entry.slot)}::public.slot_type, ${sql(entry.state)}::public.roster_status, 'initial_import', ${sql(entry.cost)}, ${sql(entry.cost)}, ${option}, ${extensionCount}`,
     `from public.seasons s join public.teams t on t.code = ${sql(entry.teamCode)} join public.players p on p.normalized_name = ${sql(normalized(entry.name))}`,
     `where s.name = ${sql(snapshot.season.name)};`,
   );

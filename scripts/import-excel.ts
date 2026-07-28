@@ -4,7 +4,8 @@ import path from "node:path";
 import ExcelJS from "exceljs";
 
 type Issue = { severity: "error" | "warning"; code: string; message: string; cell?: string };
-type PlayerRow = { name: string; cost: number; contract: string; role?: string; state: "active" | "cut"; teamCode: string; cell: string };
+type RosterSlot = "regular" | "two_way" | "g_league" | "dpe";
+type PlayerRow = { name: string; cost: number; contract: string; role?: string; state: "active" | "cut"; slot: RosterSlot; teamCode: string; cell: string };
 type QualifyingOfferRight = { playerName: string; qualifyingAmount: number; teamCode: string; cell: string };
 type DraftAsset = { label: string; round: string; year: number; originOrOverall: string | number; teamCode: string; cell: string };
 
@@ -29,6 +30,11 @@ const teams = [];
 const players: PlayerRow[] = [];
 const qualifyingOfferRights: QualifyingOfferRight[] = [];
 const draftAssets: DraftAsset[] = [];
+const formulaResult = (value: ExcelJS.CellValue) => {
+  if (value && typeof value === "object" && "result" in value) return String(value.result ?? "");
+  return String(value ?? "");
+};
+const trailingNumber = (value: ExcelJS.CellValue) => Number(formulaResult(value).match(/(-?\d+)\s*$/)?.[1]);
 for (let block = 0; block < 14; block += 1) {
   const start = 2 + block * 4;
   const owner = String(roster.getCell(2, start).value ?? "").trim();
@@ -36,7 +42,13 @@ for (let block = 0; block < 14; block += 1) {
   const name = String(roster.getCell(3, start).value ?? "").trim();
   if (!owner || !code || !name) issues.push({ severity: "error", code: "TEAM_FIELDS", message: `Dati squadra incompleti nel blocco ${block + 1}.` });
   const teamPlayers: PlayerRow[] = [];
-  for (const [from, to, state] of [[8, 27, "active"], [29, 42, "cut"]] as const) {
+  for (const [from, to, state, slot] of [
+    [8, 22, "active", "regular"],
+    [23, 24, "active", "two_way"],
+    [25, 27, "active", "g_league"],
+    [29, 42, "cut", "regular"],
+    [44, 44, "active", "dpe"],
+  ] as const) {
     for (let row = from; row <= to; row += 1) {
       const value = roster.getCell(row, start).value;
       if (!value) continue;
@@ -45,15 +57,24 @@ for (let block = 0; block < 14; block += 1) {
       const role = String(roster.getCell(row, start + 3).value ?? "").trim() || undefined;
       const cell = roster.getCell(row, start).address;
       if (!Number.isInteger(cost) || cost < 1) issues.push({ severity: "error", code: "INVALID_COST", message: `${value}: costo non valido.`, cell });
-      if (state === "active" && !["G", "A", "C"].includes(role ?? "")) issues.push({ severity: "error", code: "INVALID_ROLE", message: `${value}: ruolo mancante o non valido.`, cell });
+      if (state === "active" && slot !== "dpe" && !["G", "A", "C"].includes(role ?? "")) issues.push({ severity: "error", code: "INVALID_ROLE", message: `${value}: ruolo mancante o non valido.`, cell });
       if (!contract) issues.push({ severity: "warning", code: "MISSING_CONTRACT", message: `${value}: contratto/scadenza mancante.`, cell });
-      const player = { name: String(value).trim(), cost, contract, role, state, teamCode: code, cell };
+      const player = { name: String(value).trim(), cost, contract, role, state, slot, teamCode: code, cell };
       players.push(player);
       teamPlayers.push(player);
     }
   }
   const committedCost = teamPlayers.reduce((sum, player) => sum + (Number.isFinite(player.cost) ? player.cost : 0), 0);
-  teams.push({ owner, code, name, initialCredits: 1000, currentCredits: 1000 - committedCost, committedCost });
+  teams.push({
+    owner,
+    code,
+    name,
+    initialCredits: 1000,
+    currentCredits: 1000 - committedCost,
+    nextSeasonCredits: trailingNumber(roster.getCell(4, start).value),
+    followingSeasonCredits: trailingNumber(roster.getCell(5, start).value),
+    committedCost,
+  });
   for (let row = 46; row <= 60; row += 1) {
     const value = roster.getCell(row, start).value;
     if (!value) continue;

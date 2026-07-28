@@ -7,6 +7,7 @@ export type RosterEntry = {
   contract: string;
   role?: "G" | "A" | "C";
   state: "active" | "cut";
+  slot: "regular" | "two_way" | "g_league" | "dpe";
   teamCode: string;
 };
 export type QualifyingOfferRight = {
@@ -31,6 +32,8 @@ export type TeamSummary = {
   cutPlayers: number;
   qualifyingOffers: number;
   draftAssets: number;
+  nextSeasonCredits: number;
+  followingSeasonCredits: number;
   slug: string;
 };
 
@@ -49,6 +52,8 @@ export const teams: TeamSummary[] = snapshot.teams.map((team) => ({
   cutPlayers: rosterEntries.filter((entry) => entry.teamCode === team.code && entry.state === "cut").length,
   qualifyingOffers: qualifyingOfferRights.filter((right) => right.teamCode === team.code).length,
   draftAssets: draftAssets.filter((asset) => asset.teamCode === team.code).length,
+  nextSeasonCredits: team.nextSeasonCredits,
+  followingSeasonCredits: team.followingSeasonCredits,
   slug: team.code.toLowerCase(),
 })).sort((left, right) => left.name.localeCompare(right.name, "it"));
 
