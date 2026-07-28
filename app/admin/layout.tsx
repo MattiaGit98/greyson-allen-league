@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logout } from "@/app/login/actions";
@@ -14,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <div className="admin-session-bar">
         <span>Area admin · {user.email}</span>
-        <div><Link href="/admin">Dashboard</Link><Link href="/admin/operazioni">Operazioni</Link><Link href="/admin/impostazioni">Fase</Link><form action={logout}><button type="submit">Esci</button></form></div>
+        <form action={logout}><button type="submit">Esci</button></form>
       </div>
       {children}
     </>
