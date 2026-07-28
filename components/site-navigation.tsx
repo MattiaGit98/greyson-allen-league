@@ -22,7 +22,7 @@ function isCurrent(pathname: string, href: string) {
   return pathname.startsWith(href);
 }
 
-export function SiteNavigation() {
+export function SiteNavigation({ seasonName, phaseName }: { seasonName: string; phaseName: string }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
   const isLogin = pathname.startsWith("/login");
@@ -33,7 +33,10 @@ export function SiteNavigation() {
       <header className="site-header">
         <Link className="brand" href="/squadre" aria-label="Greyson Allen League, squadre">
           <span className="brand-mark">GAL</span>
-          <span>Greyson Allen League</span>
+          <span className="brand-copy">
+            <strong>Greyson Allen League</strong>
+            <small>{seasonName} · {phaseName}</small>
+          </span>
         </Link>
         <nav className="area-switcher" aria-label="Selezione area">
           <Link className={!isAdmin && !isLogin ? "active" : ""} href="/squadre">Area lega</Link>

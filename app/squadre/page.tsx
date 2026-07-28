@@ -3,9 +3,7 @@ import { teams } from "@/lib/demo-data";
 
 export default function TeamsPage() {
   return (
-    <section className="section page-top">
-      <p className="eyebrow">Stagione 2025/26</p>
-      <h1>Tutte le squadre</h1>
+    <section className="section teams-page">
       <div className="list-table">
         <div className="table-head"><span>Squadra</span><span>Giocatori</span><span>Costo</span><span>Cap libero</span></div>
         {teams.map((team) => (

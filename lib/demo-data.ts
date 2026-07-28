@@ -50,7 +50,7 @@ export const teams: TeamSummary[] = snapshot.teams.map((team) => ({
   qualifyingOffers: qualifyingOfferRights.filter((right) => right.teamCode === team.code).length,
   draftAssets: draftAssets.filter((asset) => asset.teamCode === team.code).length,
   slug: team.code.toLowerCase(),
-}));
+})).sort((left, right) => left.name.localeCompare(right.name, "it"));
 
 export function entriesForTeam(code: string) {
   return rosterEntries.filter((entry) => entry.teamCode === code);
