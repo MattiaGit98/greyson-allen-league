@@ -165,6 +165,19 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .operation-preview .button { width: 100%; border: 0; margin-top: 22px; cursor: pointer; }
 .operation-preview .button:disabled { opacity: .4; cursor: not-allowed; }
 .operation-preview > small { display: block; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+.login-page { min-height: calc(100vh - 74px); display: grid; grid-template-columns: 1.2fr .8fr; align-items: center; gap: 8vw; padding: 7vw; }
+.login-copy h1 { font-size: clamp(58px, 8vw, 110px); }
+.login-copy > p:last-child { color: var(--muted); max-width: 520px; line-height: 1.6; }
+.login-card { padding: 34px; border: 1px solid var(--line); border-radius: 22px; background: var(--card); box-shadow: 0 20px 60px rgba(24,63,52,.08); }
+.login-card h2 { font-size: 32px; }
+.login-card label { display: block; margin: 17px 0; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.login-card input { display: block; width: 100%; min-height: 48px; margin-top: 8px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.login-card .button { width: 100%; border: 0; margin-top: 12px; cursor: pointer; }
+.login-card > small { display: block; margin-top: 15px; color: var(--muted); text-align: center; line-height: 1.4; }
+.admin-session-bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 11px 7vw; background: var(--green); color: white; font-size: 11px; }
+.admin-session-bar > div { display: flex; align-items: center; gap: 18px; }
+.admin-session-bar form { display: inline; }
+.admin-session-bar button { border: 0; background: transparent; color: var(--lime); cursor: pointer; padding: 0; font: inherit; }
 
 @media (max-width: 850px) {
   nav { display: none; }
@@ -192,4 +205,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 
 @media (max-width: 560px) {
   .metrics.compact.four, .admin-kpis, .admin-action-grid, .admin-columns, .qo-groups { grid-template-columns: 1fr; }
+  .login-page { grid-template-columns: 1fr; }
+  .admin-session-bar { align-items: flex-start; }
+  .admin-session-bar > div { gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 }

@@ -28,7 +28,7 @@ La demo pubblica funziona anche senza Supabase. Sono disponibili le anteprime gu
 
 ## Database e sicurezza
 
-Applicare nell'ordine le migration in `supabase/migrations`. Le chiavi `NEXT_PUBLIC_*` possono essere usate dal browser; la service role key è esclusivamente server-side. Tutte le tabelle operative hanno RLS: lettura pubblica selettiva e scrittura riservata agli utenti presenti in `admin_users`.
+Applicare nell'ordine le migration in `supabase/migrations`. `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` possono essere usate dal browser; una secret/service role key è esclusivamente server-side. Tutte le tabelle operative hanno RLS: lettura pubblica selettiva e scrittura riservata agli utenti presenti in `admin_users`.
 
 ## Test
 
