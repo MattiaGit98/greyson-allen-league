@@ -25,6 +25,7 @@ export function TeamAccordion({
     initialTeam && teams.some((team) => team.code === initialTeam) ? initialTeam : null,
   );
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
+  const nextDraftYear = Math.min(...draftAssets.map((asset) => asset.year));
 
   const changeSort = (key: SortKey) => {
     setSort((current) => current.key === key
@@ -55,6 +56,7 @@ export function TeamAccordion({
                 entries={rosterEntries.filter((entry) => entry.teamCode === team.code)}
                 assets={draftAssets.filter((asset) => asset.teamCode === team.code)}
                 rights={qualifyingOfferRights.filter((right) => right.teamCode === team.code)}
+                nextDraftYear={nextDraftYear}
                 showQualifyingOffers={showQualifyingOffers}
                 sort={sort}
                 changeSort={changeSort}
@@ -73,6 +75,7 @@ function TeamDetails({
   assets,
   rights,
   showQualifyingOffers,
+  nextDraftYear,
   sort,
   changeSort,
 }: {
@@ -81,6 +84,7 @@ function TeamDetails({
   assets: DraftAsset[];
   rights: QualifyingOfferRight[];
   showQualifyingOffers: boolean;
+  nextDraftYear: number;
   sort: SortState;
   changeSort: (key: SortKey) => void;
 }) {
@@ -90,6 +94,7 @@ function TeamDetails({
   const gLeague = active.filter((entry) => entry.slot === "g_league");
   const dpe = active.filter((entry) => entry.slot === "dpe");
   const cut = entries.filter((entry) => entry.state === "cut");
+  const sortedAssets = [...assets].sort(compareDraftAssets);
   const roles = {
     G: active.filter((entry) => entry.slot !== "dpe" && entry.role === "G").length,
     A: active.filter((entry) => entry.slot !== "dpe" && entry.role === "A").length,
@@ -138,13 +143,23 @@ function TeamDetails({
 
       <DataSection label="Scelte">
         <div className="data-table draft-data-table">
-          <div className="data-head"><span>Anno</span><span>Giro</span><span>Condizione</span><span>Origine / posizione</span></div>
-          {assets.map((asset, index) => (
-            <div className="data-row" key={`${asset.year}-${asset.round}-${index}`}>
-              <span>{asset.year}</span><span>{asset.round}</span><strong>{draftCondition(asset.label)}</strong><span>{asset.originOrOverall}</span>
+          <div className="data-head"><span>Anno</span><span>Giro</span><span>Origine / posizione</span><span>Clausola</span></div>
+          {sortedAssets.map((asset, index) => {
+            const numericalPosition = numericValue(asset.originOrOverall);
+            const isNextDraftPosition = asset.year === nextDraftYear && numericalPosition !== null;
+            return (
+            <div className={`data-row draft-row ${isNextDraftPosition ? "next-draft-position" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
+              <span><i className="draft-year">{asset.year}</i></span>
+              <span>{asset.round}</span>
+              <strong>
+                {numericalPosition !== null
+                  ? <i className="draft-position">#{numericalPosition}</i>
+                  : <i className="draft-origin">{asset.originOrOverall}</i>}
+              </strong>
+              <span>{draftCondition(asset.label)}</span>
             </div>
-          ))}
-          {!assets.length && <EmptyRow />}
+          )})}
+          {!sortedAssets.length && <EmptyRow />}
         </div>
       </DataSection>
 
@@ -209,6 +224,26 @@ function EmptyRow() {
 
 function draftCondition(label: string) {
   return /protett|swap|c\.p\./i.test(label) ? label : "—";
+}
+
+function numericValue(value: string | number) {
+  if (typeof value === "number") return value;
+  return /^\d+$/.test(value) ? Number(value) : null;
+}
+
+function compareDraftAssets(left: DraftAsset, right: DraftAsset) {
+  if (left.year !== right.year) return left.year - right.year;
+  const leftRound = Number(left.round.match(/\d+/)?.[0] ?? 99);
+  const rightRound = Number(right.round.match(/\d+/)?.[0] ?? 99);
+  if (leftRound !== rightRound) return leftRound - rightRound;
+  const leftNumber = numericValue(left.originOrOverall);
+  const rightNumber = numericValue(right.originOrOverall);
+  if (leftNumber === null && rightNumber !== null) return -1;
+  if (leftNumber !== null && rightNumber === null) return 1;
+  if (leftNumber === null && rightNumber === null) {
+    return String(left.originOrOverall).localeCompare(String(right.originOrOverall), "it");
+  }
+  return (leftNumber ?? 0) - (rightNumber ?? 0);
 }
 
 function ContractDisplay({ value }: { value: string }) {
