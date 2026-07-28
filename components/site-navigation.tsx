@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const publicLinks = [
-  ["Panoramica", "/"],
   ["Squadre", "/squadre"],
   ["Giocatori", "/giocatori"],
   ["Movimenti", "/movimenti"],
@@ -19,7 +18,6 @@ const adminLinks = [
 ];
 
 function isCurrent(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
   if (href === "/admin") return pathname === "/admin";
   return pathname.startsWith(href);
 }
@@ -33,12 +31,12 @@ export function SiteNavigation() {
   return (
     <>
       <header className="site-header">
-        <Link className="brand" href="/" aria-label="Greyson Allen League, home">
+        <Link className="brand" href="/squadre" aria-label="Greyson Allen League, squadre">
           <span className="brand-mark">GAL</span>
           <span>Greyson Allen League</span>
         </Link>
         <nav className="area-switcher" aria-label="Selezione area">
-          <Link className={!isAdmin && !isLogin ? "active" : ""} href="/">Area lega</Link>
+          <Link className={!isAdmin && !isLogin ? "active" : ""} href="/squadre">Area lega</Link>
           <Link className={isAdmin ? "active" : ""} href="/admin">Amministrazione</Link>
         </nav>
       </header>
