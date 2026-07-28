@@ -110,16 +110,16 @@ function TeamDetails({
     <div className="team-accordion-content">
       <div className="team-summary-strip">
         <SummaryValue label="Cap libero" value={`${team.credits} CR`} />
-        <SummaryValue label="Cap 26/27" value={`${team.nextSeasonCredits} CR`} />
-        <SummaryValue label="Cap 27/28" value={`${team.followingSeasonCredits} CR`} />
-        <SummaryValue label="Giocatori" value={`${active.length} · ${roles.G} G / ${roles.A} A / ${roles.C} C`} />
+        <SummaryValue label="Cap libero 26/27" value={`${team.nextSeasonCredits} CR`} />
+        <SummaryValue label="Cap libero 27/28" value={`${team.followingSeasonCredits} CR`} />
+        <SummaryValue label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} />
       </div>
 
       <DataSection label="Roster normale">
         <div className="data-table roster-data-table">
           <div className="data-head">
-            <SortButton label="Ruolo" sortKey="role" sort={sort} onClick={changeSort} />
             <SortButton label="Giocatore" sortKey="name" sort={sort} onClick={changeSort} />
+            <SortButton label="Ruolo" sortKey="role" sort={sort} onClick={changeSort} />
             <SortButton label="Scadenza" sortKey="contract" sort={sort} onClick={changeSort} />
             <SortButton label="Costo" sortKey="cost" sort={sort} onClick={changeSort} />
           </div>
@@ -138,10 +138,10 @@ function TeamDetails({
 
       <DataSection label="Scelte">
         <div className="data-table draft-data-table">
-          <div className="data-head"><span>Anno</span><span>Giro</span><span>Scelta / condizione</span><span>Origine</span></div>
+          <div className="data-head"><span>Anno</span><span>Giro</span><span>Condizione</span><span>Origine / posizione</span></div>
           {assets.map((asset, index) => (
             <div className="data-row" key={`${asset.year}-${asset.round}-${index}`}>
-              <span>{asset.year}</span><span>{asset.round}</span><strong>{asset.label}</strong><span>{asset.originOrOverall}</span>
+              <span>{asset.year}</span><span>{asset.round}</span><strong>{draftCondition(asset.label)}</strong><span>{asset.originOrOverall}</span>
             </div>
           ))}
           {!assets.length && <EmptyRow />}
@@ -160,7 +160,7 @@ function TeamDetails({
         <div className="data-table qo-data-table">
           <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
           {showQualifyingOffers && rights.map((right) => (
-            <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><span>{right.qualifyingAmount} CR</span></div>
+            <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><span className="credit-value">{right.qualifyingAmount} CR</span></div>
           ))}
           {(!showQualifyingOffers || !rights.length) && <EmptyRow />}
         </div>
@@ -185,7 +185,7 @@ function SortButton({ label, sortKey, sort, onClick }: { label: string; sortKey:
 function SimplePlayerTable({ entries }: { entries: RosterEntry[] }) {
   return (
     <div className="data-table roster-data-table">
-      <div className="data-head"><span>Ruolo</span><span>Giocatore</span><span>Scadenza</span><span>Costo</span></div>
+      <div className="data-head"><span>Giocatore</span><span>Ruolo</span><span>Scadenza</span><span>Costo</span></div>
       {entries.map((entry) => <PlayerDataRow entry={entry} key={`${entry.name}-${entry.state}`} />)}
       {!entries.length && <EmptyRow />}
     </div>
@@ -195,11 +195,18 @@ function SimplePlayerTable({ entries }: { entries: RosterEntry[] }) {
 function PlayerDataRow({ entry }: { entry: RosterEntry }) {
   return (
     <div className="data-row">
-      <span>{entry.role ?? "—"}</span><strong>{entry.name}</strong><span>{entry.contract || "—"}</span><span>{entry.cost} CR</span>
+      <strong>{entry.name}</strong>
+      <span>{entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "—"}</span>
+      <span><i className="contract-value">{entry.contract || "—"}</i></span>
+      <span><i className="credit-value">{entry.cost} CR</i></span>
     </div>
   );
 }
 
 function EmptyRow() {
   return <div className="data-empty">—</div>;
+}
+
+function draftCondition(label: string) {
+  return /protett|swap|c\.p\./i.test(label) ? label : "—";
 }
