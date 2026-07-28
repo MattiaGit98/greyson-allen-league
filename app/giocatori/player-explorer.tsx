@@ -34,7 +34,7 @@ export function PlayerExplorer({ rows }: { rows: Row[] }) {
                 <span className="badge">{row.contract}</span>
                 {contract.isTeamOption && <span className="badge option">TO</span>}
                 {(contract.hasQualifyingRight || row.hasFutureQualifyingRight) && <span className="badge qo">QO</span>}
-                {contract.isExtended && <span className="badge extension">Esteso</span>}
+                {contract.isExtensionEligible && <span className="badge extension">Estendibile</span>}
               </span>
               <b>{row.cost} CR</b>
             </article>

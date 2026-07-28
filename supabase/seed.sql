@@ -495,7 +495,7 @@ select s.id, t.id, p.id, 'regular'::public.slot_type, 'cut'::public.roster_statu
 from public.seasons s join public.teams t on t.code = 'CSS' join public.players p on p.normalized_name = 'lonzo ball'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 451, 451, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 451, 451, null, 0
 from public.seasons s join public.teams t on t.code = 'CSP' join public.players p on p.normalized_name = 'luka doncic'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
@@ -563,7 +563,7 @@ select s.id, t.id, p.id, 'g_league'::public.slot_type, 'active'::public.roster_s
 from public.seasons s join public.teams t on t.code = 'CSP' join public.players p on p.normalized_name = 'oso ighodaro'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 549, 549, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 549, 549, null, 0
 from public.seasons s join public.teams t on t.code = 'CHA' join public.players p on p.normalized_name = 'nikola jokic'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
@@ -595,11 +595,11 @@ select s.id, t.id, p.id, 'regular'::public.slot_type, 'cut'::public.roster_statu
 from public.seasons s join public.teams t on t.code = 'CHA' join public.players p on p.normalized_name = 'cody williams'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 260, 260, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 260, 260, null, 0
 from public.seasons s join public.teams t on t.code = 'FAS' join public.players p on p.normalized_name = 'karl anthony towns'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 180, 180, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 180, 180, null, 0
 from public.seasons s join public.teams t on t.code = 'FAS' join public.players p on p.normalized_name = 'ja morant'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
@@ -627,7 +627,7 @@ select s.id, t.id, p.id, 'regular'::public.slot_type, 'cut'::public.roster_statu
 from public.seasons s join public.teams t on t.code = 'FAS' join public.players p on p.normalized_name = 'terance mann'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 252, 252, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 252, 252, null, 0
 from public.seasons s join public.teams t on t.code = 'SBB' join public.players p on p.normalized_name = 'trae young'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
@@ -779,11 +779,11 @@ select s.id, t.id, p.id, 'g_league'::public.slot_type, 'active'::public.roster_s
 from public.seasons s join public.teams t on t.code = 'PPL' join public.players p on p.normalized_name = 'walter clayton jr'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 182, 182, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 182, 182, null, 0
 from public.seasons s join public.teams t on t.code = 'PSP' join public.players p on p.normalized_name = 'zion williamson'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 180, 180, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 180, 180, null, 0
 from public.seasons s join public.teams t on t.code = 'PSP' join public.players p on p.normalized_name = 'evan mobley'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
@@ -935,7 +935,7 @@ select s.id, t.id, p.id, 'g_league'::public.slot_type, 'active'::public.roster_s
 from public.seasons s join public.teams t on t.code = 'MMB' join public.players p on p.normalized_name = 'ben saraf'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)
-select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 302, 302, null, 1
+select s.id, t.id, p.id, 'regular'::public.slot_type, 'active'::public.roster_status, 'initial_import', 302, 302, null, 0
 from public.seasons s join public.teams t on t.code = 'BCT' join public.players p on p.normalized_name = 'alperen sengun'
 where s.name = '2025/26';
 insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)

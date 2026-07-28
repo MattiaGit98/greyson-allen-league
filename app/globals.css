@@ -106,6 +106,11 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .mini-role { width: 24px; height: 24px; display: inline-grid; place-items: center; border-radius: 50%; color: white; font-style: normal; font-size: 9px; font-weight: 900; box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
 .mini-role-g { background: #31517d; }.mini-role-a { background: #a8492d; }.mini-role-c { background: #2f7371; }
 .contract-value { display: inline-flex; min-width: 38px; min-height: 24px; align-items: center; justify-content: center; padding: 3px 8px; border: 1px solid #d3d1c8; border-radius: 7px; background: #f3f1ea; color: #50564f; font-style: normal; font-size: 10px; font-weight: 800; }
+.contract-group { display: inline-flex; align-items: center; gap: 5px; }
+.contract-marker { min-height: 20px; display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 99px; font-style: normal; font-size: 8px; font-weight: 900; letter-spacing: .05em; }
+.contract-marker-ext { background: #f8e0d5; color: #9d3f22; }
+.contract-marker-qo { background: #dceaf2; color: #275f78; }
+.contract-team-option { border-color: #cbb9d4; background: #eee5f2; color: #684275; }
 .credit-value { color: #b74d26; font-style: normal; font-weight: 900; }
 .data-empty { padding: 17px 12px; border-bottom: 1px solid var(--line); color: var(--muted); text-align: center; }
 .table-head, .table-row { display: grid; grid-template-columns: 1.8fr .5fr .5fr .6fr; align-items: center; gap: 20px; padding: 16px; border-bottom: 1px solid var(--line); }

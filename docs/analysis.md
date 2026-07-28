@@ -45,7 +45,7 @@ Le formule non saranno migrate come logica Excel. Il cap sarà derivato da contr
 - scadenza semplice: `27`, `28` (interpretazione provvisoria: fine stagione 2026/27 o 2027/28);
 - `T.O.`: team option;
 - `(Q)`: diritto/qualifying offer associato alla scadenza;
-- `(E)`: estensione applicata;
+- `(E)`: contratto in scadenza nell'anno indicato, potenzialmente estendibile di un'altra stagione se soddisfa condizioni e finestra;
 - `S.P.` nel blocco tagli: sigla non documentata esplicitamente e da chiarire.
 
 **Duplicazioni.** Nome squadra, proprietario, cap e schema delle colonne sono ripetuti orizzontalmente. Il costo del contratto compare sia nel roster sia nelle formule. Le scelte riportano descrizioni libere che duplicano proprietà/condizioni.
@@ -128,7 +128,7 @@ La mappa operativa completa è in `rules-map.md`. Qui sono riepilogate le regole
 2. I numeri `27` e `28` indicano la stagione di scadenza terminante rispettivamente nel 2027 e 2028.
 3. `T.O.` non implica una scadenza ricavabile dal solo file: viene importata con `option_type=team` e warning.
 4. Le rose sotto i minimi non vengono segnalate come errore durante `offseason`.
-5. `(Q)` indica eleggibilità/diritto QO; `(E)` indica estensione già applicata. Entrambi restano campi separati, non parte di una stringa.
+5. `(Q)` indica la possibilità di offrire la QO nell'asta successiva alla scadenza; `(E)` indica la possibilità condizionata di estendere il contratto di un'ulteriore stagione. Nessuno dei due marcatori indica un'operazione già esercitata.
 6. I record delle righe 62–66 sono importati come diritti di qualifying offer e non come contratti attivi.
 7. Un record `cut` può coesistere con il roster attivo dello stesso giocatore presso un'altra squadra; il vincolo di unicità considera solo gli stati `pending` e `active`.
 

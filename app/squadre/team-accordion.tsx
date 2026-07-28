@@ -197,7 +197,7 @@ function PlayerDataRow({ entry }: { entry: RosterEntry }) {
     <div className="data-row">
       <strong>{entry.name}</strong>
       <span>{entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "—"}</span>
-      <span><i className="contract-value">{entry.contract || "—"}</i></span>
+      <span><ContractDisplay value={entry.contract} /></span>
       <span><i className="credit-value">{entry.cost} CR</i></span>
     </div>
   );
@@ -209,4 +209,17 @@ function EmptyRow() {
 
 function draftCondition(label: string) {
   return /protett|swap|c\.p\./i.test(label) ? label : "—";
+}
+
+function ContractDisplay({ value }: { value: string }) {
+  if (!value) return <i className="contract-value">—</i>;
+  if (value === "T.O.") return <i className="contract-value contract-team-option">T.O.</i>;
+  const year = value.match(/\d{2}/)?.[0] ?? value;
+  const marker = value.includes("(E)") ? "EXT" : value.includes("(Q)") ? "QO" : null;
+  return (
+    <span className="contract-group">
+      <i className="contract-value">{year}</i>
+      {marker && <i className={`contract-marker contract-marker-${marker.toLowerCase()}`}>{marker}</i>}
+    </span>
+  );
 }

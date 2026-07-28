@@ -70,7 +70,7 @@ lines.push(
 for (const entry of snapshot.rosterEntries) {
   const contract = String(entry.contract);
   const option = contract === "T.O." ? "'team'" : contract.includes("(Q)") ? "'qualifying'" : "null";
-  const extensionCount = contract.includes("(E)") ? 1 : 0;
+  const extensionCount = 0;
   lines.push(
     "insert into public.roster_entries(season_id, team_id, player_id, slot, status, acquisition_type, acquisition_cost, current_cost, option_type, extension_count)",
     `select s.id, t.id, p.id, ${sql(entry.slot)}::public.slot_type, ${sql(entry.state)}::public.roster_status, 'initial_import', ${sql(entry.cost)}, ${sql(entry.cost)}, ${option}, ${extensionCount}`,

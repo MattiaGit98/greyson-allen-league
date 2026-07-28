@@ -67,7 +67,7 @@ export function parseContract(contract: string) {
     raw: value,
     isTeamOption: value === "T.O.",
     hasQualifyingRight: value.includes("(Q)"),
-    isExtended: value.includes("(E)"),
+    isExtensionEligible: value.includes("(E)"),
     expiry: value.match(/\d{2}/)?.[0] ?? null,
   };
 }
