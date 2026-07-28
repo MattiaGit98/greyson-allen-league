@@ -4,6 +4,9 @@ import { discountedAuctionContract, evaluateExtension } from "./contracts";
 import { validateCapOperation } from "./credits";
 import { validateRoleMinimums, validateSlots } from "./roster";
 import { evaluateTrade } from "./trades";
+import { evaluateQualifyingOfferEligibility, evaluateQualifyingOfferExtension } from "./qualifying-offers";
+import { canTeamReacquirePlayer, evaluateStandardCut } from "./releases";
+import { validatePhaseTransition } from "./seasons";
 
 describe("regole contratti", () => {
   it("arrotonda per eccesso biennale e triennale", () => {
@@ -34,5 +37,31 @@ describe("operazioni", () => {
   it("valida tutte le squadre di uno scambio", () => {
     const value = evaluateTrade([{ teamId: "A", ownsAllPlayers: false, creditsAfter: 50, slotsAfter: { regular: 10, twoWay: 0, gLeague: 0, dpe: 0 } }], true, false);
     expect(value.valid).toBe(false);
+  });
+  it("trasforma un taglio in dead cap senza liberare il costo", () => {
+    const value = evaluateStandardCut({ contractCost: 25, yearsRemaining: 2 });
+    expect(value.calculated.slotFreed).toBe(1);
+    expect(value.calculated.deadCapPerSeason).toBe(25);
+    expect(canTeamReacquirePlayer(true).valid).toBe(false);
+  });
+});
+
+describe("qualifying offer e fasi", () => {
+  it("riconosce una QO eleggibile da team option esercitata", () => {
+    expect(evaluateQualifyingOfferEligibility({
+      wasCutBeforeExpiry: false,
+      teamOptionExercised: true,
+      oneCreditAnnualAuctionContract: false,
+      freeAgentSignedBeforeDeadline: false,
+    }).valid).toBe(true);
+  });
+  it("consente di estendere la QO soltanto durante l'asta", () => {
+    expect(evaluateQualifyingOfferExtension(10, "offseason").valid).toBe(false);
+    expect(evaluateQualifyingOfferExtension(10, "auction").calculated.openingBid).toBe(10);
+  });
+  it("valida la sequenza offseason, asta, stagione", () => {
+    expect(validatePhaseTransition("offseason", "auction").valid).toBe(true);
+    expect(validatePhaseTransition("offseason", "regular_season").valid).toBe(false);
+    expect(validatePhaseTransition("auction", "regular_season").valid).toBe(true);
   });
 });

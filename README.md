@@ -4,7 +4,7 @@ Gestionale web mobile-first per la lega privata Dunkest. Il database PostgreSQL 
 
 ## Stato
 
-La Fase 0 è documentata e le fondamenta della Fase 1 sono presenti: progetto Next.js strict, modello SQL con RLS e audit, motore di regole tipizzato, importatore Excel in modalità `dry-run`, test unitari e prima dashboard pubblica basata esclusivamente sui dati reali ricavati dal roster.
+La Fase 0 è documentata e una prima applicazione locale consultabile è presente: progetto Next.js strict, modello SQL con RLS e audit, motore di regole tipizzato, importatore Excel in modalità `dry-run`, snapshot indipendente dall'Excel e interfacce pubbliche/amministrative basate sui dati reali.
 
 ## Stack
 
@@ -24,7 +24,7 @@ copy .env.example .env.local
 npm run dev
 ```
 
-La demo pubblica funziona anche senza Supabase. Le operazioni amministrative richiedono le variabili Supabase.
+La demo pubblica funziona anche senza Supabase. Sono disponibili le anteprime guidate delle operazioni; salvataggio, login e aggiornamenti realtime richiedono le variabili Supabase.
 
 ## Database e sicurezza
 
@@ -45,6 +45,12 @@ npm run import:excel -- "C:\percorso\Roster.xlsx"
 
 Il comando predefinito è un `dry-run`: genera `import-report.json` e non scrive nel database. Vedere [docs/import-guide.md](docs/import-guide.md).
 
+Per rigenerare lo snapshot usato dalla demo:
+
+```bash
+npm run import:excel -- "C:\percorso\Roster.xlsx" --phase=offseason --snapshot=data/league-snapshot.json
+```
+
 ## Documentazione
 
 - [Analisi dei file e milestone](docs/analysis.md)
@@ -57,7 +63,8 @@ Il comando predefinito è un `dry-run`: genera `import-report.json` e non scrive
 ## Milestone
 
 1. Fase 0 — completata: analisi, assunzioni, modello, route e wireframe.
-2. Fase 1 — avviata: schema, RLS, app shell, seed e regole di base.
-3. Fase 2 — prossima: collegare Supabase e completare squadre, giocatori e movimenti.
+2. Fase 1 — avanzata: schema, RLS, app shell, snapshot iniziale e regole.
+3. Fase 2 — avanzata in locale: squadre complete, giocatori ricercabili, dead cap, QO e asset draft.
+4. Prossimo blocco: collegare Supabase e rendere persistenti operazioni, movimenti e asta.
 
 Le decisioni ancora da confermare sono elencate in `docs/analysis.md`; non bloccano l'architettura.

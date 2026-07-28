@@ -1,3 +1,18 @@
+import { PlayerExplorer } from "./player-explorer";
+import { qualifyingOfferRights, rosterEntries, teams } from "@/lib/demo-data";
+
 export default function PlayersPage() {
-  return <section className="section page-top"><p className="eyebrow">Anagrafica</p><h1>Giocatori</h1><div className="empty-state"><span>↗</span><h2>Listone da completare</h2><p>Il foglio “Listone” allegato contiene soltanto le intestazioni. L’importazione delle rose può procedere, ma squadra NBA e stato richiedono una fonte successiva.</p></div></section>;
+  const rows = rosterEntries.map((entry) => ({
+    ...entry,
+    teamName: teams.find((team) => team.code === entry.teamCode)?.name ?? entry.teamCode,
+    hasFutureQualifyingRight: qualifyingOfferRights.some((right) => right.playerName === entry.name),
+  }));
+  return (
+    <section className="section page-top">
+      <p className="eyebrow">Anagrafica contrattuale</p>
+      <h1>Giocatori</h1>
+      <p className="lede">Ricerca nelle rose e nei contratti importati. Squadra NBA e stato Dunkest saranno disponibili con il nuovo listone.</p>
+      <PlayerExplorer rows={rows} />
+    </section>
+  );
 }

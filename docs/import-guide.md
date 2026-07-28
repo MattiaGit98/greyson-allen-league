@@ -6,6 +6,7 @@ L'import è separato dal runtime. Il file non viene letto dall'app.
 
 1. Conservare una copia immutabile del file.
 2. Eseguire `npm run import:excel -- "C:\...\Roster.xlsx" --phase=offseason`.
+   Per aggiornare anche i dati consultati dalla demo, aggiungere `--snapshot=data/league-snapshot.json`.
 3. Esaminare `import-report.json`.
 4. Correggere gli errori critici alla fonte o registrare una decisione amministrativa.
 5. Solo dopo un report valido implementare/eseguire la modalità `--apply` contro un database di prova.

@@ -6,11 +6,14 @@ import ExcelJS from "exceljs";
 type Issue = { severity: "error" | "warning"; code: string; message: string; cell?: string };
 type PlayerRow = { name: string; cost: number; contract: string; role?: string; state: "active" | "cut"; teamCode: string; cell: string };
 type QualifyingOfferRight = { playerName: string; qualifyingAmount: number; teamCode: string; cell: string };
+type DraftAsset = { label: string; round: string; year: number; originOrOverall: string | number; teamCode: string; cell: string };
 
 const filePath = process.argv[2];
 if (!filePath) throw new Error("Uso: npm run import:excel -- <percorso-file.xlsx>");
 const phaseArg = process.argv.find((argument) => argument.startsWith("--phase="));
 const phase = phaseArg?.split("=")[1] ?? "offseason";
+const snapshotArg = process.argv.find((argument) => argument.startsWith("--snapshot="));
+const snapshotPath = snapshotArg?.slice("--snapshot=".length);
 if (!["offseason", "auction", "regular_season"].includes(phase)) {
   throw new Error("Fase non valida. Usare --phase=offseason, --phase=auction o --phase=regular_season.");
 }
@@ -25,13 +28,14 @@ const issues: Issue[] = [];
 const teams = [];
 const players: PlayerRow[] = [];
 const qualifyingOfferRights: QualifyingOfferRight[] = [];
+const draftAssets: DraftAsset[] = [];
 for (let block = 0; block < 14; block += 1) {
   const start = 2 + block * 4;
   const owner = String(roster.getCell(2, start).value ?? "").trim();
   const code = String(roster.getCell(2, start + 2).value ?? "").trim().toUpperCase();
   const name = String(roster.getCell(3, start).value ?? "").trim();
   if (!owner || !code || !name) issues.push({ severity: "error", code: "TEAM_FIELDS", message: `Dati squadra incompleti nel blocco ${block + 1}.` });
-  teams.push({ owner, code, name });
+  const teamPlayers: PlayerRow[] = [];
   for (const [from, to, state] of [[8, 27, "active"], [29, 42, "cut"]] as const) {
     for (let row = from; row <= to; row += 1) {
       const value = roster.getCell(row, start).value;
@@ -43,8 +47,31 @@ for (let block = 0; block < 14; block += 1) {
       if (!Number.isInteger(cost) || cost < 1) issues.push({ severity: "error", code: "INVALID_COST", message: `${value}: costo non valido.`, cell });
       if (state === "active" && !["G", "A", "C"].includes(role ?? "")) issues.push({ severity: "error", code: "INVALID_ROLE", message: `${value}: ruolo mancante o non valido.`, cell });
       if (!contract) issues.push({ severity: "warning", code: "MISSING_CONTRACT", message: `${value}: contratto/scadenza mancante.`, cell });
-      players.push({ name: String(value).trim(), cost, contract, role, state, teamCode: code, cell });
+      const player = { name: String(value).trim(), cost, contract, role, state, teamCode: code, cell };
+      players.push(player);
+      teamPlayers.push(player);
     }
+  }
+  const committedCost = teamPlayers.reduce((sum, player) => sum + (Number.isFinite(player.cost) ? player.cost : 0), 0);
+  teams.push({ owner, code, name, initialCredits: 1000, currentCredits: 1000 - committedCost, committedCost });
+  for (let row = 46; row <= 60; row += 1) {
+    const value = roster.getCell(row, start).value;
+    if (!value) continue;
+    const year = Number(roster.getCell(row, start + 2).value);
+    const round = String(roster.getCell(row, start + 1).value ?? "").trim();
+    const originOrOverall = roster.getCell(row, start + 3).value;
+    const cell = roster.getCell(row, start).address;
+    if (!Number.isInteger(year) || !round) {
+      issues.push({ severity: "error", code: "INVALID_DRAFT_ASSET", message: `${value}: anno o giro non valido.`, cell });
+    }
+    draftAssets.push({
+      label: String(value).trim(),
+      round,
+      year,
+      originOrOverall: typeof originOrOverall === "number" ? originOrOverall : String(originOrOverall ?? "").trim(),
+      teamCode: code,
+      cell,
+    });
   }
   for (let row = 62; row <= 66; row += 1) {
     const value = roster.getCell(row, start).value;
@@ -89,13 +116,26 @@ const report = {
     activeRosterEntries: players.filter((p) => p.state === "active").length,
     cutRosterEntries: players.filter((p) => p.state === "cut").length,
     qualifyingOfferRights: qualifyingOfferRights.length,
+    draftAssets: draftAssets.length,
     uniquePlayers: ownership.size,
     errors: issues.filter((i) => i.severity === "error").length,
     warnings: issues.filter((i) => i.severity === "warning").length,
   },
   issues,
-  data: { teams, players, qualifyingOfferRights },
+  data: { teams, players, qualifyingOfferRights, draftAssets },
 };
 await writeFile("import-report.json", `${JSON.stringify(report, null, 2)}\n`, "utf8");
+if (snapshotPath) {
+  const snapshot = {
+    generatedAt: new Date().toISOString(),
+    sourceSha256: report.source.sha256,
+    season: { name: "2025/26", phase },
+    teams,
+    rosterEntries: players.map(({ cell: _cell, ...player }) => player),
+    qualifyingOfferRights: qualifyingOfferRights.map(({ cell: _cell, ...right }) => right),
+    draftAssets: draftAssets.map(({ cell: _cell, ...asset }) => asset),
+  };
+  await writeFile(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+}
 console.log(JSON.stringify(report.summary, null, 2));
 if (report.summary.errors) process.exitCode = 1;
