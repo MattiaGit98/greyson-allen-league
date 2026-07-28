@@ -5,9 +5,15 @@ import ExcelJS from "exceljs";
 
 type Issue = { severity: "error" | "warning"; code: string; message: string; cell?: string };
 type PlayerRow = { name: string; cost: number; contract: string; role?: string; state: "active" | "cut"; teamCode: string; cell: string };
+type QualifyingOfferRight = { playerName: string; qualifyingAmount: number; teamCode: string; cell: string };
 
 const filePath = process.argv[2];
 if (!filePath) throw new Error("Uso: npm run import:excel -- <percorso-file.xlsx>");
+const phaseArg = process.argv.find((argument) => argument.startsWith("--phase="));
+const phase = phaseArg?.split("=")[1] ?? "offseason";
+if (!["offseason", "auction", "regular_season"].includes(phase)) {
+  throw new Error("Fase non valida. Usare --phase=offseason, --phase=auction o --phase=regular_season.");
+}
 
 const bytes = await readFile(filePath);
 const workbook = new ExcelJS.Workbook();
@@ -18,6 +24,7 @@ if (!roster) throw new Error("Foglio Roster non trovato.");
 const issues: Issue[] = [];
 const teams = [];
 const players: PlayerRow[] = [];
+const qualifyingOfferRights: QualifyingOfferRight[] = [];
 for (let block = 0; block < 14; block += 1) {
   const start = 2 + block * 4;
   const owner = String(roster.getCell(2, start).value ?? "").trim();
@@ -39,6 +46,16 @@ for (let block = 0; block < 14; block += 1) {
       players.push({ name: String(value).trim(), cost, contract, role, state, teamCode: code, cell });
     }
   }
+  for (let row = 62; row <= 66; row += 1) {
+    const value = roster.getCell(row, start).value;
+    if (!value) continue;
+    const qualifyingAmount = Number(roster.getCell(row, start + 1).value);
+    const cell = roster.getCell(row, start).address;
+    if (!Number.isInteger(qualifyingAmount) || qualifyingAmount < 1) {
+      issues.push({ severity: "error", code: "INVALID_QUALIFYING_AMOUNT", message: `${value}: valore della qualifying offer non valido.`, cell });
+    }
+    qualifyingOfferRights.push({ playerName: String(value).trim(), qualifyingAmount, teamCode: code, cell });
+  }
 }
 
 const normalized = (name: string) => name.normalize("NFKD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -59,8 +76,9 @@ for (const entries of ownership.values()) {
 
 const list = workbook.getWorksheet("Listone");
 const listRows = list ? Math.max(0, list.actualRowCount - 2) : 0;
-if (!listRows) issues.push({ severity: "warning", code: "EMPTY_PLAYER_LIST", message: "Il foglio Listone non contiene righe giocatore." });
-issues.push({ severity: "warning", code: "UNMAPPED_EXTRA_SECTION", message: "Le righe 62–66 sono escluse: significato non definito." });
+if (!listRows && phase !== "offseason") {
+  issues.push({ severity: "warning", code: "EMPTY_PLAYER_LIST", message: "Il foglio Listone è vuoto fuori dalla fase di offseason." });
+}
 
 const report = {
   schemaVersion: 1,
@@ -70,12 +88,13 @@ const report = {
     teams: teams.length,
     activeRosterEntries: players.filter((p) => p.state === "active").length,
     cutRosterEntries: players.filter((p) => p.state === "cut").length,
+    qualifyingOfferRights: qualifyingOfferRights.length,
     uniquePlayers: ownership.size,
     errors: issues.filter((i) => i.severity === "error").length,
     warnings: issues.filter((i) => i.severity === "warning").length,
   },
   issues,
-  data: { teams, players },
+  data: { teams, players, qualifyingOfferRights },
 };
 await writeFile("import-report.json", `${JSON.stringify(report, null, 2)}\n`, "utf8");
 console.log(JSON.stringify(report.summary, null, 2));

@@ -5,7 +5,7 @@ L'import è separato dal runtime. Il file non viene letto dall'app.
 ## Procedura
 
 1. Conservare una copia immutabile del file.
-2. Eseguire `npm run import:excel -- "C:\...\Roster.xlsx"`.
+2. Eseguire `npm run import:excel -- "C:\...\Roster.xlsx" --phase=offseason`.
 3. Esaminare `import-report.json`.
 4. Correggere gli errori critici alla fonte o registrare una decisione amministrativa.
 5. Solo dopo un report valido implementare/eseguire la modalità `--apply` contro un database di prova.
@@ -16,10 +16,9 @@ L'import è separato dal runtime. Il file non viene letto dall'app.
 
 Lo script attuale è intenzionalmente dry-run e non può scrivere. Calcola un fingerprint SHA-256 del file. La futura modalità apply registrerà il fingerprint in `import_runs`, con indice univoco, impedendo una seconda importazione accidentale.
 
-Errori critici: squadra/codice mancante, ruolo invalido, costo invalido, giocatore attivo duplicato. Warning: scadenza ambigua, giocatore non presente nel listone, sezioni non identificate.
+Errori critici: squadra/codice mancante, ruolo invalido, costo invalido, importo QO invalido, giocatore attivo duplicato. Il listone vuoto è normale in offseason e diventa un warning soltanto in asta o durante la stagione.
 
 ## Decisioni richieste prima dell'apply
 
 - confermare `27`, `28`, `(Q)`, `(E)` e `S.P.`;
-- chiarire le righe 62–66;
 - fornire il listone popolato o accettare anagrafiche NBA incomplete.

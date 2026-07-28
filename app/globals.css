@@ -80,6 +80,19 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .auction-stage { margin-top: 12vh; border-top: 1px solid #668078; padding-top: 26px; }
 .auction-stage span, .auction-stage small { display: block; color: #9bb0a8; letter-spacing: .12em; font-size: 11px; }
 .auction-stage strong { display: block; font-size: 70px; color: var(--lime); margin: 20px 0; }
+.admin-settings { max-width: 980px; margin: 0 auto; }
+.notice { margin: 24px 0; padding: 14px 18px; border: 1px solid #bea94e; border-radius: 12px; background: #fff4bd; font-size: 14px; }
+.notice.success { border-color: #65937d; background: #dcefe5; }
+.notice.error { border-color: #b4695b; background: #f8ded8; }
+.phase-form { margin-top: 44px; display: grid; gap: 12px; }
+.phase-option { display: flex; align-items: flex-start; gap: 16px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); cursor: pointer; }
+.phase-option:has(input:checked) { border-color: var(--green); box-shadow: inset 4px 0 0 var(--green); }
+.phase-option input { margin-top: 5px; accent-color: var(--green); }
+.phase-option strong, .phase-option small { display: block; }
+.phase-option small { margin-top: 6px; color: var(--muted); line-height: 1.4; }
+.phase-form .button { border: 0; justify-self: start; margin-top: 12px; cursor: pointer; }
+.phase-form .button:disabled { opacity: .45; cursor: not-allowed; }
+.form-help { margin-top: 18px; color: var(--muted); font-size: 12px; }
 
 @media (max-width: 850px) {
   nav { display: none; }

@@ -13,6 +13,7 @@
 ```text
 seasons ─┬─< team_seasons >─ teams
          ├─< roster_entries >─ players
+         ├─< qualifying_offer_rights >─ players
          ├─< transactions ─< transaction_items
          ├─< auction_sessions ─< auction_events
          └─< draft_picks ─< draft_pick_conditions
@@ -30,11 +31,12 @@ auth.users ─< audit_log
 - I contratti pluriennali non sono una sola scadenza testuale: ogni stagione ha un `contract_term`.
 - `current_credits` rimane in `team_seasons` per locking atomico; una vista lo riconcilia con gli oneri.
 - Scelte e condizioni sono strutturate; la descrizione originale dell'Excel resta in `source_note`.
+- I diritti di qualifying offer sono entità autonome: non occupano uno slot e non rendono il giocatore parte della rosa.
 - Le regole configurabili vivono in `league_rules`; le regole algoritmiche restano nel codice e nelle RPC.
 
 ## Stato e transizioni
 
-- stagione: `setup → offseason → draft → auction → regular_season → postseason → completed`;
+- stagione: `setup → offseason → draft/auction → regular_season → postseason → completed`. Il pannello amministrativo espone le tre macro-fasi Offseason, Asta e Stagione.
 - roster: `pending → active → cut/released/expired/traded`;
 - asta: `draft → active ↔ paused → completed`;
 - transazione: `pending → committed → reversed`.

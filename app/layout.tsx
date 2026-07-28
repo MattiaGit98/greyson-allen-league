@@ -13,6 +13,7 @@ const links = [
   ["Giocatori", "/giocatori"],
   ["Movimenti", "/movimenti"],
   ["Asta live", "/asta"],
+  ["Admin", "/admin/impostazioni"],
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

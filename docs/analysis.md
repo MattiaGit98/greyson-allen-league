@@ -7,15 +7,15 @@ Analisi eseguita il 28 luglio 2026 sui file `Regolamento.pdf` (13 pagine, regola
 - 14 squadre, tutte rappresentate nel foglio `Roster` in blocchi orizzontali da quattro colonne.
 - 149 occorrenze giocatore tra rosa attiva (144) e giocatori tagliati (5), considerando le righe dati 8–27 e 29–42.
 - `Cody Williams` compare attivo per SBB e tagliato per CHA: è una situazione valida. SBB ne detiene il contratto attivo, mentre il record CHA rappresenta il dead cap residuo.
-- Il foglio `Listone` non contiene giocatori: solo le intestazioni. Squadra NBA, stato NBA, età, external id e presenza nel listone sono quindi mancanti.
+- Il foglio `Listone` non contiene giocatori perché la lega è in offseason. Non è un'anomalia; squadra NBA, stato NBA, età, external id e presenza nel listone verranno completati quando sarà disponibile il listone della nuova stagione.
 - Il file contiene anche 84 record di scelte/diritti futuri nelle righe 46–60.
-- Le righe 62–66 contengono 37 elenchi di giocatori e crediti per squadra, ma non partecipano alle formule del cap e non hanno intestazione semantica sufficiente. Sono escluse dall'import ufficiale finché non chiarite.
+- Le righe 62–66 contengono 37 diritti di qualifying offer con il relativo importo esercitabile alla prossima asta. Sono importati separatamente dalla rosa e dal dead cap.
 
 ## 1. Analisi Excel
 
 ### Foglio `Roster`
 
-**Significato.** È un cruscotto denormalizzato: ogni squadra occupa quattro colonne e contiene dati anagrafici, cap, rosa, tagli, scelte future e un ulteriore elenco non identificato.
+**Significato.** È un cruscotto denormalizzato: ogni squadra occupa quattro colonne e contiene dati anagrafici, cap, rosa, tagli, scelte future e diritti di qualifying offer.
 
 **Layout e colonne ripetute.**
 
@@ -29,7 +29,7 @@ Analisi eseguita il 28 luglio 2026 sui file `Regolamento.pdf` (13 pagine, regola
 | colonne 1–4 | 8–27 | giocatore, crediti, scadenza, ruolo | testo, intero, codice, enum G/A/C |
 | colonne 1–4 | 29–42 | giocatore tagliato, crediti, scadenza, indicatore | misto |
 | colonne 1–4 | 46–60 | scelta/condizione, giro, anno, squadra/originale | misto |
-| colonne 1–2 | 62–66 | elenco giocatori e crediti non identificato | testo, intero |
+| colonne 1–2 | 62–66 | diritti di qualifying offer e relativo importo | testo, intero |
 
 **Formule.** Sono presenti 56 formule:
 
@@ -63,7 +63,6 @@ Le formule non saranno migrate come logica Excel. Il cap sarà derivato da contr
 - formule, celle unite, colori, layout, lettere decorative in colonna A;
 - testi di cap futuri calcolati;
 - celle vuote e righe formattate fino alla 1006;
-- righe 62–66 finché non ne viene chiarito il significato.
 
 **Problemi e campi mancanti.**
 
@@ -81,7 +80,7 @@ Le formule non saranno migrate come logica Excel. Il cap sarà derivato da contr
 
 **Colonne presenti.** `GIOCATORE`, `RUOLO`, `TEAM (INIZIALE)`, `STATO`.
 
-**Contenuto.** Nessuna riga dati. Non è possibile derivare relazioni, duplicati o stato. Le colonne sono mappabili a `players`, ma l'import deve emettere warning e lasciare `nba_team` nullo.
+**Contenuto.** Nessuna riga dati, come previsto durante l'offseason. Le colonne sono mappabili a `players`; il vuoto genera un warning solo se l'import viene eseguito in fase `auction` o `regular_season`.
 
 ## 2. Analisi del regolamento
 
@@ -120,7 +119,7 @@ La mappa operativa completa è in `rules-map.md`. Qui sono riepilogate le regole
 | righe 8–27, ruolo | `players.role` | enum G/A/C | ruolo mancante bloccante |
 | righe 29–42 | `roster_entries` status `cut` + `cap_charges` | conservare costo/scadenza; non attribuisce proprietà attiva | può coesistere con un roster attivo presso un'altra squadra |
 | righe 46–60 | `draft_picks` + `draft_pick_conditions` | parsing anno/giro/origine/testo | revisione manuale per swap/protezioni |
-| righe 62–66 | nessuna per ora | esclusione con warning | significato non definito |
+| righe 62–66 | `qualifying_offer_rights` | giocatore, squadra titolare, importo | importo intero positivo; non crea appartenenza attiva |
 | `Listone!B:E` | `players` | normalizzazione | zero righe disponibili |
 
 ## 4. Assunzioni provvisorie
@@ -130,7 +129,7 @@ La mappa operativa completa è in `rules-map.md`. Qui sono riepilogate le regole
 3. `T.O.` non implica una scadenza ricavabile dal solo file: viene importata con `option_type=team` e warning.
 4. Le rose sotto i minimi non vengono segnalate come errore durante `offseason`.
 5. `(Q)` indica eleggibilità/diritto QO; `(E)` indica estensione già applicata. Entrambi restano campi separati, non parte di una stringa.
-6. I record delle righe 62–66 sono esclusi.
+6. I record delle righe 62–66 sono importati come diritti di qualifying offer e non come contratti attivi.
 7. Un record `cut` può coesistere con il roster attivo dello stesso giocatore presso un'altra squadra; il vincolo di unicità considera solo gli stati `pending` e `active`.
 
 ## 5. Route e componenti
@@ -174,6 +173,6 @@ Le operazioni critiche passano da server action/API protetta a funzioni PostgreS
 3. Motore regole puro per cap, roster, contratti e asta con test.
 4. Importatore Excel dry-run idempotente e report.
 5. Configurazione Supabase e seed/import in ambiente di prova.
-6. Verifica manuale dei warning, soprattutto sigla S.P. e righe 62–66.
+6. Verifica manuale dei warning residui, soprattutto la sigla S.P.
 
 La milestone è completata quando build e test passano in un ambiente Node, la migration è applicata su un progetto Supabase di prova e il report d'import non presenta errori critici irrisolti.

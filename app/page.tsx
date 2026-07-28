@@ -1,14 +1,27 @@
 import Link from "next/link";
 import { teams } from "@/lib/demo-data";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function HomePage() {
+const phaseLabels: Record<string, { label: string; detail: string }> = {
+  offseason: { label: "Offseason", detail: "Contratti, QO e mercato scambi" },
+  auction: { label: "Asta", detail: "Sessione d’asta in corso" },
+  regular_season: { label: "Stagione", detail: "Regular season e free agency" },
+};
+
+export default async function HomePage() {
+  const supabase = await createSupabaseServerClient();
+  const response = supabase
+    ? await supabase.from("seasons").select("name,status").eq("is_active", true).maybeSingle()
+    : null;
+  const seasonName = response?.data?.name ?? "2025/26";
+  const phase = phaseLabels[response?.data?.status ?? "offseason"] ?? phaseLabels.offseason;
   const totalPlayers = teams.reduce((sum, team) => sum + team.players, 0);
   const totalCredits = teams.reduce((sum, team) => sum + team.credits, 0);
   return (
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Stagione 2025/26 · Offseason</p>
+          <p className="eyebrow">Stagione {seasonName} · {phase.label}</p>
           <h1>La lega, finalmente<br />fuori dal foglio.</h1>
           <p className="hero-copy">Rose, cap e contratti in un’unica vista. Dati reali importati dal roster ufficiale.</p>
           <div className="actions">
@@ -18,8 +31,8 @@ export default function HomePage() {
         </div>
         <aside className="status-card">
           <span className="live-dot" /> Stato lega
-          <strong>Offseason</strong>
-          <p>Mercato scambi aperto</p>
+          <strong>{phase.label}</strong>
+          <p>{phase.detail}</p>
         </aside>
       </section>
       <section className="metrics" aria-label="Numeri della lega">
