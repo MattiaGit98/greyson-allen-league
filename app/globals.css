@@ -116,7 +116,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .draft-year { display: inline-flex; padding: 4px 7px; border-radius: 7px; background: #eeece4; color: #4f564f; font-style: normal; font-size: 10px; font-weight: 900; }
 .draft-position { min-width: 38px; min-height: 30px; display: inline-grid; place-items: center; padding: 3px 8px; border-radius: 9px; background: var(--green); color: var(--lime); font-style: normal; font-size: 14px; font-weight: 900; box-shadow: 0 4px 10px rgba(24,63,52,.16); }
 .draft-origin { display: inline-flex; padding: 4px 8px; border: 1px solid #d4d1c7; border-radius: 99px; background: white; color: #596158; font-style: normal; font-size: 9px; font-weight: 900; letter-spacing: .04em; }
-.draft-origin-next { border-color: var(--green); background: var(--green); color: var(--lime); box-shadow: 0 4px 10px rgba(24,63,52,.16); }
+.draft-origin-next { min-width: 38px; min-height: 30px; display: inline-grid; place-items: center; padding: 3px 8px; border-color: var(--green); border-radius: 9px; background: var(--green); color: var(--lime); font-size: 14px; letter-spacing: 0; box-shadow: 0 4px 10px rgba(24,63,52,.16); }
 .next-draft-position { background: linear-gradient(90deg, rgba(199,243,107,.12), transparent 55%); }
 .next-draft-position:hover { background: linear-gradient(90deg, rgba(199,243,107,.2), #fbfaf5 60%); }
 .data-empty { padding: 17px 12px; border-bottom: 1px solid var(--line); color: var(--muted); text-align: center; }
