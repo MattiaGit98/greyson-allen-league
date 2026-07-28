@@ -48,11 +48,12 @@ for (const player of players) {
   ownership.set(key, [...(ownership.get(key) ?? []), player]);
 }
 for (const entries of ownership.values()) {
-  if (entries.length > 1) issues.push({
+  const activeEntries = entries.filter((entry) => entry.state === "active");
+  if (activeEntries.length > 1) issues.push({
     severity: "error",
-    code: "DUPLICATE_PLAYER",
-    message: `${entries[0].name} compare più volte: ${entries.map((p) => `${p.teamCode}/${p.state}`).join(", ")}.`,
-    cell: entries.map((p) => p.cell).join(","),
+    code: "DUPLICATE_ACTIVE_ROSTER",
+    message: `${activeEntries[0].name} compare in più roster attivi: ${activeEntries.map((p) => p.teamCode).join(", ")}.`,
+    cell: activeEntries.map((p) => p.cell).join(","),
   });
 }
 

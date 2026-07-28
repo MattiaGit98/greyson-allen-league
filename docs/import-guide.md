@@ -20,7 +20,6 @@ Errori critici: squadra/codice mancante, ruolo invalido, costo invalido, giocato
 
 ## Decisioni richieste prima dell'apply
 
-- risolvere Cody Williams;
 - confermare `27`, `28`, `(Q)`, `(E)` e `S.P.`;
 - chiarire le righe 62–66;
 - fornire il listone popolato o accettare anagrafiche NBA incomplete.
