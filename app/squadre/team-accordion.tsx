@@ -146,15 +146,15 @@ function TeamDetails({
           <div className="data-head"><span>Anno</span><span>Giro</span><span>Origine / posizione</span><span>Clausola</span></div>
           {sortedAssets.map((asset, index) => {
             const numericalPosition = numericValue(asset.originOrOverall);
-            const isNextDraftPosition = asset.year === nextDraftYear && numericalPosition !== null;
+            const isNextDraft = asset.year === nextDraftYear;
             return (
-            <div className={`data-row draft-row ${isNextDraftPosition ? "next-draft-position" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
+            <div className={`data-row draft-row ${isNextDraft ? "next-draft-position" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
               <span><i className="draft-year">{asset.year}</i></span>
               <span>{asset.round}</span>
               <strong>
                 {numericalPosition !== null
                   ? <i className="draft-position">#{numericalPosition}</i>
-                  : <i className="draft-origin">{asset.originOrOverall}</i>}
+                  : <i className={`draft-origin ${isNextDraft ? "draft-origin-next" : ""}`}>{asset.originOrOverall}</i>}
               </strong>
               <span>{draftCondition(asset.label)}</span>
             </div>
