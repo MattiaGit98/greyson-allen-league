@@ -21,11 +21,12 @@ export function TeamAccordion({
   initialTeam?: string;
   showQualifyingOffers: boolean;
 }) {
-  const [openTeam, setOpenTeam] = useState<string | null>(
-    initialTeam && teams.some((team) => team.code === initialTeam) ? initialTeam : null,
+  const [openTeams, setOpenTeams] = useState<string[]>(
+    initialTeam && teams.some((team) => team.code === initialTeam) ? [initialTeam] : [],
   );
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const nextDraftYear = Math.min(...draftAssets.map((asset) => asset.year));
+  const allExpanded = openTeams.length === teams.length;
 
   const changeSort = (key: SortKey) => {
     setSort((current) => current.key === key
@@ -34,16 +35,25 @@ export function TeamAccordion({
   };
 
   return (
-    <div className="team-accordion">
+    <>
+      <div className="team-accordion-toolbar">
+        <button type="button" onClick={() => setOpenTeams(allExpanded ? [] : teams.map((team) => team.code))}>
+          <span>{allExpanded ? "−" : "+"}</span>
+          {allExpanded ? "Minimizza tutto" : "Espandi tutto"}
+        </button>
+      </div>
+      <div className="team-accordion">
       {teams.map((team, index) => {
-        const expanded = openTeam === team.code;
+        const expanded = openTeams.includes(team.code);
         return (
           <article className={`team-accordion-item ${expanded ? "open" : ""}`} key={team.code}>
             <button
               className="team-accordion-trigger"
               type="button"
               aria-expanded={expanded}
-              onClick={() => setOpenTeam(expanded ? null : team.code)}
+              onClick={() => setOpenTeams((current) => expanded
+                ? current.filter((code) => code !== team.code)
+                : [...current, team.code])}
             >
               <b className={`team-code-badge team-hue-${index % 7}`}>{team.code}</b>
               <strong>{team.name}</strong>
@@ -65,7 +75,8 @@ export function TeamAccordion({
           </article>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
 
