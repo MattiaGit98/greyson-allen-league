@@ -1,0 +1,612 @@
+import { buildRoleMinimumAlerts } from "./admin-alerts";
+import { calculateLeagueAdvance } from "./league-advance";
+import type { EditableLeagueState } from "./league-state";
+import {
+  hasReachedMoment,
+  leagueMomentLabels,
+  nextLeagueTransition,
+  teamOptionsAreResolved,
+  type LeagueMoment,
+  type LeagueTransition,
+} from "./league-moments";
+import { draftOverallPosition } from "./draft-rules";
+import { calculateCapSpace, followingSeasonName } from "./season-time";
+import { buildTwoWayPromotionReport } from "./two-way-promotions";
+import { slotEligibilityErrors } from "./slot-eligibility";
+
+export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
+
+export type PreAdvanceAlert = {
+  id: string;
+  tone: PreAdvanceAlertTone;
+  title: string;
+  message: string;
+  items?: string[];
+  article?: string;
+  href?: string;
+  actionLabel?: string;
+};
+
+export type PreAdvanceChecklist = {
+  transition: LeagueTransition;
+  transitionLabel: string;
+  alerts: PreAdvanceAlert[];
+  blockerCount: number;
+};
+
+const pendingContractValues = new Set(["", "-", "PENDING", "DA ASSEGNARE"]);
+
+export function buildPreAdvanceChecklist(input: {
+  currentMoment: LeagueMoment;
+  seasonName: string;
+  state: EditableLeagueState;
+  currentHistorySeason?: string | null;
+}): PreAdvanceChecklist {
+  const { currentMoment, seasonName, state } = input;
+  const transition = nextLeagueTransition(currentMoment);
+  const alerts: PreAdvanceAlert[] = [];
+  const add = (alert: PreAdvanceAlert) => {
+    if (!alerts.some((item) => item.id === alert.id)) alerts.push(alert);
+  };
+
+  addStructuralAlerts(add, currentMoment, seasonName, state);
+
+  if (transition === "team_option_deadline") {
+    const pendingOptions = state.rosterEntries.filter(isPendingTeamOption);
+    if (pendingOptions.length) {
+      add({
+        id: "pending-team-options",
+        tone: "blocker",
+        title: `${pendingOptions.length} team option da esercitare o rilasciare`,
+        message: "Ogni T.O. deve avere una decisione esplicita prima di poter avanzare.",
+        items: groupPlayerEntries(pendingOptions),
+        article: "Art. 7(b)",
+        href: "/admin/team-option",
+        actionLabel: "Gestisci le team option",
+      });
+    }
+
+    const withoutPendingOptions = {
+      ...state,
+      rosterEntries: state.rosterEntries.filter((entry) => !isPendingTeamOption(entry)),
+    };
+    const promotions = buildTwoWayPromotionReport(withoutPendingOptions.teams, withoutPendingOptions.rosterEntries, seasonName);
+    if (promotions.blockedTeams.length) {
+      add({
+        id: "blocked-two-way-promotions",
+        tone: "blocker",
+        title: `${promotions.totalShortfall} slot roster mancanti per le promozioni obbligatorie`,
+        message: "Alla scadenza delle T.O. devono salire nel roster i giocatori al secondo anno nei Two-way e le T.O. esercitate per utilizzo nei playoff.",
+        items: promotions.blockedTeams.map((team) => (
+          `${team.teamCode}: ${team.players.join(", ")} · ${team.regularSlotsAvailable} slot liberi, ${team.shortfall} mancanti`
+        )),
+        article: "Art. 11(i)",
+        href: "/admin/altre-operazioni",
+        actionLabel: "Libera gli slot necessari",
+      });
+    }
+
+    if (state.playerListStatus !== "published") {
+      add({
+        id: "official-list-upcoming-draft",
+        tone: "info",
+        title: "Listone ufficiale non ancora pubblicato",
+        message: "Dopo la scadenza delle T.O. il Draft sarà accessibile, ma può svolgersi soltanto dopo l’uscita del listone Dunkest.",
+        article: "Art. 4(a); Art. 6(a)",
+        href: "/admin/listone",
+        actionLabel: "Vai al listone",
+      });
+    }
+  }
+
+  if (transition === "free_releases_start") {
+    addDraftPreparationAlerts(add, seasonName, state);
+    add({
+      id: "free-release-window-opening",
+      tone: "info",
+      title: "Inizia la finestra dei rilasci gratuiti pre-asta",
+      message: "Dal prossimo momento saranno disponibili i rilasci previsti a partire da tre giorni prima dell’asta.",
+      article: "Art. 10(c-d, f)",
+      href: "/admin/altre-operazioni",
+      actionLabel: "Apri le altre operazioni",
+    });
+  }
+
+  if (transition === "auction_completed") {
+    if (state.playerListStatus !== "published") {
+      add({
+        id: "official-list-required",
+        tone: "blocker",
+        title: "Listone ufficiale non pubblicato",
+        message: "Il Draft e l’asta richiedono il listone Dunkest ufficiale.",
+        article: "Art. 4(a); Art. 6(a)",
+        href: "/admin/listone",
+        actionLabel: "Pubblica il listone",
+      });
+    }
+
+    const draftYear = seasonStartYear(seasonName);
+    const remainingPicks = draftYear === null ? [] : state.draftAssets.filter((asset) => asset.year === draftYear);
+    if (remainingPicks.length) {
+      add({
+        id: "draft-not-completed",
+        tone: "blocker",
+        title: `Draft ${draftYear} non completato`,
+        message: `Restano ${remainingPicks.length} scelte da assegnare prima di poter considerare conclusa l’asta.`,
+        article: "Art. 6(a)",
+        href: "/admin/draft",
+        actionLabel: "Continua il draft",
+      });
+    }
+
+    if (state.qualifyingOfferRights.length) {
+      add({
+        id: "qualifying-offers-unresolved",
+        tone: "blocker",
+        title: `${state.qualifyingOfferRights.length} qualifying offer ancora da risolvere`,
+        message: "Le Q.O. devono essere estese, rifiutate o lasciate decadere durante l’asta.",
+        items: groupRights(state.qualifyingOfferRights),
+        article: "Art. 8(b-e)",
+        href: "/admin/asta",
+        actionLabel: "Apri il pannello asta",
+      });
+    }
+
+    const incompleteRosters = state.teams.flatMap((team) => {
+      const regular = state.rosterEntries.filter((entry) => (
+        entry.teamCode === team.code && entry.state === "active" && entry.slot === "regular"
+      )).length;
+      return regular < 13 ? [`${team.code}: ${regular}/13 slot roster occupati`] : [];
+    });
+    if (incompleteRosters.length) {
+      add({
+        id: "auction-rosters-incomplete",
+        tone: "blocker",
+        title: `${incompleteRosters.length} squadre sotto il minimo d’asta`,
+        message: "Per concludere l’asta ogni squadra deve avere almeno i 13 giocatori obbligatori negli slot roster.",
+        items: incompleteRosters,
+        article: "Art. 4(c)",
+        href: "/admin/asta",
+        actionLabel: "Completa i roster",
+      });
+    }
+
+    addRoleMinimumAlert(add, state, "/admin/asta", "Controlla i ruoli prima di iniziare la stagione");
+  }
+
+  if (transition === "contract_delivery") {
+    if (state.playerListStatus !== "published") {
+      add({
+        id: "official-list-contract-delivery",
+        tone: "blocker",
+        title: "Listone ufficiale non pubblicato",
+        message: "La free agency può aprirsi soltanto con il listone Dunkest ufficiale disponibile.",
+        article: "Art. 5(a-b)",
+        href: "/admin/listone",
+        actionLabel: "Pubblica il listone",
+      });
+    }
+    const pendingContracts = state.rosterEntries.filter((entry) => isPendingContract(entry.contract));
+    if (pendingContracts.length) {
+      add({
+        id: "pending-contracts",
+        tone: "blocker",
+        title: `${pendingContracts.length} contratti ancora da assegnare`,
+        message: "Tutti i giocatori acquistati all’ultima asta devono ricevere un contratto entro la consegna.",
+        items: groupPlayerEntries(pendingContracts),
+        article: "Art. 3(b-c)",
+        href: "/admin/contratti",
+        actionLabel: "Assegna i contratti",
+      });
+    }
+
+    const invalidSpecialSlots = state.rosterEntries.filter((entry) => (
+      entry.state === "active"
+      && (entry.slot === "two_way" || entry.slot === "g_league")
+      && slotEligibilityErrors(entry, entry.slot, seasonName).length > 0
+    ));
+    if (invalidSpecialSlots.length) {
+      add({
+        id: "invalid-special-slot-contracts",
+        tone: "blocker",
+        title: `${invalidSpecialSlots.length} giocatori non idonei negli slot speciali`,
+        message: "Alla consegna dei contratti, Two-way e G-League devono rispettare categorie e soglie previste.",
+        items: groupPlayerEntries(invalidSpecialSlots),
+        article: "Art. 7(a); Art. 11(a-e)",
+        href: "/admin/contratti",
+        actionLabel: "Correggi contratti e slot",
+      });
+    }
+
+    const freeOneCreditOptions = state.rosterEntries.filter((entry) => (
+      entry.state === "active" && entry.contract === "T.O." && entry.cost === 1
+    ));
+    if (freeOneCreditOptions.length) {
+      add({
+        id: "one-credit-options-guarantee",
+        tone: "info",
+        title: `${freeOneCreditOptions.length} T.O. da 1 credito stanno per diventare garantite`,
+        message: "Dopo la consegna dei contratti non potranno più essere rimosse senza peso sul cap in base a questa eccezione.",
+        items: groupPlayerEntries(freeOneCreditOptions),
+        article: "Art. 10(g)",
+        href: "/admin/altre-operazioni",
+        actionLabel: "Controlla i giocatori",
+      });
+    }
+
+    addRoleMinimumAlert(add, state, "/admin/contratti", "Controlla i minimi di ruolo");
+    add({
+      id: "special-slot-window-closing",
+      tone: "info",
+      title: "Si chiude la finestra speciale per gli spostamenti di slot",
+      message: "Dopo la consegna non sarà più possibile retrocedere liberamente dal roster a Two-way/G-League o da Two-way a G-League.",
+      article: "Art. 11(c-e, j)",
+      href: "/admin/slot",
+      actionLabel: "Controlla gli slot",
+    });
+  }
+
+  if (transition === "trade_deadline") {
+    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo");
+    add({
+      id: "trade-deadline-closures",
+      tone: "info",
+      title: "Il prossimo avanzamento chiude scambi e nuove DPE",
+      message: "Dopo la trade deadline si chiudono anche i rilasci gratuiti per squalifica o cause giudiziarie; i nuovi free agent avranno un annuale senza Q.O.",
+      article: "Art. 5(e-f); Art. 10(d); Art. 12(a); Art. 13(a)",
+      href: "/admin/scambi",
+      actionLabel: "Controlla gli scambi",
+    });
+  }
+
+  if (transition === "buyout_end") {
+    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo");
+    add({
+      id: "buyout-window-closing",
+      tone: "info",
+      title: "Sta per terminare la finestra dei buyout",
+      message: "Dopo il prossimo avanzamento non sarà più possibile applicare nuovi buyout.",
+      article: "Art. 10(e); Art. 9(g)",
+      href: "/admin/altre-operazioni",
+      actionLabel: "Controlla i buyout",
+    });
+  }
+
+  if (transition === "free_agency_end") {
+    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo");
+    add({
+      id: "free-agency-closures",
+      tone: "info",
+      title: "Stanno per chiudersi free agency e operazioni collegate",
+      message: "Termineranno free agency, rilasci gratuiti, estensioni in-season e possibilità di reintegro anticipato dalla DPE.",
+      article: "Art. 3(d); Art. 5(a); Art. 10(c, f); Art. 12(d)",
+      href: "/admin/free-agent",
+      actionLabel: "Controlla la free agency",
+    });
+  }
+
+  if (transition === "season_end") {
+    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo fino al termine della stagione");
+    const playoffOptionCandidates = state.rosterEntries.filter((entry) => (
+      entry.state === "active"
+      && entry.slot === "g_league"
+      && entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O."
+      && !entry.playoffTeamOptionPromotionSeason
+    ));
+    if (playoffOptionCandidates.length) {
+      add({
+        id: "playoff-team-option-verification",
+        tone: "warning",
+        title: `${playoffOptionCandidates.length} T.O. in G-League da verificare prima della fine della stagione`,
+        message: "Se uno di questi giocatori è stato utilizzato attivamente nei playoff, la T.O. va esercitata prima dell'avanzamento.",
+        items: groupPlayerEntries(playoffOptionCandidates),
+        href: "/admin/team-option",
+        actionLabel: "Controlla le team option playoff",
+      });
+    }
+    const playoffOptions = state.rosterEntries.filter((entry) => (
+      entry.state === "active"
+      && Boolean(entry.playoffTeamOptionPromotionSeason)
+      && (entry.slot === "g_league" || entry.slot === "two_way")
+    ));
+    if (playoffOptions.length) {
+      add({
+        id: "playoff-team-option-promotions",
+        tone: "info",
+        title: `${playoffOptions.length} promozioni roster obbligatorie nella prossima offseason`,
+        message: "Le T.O. esercitate per utilizzo nei playoff resteranno nello slot attuale fino alla successiva scadenza T.O.",
+        items: groupPlayerEntries(playoffOptions),
+        href: "/admin/team-option",
+        actionLabel: "Controlla gli esercizi playoff",
+      });
+    }
+    if (input.currentHistorySeason && input.currentHistorySeason !== seasonName) {
+      add({
+        id: "history-season-mismatch",
+        tone: "blocker",
+        title: "Classifiche pronte per l’archivio riferite a un’altra annata",
+        message: `I dati correnti indicano ${input.currentHistorySeason}, mentre la stagione attiva è ${seasonName}.`,
+        article: "Art. 1",
+        href: "/admin/contenuti",
+        actionLabel: "Controlla classifiche e tabelloni",
+      });
+    }
+
+    try {
+      const advance = calculateLeagueAdvance({
+        seasonName,
+        rosterEntries: state.rosterEntries,
+        qualifyingOfferRights: state.qualifyingOfferRights,
+        playerList: state.playerList,
+      });
+      const reintegrationIssues = state.teams.flatMap((team) => {
+        const players = advance.reintegratedDpePlayers.filter((player) => player.teamCode === team.code);
+        if (!players.length) return [];
+        const regularUsed = advance.rosterEntries.filter((entry) => (
+          entry.teamCode === team.code && entry.state === "active" && entry.slot === "regular"
+        )).length;
+        const overflow = Math.max(0, regularUsed - 15);
+        return overflow ? [`${team.code}: ${players.map((player) => player.playerName).join(", ")} · ${overflow} slot mancanti`] : [];
+      });
+      if (reintegrationIssues.length) {
+        add({
+          id: "blocked-dpe-reintegrations",
+          tone: "blocker",
+          title: `${reintegrationIssues.length} squadre senza spazio per il reintegro DPE`,
+          message: "A fine stagione le DPE ancora sotto contratto tornano automaticamente negli slot roster.",
+          items: reintegrationIssues,
+          article: "Art. 12(c)",
+          href: "/admin/altre-operazioni",
+          actionLabel: "Libera gli slot necessari",
+        });
+      } else if (advance.reintegratedDpePlayers.length) {
+        add({
+          id: "dpe-reintegrations",
+          tone: "info",
+          title: `${advance.reintegratedDpePlayers.length} reintegri DPE al termine della stagione`,
+          message: "Questi giocatori saranno spostati automaticamente negli slot roster con il prossimo avanzamento.",
+          items: advance.reintegratedDpePlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
+          article: "Art. 12(c)",
+        });
+      }
+    } catch (error) {
+      add({
+        id: "season-advance-data-error",
+        tone: "blocker",
+        title: "Dati contrattuali non validi per la chiusura della stagione",
+        message: error instanceof Error ? error.message : "Controlla annata e contratti.",
+        href: "/admin/rettifiche",
+        actionLabel: "Controlla i roster",
+      });
+    }
+  }
+
+  return {
+    transition,
+    transitionLabel: leagueMomentLabels[transition],
+    alerts,
+    blockerCount: alerts.filter((alert) => alert.tone === "blocker").length,
+  };
+}
+
+function addDraftPreparationAlerts(
+  add: (alert: PreAdvanceAlert) => void,
+  seasonName: string,
+  state: EditableLeagueState,
+) {
+  if (state.playerListStatus !== "published") {
+    add({
+      id: "official-list-draft",
+      tone: "warning",
+      title: "Listone ufficiale non ancora pubblicato",
+      message: "Senza il listone Dunkest non è possibile svolgere il Draft né l’asta.",
+      article: "Art. 4(a); Art. 6(a)",
+      href: "/admin/listone",
+      actionLabel: "Vai al listone",
+    });
+  }
+  const draftYear = seasonStartYear(seasonName);
+  const picks = draftYear === null ? [] : state.draftAssets.filter((asset) => asset.year === draftYear);
+  const missingPositions = picks.filter((asset) => draftOverallPosition(asset.originOrOverall) === null).length;
+  if (missingPositions) {
+    add({
+      id: "draft-positions-incomplete",
+      tone: "warning",
+      title: `${missingPositions} posizioni del Draft ${draftYear} ancora da definire`,
+      message: "Le clausole sulle scelte verranno applicate soltanto quando l’ordine sarà completo.",
+      article: "Art. 6(b-c); Art. 14",
+      href: "/admin/posizioni-draft",
+      actionLabel: "Completa le posizioni",
+    });
+  }
+}
+
+function addStructuralAlerts(
+  add: (alert: PreAdvanceAlert) => void,
+  currentMoment: LeagueMoment,
+  seasonName: string,
+  state: EditableLeagueState,
+) {
+  const limits = { regular: 15, two_way: 2, g_league: 3, dpe: 1 } as const;
+  const overflows = state.teams.flatMap((team) => {
+    const active = state.rosterEntries.filter((entry) => entry.teamCode === team.code && entry.state === "active");
+    return (Object.keys(limits) as (keyof typeof limits)[]).flatMap((slot) => {
+      const count = active.filter((entry) => entry.slot === slot).length;
+      return count > limits[slot] ? [`${team.code}: ${slotLabel(slot)} ${count}/${limits[slot]}`] : [];
+    });
+  });
+  if (overflows.length) {
+    add({
+      id: "slot-overflows",
+      tone: "blocker",
+      title: "Limiti degli slot superati",
+      message: "La situazione dei roster deve essere regolare prima di avanzare.",
+      items: overflows,
+      article: "Art. 2(a)",
+      href: "/admin/altre-operazioni",
+      actionLabel: "Sistema i roster",
+    });
+  }
+
+  const futureCapIssues = state.teams.flatMap((team) => {
+    const entries = state.rosterEntries.filter((entry) => entry.teamCode === team.code);
+    return [1, 2].flatMap((distance) => {
+      const targetSeason = followingSeasonName(seasonName, distance);
+      const space = calculateCapSpace({
+        entries,
+        seasonName: targetSeason,
+        optionSeasonName: seasonName,
+        countTeamOptions: teamOptionsAreResolved(currentMoment),
+      });
+      return space < 0 ? [`${team.code}: cap libero ${targetSeason} = ${space}`] : [];
+    });
+  });
+  if (futureCapIssues.length) {
+    add({
+      id: "future-cap-overflow",
+      tone: "warning",
+      title: "Salary cap futuro oltre 1000 crediti",
+      message: "Il regolamento non ammette eccezioni; l’avanzamento resta confermabile come forzatura amministrativa.",
+      items: futureCapIssues,
+      article: "Art. 9(e-f)",
+      href: "/admin/rettifiche",
+      actionLabel: "Controlla i contratti",
+    });
+  }
+
+  const currentCapIssues = state.teams.flatMap((team) => {
+    const entries = state.rosterEntries.filter((entry) => (
+      entry.teamCode === team.code
+      && (!hasReachedMoment(currentMoment, "auction_completed") || entry.state !== "active" || entry.slot !== "dpe")
+    ));
+    const space = calculateCapSpace({
+      entries,
+      seasonName,
+      optionSeasonName: seasonName,
+      countTeamOptions: teamOptionsAreResolved(currentMoment),
+    });
+    return space < 0 ? [{ teamCode: team.code, space, cost: 1000 - space }] : [];
+  });
+  if (currentMoment === "offseason_start" && currentCapIssues.length) {
+    add({
+      id: "strict-offseason-cap",
+      tone: "warning",
+      title: "Salary cap corrente oltre 1000 crediti",
+      message: "Prima dell’inizio del Draft il limite è 1000; l’avanzamento resta confermabile come forzatura amministrativa.",
+      items: currentCapIssues.map((issue) => `${issue.teamCode}: ${issue.cost} crediti · cap libero ${issue.space}`),
+      article: "Art. 9(a)",
+      href: "/admin/altre-operazioni",
+      actionLabel: "Riduci il cap",
+    });
+  } else if ((currentMoment === "team_option_deadline" || currentMoment === "free_releases_start") && currentCapIssues.length) {
+    add({
+      id: "draft-window-cap",
+      tone: "warning",
+      title: "Squadre oltre 1000 crediti nella finestra Draft/asta",
+      message: "Il superamento dovuto al Draft è ammesso, ma finché permane non sono consentite altre operazioni che aumentino il cap; durante l’asta gli acquisti sono limitati a 1 credito.",
+      items: currentCapIssues.map((issue) => `${issue.teamCode}: ${issue.cost} crediti · cap libero ${issue.space}`),
+      article: "Art. 9(b-c)",
+    });
+  } else if (hasReachedMoment(currentMoment, "auction_completed")) {
+    const overSeasonLimit = currentCapIssues.filter((issue) => issue.cost > 1100);
+    if (overSeasonLimit.length) {
+      add({
+        id: "season-cap-over-1100",
+        tone: "warning",
+        title: "Squadre oltre 1100 crediti durante la stagione",
+        message: "Non devono rientrare immediatamente se il superamento deriva dalla fine dell’asta, ma non possono aumentare ulteriormente il cap.",
+        items: overSeasonLimit.map((issue) => `${issue.teamCode}: ${issue.cost} crediti`),
+        article: "Art. 9(d)",
+      });
+    }
+  }
+
+  if (hasReachedMoment(currentMoment, "auction_completed") && state.qualifyingOfferRights.length) {
+    add({
+      id: "qualifying-offers-after-auction",
+      tone: "blocker",
+      title: `${state.qualifyingOfferRights.length} Q.O. rimaste dopo l’asta`,
+      message: "I diritti avrebbero dovuto essere risolti durante l’asta.",
+      items: groupRights(state.qualifyingOfferRights),
+      article: "Art. 8(b-e)",
+      href: "/admin/rettifiche",
+      actionLabel: "Correggi i roster",
+    });
+  }
+
+  if (hasReachedMoment(currentMoment, "contract_delivery")) {
+    const staleContracts = state.rosterEntries.filter((entry) => isPendingContract(entry.contract));
+    if (staleContracts.length) {
+      add({
+        id: "contracts-after-delivery",
+        tone: "blocker",
+        title: `${staleContracts.length} contratti non assegnati dopo la consegna`,
+        message: "La stagione non può proseguire con contratti dell’asta ancora incompleti.",
+        items: groupPlayerEntries(staleContracts),
+        article: "Art. 3(b-c)",
+        href: "/admin/rettifiche",
+        actionLabel: "Correggi i contratti",
+      });
+    }
+  }
+}
+
+function addRoleMinimumAlert(
+  add: (alert: PreAdvanceAlert) => void,
+  state: EditableLeagueState,
+  href: string,
+  actionLabel: string,
+) {
+  const teams = buildRoleMinimumAlerts(state);
+  if (!teams.length) return;
+  add({
+    id: "role-minimums",
+    tone: "warning",
+    title: `${teams.length} squadre richiedono l’assegnazione regolamentare di un free agent`,
+    message: "Non viene eseguita automaticamente: va assegnato casualmente un free agent fino al termine della stagione, a 1 credito e indipendentemente dal cap; se necessario va liberato uno slot. Ruolo X e DPE non contano.",
+    items: teams.map((team) => `${team.teamCode}: ${[
+      team.missing.G ? `G ${team.counts.G}/5` : "",
+      team.missing.A ? `A ${team.counts.A}/5` : "",
+      team.missing.C ? `C ${team.counts.C}/3` : "",
+    ].filter(Boolean).join(" · ")}`),
+    article: "Art. 2(b-c)",
+    href,
+    actionLabel,
+  });
+}
+
+function isPendingTeamOption(entry: EditableLeagueState["rosterEntries"][number]) {
+  return entry.state === "active" && entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O.";
+}
+
+function isPendingContract(contract: string) {
+  return pendingContractValues.has(contract.trim().toLocaleUpperCase("it-IT"));
+}
+
+function groupPlayerEntries(entries: EditableLeagueState["rosterEntries"]) {
+  const byTeam = new Map<string, string[]>();
+  entries.forEach((entry) => byTeam.set(entry.teamCode, [...(byTeam.get(entry.teamCode) ?? []), entry.name]));
+  return [...byTeam.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, "it"))
+    .map(([teamCode, players]) => `${teamCode}: ${players.join(", ")}`);
+}
+
+function groupRights(rights: EditableLeagueState["qualifyingOfferRights"]) {
+  const byTeam = new Map<string, string[]>();
+  rights.forEach((right) => byTeam.set(right.teamCode, [...(byTeam.get(right.teamCode) ?? []), right.playerName]));
+  return [...byTeam.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, "it"))
+    .map(([teamCode, players]) => `${teamCode}: ${players.join(", ")}`);
+}
+
+function seasonStartYear(seasonName: string) {
+  const match = seasonName.match(/^(\d{4})\/\d{2}$/);
+  return match ? Number(match[1]) : null;
+}
+
+function slotLabel(slot: "regular" | "two_way" | "g_league" | "dpe") {
+  if (slot === "regular") return "Roster";
+  if (slot === "two_way") return "Two-way";
+  if (slot === "g_league") return "G-League";
+  return "DPE";
+}

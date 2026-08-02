@@ -9,6 +9,32 @@ export function discountedAuctionContract(price: number, years: 1 | 2 | 3) {
   );
 }
 
+export function assignedAuctionContract(
+  auctionPrice: number,
+  kind: "annual" | "biennial" | "triennial" | "team_option",
+  currentSeasonEndYear: number,
+) {
+  if (kind === "team_option") {
+    return {
+      cost: auctionPrice,
+      contract: "T.O.",
+      auctionPrice,
+      originalContractYears: undefined,
+    } as const;
+  }
+  const years = kind === "triennial" ? 3 : kind === "biennial" ? 2 : 1;
+  const discounted = discountedAuctionContract(auctionPrice, years);
+  const expiry = String(currentSeasonEndYear + years - 1).slice(-2);
+  const extensionMarker = years === 3 && auctionPrice >= 200 ? " (E)" : "";
+  const qualifyingMarker = years === 1 && discounted.calculated.annualCost === 1 ? " (Q)" : "";
+  return {
+    cost: discounted.calculated.annualCost,
+    contract: `${expiry}${extensionMarker || qualifyingMarker}`,
+    auctionPrice,
+    originalContractYears: years,
+  } as const;
+}
+
 export type ExtensionInput = {
   currentCost: number;
   auctionCost: number;

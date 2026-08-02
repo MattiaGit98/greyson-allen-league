@@ -1,31 +1,26 @@
 # Guida amministratore
 
-Documento iniziale. Le operazioni non sono edit diretti:
+## Flusso normale
 
-1. scegliere l'operazione;
-2. compilare gli elementi coinvolti;
-3. leggere situazione prima/dopo, errori e avvisi;
-4. confermare;
-5. conservare il link alla transazione.
+1. Aprire `/admin` e controllare gli avvisi prima del prossimo avanzamento.
+2. Usare il blocco specifico per l'operazione; **Rettifiche roster** è riservato alle correzioni manuali.
+3. Leggere errori, avvisi di cap e situazione prima/dopo.
+4. Confermare l'operazione. Ogni salvataggio aggiorna lo stato corrente e registra il movimento.
+5. Usare **Annulla movimenti** solo se gli elementi coinvolti non sono stati modificati da operazioni successive.
 
-Le correzioni richiedono una motivazione. L'annullamento crea un reversal e non cancella la transazione originale. Le modifiche manuali al database non fanno parte del flusso operativo.
+## Avanzamento della lega
 
-## Centro di controllo locale
+La pagina **Avanzamento della lega** mostra il momento corrente e il passaggio successivo. Prima della conferma presenta:
 
-`/admin` mostra contratti in scadenza, dead cap, QO e roster ancora incompleti. Da `/admin/operazioni` sono disponibili anteprime guidate per:
+- operazioni automatiche previste;
+- possibilità che si aprono o si chiudono;
+- avvisi espandibili;
+- errori bloccanti da risolvere.
 
-- acquisto con controllo cap, slot e proprietà;
-- taglio con evidenza del dead cap e del blocco di riacquisizione;
-- scambio con proprietà e consistenza finale delle rose.
+Il passaggio crea un backup della situazione immediatamente precedente. La modifica libera di fase e annata è una rettifica separata e non esegue automatismi.
 
-Finché Supabase non è configurato, queste procedure non scrivono dati: servono a verificare flusso e messaggi prima di attivare le operazioni reali.
+## Stato corrente
 
-## Momento della lega
+Le pagine pubbliche e amministrative leggono lo stesso stato Supabase. Se lo stato non è disponibile, il sito mostra un errore esplicito invece di usare dati iniziali o valori dimostrativi.
 
-In `/admin/impostazioni` l'amministratore imposta la macro-fase:
-
-1. **Offseason** — contratti, opzioni, qualifying offer e scambi;
-2. **Asta** — sessione d'asta; scambi sospesi;
-3. **Stagione** — roster minimo, free agency e salary cap stagionale.
-
-Il valore è salvato in `seasons.status` tramite RPC protetta e ogni cambio entra nell'audit log.
+La lista Movimenti è un registro persistente: non nasce dal confronto con vecchi snapshot. Le rettifiche e gli annullamenti sono anch'essi operazioni registrate.

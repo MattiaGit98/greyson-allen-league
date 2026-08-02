@@ -1,25 +1,18 @@
-# Importazione Excel
+# Importazioni Excel
 
-L'import è separato dal runtime. Il file non viene letto dall'app.
+## Listone stagionale
 
-## Procedura
+Il listone ufficiale si gestisce da `/admin/listone`:
 
-1. Conservare una copia immutabile del file.
-2. Eseguire `npm run import:excel -- "C:\...\Roster.xlsx" --phase=offseason`.
-   Per aggiornare anche i dati consultati dalla demo, aggiungere `--snapshot=data/league-snapshot.json`.
-3. Esaminare `import-report.json`.
-4. Correggere gli errori critici alla fonte o registrare una decisione amministrativa.
-5. Solo dopo un report valido implementare/eseguire la modalità `--apply` contro un database di prova.
-6. Confrontare squadre, costi, cap, contratti, tagli e scelte.
-7. Ripetere su produzione con backup pre-import.
+1. scaricare il modello Excel;
+2. compilarlo senza modificare le intestazioni;
+3. importarlo dalla stessa pagina;
+4. controllare e confermare gli abbinamenti proposti con i nomi già presenti nei roster.
 
-## Sicurezza e idempotenza
+Prima della conferma definitiva nessun nome del roster viene modificato. Dopo la conferma, i nomi abbinati vengono allineati al listone e lo stato dei giocatori viene calcolato dal roster e dalle Q.O.
 
-Lo script attuale è intenzionalmente dry-run e non può scrivere. Calcola un fingerprint SHA-256 del file. La futura modalità apply registrerà il fingerprint in `import_runs`, con indice univoco, impedendo una seconda importazione accidentale.
+## Import iniziale storico
 
-Errori critici: squadra/codice mancante, ruolo invalido, costo invalido, importo QO invalido, giocatore attivo duplicato. Il listone vuoto è normale in offseason e diventa un warning soltanto in asta o durante la stagione.
+`scripts/import-excel.ts`, `scripts/generate-seed.ts` e `data/league-snapshot.json` sono strumenti di migrazione iniziale. Non partecipano al funzionamento quotidiano del sito e non vanno rieseguiti su una lega già operativa.
 
-## Decisioni richieste prima dell'apply
-
-- confermare `27`, `28`, `(Q)`, `(E)` e `S.P.`;
-- fornire il listone popolato o accettare anagrafiche NBA incomplete.
+Il comando `import:excel` è un dry-run: legge il vecchio `Roster.xlsx` e produce `import-report.json`, senza scrivere su Supabase.

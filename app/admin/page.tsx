@@ -1,52 +1,138 @@
 import Link from "next/link";
-import { qualifyingOfferRights, rosterEntries, teams } from "@/lib/demo-data";
+import { loadCurrentHistoryImports } from "@/lib/history-competition-store";
+import { loadEditableLeagueState } from "@/lib/league-state";
+import { leagueMomentFromSeason } from "@/lib/league-moments";
+import { buildPreAdvanceChecklist, type PreAdvanceChecklist } from "@/lib/pre-advance-alerts";
+import { requireActiveSeason } from "@/lib/active-season";
 
-const actions = [
-  { href: "/admin/operazioni", number: "01", title: "Operazioni", text: "Acquisti, tagli e scambi." },
-  { href: "/admin/qualifying-offer", number: "02", title: "Qualifying offer", text: "Diritti QO." },
-  { href: "/admin/impostazioni", number: "03", title: "Fase della lega", text: "Offseason, asta e stagione." },
-  { href: "/asta", number: "04", title: "Pannello asta", text: "Gestione asta." },
+const actionGroups = [
+  {
+    title: "Operazioni",
+    actions: [
+      { href: "/admin/free-agent", title: "Firma free agent" },
+      { href: "/admin/scambi", title: "Scambi" },
+      { href: "/admin/team-option", title: "Team option" },
+      { href: "/admin/contratti", title: "Assegnazione contratti" },
+      { href: "/admin/slot", title: "Spostamento slot" },
+      { href: "/admin/altre-operazioni", title: "Altre operazioni" },
+    ],
+  },
+  {
+    title: "Gestione lega",
+    actions: [
+      { href: "/admin/impostazioni", title: "Avanzamento della lega" },
+      { href: "/admin/listone", title: "Listone" },
+    ],
+  },
+  {
+    title: "Asta e draft",
+    actions: [
+      { href: "/admin/asta", title: "Pannello asta" },
+      { href: "/admin/posizioni-draft", title: "Posizioni draft" },
+      { href: "/admin/draft", title: "Pannello draft" },
+    ],
+  },
+  {
+    title: "Calendario e classifiche",
+    actions: [
+      { href: "/admin/calendario", title: "Calendario" },
+      { href: "/admin/contenuti", title: "Classifiche e tabelloni" },
+      { href: "/admin/storico", title: "Storico" },
+    ],
+  },
+  {
+    title: "Rettifiche",
+    actions: [
+      { href: "/admin/rettifiche", title: "Rettifiche roster" },
+      { href: "/admin/movimenti", title: "Annulla movimenti" },
+    ],
+  },
+  {
+    title: "Altro",
+    actions: [
+      { href: "/admin/squadre-proprietari", title: "Squadre e proprietari" },
+      { href: "/admin/backup", title: "Backup" },
+      { href: "/admin/importa-dati", title: "Importa dati" },
+    ],
+  },
 ];
 
-export default function AdminDashboardPage() {
-  const expiring = rosterEntries.filter((entry) => entry.state === "active" && String(entry.contract).startsWith("27"));
-  const underMinimum = teams.filter((team) => team.players < 13);
-  const deadCap = rosterEntries.filter((entry) => entry.state === "cut");
+export default async function AdminDashboardPage() {
+  const [activeSeason, leagueState, currentHistory] = await Promise.all([
+    requireActiveSeason(),
+    loadEditableLeagueState(),
+    loadCurrentHistoryImports(),
+  ]);
+  const phase = activeSeason.season.status;
+  const seasonName = activeSeason.season.name;
+  const leagueMoment = leagueMomentFromSeason(activeSeason.season);
+  const preAdvanceChecklist = buildPreAdvanceChecklist({
+    currentMoment: leagueMoment,
+    seasonName,
+    state: leagueState,
+    currentHistorySeason: currentHistory.season,
+  });
+  const blockingChecklist = {
+    ...preAdvanceChecklist,
+    alerts: preAdvanceChecklist.alerts.filter((alert) => alert.tone === "blocker"),
+  };
+
   return (
     <section className="section page-top admin-dashboard">
-      <p className="eyebrow">Amministrazione · Offseason</p>
-      <h1>Centro di controllo</h1>
-      <div className="admin-kpis">
-        <article><span>Diritti QO</span><strong>{qualifyingOfferRights.length}</strong><small>per la prossima asta</small></article>
-        <article><span>Contratti “27”</span><strong>{expiring.length}</strong><small>da verificare in offseason</small></article>
-        <article><span>Dead cap</span><strong>{deadCap.length}</strong><small>contratti tagliati ancora a carico</small></article>
-        <article><span>Roster sotto 13</span><strong>{underMinimum.length}</strong><small>ammesso in offseason</small></article>
-      </div>
-      <div className="admin-action-grid">
-        {actions.map((action) => (
-          <Link href={action.href} className="admin-action" key={action.href}>
-            <span>{action.number}</span><h2>{action.title}</h2><p>{action.text}</p><b>Apri →</b>
-          </Link>
+      <PreAdvanceChecklistView checklist={blockingChecklist} />
+      <div className="admin-action-sections">
+        {actionGroups.map((group) => (
+          <section className="admin-action-section" key={group.title}>
+            <h2>{group.title}</h2>
+            <div className="admin-action-grid">
+              {group.actions.map((action) => (
+                <Link href={action.href} className="admin-action" key={action.href}>
+                  <strong>{action.title}</strong>
+                </Link>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
-      <div className="admin-columns">
-        <section>
-          <div className="content-heading small"><h2>Attenzioni offseason</h2><span>{underMinimum.length}</span></div>
-          {underMinimum.map((team) => (
-            <Link className="compact-item" href={`/squadre/${team.slug}`} key={team.code}>
-              <div><strong>{team.name}</strong><small>{team.players} giocatori: completare entro la chiusura dell’asta</small></div><b>{team.credits} CR</b>
-            </Link>
+    </section>
+  );
+}
+
+function PreAdvanceChecklistView({ checklist }: { checklist: PreAdvanceChecklist }) {
+  return (
+    <section className="pre-advance-checklist">
+      <header className="pre-advance-checklist-head">
+        <div>
+          <span>Prima del prossimo avanzamento</span>
+          <strong>{checklist.transitionLabel}</strong>
+        </div>
+        <div className={checklist.blockerCount ? "has-blockers" : "is-ready"}>
+          {checklist.blockerCount ? `${checklist.blockerCount} blocchi` : "Nessun blocco"}
+        </div>
+        <Link href="/admin/impostazioni">Vai all’avanzamento →</Link>
+      </header>
+      {checklist.alerts.length ? (
+        <div className="pre-advance-alert-list">
+          {checklist.alerts.map((alert) => (
+            <details className={`pre-advance-alert ${alert.tone}`} key={alert.id}>
+              <summary className="pre-advance-alert-title">
+                <i>{alert.tone === "blocker" ? "!" : alert.tone === "warning" ? "•" : "i"}</i>
+                <strong>{alert.title}</strong>
+                <b aria-hidden="true">⌄</b>
+              </summary>
+              <div className="pre-advance-alert-body">
+                <p>{alert.message}</p>
+                {alert.items?.length ? (
+                  <ul>{alert.items.map((item) => <li key={item}>{item}</li>)}</ul>
+                ) : null}
+                {alert.href && <footer><Link href={alert.href}>{alert.actionLabel ?? "Apri"} →</Link></footer>}
+              </div>
+            </details>
           ))}
-        </section>
-        <section>
-          <div className="content-heading small"><h2>Contratti da rivedere</h2><span>{expiring.length}</span></div>
-          {expiring.slice(0, 10).map((entry) => (
-            <article className="compact-item" key={`${entry.teamCode}-${entry.name}`}>
-              <div><strong>{entry.name}</strong><small>{entry.teamCode} · contratto {entry.contract}</small></div><b>{entry.cost} CR</b>
-            </article>
-          ))}
-        </section>
-      </div>
+        </div>
+      ) : (
+        <p className="pre-advance-ready">Non risultano adempimenti o anomalie da segnalare per questo passaggio.</p>
+      )}
     </section>
   );
 }

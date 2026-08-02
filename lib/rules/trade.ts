@@ -1,0 +1,548 @@
+import { validateSlots, type SlotCounts } from "./roster";
+import { result } from "./types";
+
+export type TradeSlot = "regular" | "two_way" | "g_league" | "dpe";
+export type TradeRole = "G" | "A" | "C";
+export type TradePickClause = "none" | "swap" | `protected_top_${number}`;
+
+export type TradeTeamState = {
+  code: string;
+  currentCost: number;
+  futureCosts?: { seasonName: string; currentCost: number }[];
+  slots: SlotCounts;
+  roles: Record<TradeRole, number>;
+};
+
+export type TradePlayerMove = {
+  id: string;
+  fromTeamCode: string;
+  toTeamCode: string;
+  cost: number;
+  capCost: number;
+  futureCapCosts?: Record<string, number>;
+  role: TradeRole | null;
+  sourceSlot: TradeSlot;
+  destinationSlot: TradeSlot;
+  allowedDestinationSlots?: TradeSlot[];
+  sourceState?: "active" | "cut";
+};
+
+export type TradeCut = {
+  id: string;
+  teamCode: string;
+  cost: number;
+  role: TradeRole | null;
+  slot: TradeSlot;
+};
+
+export type TradePickMove = {
+  id: string;
+  fromTeamCode: string;
+  toTeamCode: string;
+  year: number;
+  round: string;
+  hasExistingCondition: boolean;
+  clause: TradePickClause;
+  counterpartyPickId: string | null;
+  counterpartyYear: number | null;
+  counterpartyRound: string | null;
+  counterpartyHasExistingCondition: boolean;
+};
+
+export type TradePickClauseAgreement = {
+  id: string;
+  pickId: string;
+  pickOwnerTeamCode: string;
+  beneficiaryTeamCode: string;
+  year: number;
+  round: string;
+  hasExistingCondition: boolean;
+  clause: TradePickClause;
+  counterpartyPickId: string | null;
+  counterpartyYear: number | null;
+  counterpartyRound: string | null;
+  counterpartyHasExistingCondition: boolean;
+  counterpartyOwnerTeamCode?: string | null;
+  pickTransferred?: boolean;
+};
+
+export type TradeExistingClauseChange = {
+  agreementId: string;
+  subjectOwnerTeamCode: string;
+  counterpartyOwnerTeamCode: string;
+  subjectYear: number;
+  counterpartyYear: number;
+  subjectRound: string;
+  counterpartyRound: string;
+  action: "remove" | "modify";
+  clause: Exclude<TradePickClause, "none"> | null;
+};
+
+export type TradeQualifyingOfferMove = {
+  id: string;
+  fromTeamCode: string;
+  toTeamCode: string;
+};
+
+export function allowedTradeDestinations(sourceSlot: TradeSlot): TradeSlot[] {
+  if (sourceSlot === "two_way") return ["two_way", "regular"];
+  if (sourceSlot === "g_league") return ["g_league", "two_way", "regular"];
+  if (sourceSlot === "dpe") return ["dpe"];
+  return ["regular"];
+}
+
+export function evaluateTrade(input: {
+  phase: string;
+  tradeDeadlinePassed?: boolean;
+  tradesOpen?: boolean;
+  tradableDraftYears?: number[];
+  protectionCounterpartyDraftYears?: number[];
+  teams: TradeTeamState[];
+  playerMoves: TradePlayerMove[];
+  pickMoves: TradePickMove[];
+  pickClauses?: TradePickClauseAgreement[];
+  existingClauseChanges?: TradeExistingClauseChange[];
+  qualifyingOfferMoves?: TradeQualifyingOfferMove[];
+  cuts: TradeCut[];
+}) {
+  const errors: { code: string; message: string }[] = [];
+  const warnings: { code: string; message: string }[] = [];
+
+  if (input.tradesOpen === false) {
+    errors.push({ code: "TRADES_CLOSED", message: "Gli scambi non sono disponibili durante l'asta o dopo la trade deadline." });
+  }
+  if (input.phase === "auction") {
+    errors.push({ code: "TRADES_CLOSED_DURING_AUCTION", message: "Gli scambi non sono consentiti durante l’asta." });
+  }
+  if (input.phase === "regular_season" && input.tradeDeadlinePassed) {
+    errors.push({
+      code: "TRADES_CLOSED_AFTER_DEADLINE",
+      message: "Il mercato degli scambi è chiuso dopo la trade deadline.",
+    });
+  }
+  if (input.teams.length < 2) {
+    errors.push({ code: "TRADE_TEAMS_MINIMUM", message: "Lo scambio deve coinvolgere almeno due squadre." });
+  }
+  if (new Set(input.teams.map((team) => team.code)).size !== input.teams.length) {
+    errors.push({ code: "TRADE_TEAM_DUPLICATE", message: "Ogni squadra può comparire una sola volta." });
+  }
+  if (
+    input.playerMoves.length
+    + input.pickMoves.length
+    + (input.pickClauses?.length ?? 0)
+    + (input.existingClauseChanges?.length ?? 0)
+    + (input.qualifyingOfferMoves?.length ?? 0)
+    === 0
+  ) {
+    errors.push({ code: "TRADE_ASSET_REQUIRED", message: "Aggiungi almeno un elemento allo scambio." });
+  }
+
+  const seenPlayers = new Set<string>();
+  for (const move of input.playerMoves) {
+    if (seenPlayers.has(move.id)) {
+      errors.push({ code: "TRADE_PLAYER_DUPLICATE", message: "Lo stesso giocatore non può essere inserito due volte." });
+    }
+    seenPlayers.add(move.id);
+    if (move.sourceState === "cut") {
+      errors.push({
+        code: "TRADE_CUT_CONTRACT_NOT_TRADABLE",
+        message: "I contratti dei giocatori già tagliati non possono essere scambiati.",
+      });
+    }
+    if (move.fromTeamCode === move.toTeamCode) {
+      errors.push({ code: "TRADE_SAME_TEAM", message: "La destinazione deve essere una squadra diversa." });
+    }
+    const permittedDestinations = move.allowedDestinationSlots ?? allowedTradeDestinations(move.sourceSlot);
+    if (!permittedDestinations.includes(move.destinationSlot)) {
+      errors.push({
+        code: "TRADE_SLOT_DOWNGRADE",
+        message: "La destinazione scelta non è consentita per lo slot di provenienza del giocatore.",
+      });
+    }
+  }
+
+  const seenPicks = new Set<string>();
+  const conditionedPicks = new Set<string>();
+  for (const move of input.pickMoves) {
+    if (seenPicks.has(move.id)) {
+      errors.push({ code: "TRADE_PICK_DUPLICATE", message: "La stessa scelta non può essere inserita due volte." });
+    }
+    seenPicks.add(move.id);
+    if (move.fromTeamCode === move.toTeamCode) {
+      errors.push({ code: "TRADE_PICK_SAME_TEAM", message: "La scelta deve essere ceduta a un’altra squadra." });
+    }
+    if (input.tradableDraftYears && !input.tradableDraftYears.includes(move.year)) {
+      errors.push({
+        code: "TRADE_PICK_YEAR_NOT_ALLOWED",
+        message: `Si possono scambiare soltanto le scelte dei prossimi tre Draft: ${input.tradableDraftYears.join(", ")}.`,
+      });
+    }
+    const allowedMoveCounterpartyYears = move.clause.startsWith("protected_top_")
+      ? input.protectionCounterpartyDraftYears ?? input.tradableDraftYears
+      : input.tradableDraftYears;
+    if (allowedMoveCounterpartyYears && move.counterpartyYear !== null && !allowedMoveCounterpartyYears.includes(move.counterpartyYear)) {
+      errors.push({
+        code: "TRADE_PICK_COUNTERPART_YEAR_NOT_ALLOWED",
+        message: `La contropartita non appartiene alla finestra consentita: ${allowedMoveCounterpartyYears.join(", ")}.`,
+      });
+    }
+    if (move.hasExistingCondition) conditionedPicks.add(move.id);
+    if (move.clause !== "none") {
+      if (move.hasExistingCondition) {
+        errors.push({
+          code: "TRADE_PICK_ALREADY_CONDITIONED",
+          message: "Una scelta già vincolata non può essere coinvolta in un nuovo accordo.",
+        });
+      }
+      if (move.clause === "swap" && !move.counterpartyPickId) {
+        errors.push({
+          code: "TRADE_PICK_COUNTERPART_REQUIRED",
+          message: "Il diritto di swap richiede una scelta di contropartita.",
+        });
+      }
+      if (move.counterpartyHasExistingCondition) {
+        errors.push({
+          code: "TRADE_PICK_COUNTERPART_ALREADY_CONDITIONED",
+          message: "La scelta indicata come contropartita è già coinvolta in un altro accordo.",
+        });
+      }
+      if (
+        move.clause === "swap"
+        && (move.year !== move.counterpartyYear || move.round !== move.counterpartyRound)
+      ) {
+        errors.push({
+          code: "TRADE_SWAP_COUNTERPART_INVALID",
+          message: "La contropartita dello swap deve appartenere allo stesso anno e allo stesso giro.",
+        });
+      }
+      if (
+        move.clause.startsWith("protected_top_")
+        && move.counterpartyYear !== null
+        && move.counterpartyYear < move.year
+      ) {
+        errors.push({
+          code: "TRADE_PROTECTION_COUNTERPART_INVALID",
+          message: "La contropartita della protezione non può appartenere a un draft precedente.",
+        });
+      }
+      if (conditionedPicks.has(move.id)) {
+        errors.push({
+          code: "TRADE_PICK_MULTIPLE_CONDITIONS",
+          message: "La stessa scelta non può essere coinvolta in più accordi di protezione o swap.",
+        });
+      }
+      conditionedPicks.add(move.id);
+      if (move.counterpartyPickId) {
+        if (conditionedPicks.has(move.counterpartyPickId)) {
+          errors.push({
+            code: "TRADE_PICK_COUNTERPART_MULTIPLE_CONDITIONS",
+            message: "La scelta indicata come contropartita è già coinvolta in un altro accordo.",
+          });
+        }
+        conditionedPicks.add(move.counterpartyPickId);
+      }
+    }
+  }
+
+  for (const agreement of input.pickClauses ?? []) {
+    if (agreement.clause === "none") {
+      errors.push({
+        code: "TRADE_PICK_CLAUSE_REQUIRED",
+        message: "Seleziona il tipo di clausola da inserire.",
+      });
+      continue;
+    }
+    if (input.tradableDraftYears && !input.tradableDraftYears.includes(agreement.year)) {
+      errors.push({
+        code: "TRADE_PICK_CLAUSE_YEAR_NOT_ALLOWED",
+        message: `Le clausole possono riguardare soltanto i prossimi tre Draft: ${input.tradableDraftYears.join(", ")}.`,
+      });
+    }
+    const allowedCounterpartyYears = agreement.clause.startsWith("protected_top_")
+      ? input.protectionCounterpartyDraftYears ?? input.tradableDraftYears
+      : input.tradableDraftYears;
+    if (allowedCounterpartyYears && agreement.counterpartyYear !== null && !allowedCounterpartyYears.includes(agreement.counterpartyYear)) {
+      errors.push({
+        code: "TRADE_PICK_CLAUSE_COUNTERPART_YEAR_NOT_ALLOWED",
+        message: agreement.clause.startsWith("protected_top_")
+          ? `La contropartita di una protezione può appartenere al massimo al quarto Draft successivo: ${allowedCounterpartyYears.join(", ")}.`
+          : `La contropartita deve appartenere a uno dei prossimi tre Draft: ${allowedCounterpartyYears.join(", ")}.`,
+      });
+    }
+    if (agreement.hasExistingCondition || conditionedPicks.has(agreement.pickId)) {
+      errors.push({
+        code: "TRADE_PICK_ALREADY_CONDITIONED",
+        message: "La scelta selezionata Ã¨ giÃ  coinvolta in un'altra clausola.",
+      });
+    }
+    if (agreement.clause === "swap" && !agreement.counterpartyPickId) {
+      errors.push({
+        code: "TRADE_PICK_COUNTERPART_REQUIRED",
+        message: "Il diritto di swap richiede una scelta di contropartita.",
+      });
+    }
+    if (agreement.clause.startsWith("protected_top_") && !agreement.counterpartyPickId) {
+      errors.push({
+        code: "TRADE_PROTECTION_COUNTERPART_REQUIRED",
+        message: "La protezione richiede una scelta di contropartita.",
+      });
+    }
+    if (agreement.clause.startsWith("protected_top_") && !agreement.pickTransferred) {
+      errors.push({
+        code: "TRADE_PROTECTION_REQUIRES_PICK_TRANSFER",
+        message: "La protezione si può inserire soltanto sulla scelta trasferita nello stesso scambio.",
+      });
+    }
+    if (
+      agreement.clause.startsWith("protected_top_")
+      && agreement.counterpartyOwnerTeamCode
+      && agreement.counterpartyOwnerTeamCode !== agreement.pickOwnerTeamCode
+    ) {
+      errors.push({
+        code: "TRADE_PROTECTION_COUNTERPART_OWNER_INVALID",
+        message: "La contropartita della protezione deve appartenere alla squadra che sta cedendo la scelta protetta.",
+      });
+    }
+    if (
+      agreement.clause === "swap"
+      && agreement.counterpartyOwnerTeamCode
+      && agreement.counterpartyOwnerTeamCode === agreement.pickOwnerTeamCode
+    ) {
+      errors.push({
+        code: "TRADE_SWAP_COUNTERPART_OWNER_INVALID",
+        message: "La contropartita dello swap deve appartenere a un'altra squadra.",
+      });
+    }
+    if (agreement.counterpartyHasExistingCondition) {
+      errors.push({
+        code: "TRADE_PICK_COUNTERPART_ALREADY_CONDITIONED",
+        message: "La scelta indicata come contropartita Ã¨ giÃ  coinvolta in un altro accordo.",
+      });
+    }
+    if (
+      agreement.clause === "swap"
+      && agreement.counterpartyPickId
+      && (agreement.year !== agreement.counterpartyYear || agreement.round !== agreement.counterpartyRound)
+    ) {
+      errors.push({
+        code: "TRADE_SWAP_COUNTERPART_INVALID",
+        message: "La contropartita dello swap deve appartenere allo stesso anno e allo stesso giro.",
+      });
+    }
+    if (
+      agreement.clause.startsWith("protected_top_")
+      && agreement.counterpartyYear !== null
+      && agreement.counterpartyYear < agreement.year
+    ) {
+      errors.push({
+        code: "TRADE_PROTECTION_COUNTERPART_INVALID",
+        message: "La contropartita della protezione non puÃ² appartenere a un draft precedente.",
+      });
+    }
+
+    conditionedPicks.add(agreement.pickId);
+    if (agreement.counterpartyPickId) {
+      if (conditionedPicks.has(agreement.counterpartyPickId)) {
+        errors.push({
+          code: "TRADE_PICK_COUNTERPART_MULTIPLE_CONDITIONS",
+          message: "La scelta indicata come contropartita Ã¨ giÃ  coinvolta in un altro accordo.",
+        });
+      }
+      conditionedPicks.add(agreement.counterpartyPickId);
+    }
+  }
+
+  const changedAgreements = new Set<string>();
+  for (const change of input.existingClauseChanges ?? []) {
+    if (changedAgreements.has(change.agreementId)) {
+      errors.push({ code: "TRADE_EXISTING_CLAUSE_DUPLICATE", message: "Lo stesso accordo può essere modificato una sola volta nello scambio." });
+    }
+    changedAgreements.add(change.agreementId);
+    const participantCodes = new Set(input.teams.map((team) => team.code));
+    if (
+      participantCodes.size !== 2
+      || !participantCodes.has(change.subjectOwnerTeamCode)
+      || !participantCodes.has(change.counterpartyOwnerTeamCode)
+    ) {
+      errors.push({
+        code: "TRADE_EXISTING_CLAUSE_TEAMS_REQUIRED",
+        message: "Un accordo esistente può essere modificato o eliminato soltanto in uno scambio tra le due squadre interessate.",
+      });
+    }
+    if (change.action === "modify" && !change.clause) {
+      errors.push({ code: "TRADE_EXISTING_CLAUSE_VALUE_REQUIRED", message: "Seleziona la nuova condizione dell'accordo." });
+    }
+    if (change.clause === "swap" && (
+      change.subjectYear !== change.counterpartyYear
+      || change.subjectRound !== change.counterpartyRound
+    )) {
+      errors.push({ code: "TRADE_EXISTING_SWAP_INVALID", message: "Questo accordo non può diventare uno swap: le due scelte non appartengono allo stesso draft e giro." });
+    }
+    if (change.clause?.startsWith("protected_top_") && change.counterpartyYear < change.subjectYear) {
+      errors.push({ code: "TRADE_EXISTING_PROTECTION_INVALID", message: "La contropartita della protezione non può appartenere a un draft precedente." });
+    }
+    const allowedCounterpartyYears = change.clause?.startsWith("protected_top_")
+      ? input.protectionCounterpartyDraftYears ?? input.tradableDraftYears
+      : input.tradableDraftYears;
+    if (
+      change.action === "modify"
+      && input.tradableDraftYears
+      && !input.tradableDraftYears.includes(change.subjectYear)
+    ) {
+      errors.push({ code: "TRADE_EXISTING_CLAUSE_YEAR_NOT_ALLOWED", message: "L'accordo può essere modificato soltanto se la scelta principale rientra nei prossimi tre draft." });
+    }
+    if (
+      change.action === "modify"
+      && allowedCounterpartyYears
+      && !allowedCounterpartyYears.includes(change.counterpartyYear)
+    ) {
+      errors.push({ code: "TRADE_EXISTING_CLAUSE_COUNTERPART_YEAR_NOT_ALLOWED", message: "La contropartita non rientra nella finestra di draft consentita." });
+    }
+  }
+
+  const seenQualifyingOffers = new Set<string>();
+  for (const move of input.qualifyingOfferMoves ?? []) {
+    if (seenQualifyingOffers.has(move.id)) {
+      errors.push({
+        code: "TRADE_QO_DUPLICATE",
+        message: "La stessa qualifying offer non puÃ² essere trasferita due volte.",
+      });
+    }
+    seenQualifyingOffers.add(move.id);
+    if (move.fromTeamCode === move.toTeamCode) {
+      errors.push({
+        code: "TRADE_QO_SAME_TEAM",
+        message: "La qualifying offer deve essere trasferita a un'altra squadra.",
+      });
+    }
+    if (input.phase !== "offseason") {
+      errors.push({
+        code: "TRADE_QO_OFFSEASON_ONLY",
+        message: "Le qualifying offer per la prossima asta si possono scambiare soltanto in offseason.",
+      });
+    }
+  }
+
+  const seenCuts = new Set<string>();
+  for (const cut of input.cuts) {
+    if (seenCuts.has(cut.id) || seenPlayers.has(cut.id)) {
+      errors.push({
+        code: "TRADE_CUT_DUPLICATE",
+        message: "Un giocatore non può essere contemporaneamente ceduto e tagliato.",
+      });
+    }
+    seenCuts.add(cut.id);
+  }
+
+  const teamResults = input.teams.map((team) => {
+    const slots = { ...team.slots };
+    const roles = { ...team.roles };
+    let costAfter = team.currentCost;
+
+    for (const move of input.playerMoves) {
+      if (move.fromTeamCode === team.code) {
+        slots[slotKey(move.sourceSlot)] -= 1;
+        if (move.sourceSlot !== "dpe") costAfter -= move.capCost;
+        if (move.sourceSlot !== "dpe" && move.role) roles[move.role] -= 1;
+      }
+      if (move.toTeamCode === team.code) {
+        slots[slotKey(move.destinationSlot)] += 1;
+        if (move.destinationSlot !== "dpe") costAfter += move.capCost;
+        if (move.destinationSlot !== "dpe" && move.role) roles[move.role] += 1;
+      }
+    }
+
+    for (const cut of input.cuts.filter((item) => item.teamCode === team.code)) {
+      slots[slotKey(cut.slot)] -= 1;
+      if (cut.slot === "dpe") costAfter += cut.cost;
+      if (cut.slot !== "dpe" && cut.role) roles[cut.role] -= 1;
+    }
+
+    const slotValidation = validateSlots(slots);
+    errors.push(...slotValidation.errors.map((error) => ({
+      ...error,
+      code: `${error.code}_${team.code}`,
+      message: `${team.code}: ${error.message}`,
+    })));
+
+    if (input.phase === "offseason" && costAfter > 1000) {
+      warnings.push({
+        code: `TRADE_OFFSEASON_CAP_${team.code}`,
+        message: `${team.code}: lo scambio porterebbe lo spazio libero sotto zero.`,
+      });
+    }
+    if (
+      input.phase === "regular_season"
+      && (
+        (team.currentCost <= 1100 && costAfter > 1100)
+        || (team.currentCost > 1100 && costAfter > team.currentCost)
+      )
+    ) {
+      warnings.push({
+        code: `TRADE_REGULAR_SEASON_CAP_${team.code}`,
+        message: `${team.code}: lo scambio aumenta il salary cap oltre il limite consentito.`,
+      });
+    }
+
+    const futureCaps = (team.futureCosts ?? []).map((future) => {
+      let costAfterFuture = future.currentCost;
+
+      for (const move of input.playerMoves) {
+        const futurePlayerCost = move.futureCapCosts?.[future.seasonName] ?? 0;
+        if (move.fromTeamCode === team.code) costAfterFuture -= futurePlayerCost;
+        if (move.toTeamCode === team.code) costAfterFuture += futurePlayerCost;
+      }
+
+      if (costAfterFuture > 1000) {
+        warnings.push({
+          code: `TRADE_FUTURE_CAP_${team.code}_${future.seasonName}`,
+          message: `${team.code}: lo scambio porterebbe lo spazio libero ${future.seasonName} sotto zero.`,
+        });
+      }
+
+      return {
+        seasonName: future.seasonName,
+        costBefore: future.currentCost,
+        costAfter: costAfterFuture,
+        spaceBefore: 1000 - future.currentCost,
+        spaceAfter: 1000 - costAfterFuture,
+      };
+    });
+
+    if (input.phase === "regular_season") {
+      const minimums: Record<TradeRole, number> = { G: 5, A: 5, C: 3 };
+      for (const role of Object.keys(minimums) as TradeRole[]) {
+        if (roles[role] < minimums[role]) {
+          warnings.push({
+            code: `TRADE_ROLE_MINIMUM_${team.code}_${role}`,
+            message: `${team.code}: dopo lo scambio mancano giocatori di ruolo ${role}; si applica il ripristino previsto dal regolamento.`,
+          });
+        }
+      }
+    }
+
+    return {
+      code: team.code,
+      costBefore: team.currentCost,
+      costAfter,
+      spaceBefore: 1000 - team.currentCost,
+      spaceAfter: 1000 - costAfter,
+      slots,
+      roles,
+      futureCaps,
+    };
+  });
+
+  return result(
+    { teamResults },
+    ["2(a-c)", "9(a-e)", "10(a-b)", "11(f-j)", "13(a-i)", "14(a-e)"],
+    errors,
+    warnings,
+  );
+}
+
+function slotKey(slot: TradeSlot): keyof SlotCounts {
+  if (slot === "two_way") return "twoWay";
+  if (slot === "g_league") return "gLeague";
+  return slot;
+}

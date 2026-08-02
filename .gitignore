@@ -9,3 +9,4 @@ import-report.json
 .node-runtime/
 .node-portable.zip
 *.tgz
+*.log

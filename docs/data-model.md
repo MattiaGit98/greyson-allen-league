@@ -1,44 +1,25 @@
-# Modello dati proposto
+# Modello dati corrente
 
-## Principi
+## Principio
 
-- UUID come chiavi tecniche; `code`, `slug` ed eventuali external id come chiavi naturali uniche.
-- `transactions` rappresenta il fatto di dominio; `transaction_items` i suoi effetti.
-- `roster_entries` conserva l'appartenenza e lo stato; `contract_terms` separa la struttura economica per anno.
-- `cap_charges` rappresenta tutti gli oneri, inclusi dead cap, buyout e stretch.
-- soft delete/stati espliciti; nessun hard delete nello storico.
+Il database è la fonte ufficiale. Il frontend non ricostruisce lo stato confrontando Excel, snapshot iniziali o movimenti passati.
 
-## Relazioni principali
+## Dati operativi
 
-```text
-seasons ─┬─< team_seasons >─ teams
-         ├─< roster_entries >─ players
-         ├─< qualifying_offer_rights >─ players
-         ├─< transactions ─< transaction_items
-         ├─< auction_sessions ─< auction_events
-         └─< draft_picks ─< draft_pick_conditions
+- `seasons`: annata attiva e momento della lega;
+- `league_state_overrides`, riga `current`: squadre, roster, tagliati, scelte, Q.O., listone e posizioni draft correnti;
+- `league_movements`: registro persistente delle operazioni, con stato prima/dopo per consentire annullamenti sicuri;
+- `league_phase_backups`: situazione precedente ai passaggi di fase;
+- `calendar_events`: calendario modificabile;
+- `competition_content`: classifiche e tabelloni correnti;
+- `history_competition_content`: storico della lega.
 
-roster_entries ─< contract_terms
-transactions ─< cap_charges
-auth.users ─ admin_users
-auth.users ─< audit_log
-```
+Le tabelle normalizzate create dalle prime migration restano disponibili per compatibilità con l'importazione iniziale, ma le pagine correnti non le usano come fallback.
 
-## Decisioni
+Il ripristino da file usa la funzione SQL `restore_importable_league_backup`: fase, stato, calendario, competizioni, storico e movimenti vengono sostituiti nella stessa transazione. Un errore in qualsiasi gruppo annulla tutto il ripristino.
 
-- Un indice parziale su `roster_entries(season_id, player_id)` impedisce due appartenenze attive.
-- `slot_type` è separato dal ruolo Dunkest.
-- I contratti pluriennali non sono una sola scadenza testuale: ogni stagione ha un `contract_term`.
-- `current_credits` rimane in `team_seasons` per locking atomico; una vista lo riconcilia con gli oneri.
-- Scelte e condizioni sono strutturate; la descrizione originale dell'Excel resta in `source_note`.
-- I diritti di qualifying offer sono entità autonome: non occupano uno slot e non rendono il giocatore parte della rosa.
-- Le regole configurabili vivono in `league_rules`; le regole algoritmiche restano nel codice e nelle RPC.
+## Scritture
 
-## Stato e transizioni
+Le operazioni amministrative calcolano il nuovo stato sul server e lo salvano tramite funzioni SQL protette. I limiti degli slot sono bloccanti; gli sforamenti del cap previsti dal regolamento vengono mostrati come avvisi forzabili e registrati nel movimento.
 
-- stagione: `setup → offseason → draft/auction → regular_season → postseason → completed`. Il pannello amministrativo espone le tre macro-fasi Offseason, Asta e Stagione.
-- roster: `pending → active → cut/released/expired/traded`;
-- asta: `draft → active ↔ paused → completed`;
-- transazione: `pending → committed → reversed`.
-
-Le transizioni sono validate server-side; non sono normali update del client.
+Le policy RLS consentono la lettura pubblica dei dati necessari alla visualizzazione e riservano le scritture agli utenti presenti in `admin_users`.

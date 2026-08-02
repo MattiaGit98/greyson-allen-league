@@ -1,46 +1,75 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { parseContract, type RosterEntry } from "@/lib/demo-data";
 
-type Row = RosterEntry & { teamName: string; hasFutureQualifyingRight: boolean };
+type PlayerStatus = "roster" | "qo" | "fa";
+type Row = {
+  name: string;
+  role: "G" | "A" | "C" | "X";
+  realTeam: string;
+  rookie: boolean;
+  under23: boolean;
+  listOrder: number;
+  rosterTeamCode: string | null;
+  qualifyingTeamCode: string | null;
+};
+
+function statusOf(row: Row): PlayerStatus {
+  if (row.rosterTeamCode) return "roster";
+  if (row.qualifyingTeamCode) return "qo";
+  return "fa";
+}
 
 export function PlayerExplorer({ rows }: { rows: Row[] }) {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("all");
-  const [status, setStatus] = useState("active");
+  const [status, setStatus] = useState("all");
   const filtered = useMemo(() => rows.filter((row) => {
-    const matchesQuery = `${row.name} ${row.teamName} ${row.teamCode}`.toLowerCase().includes(query.toLowerCase());
-    return matchesQuery && (role === "all" || row.role === role) && (status === "all" || row.state === status);
+    const matchesQuery = row.name.toLowerCase().includes(query.toLowerCase());
+    return matchesQuery && (role === "all" || row.role === role) && (status === "all" || statusOf(row) === status);
   }), [query, role, rows, status]);
 
   return (
     <>
       <div className="filter-bar">
-        <label className="search-field"><span>Cerca</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome o squadra…" /></label>
-        <label><span>Ruolo</span><select value={role} onChange={(event) => setRole(event.target.value)}><option value="all">Tutti</option><option>G</option><option>A</option><option>C</option></select></label>
-        <label><span>Stato</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Tutti</option><option value="active">In roster</option><option value="cut">Tagliati</option></select></label>
+        <label className="search-field"><span>Cerca</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" /></label>
+        <label><span>Ruolo</span><select value={role} onChange={(event) => setRole(event.target.value)}><option value="all">Tutti</option><option>G</option><option>A</option><option>C</option><option>X</option></select></label>
+        <label><span>Stato</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Tutti</option><option value="fa">FA</option><option value="qo">Q.O.</option><option value="roster">A roster</option></select></label>
       </div>
-      <p className="result-count">{filtered.length} risultati</p>
+
       <div className="player-list">
-        {filtered.map((row, index) => {
-          const contract = parseContract(row.contract);
-          return (
-            <article className="player-row" key={`${row.name}-${row.teamCode}-${row.state}-${index}`}>
-              <span className={`role role-${row.role?.toLowerCase() ?? "none"}`}>{row.role ?? "—"}</span>
-              <div><strong>{row.name}</strong><small><Link href={`/squadre/${row.teamCode.toLowerCase()}`}>{row.teamName}</Link> · {row.state === "cut" ? "Dead cap" : "Roster attivo"}</small></div>
-              <span className="badges">
-                <span className="badge">{row.contract}</span>
-                {contract.isTeamOption && <span className="badge option">TO</span>}
-                {(contract.hasQualifyingRight || row.hasFutureQualifyingRight) && <span className="badge qo">QO</span>}
-                {contract.isExtensionEligible && <span className="badge extension">Estendibile</span>}
+        <div className="player-list-head">
+          <span>#</span>
+          <span>Giocatore</span>
+          <span>R</span>
+          <span>NBA</span>
+          <span>Stato</span>
+        </div>
+        {filtered.map((row) => (
+          <article className={`player-row ${row.realTeam ? "has-real-team" : ""} ${row.rookie ? "is-rookie" : ""} ${row.under23 ? "is-under23" : ""}`} key={row.listOrder}>
+            <span className="player-order">{row.listOrder}</span>
+            <span className="player-identity">
+              <strong className="player-name">{row.name}</strong>
+              <span className="player-flags">
+                {row.rookie && <small className="player-flag player-flag-rookie">Rookie</small>}
+                {row.under23 && <small className="player-flag player-flag-u23">U23</small>}
               </span>
-              <b>{row.cost} CR</b>
-            </article>
-          );
-        })}
+            </span>
+            <span><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>
+            <strong className="real-team">{row.realTeam}</strong>
+            <PlayerStatus row={row} />
+          </article>
+        ))}
+        {!filtered.length && <div className="data-empty">Listone non ancora pubblicato</div>}
       </div>
     </>
   );
+}
+
+function PlayerStatus({ row }: { row: Row }) {
+  if (row.rosterTeamCode) return <span className="player-status player-status-roster">{row.rosterTeamCode}</span>;
+  if (row.qualifyingTeamCode) {
+    return <span className="player-status player-status-highlight"><strong>Q.O.</strong><small>{row.qualifyingTeamCode}</small></span>;
+  }
+  return <span className="player-status player-status-highlight"><strong>FA</strong></span>;
 }

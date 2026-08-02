@@ -1,70 +1,52 @@
 # Greyson Allen League
 
-Gestionale web mobile-first per la lega privata Dunkest. Il database PostgreSQL è la fonte ufficiale; Excel serve solo per la migrazione iniziale e per esportazioni di sicurezza.
+Gestionale web della lega Dunkest, sviluppato con Next.js, TypeScript e Supabase.
 
-## Stato
+## Fonte dei dati
 
-La Fase 0 è documentata e una prima applicazione locale consultabile è presente: progetto Next.js strict, modello SQL con RLS e audit, motore di regole tipizzato, importatore Excel in modalità `dry-run`, snapshot indipendente dall'Excel e interfacce pubbliche/amministrative basate sui dati reali.
+Supabase è la fonte ufficiale dello stato corrente. Il sito non ricostruisce la lega confrontando file iniziali o situazioni passate:
 
-## Stack
+- fase e annata arrivano dalla stagione attiva in `seasons`;
+- squadre, roster, scelte, Q.O. e listone arrivano da `league_state_overrides/current`;
+- calendario, competizioni e storico hanno tabelle dedicate;
+- i movimenti sono registrati al momento dell'operazione e non vengono dedotti a posteriori.
 
-- Next.js App Router, React, TypeScript strict
-- Supabase (PostgreSQL, Auth, RLS, Realtime)
-- CSS modulare senza dipendenza da una libreria UI
-- Vitest per il motore delle regole
-- ExcelJS per il solo import iniziale
+`data/league-snapshot.json` e gli script in `scripts/` servono soltanto per la migrazione iniziale. Non vengono usati dal sito in esecuzione.
 
-## Avvio locale
+## Avvio locale su questo PC
 
-Requisiti: Node.js 20.11+ e npm.
+Aprire PowerShell nella cartella del progetto ed eseguire:
 
-```bash
-npm install
-copy .env.example .env.local
-npm run dev
+```powershell
+$env:Path="$PWD\.node-runtime\node-v24.18.0-win-x64;$env:Path"
+npm.cmd run dev
 ```
 
-La demo pubblica funziona anche senza Supabase. Sono disponibili le anteprime guidate delle operazioni; salvataggio, login e aggiornamenti realtime richiedono le variabili Supabase.
+Poi aprire `http://localhost:3000`. Il file `.env.local` deve contenere l'URL e la chiave pubblicabile del progetto Supabase.
 
-## Database e sicurezza
+Con un'installazione normale di Node.js è sufficiente `npm run dev`.
 
-Applicare nell'ordine le migration in `supabase/migrations`. `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` possono essere usate dal browser; una secret/service role key è esclusivamente server-side. Tutte le tabelle operative hanno RLS: lettura pubblica selettiva e scrittura riservata agli utenti presenti in `admin_users`.
+## Controlli tecnici
 
-## Test
-
-```bash
-npm test
-npm run build
+```powershell
+npm.cmd run check
+npm.cmd run build
 ```
 
-## Importazione iniziale
+`check` esegue il controllo TypeScript e tutti i test automatici. `build` verifica anche la compilazione completa di produzione.
 
-```bash
-npm run import:excel -- "C:\percorso\Roster.xlsx"
-```
+## Database
 
-Il comando predefinito è un `dry-run`: genera `import-report.json` e non scrive nel database. Vedere [docs/import-guide.md](docs/import-guide.md).
+In un database nuovo, eseguire una sola volta le migration in `supabase/migrations`, in ordine di nome, e poi il seed iniziale. In un database già avviato, eseguire soltanto le migration successive all'ultima già applicata: non rilanciare il seed sui dati correnti.
 
-Per rigenerare lo snapshot usato dalla demo:
+Prima di ogni avanzamento della lega il sito scarica un backup importabile dell’intera situazione e crea anche un punto di ripristino interno. La pagina **Importa dati** può ripristinare fase, roster, listone, calendario, competizioni, storico e movimenti; prima di applicare il file scarica automaticamente un nuovo backup della situazione corrente. Dalla pagina Backup sono disponibili il backup ripristinabile e le copie leggibili Excel e HTML statico di Squadre e Storico.
 
-```bash
-npm run import:excel -- "C:\percorso\Roster.xlsx" --phase=offseason --snapshot=data/league-snapshot.json
-```
+## Struttura essenziale
 
-## Documentazione
+- `app/`: pagine pubbliche, amministrazione e operazioni server;
+- `components/`: componenti condivisi dell'interfaccia;
+- `lib/`: regole, calcoli e accesso allo stato corrente;
+- `supabase/migrations/`: evoluzione ordinata del database;
+- `data/league-snapshot.json`: sola sorgente storica per l'inizializzazione.
 
-- [Analisi dei file e milestone](docs/analysis.md)
-- [Modello dati](docs/data-model.md)
-- [Mappa delle regole](docs/rules-map.md)
-- [Guida amministratore](docs/admin-guide.md)
-- [Deployment](docs/deployment.md)
-- [Backup e ripristino](docs/backup-restore.md)
-
-## Milestone
-
-1. Fase 0 — completata: analisi, assunzioni, modello, route e wireframe.
-2. Fase 1 — avanzata: schema, RLS, app shell, snapshot iniziale e regole.
-3. Fase 2 — avanzata in locale: squadre complete, giocatori ricercabili, dead cap, QO e asset draft.
-4. Prossimo blocco: collegare Supabase e rendere persistenti operazioni, movimenti e asta.
-
-Le decisioni ancora da confermare sono elencate in `docs/analysis.md`; non bloccano l'architettura.
+La documentazione operativa è in `docs/`.

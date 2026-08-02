@@ -1,16 +1,20 @@
 import { PlayerExplorer } from "./player-explorer";
-import { qualifyingOfferRights, rosterEntries, teams } from "@/lib/demo-data";
+import { loadEditableLeagueState } from "@/lib/league-state";
 
-export default function PlayersPage() {
-  const rows = rosterEntries.map((entry) => ({
-    ...entry,
-    teamName: teams.find((team) => team.code === entry.teamCode)?.name ?? entry.teamCode,
-    hasFutureQualifyingRight: qualifyingOfferRights.some((right) => right.playerName === entry.name),
-  }));
+export default async function PlayersPage() {
+  const leagueState = await loadEditableLeagueState();
+  const rows = leagueState.playerList.map((player, index) => {
+    const activeRoster = leagueState.rosterEntries.find((entry) => entry.name === player.name && entry.state === "active");
+    const qualifyingOffer = leagueState.qualifyingOfferRights.find((right) => right.playerName === player.name);
+    return {
+      ...player,
+      listOrder: index + 1,
+      rosterTeamCode: activeRoster?.teamCode ?? null,
+      qualifyingTeamCode: activeRoster ? null : qualifyingOffer?.teamCode ?? null,
+    };
+  });
   return (
-    <section className="section page-top">
-      <p className="eyebrow">Anagrafica contrattuale</p>
-      <h1>Giocatori</h1>
+    <section className="section players-page">
       <PlayerExplorer rows={rows} />
     </section>
   );

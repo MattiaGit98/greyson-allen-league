@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { SiteNavigation } from "@/components/site-navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { season as snapshotSeason } from "@/lib/demo-data";
+import { displayedSeasonName } from "@/lib/season-time";
+import { leagueMomentFromSeason, macroPhaseForMoment, operationWindows } from "@/lib/league-moments";
+import { loadActiveSeason } from "@/lib/active-season";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,23 +10,17 @@ export const metadata: Metadata = {
   description: "Roster, contratti e movimenti della lega",
 };
 
-const phaseLabels: Record<string, string> = {
-  offseason: "Offseason",
-  auction: "Asta",
-  regular_season: "Stagione",
-};
-
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const supabase = await createSupabaseServerClient();
-  const response = supabase
-    ? await supabase.from("seasons").select("name,status").eq("is_active", true).maybeSingle()
-    : null;
-  const seasonName = response?.data?.name ?? snapshotSeason.name;
-  const phaseName = phaseLabels[response?.data?.status ?? snapshotSeason.phase] ?? "Offseason";
+  const { season } = await loadActiveSeason();
+  const phase = season?.status ?? "offseason";
+  const seasonName = season ? displayedSeasonName(season.name, phase) : "—";
+  const leagueMoment = season ? leagueMomentFromSeason(season) : null;
+  const phaseName = leagueMoment ? (macroPhaseForMoment(leagueMoment) === "offseason" ? "Offseason" : "Stagione") : "Stato non disponibile";
+  const auctionOpen = leagueMoment ? operationWindows.auction(leagueMoment) : false;
   return (
     <html lang="it">
       <body>
-        <SiteNavigation seasonName={seasonName} phaseName={phaseName} />
+        <SiteNavigation seasonName={seasonName} phaseName={phaseName} phase={phase} auctionOpen={auctionOpen} />
         <main>{children}</main>
       </body>
     </html>

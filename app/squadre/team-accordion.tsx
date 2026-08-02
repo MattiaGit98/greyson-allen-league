@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DraftAsset, QualifyingOfferRight, RosterEntry, TeamSummary } from "@/lib/demo-data";
+import type { DraftAsset, PlayerListEntry, QualifyingOfferRight, RosterEntry, TeamSummary } from "@/lib/league-types";
+import { calculateCapSpace, contractCostForSeason, followingSeasonName } from "@/lib/season-time";
+import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
+import { isStretchUnavailable } from "@/lib/stretch-provision";
+import { highlightedDraftYear } from "@/lib/draft-positions";
 
 type SortKey = "role" | "name" | "contract" | "cost";
 type SortState = { key: SortKey; direction: "asc" | "desc" };
@@ -10,22 +14,34 @@ export function TeamAccordion({
   teams,
   rosterEntries,
   draftAssets,
+  draftPositionYears,
   qualifyingOfferRights,
+  playerList,
+  playerListPublished,
+  inSeason,
   initialTeam,
   showQualifyingOffers,
+  capSeasonName,
+  countTeamOptions,
 }: {
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
   draftAssets: DraftAsset[];
+  draftPositionYears: number[];
   qualifyingOfferRights: QualifyingOfferRight[];
+  playerList: PlayerListEntry[];
+  playerListPublished: boolean;
+  inSeason: boolean;
   initialTeam?: string;
   showQualifyingOffers: boolean;
+  capSeasonName: string;
+  countTeamOptions: boolean;
 }) {
   const [openTeams, setOpenTeams] = useState<string[]>(
     initialTeam && teams.some((team) => team.code === initialTeam) ? [initialTeam] : [],
   );
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
-  const nextDraftYear = Math.min(...draftAssets.map((asset) => asset.year));
+  const highlightedYear = highlightedDraftYear(draftAssets, draftPositionYears);
   const allExpanded = openTeams.length === teams.length;
 
   const changeSort = (key: SortKey) => {
@@ -66,8 +82,13 @@ export function TeamAccordion({
                 entries={rosterEntries.filter((entry) => entry.teamCode === team.code)}
                 assets={draftAssets.filter((asset) => asset.teamCode === team.code)}
                 rights={qualifyingOfferRights.filter((right) => right.teamCode === team.code)}
-                nextDraftYear={nextDraftYear}
+                playerList={playerList}
+                playerListPublished={playerListPublished}
+                inSeason={inSeason}
+                highlightedDraftYear={highlightedYear}
                 showQualifyingOffers={showQualifyingOffers}
+                capSeasonName={capSeasonName}
+                countTeamOptions={countTeamOptions}
                 sort={sort}
                 changeSort={changeSort}
               />
@@ -85,8 +106,13 @@ function TeamDetails({
   entries,
   assets,
   rights,
+  playerList,
+  playerListPublished,
+  inSeason,
   showQualifyingOffers,
-  nextDraftYear,
+  capSeasonName,
+  countTeamOptions,
+  highlightedDraftYear,
   sort,
   changeSort,
 }: {
@@ -94,8 +120,13 @@ function TeamDetails({
   entries: RosterEntry[];
   assets: DraftAsset[];
   rights: QualifyingOfferRight[];
+  playerList: PlayerListEntry[];
+  playerListPublished: boolean;
+  inSeason: boolean;
   showQualifyingOffers: boolean;
-  nextDraftYear: number;
+  capSeasonName: string;
+  countTeamOptions: boolean;
+  highlightedDraftYear: number | null;
   sort: SortState;
   changeSort: (key: SortKey) => void;
 }) {
@@ -106,32 +137,67 @@ function TeamDetails({
   const dpe = active.filter((entry) => entry.slot === "dpe");
   const cut = entries.filter((entry) => entry.state === "cut");
   const sortedAssets = [...assets].sort(compareDraftAssets);
-  const roles = {
-    G: active.filter((entry) => entry.slot !== "dpe" && entry.role === "G").length,
-    A: active.filter((entry) => entry.slot !== "dpe" && entry.role === "A").length,
-    C: active.filter((entry) => entry.slot !== "dpe" && entry.role === "C").length,
+  const officialRoles = new Map(playerList.map((player) => [normalizePlayerName(player.name), player.role]));
+  const roles = active
+    .filter((entry) => entry.slot !== "dpe")
+    .reduce((counts, entry) => {
+      const role = officialRoles.get(normalizePlayerName(entry.name));
+      if (role === "G" || role === "A" || role === "C") counts[role] += 1;
+      return counts;
+    }, { G: 0, A: 0, C: 0 });
+  const missingRoles = {
+    G: Math.max(0, 5 - roles.G),
+    A: Math.max(0, 5 - roles.A),
+    C: Math.max(0, 3 - roles.C),
   };
+  const roleMinimumMissing = missingRoles.G > 0 || missingRoles.A > 0 || missingRoles.C > 0;
+  const capSeasons = [capSeasonName, followingSeasonName(capSeasonName), followingSeasonName(capSeasonName, 2)];
+  const capSpaces = capSeasons.map((seasonName, index) => calculateCapSpace({
+    entries: entriesForDpeAdjustedCap(entries, index),
+    seasonName,
+    optionSeasonName: capSeasonName,
+    countTeamOptions,
+  }));
   const sortedRegular = useMemo(() => [...regular].sort((left, right) => {
     const direction = sort.direction === "asc" ? 1 : -1;
-    if (sort.key === "cost") return (left.cost - right.cost) * direction;
+    if (sort.key === "cost") return (contractCostForSeason(left, capSeasonName) - contractCostForSeason(right, capSeasonName)) * direction;
     if (sort.key === "contract") {
       const contract = (value: string) => Number(String(value).match(/\d+/)?.[0] ?? 999);
       return (contract(left.contract) - contract(right.contract)) * direction;
     }
     if (sort.key === "role") return String(left.role ?? "").localeCompare(String(right.role ?? ""), "it") * direction;
     return left.name.localeCompare(right.name, "it") * direction;
-  }), [regular, sort]);
+  }), [capSeasonName, regular, sort]);
 
   return (
     <div className="team-accordion-content">
+      <div className="current-cap-highlight">
+        <span>Cap libero {capSeasons[0]}</span>
+        <strong>{capSpaces[0]}</strong>
+      </div>
+
       <div className="team-summary-strip">
-        <SummaryValue label="Cap libero" value={`${team.credits} CR`} />
-        <SummaryValue label="Cap libero 26/27" value={`${team.nextSeasonCredits} CR`} />
-        <SummaryValue label="Cap libero 27/28" value={`${team.followingSeasonCredits} CR`} />
+        <SummaryValue label={`Cap libero ${capSeasons[1]}`} value={`${capSpaces[1]}`} />
+        <SummaryValue label={`Cap libero ${capSeasons[2]}`} value={`${capSpaces[2]}`} />
         <SummaryValue label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} />
       </div>
 
-      <DataSection label="Roster normale">
+      {inSeason && playerListPublished && roleMinimumMissing && (
+        <section className="team-role-minimum-warning">
+          <div>
+            <span>Minimi di ruolo non rispettati</span>
+            <strong>{[
+              missingRoles.G ? `G ${roles.G}/5` : "",
+              missingRoles.A ? `A ${roles.A}/5` : "",
+              missingRoles.C ? `C ${roles.C}/3` : "",
+            ].filter(Boolean).join(" · ")}</strong>
+          </div>
+          <p>Serve l’assegnazione casuale di un free agent fino al termine della stagione, a 1 credito e indipendentemente dal salary cap; se necessario va liberato uno slot.</p>
+          <small>Art. 2(b-c)</small>
+        </section>
+      )}
+
+      <DataSection label={`Roster (${regular.length}/15)`}>
         <div className="data-table roster-data-table">
           <div className="data-head">
             <SortButton label="Giocatore" sortKey="name" sort={sort} onClick={changeSort} />
@@ -139,33 +205,37 @@ function TeamDetails({
             <SortButton label="Scadenza" sortKey="contract" sort={sort} onClick={changeSort} />
             <SortButton label="Costo" sortKey="cost" sort={sort} onClick={changeSort} />
           </div>
-          {sortedRegular.map((entry) => <PlayerDataRow entry={entry} key={entry.name} />)}
+          {sortedRegular.map((entry) => <PlayerDataRow entry={entry} seasonName={capSeasonName} key={entry.name} />)}
           {!sortedRegular.length && <EmptyRow />}
         </div>
       </DataSection>
 
-      <DataSection label="Two-way">
-        <SimplePlayerTable entries={twoWay} />
+      <DataSection label={`Two-way (${twoWay.length}/2)`}>
+        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} />
       </DataSection>
 
-      <DataSection label="G-League">
-        <SimplePlayerTable entries={gLeague} />
+      <DataSection label={`G-League (${gLeague.length}/3)`}>
+        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} />
+      </DataSection>
+
+      <DataSection label={`Disabled player exception (${dpe.length}/1)`}>
+        <SimplePlayerTable entries={dpe} seasonName={capSeasonName} />
       </DataSection>
 
       <DataSection label="Scelte">
         <div className="data-table draft-data-table">
-          <div className="data-head"><span>Anno</span><span>Giro</span><span>Origine / posizione</span><span>Clausola</span></div>
+          <div className="data-head"><span>Anno</span><span>Giro</span><span>SQ / POS</span><span>Clausola</span></div>
           {sortedAssets.map((asset, index) => {
             const numericalPosition = numericValue(asset.originOrOverall);
-            const isNextDraft = asset.year === nextDraftYear;
+            const isHighlightedDraft = asset.year === highlightedDraftYear;
             return (
-            <div className={`data-row draft-row ${isNextDraft ? "next-draft-position" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
+            <div className={`data-row draft-row ${isHighlightedDraft ? "next-draft-position" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
               <span><i className="draft-year">{asset.year}</i></span>
               <span>{asset.round}</span>
               <strong>
                 {numericalPosition !== null
-                  ? <i className="draft-position">#{numericalPosition}</i>
-                  : <i className={`draft-origin ${isNextDraft ? "draft-origin-next" : ""}`}>{asset.originOrOverall}</i>}
+                  ? <i className={isHighlightedDraft ? "draft-position" : "draft-origin"}>#{numericalPosition}</i>
+                  : <i className={`draft-origin ${isHighlightedDraft ? "draft-origin-next" : ""}`}>{asset.originOrOverall}</i>}
               </strong>
               <span>{draftCondition(asset.label)}</span>
             </div>
@@ -174,19 +244,15 @@ function TeamDetails({
         </div>
       </DataSection>
 
-      <DataSection label="Disabled player exception">
-        <SimplePlayerTable entries={dpe} />
-      </DataSection>
-
       <DataSection label="Tagliati">
-        <SimplePlayerTable entries={cut} />
+        <SimplePlayerTable entries={cut} seasonName={capSeasonName} cutPlayers />
       </DataSection>
 
-      <DataSection label="Qualifying offer — prossima asta">
+      <DataSection label="Qualifying offer">
         <div className="data-table qo-data-table">
           <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
           {showQualifyingOffers && rights.map((right) => (
-            <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><span className="credit-value">{right.qualifyingAmount} CR</span></div>
+            <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><span className="credit-value">{right.qualifyingAmount}</span></div>
           ))}
           {(!showQualifyingOffers || !rights.length) && <EmptyRow />}
         </div>
@@ -208,23 +274,37 @@ function SortButton({ label, sortKey, sort, onClick }: { label: string; sortKey:
   return <button type="button" onClick={() => onClick(sortKey)}>{label}{active ? (sort.direction === "asc" ? " ↑" : " ↓") : ""}</button>;
 }
 
-function SimplePlayerTable({ entries }: { entries: RosterEntry[] }) {
+function SimplePlayerTable({
+  entries,
+  seasonName,
+  cutPlayers = false,
+}: {
+  entries: RosterEntry[];
+  seasonName: string;
+  cutPlayers?: boolean;
+}) {
   return (
-    <div className="data-table roster-data-table">
-      <div className="data-head"><span>Giocatore</span><span>Ruolo</span><span>Scadenza</span><span>Costo</span></div>
-      {entries.map((entry) => <PlayerDataRow entry={entry} key={`${entry.name}-${entry.state}`} />)}
+    <div className={`data-table roster-data-table ${cutPlayers ? "cut-player-table" : ""}`}>
+      <div className="data-head"><span>Giocatore</span><span>{cutPlayers ? "Stretch" : "Ruolo"}</span><span>Scadenza</span><span>Costo</span></div>
+      {entries.map((entry) => <PlayerDataRow entry={entry} seasonName={seasonName} cutPlayer={cutPlayers} key={`${entry.name}-${entry.state}`} />)}
       {!entries.length && <EmptyRow />}
     </div>
   );
 }
 
-function PlayerDataRow({ entry }: { entry: RosterEntry }) {
+function PlayerDataRow({ entry, seasonName, cutPlayer = false }: { entry: RosterEntry; seasonName: string; cutPlayer?: boolean }) {
   return (
     <div className="data-row">
       <strong>{entry.name}</strong>
-      <span>{entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "—"}</span>
-      <span><ContractDisplay value={entry.contract} /></span>
-      <span><i className="credit-value">{entry.cost} CR</i></span>
+      <span>{cutPlayer
+        ? isStretchUnavailable(entry) ? <i className="stretch-status applied">X</i> : "—"
+        : entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "—"}</span>
+      <span><ContractDisplay
+        value={entry.contract}
+        auctionAcquisition={entry.auctionAcquisition}
+        playoffTeamOptionPromotionSeason={entry.playoffTeamOptionPromotionSeason}
+      /></span>
+      <span><i className="credit-value">{contractCostForSeason(entry, seasonName)}</i></span>
     </div>
   );
 }
@@ -233,17 +313,21 @@ function EmptyRow() {
   return <div className="data-empty">—</div>;
 }
 
+function normalizePlayerName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
+}
+
 function draftCondition(label: string) {
   const counterparty = label.match(/^C\.p\. se 1a (\d{4}) ([A-Z]+) in top 5$/i);
   if (counterparty) {
-    return `Contropartita se la 1ª scelta ${counterparty[1]} ${counterparty[2]} rientra nelle prime cinque`;
+    return `Contropartita se la 1ª scelta ${counterparty[1]} ${counterparty[2]} rientra in top 5`;
   }
   const protectedPick = label.match(/^Protetta top 5, 1a (\d{4}) ([A-Z]+)$/i);
   if (protectedPick) {
-    return `Protetta nelle prime cinque; contropartita: 1ª scelta ${protectedPick[1]} ${protectedPick[2]}`;
+    return `Protetta top 5; contropartita: 1ª scelta ${protectedPick[1]} ${protectedPick[2]}`;
   }
   const swapSubject = label.match(/^Soggetta a dir swap con ([A-Z]+)$/i);
-  if (swapSubject) return `Soggetta al diritto di swap con ${swapSubject[1]}`;
+  if (swapSubject) return `Subisce il diritto di swap con ${swapSubject[1]}`;
   const swapRight = label.match(/^Diritto di swap con ([A-Z]+)$/i);
   if (swapRight) return `Diritto di swap con ${swapRight[1]}`;
   return "—";
@@ -269,15 +353,32 @@ function compareDraftAssets(left: DraftAsset, right: DraftAsset) {
   return (leftNumber ?? 0) - (rightNumber ?? 0);
 }
 
-function ContractDisplay({ value }: { value: string }) {
+function ContractDisplay({ value, auctionAcquisition, playoffTeamOptionPromotionSeason }: Pick<RosterEntry, "auctionAcquisition" | "playoffTeamOptionPromotionSeason"> & { value: string }) {
   if (!value) return <i className="contract-value">—</i>;
   if (value === "T.O.") return <i className="contract-value contract-team-option">T.O.</i>;
   const year = value.match(/\d{2}/)?.[0] ?? value;
-  const marker = value.includes("(E)") ? "EXT" : value.includes("(Q)") ? "QO" : null;
+  const markers = [
+    ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
+    ...(value.includes("(Q)") ? [{ label: "+ Q.O.", kind: "qo" }] : []),
+    ...(/\((?:2X|X2)\)/i.test(value) ? [{ label: "+ ×2", kind: "double" }] : []),
+    ...(playoffTeamOptionPromotionSeason ? [{ label: "+ PO", kind: "playoff-promotion" }] : []),
+    ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
+    ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
+  ];
   return (
     <span className="contract-group">
       <i className="contract-value">{year}</i>
-      {marker && <i className={`contract-marker contract-marker-${marker.toLowerCase()}`}>{marker}</i>}
+      {markers.map((marker) => <i
+        className={`contract-marker contract-marker-${marker.kind}`}
+        key={marker.kind}
+        title={marker.kind === "double"
+          ? "Costo raddoppiato nell’ultimo anno"
+          : marker.kind === "playoff-promotion"
+            ? `Promozione obbligatoria nel roster alla scadenza T.O. ${playoffTeamOptionPromotionSeason}`
+          : marker.kind === "acquisition-qo"
+            ? "Acquistato tramite Q.O. accettata"
+            : marker.kind === "rfa" ? "Acquistato come restricted free agent" : undefined}
+      >{marker.label}</i>)}
     </span>
   );
 }
