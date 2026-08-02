@@ -63,7 +63,6 @@ export type TradePickClauseAgreement = {
   counterpartyRound: string | null;
   counterpartyHasExistingCondition: boolean;
   counterpartyOwnerTeamCode?: string | null;
-  pickTransferred?: boolean;
 };
 
 export type TradeExistingClauseChange = {
@@ -287,12 +286,6 @@ export function evaluateTrade(input: {
         message: "La protezione richiede una scelta di contropartita.",
       });
     }
-    if (agreement.clause.startsWith("protected_top_") && !agreement.pickTransferred) {
-      errors.push({
-        code: "TRADE_PROTECTION_REQUIRES_PICK_TRANSFER",
-        message: "La protezione si può inserire soltanto sulla scelta trasferita nello stesso scambio.",
-      });
-    }
     if (
       agreement.clause.startsWith("protected_top_")
       && agreement.counterpartyOwnerTeamCode
@@ -360,13 +353,12 @@ export function evaluateTrade(input: {
     changedAgreements.add(change.agreementId);
     const participantCodes = new Set(input.teams.map((team) => team.code));
     if (
-      participantCodes.size !== 2
-      || !participantCodes.has(change.subjectOwnerTeamCode)
+      !participantCodes.has(change.subjectOwnerTeamCode)
       || !participantCodes.has(change.counterpartyOwnerTeamCode)
     ) {
       errors.push({
         code: "TRADE_EXISTING_CLAUSE_TEAMS_REQUIRED",
-        message: "Un accordo esistente può essere modificato o eliminato soltanto in uno scambio tra le due squadre interessate.",
+        message: "Un accordo esistente può essere modificato o eliminato soltanto se allo scambio partecipano entrambi gli attuali detentori delle scelte interessate.",
       });
     }
     if (change.action === "modify" && !change.clause) {

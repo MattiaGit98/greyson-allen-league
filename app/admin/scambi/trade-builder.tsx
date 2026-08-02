@@ -197,7 +197,6 @@ export function TradeBuilder({
     pickMoves,
     pickClauses: pickClauses.map((agreement) => ({
       ...agreement,
-      pickTransferred: pickMoves.some((move) => move.id === agreement.pickId),
       counterpartyOwnerTeamCode: agreement.counterpartyTeamCode,
     })),
     existingClauseChanges,
@@ -468,8 +467,6 @@ export function TradeBuilder({
           <span className="trade-section-label">Accordi esistenti</span>
           {existingClauseAgreements
             .filter((agreement) => (
-              participantCodes.length === 2
-              &&
               participantCodes.includes(agreement.subjectOwnerTeamCode)
               && participantCodes.includes(agreement.counterpartyOwnerTeamCode)
             ))

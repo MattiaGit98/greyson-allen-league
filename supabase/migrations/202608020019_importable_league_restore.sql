@@ -69,17 +69,19 @@ begin
   then
     raise exception 'Fase o annata del backup non valide' using errcode = '22023';
   end if;
-  if jsonb_typeof(state_payload) <> 'object'
-    or jsonb_typeof(state_payload -> 'teams') <> 'array'
-    or jsonb_typeof(state_payload -> 'rosterEntries') <> 'array'
-    or jsonb_typeof(state_payload -> 'draftAssets') <> 'array'
-    or jsonb_typeof(state_payload -> 'qualifyingOfferRights') <> 'array'
-    or jsonb_typeof(state_payload -> 'playerList') <> 'array'
+  if jsonb_typeof(state_payload) is distinct from 'object'
+    or jsonb_typeof(state_payload -> 'teams') is distinct from 'array'
+    or jsonb_typeof(state_payload -> 'rosterEntries') is distinct from 'array'
+    or jsonb_typeof(state_payload -> 'draftAssets') is distinct from 'array'
+    or jsonb_typeof(state_payload -> 'qualifyingOfferRights') is distinct from 'array'
+    or jsonb_typeof(state_payload -> 'playerList') is distinct from 'array'
   then
     raise exception 'Stato della lega non valido' using errcode = '22023';
   end if;
-  if jsonb_typeof(history_payload) <> 'object'
-    or jsonb_object_length(history_payload) <> 10
+  if jsonb_typeof(history_payload) is distinct from 'object' then
+    raise exception 'Storico del backup non valido' using errcode = '22023';
+  end if;
+  if (select count(*) from jsonb_object_keys(history_payload)) <> 10
     or not history_payload ?& array[
       'Albo d''oro', 'Numero titoli', 'Playoff', 'Coppa', 'All Star Game',
       'March Madness', 'Conference League', 'Draft', 'Regular season', 'Roster vincitore'
@@ -87,8 +89,10 @@ begin
   then
     raise exception 'Storico del backup non valido' using errcode = '22023';
   end if;
-  if jsonb_typeof(competition_payload) <> 'object'
-    or jsonb_object_length(competition_payload) <> 7
+  if jsonb_typeof(competition_payload) is distinct from 'object' then
+    raise exception 'Classifiche e tabelloni del backup non validi' using errcode = '22023';
+  end if;
+  if (select count(*) from jsonb_object_keys(competition_payload)) <> 7
     or not competition_payload ?& array[
       'Girone coppa', 'Tabellone coppa', 'Regular season', 'Playoff',
       'Conference League', 'All Star Game', 'March Madness'
@@ -96,10 +100,10 @@ begin
   then
     raise exception 'Classifiche e tabelloni del backup non validi' using errcode = '22023';
   end if;
-  if jsonb_typeof(calendar_payload) <> 'array' or jsonb_array_length(calendar_payload) > 300 then
+  if jsonb_typeof(calendar_payload) is distinct from 'array' or jsonb_array_length(calendar_payload) > 300 then
     raise exception 'Calendario del backup non valido' using errcode = '22023';
   end if;
-  if jsonb_typeof(movement_payload) <> 'array' or jsonb_array_length(movement_payload) > 50000 then
+  if jsonb_typeof(movement_payload) is distinct from 'array' or jsonb_array_length(movement_payload) > 50000 then
     raise exception 'Registro movimenti del backup non valido' using errcode = '22023';
   end if;
 
@@ -131,7 +135,8 @@ begin
       updated_at = excluded.updated_at,
       updated_by = excluded.updated_by;
 
-  delete from public.history_competition_content;
+  delete from public.history_competition_content
+  where category is not null;
   for item_key, item_value in select key, value from jsonb_each(history_payload)
   loop
     if jsonb_typeof(item_value) <> 'array' then
@@ -162,7 +167,8 @@ begin
     now()
   from jsonb_array_elements(calendar_payload) with ordinality as item(value, position);
 
-  delete from public.league_movements;
+  delete from public.league_movements
+  where id is not null;
   for item_value in select value from jsonb_array_elements(movement_payload)
   loop
     if jsonb_typeof(item_value) <> 'object'
@@ -207,7 +213,8 @@ begin
     );
   end loop;
 
-  delete from public.league_phase_backups;
+  delete from public.league_phase_backups
+  where id is not null;
 
   insert into public.audit_log(user_id, action, entity_type, old_data, new_data, reason)
   values (

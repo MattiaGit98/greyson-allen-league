@@ -1,6 +1,12 @@
 import type { PlayerListEntry, QualifyingOfferRight, RosterEntry } from "@/lib/league-types";
 import { advanceSeasonName, seasonEndYear } from "./season-time";
 import { applyTeamOptionFinalYearDoubling, teamOptionCutAdjustment } from "./team-option-contract";
+import {
+  applyPlayoffTeamOptionPromotion,
+  applySecondYearTwoWayPromotion,
+  requiresPlayoffTeamOptionPromotion,
+  requiresSecondYearTwoWayPromotion,
+} from "./two-way-promotions";
 
 export type LeagueAdvanceInput = {
   seasonName: string;
@@ -54,10 +60,22 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
       }
       return applyTeamOptionFinalYearDoubling(entryWithSeasonHistory, expiry);
     });
-  const reintegratedDpePlayers = retainedBeforeDpeReintegration
+  const promotedSecondYearTwoWayPlayers = retainedBeforeDpeReintegration
+    .filter((entry) => (
+      requiresSecondYearTwoWayPromotion(entry, input.seasonName)
+      && !requiresPlayoffTeamOptionPromotion(entry, nextSeasonName)
+    ))
+    .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
+  const promotedPlayoffTeamOptionPlayers = retainedBeforeDpeReintegration
+    .filter((entry) => requiresPlayoffTeamOptionPromotion(entry, nextSeasonName))
+    .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
+  const retainedBeforeDpeReintegrationAfterTwoWayPromotions = retainedBeforeDpeReintegration
+    .map((entry) => applySecondYearTwoWayPromotion(entry, input.seasonName))
+    .map((entry) => applyPlayoffTeamOptionPromotion(entry, nextSeasonName));
+  const reintegratedDpePlayers = retainedBeforeDpeReintegrationAfterTwoWayPromotions
     .filter((entry) => entry.state === "active" && entry.slot === "dpe")
     .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
-  const retainedEntries = retainedBeforeDpeReintegration.map((entry) => (
+  const retainedEntries = retainedBeforeDpeReintegrationAfterTwoWayPromotions.map((entry) => (
     entry.state === "active" && entry.slot === "dpe"
       ? { ...entry, slot: "regular" as const }
       : entry
@@ -98,6 +116,8 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     expiredContracts: input.rosterEntries.length - retainedEntries.length,
     generatedQualifyingOffers: generatedRights.length,
     doubledTeamOptions: doublingKeys.size,
+    promotedSecondYearTwoWayPlayers,
+    promotedPlayoffTeamOptionPlayers,
     reintegratedDpePlayers,
   };
 }

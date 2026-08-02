@@ -43,7 +43,6 @@ const actionGroups = [
   {
     title: "Rettifiche",
     actions: [
-      { href: "/admin/rettifiche", title: "Rettifiche roster" },
       { href: "/admin/movimenti", title: "Annulla movimenti" },
     ],
   },

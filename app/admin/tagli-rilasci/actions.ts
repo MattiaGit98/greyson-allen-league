@@ -230,7 +230,7 @@ function teamCapSpaces(entries: RosterEntry[], teamCode: string, seasonName: str
 }
 
 function revalidateOperationPaths() {
-  ["/squadre", "/giocatori", "/movimenti", "/admin", "/admin/altre-operazioni", "/admin/rettifiche"]
+  ["/squadre", "/giocatori", "/movimenti", "/admin", "/admin/altre-operazioni"]
     .forEach((path) => revalidatePath(path));
 }
 

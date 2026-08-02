@@ -169,6 +169,10 @@ export async function modifyAuctionPlayer(formData: FormData) {
 
   const { supabase, season } = await auctionContext();
   const state = await loadEditableLeagueState();
+  const pendingDraftPicks = currentSeasonDraftAssets(state, season.name);
+  if (pendingDraftPicks.length) {
+    fail(`Concludi prima il Draft ${season.name.slice(0, 4)}: restano ${pendingDraftPicks.length} scelte da assegnare.`);
+  }
   const player = state.playerList.find((item) => item.name === playerName);
   if (!player) fail("Il giocatore non è presente nel listone.");
   const entryIndex = state.rosterEntries.findIndex((entry) => (
@@ -330,7 +334,6 @@ async function persistAuctionState(
     "/admin",
     "/admin/asta",
     "/admin/contratti",
-    "/admin/rettifiche",
   ].forEach((path) => revalidatePath(path));
 }
 

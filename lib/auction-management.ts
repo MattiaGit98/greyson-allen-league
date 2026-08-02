@@ -69,8 +69,10 @@ export function qualifyingAuctionErrors({
   if ((outcome === "qualifying_offer" || outcome === "restricted_free_agent") && slot !== "regular") {
     errors.push("Un acquisto tramite Q.O. o come RFA deve essere inserito nel roster.");
   }
+  if (outcome === "qualifying_offer" || outcome === "restricted_free_agent") {
+    if (teamCode !== rightTeamCode) errors.push("L’acquisto tramite Q.O. o come restricted free agent spetta alla squadra che detiene il diritto.");
+  }
   if (outcome === "qualifying_offer") {
-    if (teamCode !== rightTeamCode) errors.push("La Q.O. può essere accettata soltanto dalla squadra che ne detiene il diritto.");
     if (price !== rightAmount) errors.push("Il prezzo della Q.O. accettata deve coincidere con il suo importo.");
   }
   if (outcome === "restricted_free_agent" && rightAmount !== undefined && price <= rightAmount) {

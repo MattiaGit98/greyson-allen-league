@@ -64,7 +64,7 @@ export async function saveDraftPositions(formData: FormData) {
     state_payload: { ...state, draftAssets, draftOrders, draftPositionYears },
   });
   if (response.error) fail(response.error.message);
-  ["/squadre", "/admin", "/admin/draft", returnPath, "/admin/rettifiche"]
+  ["/squadre", "/admin", "/admin/draft", returnPath]
     .forEach((path) => revalidatePath(path));
   const clauseDetail = resolvedClauses
     ? ` Risolte ${resolvedClauses} clausole; ${ownershipChanges} hanno modificato il proprietario delle scelte.`

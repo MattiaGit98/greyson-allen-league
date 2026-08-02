@@ -11,7 +11,6 @@ import {
 } from "./league-moments";
 import { draftOverallPosition } from "./draft-rules";
 import { calculateCapSpace, followingSeasonName } from "./season-time";
-import { buildTwoWayPromotionReport } from "./two-way-promotions";
 import { slotEligibilityErrors } from "./slot-eligibility";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
@@ -63,26 +62,6 @@ export function buildPreAdvanceChecklist(input: {
         article: "Art. 7(b)",
         href: "/admin/team-option",
         actionLabel: "Gestisci le team option",
-      });
-    }
-
-    const withoutPendingOptions = {
-      ...state,
-      rosterEntries: state.rosterEntries.filter((entry) => !isPendingTeamOption(entry)),
-    };
-    const promotions = buildTwoWayPromotionReport(withoutPendingOptions.teams, withoutPendingOptions.rosterEntries, seasonName);
-    if (promotions.blockedTeams.length) {
-      add({
-        id: "blocked-two-way-promotions",
-        tone: "blocker",
-        title: `${promotions.totalShortfall} slot roster mancanti per le promozioni obbligatorie`,
-        message: "Alla scadenza delle T.O. devono salire nel roster i giocatori al secondo anno nei Two-way e le T.O. esercitate per utilizzo nei playoff.",
-        items: promotions.blockedTeams.map((team) => (
-          `${team.teamCode}: ${team.players.join(", ")} · ${team.regularSlotsAvailable} slot liberi, ${team.shortfall} mancanti`
-        )),
-        article: "Art. 11(i)",
-        href: "/admin/altre-operazioni",
-        actionLabel: "Libera gli slot necessari",
       });
     }
 
@@ -304,22 +283,6 @@ export function buildPreAdvanceChecklist(input: {
         actionLabel: "Controlla le team option playoff",
       });
     }
-    const playoffOptions = state.rosterEntries.filter((entry) => (
-      entry.state === "active"
-      && Boolean(entry.playoffTeamOptionPromotionSeason)
-      && (entry.slot === "g_league" || entry.slot === "two_way")
-    ));
-    if (playoffOptions.length) {
-      add({
-        id: "playoff-team-option-promotions",
-        tone: "info",
-        title: `${playoffOptions.length} promozioni roster obbligatorie nella prossima offseason`,
-        message: "Le T.O. esercitate per utilizzo nei playoff resteranno nello slot attuale fino alla successiva scadenza T.O.",
-        items: groupPlayerEntries(playoffOptions),
-        href: "/admin/team-option",
-        actionLabel: "Controlla gli esercizi playoff",
-      });
-    }
     if (input.currentHistorySeason && input.currentHistorySeason !== seasonName) {
       add({
         id: "history-season-mismatch",
@@ -339,35 +302,69 @@ export function buildPreAdvanceChecklist(input: {
         qualifyingOfferRights: state.qualifyingOfferRights,
         playerList: state.playerList,
       });
-      const reintegrationIssues = state.teams.flatMap((team) => {
-        const players = advance.reintegratedDpePlayers.filter((player) => player.teamCode === team.code);
+      const rosterMoveIssues = state.teams.flatMap((team) => {
+        const twoWayPlayers = advance.promotedSecondYearTwoWayPlayers
+          .filter((player) => player.teamCode === team.code)
+          .map((player) => `${player.playerName} (Two-way)`);
+        const playoffOptionPlayers = advance.promotedPlayoffTeamOptionPlayers
+          .filter((player) => player.teamCode === team.code)
+          .map((player) => `${player.playerName} (T.O. playoff)`);
+        const dpePlayers = advance.reintegratedDpePlayers
+          .filter((player) => player.teamCode === team.code)
+          .map((player) => `${player.playerName} (DPE)`);
+        const players = [...twoWayPlayers, ...playoffOptionPlayers, ...dpePlayers];
         if (!players.length) return [];
         const regularUsed = advance.rosterEntries.filter((entry) => (
           entry.teamCode === team.code && entry.state === "active" && entry.slot === "regular"
         )).length;
         const overflow = Math.max(0, regularUsed - 15);
-        return overflow ? [`${team.code}: ${players.map((player) => player.playerName).join(", ")} · ${overflow} slot mancanti`] : [];
+        return overflow ? [{ teamCode: team.code, players, overflow }] : [];
       });
-      if (reintegrationIssues.length) {
+      if (rosterMoveIssues.length) {
+        const totalShortfall = rosterMoveIssues.reduce((total, issue) => total + issue.overflow, 0);
         add({
-          id: "blocked-dpe-reintegrations",
+          id: "blocked-offseason-roster-moves",
           tone: "blocker",
-          title: `${reintegrationIssues.length} squadre senza spazio per il reintegro DPE`,
-          message: "A fine stagione le DPE ancora sotto contratto tornano automaticamente negli slot roster.",
-          items: reintegrationIssues,
-          article: "Art. 12(c)",
+          title: `${totalShortfall} slot roster mancanti all’inizio dell’offseason`,
+          message: "All’inizio dell’offseason vengono promossi i Two-way al secondo anno e le T.O. esercitate per utilizzo nei playoff; le DPE vengono reintegrate.",
+          items: rosterMoveIssues.map((issue) => (
+            `${issue.teamCode}: ${issue.players.join(", ")} · ${issue.overflow} slot mancanti`
+          )),
+          article: "Art. 11(i, k); Art. 12(c)",
           href: "/admin/altre-operazioni",
           actionLabel: "Libera gli slot necessari",
         });
-      } else if (advance.reintegratedDpePlayers.length) {
-        add({
-          id: "dpe-reintegrations",
-          tone: "info",
-          title: `${advance.reintegratedDpePlayers.length} reintegri DPE al termine della stagione`,
-          message: "Questi giocatori saranno spostati automaticamente negli slot roster con il prossimo avanzamento.",
-          items: advance.reintegratedDpePlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
-          article: "Art. 12(c)",
-        });
+      } else {
+        if (advance.promotedSecondYearTwoWayPlayers.length) {
+          add({
+            id: "second-year-two-way-promotions",
+            tone: "info",
+            title: `${advance.promotedSecondYearTwoWayPlayers.length} promozioni Two-way all’inizio dell’offseason`,
+            message: "I giocatori al secondo anno saranno spostati automaticamente negli slot roster con il prossimo avanzamento.",
+            items: advance.promotedSecondYearTwoWayPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
+            article: "Art. 11(i)",
+          });
+        }
+        if (advance.promotedPlayoffTeamOptionPlayers.length) {
+          add({
+            id: "playoff-team-option-promotions",
+            tone: "info",
+            title: `${advance.promotedPlayoffTeamOptionPlayers.length} promozioni T.O. playoff all’inizio dell’offseason`,
+            message: "I giocatori saranno spostati automaticamente dalla G-League agli slot roster con il prossimo avanzamento.",
+            items: advance.promotedPlayoffTeamOptionPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
+            article: "Art. 11(k)",
+          });
+        }
+        if (advance.reintegratedDpePlayers.length) {
+          add({
+            id: "dpe-reintegrations",
+            tone: "info",
+            title: `${advance.reintegratedDpePlayers.length} reintegri DPE al termine della stagione`,
+            message: "Questi giocatori saranno spostati automaticamente negli slot roster con il prossimo avanzamento.",
+            items: advance.reintegratedDpePlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
+            article: "Art. 12(c)",
+          });
+        }
       }
     } catch (error) {
       add({
@@ -375,8 +372,8 @@ export function buildPreAdvanceChecklist(input: {
         tone: "blocker",
         title: "Dati contrattuali non validi per la chiusura della stagione",
         message: error instanceof Error ? error.message : "Controlla annata e contratti.",
-        href: "/admin/rettifiche",
-        actionLabel: "Controlla i roster",
+        href: "/admin/importa-dati",
+        actionLabel: "Ripristina un backup valido",
       });
     }
   }
@@ -469,8 +466,8 @@ function addStructuralAlerts(
       message: "Il regolamento non ammette eccezioni; l’avanzamento resta confermabile come forzatura amministrativa.",
       items: futureCapIssues,
       article: "Art. 9(e-f)",
-      href: "/admin/rettifiche",
-      actionLabel: "Controlla i contratti",
+      href: "/admin/altre-operazioni",
+      actionLabel: "Riduci il cap",
     });
   }
 
@@ -529,8 +526,8 @@ function addStructuralAlerts(
       message: "I diritti avrebbero dovuto essere risolti durante l’asta.",
       items: groupRights(state.qualifyingOfferRights),
       article: "Art. 8(b-e)",
-      href: "/admin/rettifiche",
-      actionLabel: "Correggi i roster",
+      href: "/admin/importa-dati",
+      actionLabel: "Ripristina un backup precedente",
     });
   }
 
@@ -544,8 +541,8 @@ function addStructuralAlerts(
         message: "La stagione non può proseguire con contratti dell’asta ancora incompleti.",
         items: groupPlayerEntries(staleContracts),
         article: "Art. 3(b-c)",
-        href: "/admin/rettifiche",
-        actionLabel: "Correggi i contratti",
+        href: "/admin/importa-dati",
+        actionLabel: "Ripristina un backup precedente",
       });
     }
   }

@@ -283,11 +283,15 @@ function SimplePlayerTable({
   seasonName: string;
   cutPlayers?: boolean;
 }) {
+  const sortedEntries = [...entries].sort((left, right) => (
+    contractCostForSeason(right, seasonName) - contractCostForSeason(left, seasonName)
+    || left.name.localeCompare(right.name, "it")
+  ));
   return (
     <div className={`data-table roster-data-table ${cutPlayers ? "cut-player-table" : ""}`}>
       <div className="data-head"><span>Giocatore</span><span>{cutPlayers ? "Stretch" : "Ruolo"}</span><span>Scadenza</span><span>Costo</span></div>
-      {entries.map((entry) => <PlayerDataRow entry={entry} seasonName={seasonName} cutPlayer={cutPlayers} key={`${entry.name}-${entry.state}`} />)}
-      {!entries.length && <EmptyRow />}
+      {sortedEntries.map((entry) => <PlayerDataRow entry={entry} seasonName={seasonName} cutPlayer={cutPlayers} key={`${entry.name}-${entry.state}`} />)}
+      {!sortedEntries.length && <EmptyRow />}
     </div>
   );
 }
@@ -374,7 +378,7 @@ function ContractDisplay({ value, auctionAcquisition, playoffTeamOptionPromotion
         title={marker.kind === "double"
           ? "Costo raddoppiato nell’ultimo anno"
           : marker.kind === "playoff-promotion"
-            ? `Promozione obbligatoria nel roster alla scadenza T.O. ${playoffTeamOptionPromotionSeason}`
+            ? `Promozione obbligatoria nel roster all’inizio dell’offseason ${playoffTeamOptionPromotionSeason}`
           : marker.kind === "acquisition-qo"
             ? "Acquistato tramite Q.O. accettata"
             : marker.kind === "rfa" ? "Acquistato come restricted free agent" : undefined}

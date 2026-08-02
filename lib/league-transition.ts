@@ -7,7 +7,6 @@ import {
   type LeagueTransition,
 } from "./league-moments";
 import { buildPreAdvanceChecklist, type PreAdvanceAlert } from "./pre-advance-alerts";
-import { applyMandatoryTwoWayPromotion, buildTwoWayPromotionReport } from "./two-way-promotions";
 
 export type LeagueTransitionPreview = {
   transition: LeagueTransition;
@@ -37,12 +36,6 @@ export function buildLeagueTransitionPreview(input: {
   };
 
   if (transition === "team_option_deadline") {
-    const withoutExpiredOptions = {
-      ...input.state,
-      rosterEntries: input.state.rosterEntries.filter((entry) => !(entry.state === "active" && entry.contract === "T.O.")),
-    };
-    const promotionReport = buildTwoWayPromotionReport(withoutExpiredOptions.teams, withoutExpiredOptions.rosterEntries, input.seasonName);
-    preview.automaticActions.push(`${promotionReport.totalPlayers} giocatori soggetti a promozione obbligatoria saranno spostati nel roster.`);
     preview.newPossibilities.push("Si apre il Draft.");
     preview.newPossibilities.push("Si apre la finestra speciale per spostare verso Two-way e G-League i giocatori al primo anno che rispettano i requisiti.");
     preview.closedPossibilities.push("Non sarà più possibile esercitare le team option.");
@@ -94,6 +87,8 @@ export function buildLeagueTransitionPreview(input: {
       preview.automaticActions.push(`${advance.expiredContracts} contratti in scadenza saranno rimossi.`);
       preview.automaticActions.push(`${advance.generatedQualifyingOffers} diritti di Q.O. saranno generati.`);
       preview.automaticActions.push(`${advance.doubledTeamOptions} ex T.O. saranno raddoppiate e marcate + Q.O.`);
+      preview.automaticActions.push(`${advance.promotedSecondYearTwoWayPlayers.length} giocatori al secondo anno nei Two-way saranno promossi negli slot roster.`);
+      preview.automaticActions.push(`${advance.promotedPlayoffTeamOptionPlayers.length} T.O. esercitate per utilizzo nei playoff saranno promosse negli slot roster.`);
       preview.automaticActions.push(`${advance.reintegratedDpePlayers.length} giocatori in DPE saranno reintegrati negli slot roster.`);
       preview.automaticActions.push(`Il listone sarà ricreato con ${advance.playerList.length} giocatori sotto contratto o con Q.O.`);
       preview.automaticActions.push("Classifiche e tabelloni correnti saranno importati nello storico.");
@@ -118,14 +113,10 @@ export function buildLeagueTransitionPreview(input: {
   return preview;
 }
 
-export function applyTeamOptionDeadline(state: EditableLeagueState, seasonName: string) {
-  const withoutExpiredOptions = {
+export function applyTeamOptionDeadline(state: EditableLeagueState) {
+  return {
     ...state,
     rosterEntries: state.rosterEntries.filter((entry) => !(entry.state === "active" && entry.contract === "T.O.")),
-  };
-  return {
-    ...withoutExpiredOptions,
-    rosterEntries: withoutExpiredOptions.rosterEntries.map((entry) => applyMandatoryTwoWayPromotion(entry, seasonName)),
   };
 }
 

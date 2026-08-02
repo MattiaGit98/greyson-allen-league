@@ -65,7 +65,7 @@ export async function moveRosterSlot(formData: FormData) {
     `${playerName}: ${slotLabel(sourceSlot)} → ${slotLabel(destination)}`,
   );
   if (response.error) fail(response.error.message);
-  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/rettifiche", "/admin/altre-operazioni"]
+  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/altre-operazioni"]
     .forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${encodeURIComponent(`${playerName}: ${slotLabel(sourceSlot)} → ${slotLabel(destination)}.`)}`);
 }

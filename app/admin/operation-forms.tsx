@@ -285,7 +285,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
                 </label>
               </div>
               <div className="team-option-destination">
-                {selected[player.id] ? <span>Roster obbligatorio<br />alla prossima scadenza T.O.</span> : <span>—</span>}
+                {selected[player.id] ? <span>Roster obbligatorio<br />all’inizio della prossima offseason</span> : <span>—</span>}
               </div>
             </div>
           ))}
@@ -302,7 +302,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
           <Metric label={`Spazio ${nextSeasonName}`} value={formatSpace(nextSpaceAfter)} />
           <Metric label={`Spazio ${followingSeasonName}`} value={formatSpace(followingSpaceAfter)} />
           <Metric label="Slot attuale" value="G-League" />
-          <Metric label="Promozione" value={`${nextSeasonName} · scadenza T.O.`} />
+          <Metric label="Promozione" value={`${nextSeasonName} · inizio offseason`} />
         </div>
         <Validation valid={!errors.length && selectedPlayers.length > 0} errors={errors} />
         <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
@@ -361,12 +361,12 @@ export function SlotMoveForm(props: OperationProps) {
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="player_name" value={player?.name ?? ""} />
       <input type="hidden" name="destination" value={destination} />
-      <label className="roster-editor-team-select">
+      <label className="admin-team-select">
         <span>Squadra</span>
         <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setPlayerId(""); }} />
       </label>
 
-      <div className="team-accordion-content roster-editor-content slot-management-content">
+      <div className="team-accordion-content admin-editor-content slot-management-content">
         <div className="current-cap-highlight">
           <span>Cap libero {capSeasonNames[0]}</span>
           <strong>{formatSpace(capSpaces[0])}</strong>

@@ -1,4 +1,4 @@
-import { buildMovementReversal } from "@/lib/league-movements";
+import { buildMovementReversal, movementReversalSlotErrors } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { UndoMovementButton } from "./undo-movement-button";
@@ -14,7 +14,16 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
     let reason = "";
     if (reversible) {
       try {
-        buildMovementReversal(current, normalizeState(movement.before_state), normalizeState(movement.after_state));
+        const restored = buildMovementReversal(
+          current,
+          normalizeState(movement.before_state),
+          normalizeState(movement.after_state),
+        );
+        const slotErrors = movementReversalSlotErrors(current, restored);
+        if (slotErrors.length) {
+          reversible = false;
+          reason = `${slotErrors.join(" ")} L'annullamento ricreerebbe un conflitto di slot.`;
+        }
       } catch (error) {
         reversible = false;
         reason = error instanceof Error ? error.message : "Non annullabile.";

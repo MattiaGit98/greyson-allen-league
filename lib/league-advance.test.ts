@@ -109,11 +109,34 @@ describe("avanzamento della lega", () => {
     expect(dpeResult.reintegratedDpePlayers).toEqual([{ playerName: "DPE lunga", teamCode: "AAA" }]);
   });
 
+  it("promuove all’inizio dell’offseason i Two-way che hanno concluso il secondo anno", () => {
+    const promotionResult = calculateLeagueAdvance({
+      seasonName: "2026/27",
+      rosterEntries: [
+        { name: "Secondo anno", cost: 4, contract: "28", contractStartSeason: "2025/26", role: "G", state: "active", slot: "two_way", teamCode: "AAA" },
+        { name: "Primo anno", cost: 4, contract: "29", contractStartSeason: "2026/27", role: "A", state: "active", slot: "two_way", teamCode: "AAA" },
+        { name: "Secondo anno in scadenza", cost: 4, contract: "27", contractStartSeason: "2025/26", role: "C", state: "active", slot: "two_way", teamCode: "AAA" },
+      ],
+      qualifyingOfferRights: [],
+      playerList: [
+        { name: "Secondo anno", role: "G", realTeam: "", rookie: false, under23: false },
+        { name: "Primo anno", role: "A", realTeam: "", rookie: false, under23: false },
+        { name: "Secondo anno in scadenza", role: "C", realTeam: "", rookie: false, under23: false },
+      ],
+    });
+    expect(promotionResult.rosterEntries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Secondo anno", slot: "regular", twoWayPromotionLocked: true }),
+      expect.objectContaining({ name: "Primo anno", slot: "two_way", twoWayPromotionLocked: false }),
+    ]));
+    expect(promotionResult.rosterEntries.some((entry) => entry.name === "Secondo anno in scadenza")).toBe(false);
+    expect(promotionResult.promotedSecondYearTwoWayPlayers).toEqual([{ playerName: "Secondo anno", teamCode: "AAA" }]);
+  });
+
   it("ricorda chi ha concluso la stagione precedente in G-League", () => {
     const historyResult = calculateLeagueAdvance({
       seasonName: "2026/27",
       rosterEntries: [
-        { name: "Dalla G-League", cost: 4, contract: "28", role: "G", state: "active", slot: "g_league", teamCode: "AAA", playoffTeamOptionPromotionSeason: "2027/28" },
+        { name: "Dalla G-League", cost: 4, contract: "28", role: "G", state: "active", slot: "g_league", teamCode: "AAA" },
         { name: "Dal roster", cost: 4, contract: "28", role: "A", state: "active", slot: "regular", teamCode: "AAA", endedPreviousSeasonInGLeague: true, twoWayPromotionLocked: true },
       ],
       qualifyingOfferRights: [],
@@ -123,8 +146,28 @@ describe("avanzamento della lega", () => {
       ],
     });
     expect(historyResult.rosterEntries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: "Dalla G-League", endedPreviousSeasonInGLeague: true, playoffTeamOptionPromotionSeason: "2027/28" }),
+      expect.objectContaining({ name: "Dalla G-League", slot: "g_league", endedPreviousSeasonInGLeague: true }),
       expect.objectContaining({ name: "Dal roster", endedPreviousSeasonInGLeague: false, twoWayPromotionLocked: false }),
     ]));
+  });
+
+  it("promuove all’inizio dell’offseason la T.O. esercitata per utilizzo nei playoff", () => {
+    const playoffResult = calculateLeagueAdvance({
+      seasonName: "2026/27",
+      rosterEntries: [
+        { name: "T.O. playoff", cost: 4, contract: "29 (2X)", role: "G", state: "active", slot: "g_league", teamCode: "AAA", playoffTeamOptionPromotionSeason: "2027/28" },
+      ],
+      qualifyingOfferRights: [],
+      playerList: [
+        { name: "T.O. playoff", role: "G", realTeam: "", rookie: false, under23: true },
+      ],
+    });
+    expect(playoffResult.rosterEntries[0]).toMatchObject({
+      name: "T.O. playoff",
+      slot: "regular",
+      twoWayPromotionLocked: true,
+    });
+    expect(playoffResult.rosterEntries[0]?.playoffTeamOptionPromotionSeason).toBeUndefined();
+    expect(playoffResult.promotedPlayoffTeamOptionPlayers).toEqual([{ playerName: "T.O. playoff", teamCode: "AAA" }]);
   });
 });

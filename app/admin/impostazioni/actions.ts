@@ -19,7 +19,6 @@ import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-
 import { applyTeamOptionDeadline, buildLeagueTransitionPreview } from "@/lib/league-transition";
 import { savePhaseBackup } from "@/lib/phase-backups";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { applyMandatoryTwoWayPromotion, buildTwoWayPromotionReport } from "@/lib/two-way-promotions";
 
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 const seasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment";
@@ -88,7 +87,7 @@ export async function advanceLeaguePhaseStep() {
   }
 
   let nextState = state;
-  if (transition === "team_option_deadline") nextState = applyTeamOptionDeadline(state, season.name);
+  if (transition === "team_option_deadline") nextState = applyTeamOptionDeadline(state);
   if (nextState !== state) {
     const savedState = await supabase.rpc("replace_league_state", { state_payload: nextState });
     if (savedState.error) {
@@ -147,29 +146,6 @@ export async function restoreLatestPhaseBackup(formData: FormData) {
   redirect("/admin/impostazioni?restored=1");
 }
 
-export async function promoteMandatoryTwoWayPlayers() {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) redirect("/admin/impostazioni?error=supabase-non-configurato");
-  const activeSeason = await supabase.from("seasons").select(seasonSelection).eq("is_active", true).maybeSingle();
-  if (activeSeason.error || !activeSeason.data) redirect(`/admin/impostazioni?error=${encodeURIComponent(activeSeason.error?.message ?? "Nessuna stagione attiva")}`);
-  if (leagueMomentFromSeason(activeSeason.data) !== "team_option_deadline") {
-    redirect("/admin/impostazioni?error=promozioni-disponibili-alla-scadenza-delle-team-option");
-  }
-  const activeSeasonName = activeSeason.data.name;
-  const state = await loadEditableLeagueState();
-  const report = buildTwoWayPromotionReport(state.teams, state.rosterEntries, activeSeasonName);
-  if (!report.totalPlayers) redirect("/admin/impostazioni?error=nessuna-promozione-two-way-da-eseguire");
-  if (report.totalShortfall > 0) redirect(`/admin/impostazioni?error=${encodeURIComponent(`Libera prima gli slot roster mancanti: ${report.blockedTeams.map((team) => `${team.teamCode} (${team.shortfall})`).join(", ")}.`)}`);
-  const nextState = {
-    ...state,
-    rosterEntries: state.rosterEntries.map((entry) => applyMandatoryTwoWayPromotion(entry, activeSeasonName)),
-  };
-  const response = await supabase.rpc("replace_league_state", { state_payload: nextState });
-  if (response.error) redirect(`/admin/impostazioni?error=${encodeURIComponent(response.error.message)}`);
-  revalidateLeaguePages();
-  redirect(`/admin/impostazioni?promoted=${report.totalPlayers}`);
-}
-
 // Compatibilità con il vecchio componente: la chiusura ora passa dalla stessa sequenza guidata.
 export async function advanceLeagueSeason() {
   return advanceLeaguePhaseStep();
@@ -214,7 +190,7 @@ function revalidateLeaguePages() {
   [
     "/", "/squadre", "/giocatori", "/competizioni", "/storico", "/admin", "/admin/impostazioni",
     "/admin/team-option", "/admin/asta", "/admin/contratti", "/admin/free-agent", "/admin/scambi",
-    "/admin/draft", "/admin/altre-operazioni", "/admin/rettifiche", "/admin/storico", "/admin/contenuti",
+    "/admin/draft", "/admin/altre-operazioni", "/admin/storico", "/admin/contenuti",
   ].forEach((route) => revalidatePath(route));
 }
 

@@ -17,12 +17,8 @@ export type TwoWayPromotionReport = {
   blockedTeams: TwoWayPromotionTeam[];
 };
 
-export function requiresMandatoryTwoWayPromotion(entry: RosterEntry, seasonName: string) {
+export function requiresSecondYearTwoWayPromotion(entry: RosterEntry, completedSeasonName: string) {
   const contract = entry.contract.trim().toLocaleUpperCase("it");
-  const playoffPromotionDue = entry.playoffTeamOptionPromotionSeason === seasonName
-    && entry.state === "active"
-    && (entry.slot === "g_league" || entry.slot === "two_way");
-  if (playoffPromotionDue) return true;
   const hasKnownLifecycle = Boolean(
     entry.contractStartSeason
     || entry.teamOptionFinalYear
@@ -30,37 +26,44 @@ export function requiresMandatoryTwoWayPromotion(entry: RosterEntry, seasonName:
   );
   return entry.state === "active"
     && entry.slot === "two_way"
-    && entry.endedPreviousSeasonInGLeague !== true
     && Boolean(contract)
     && contract !== "T.O."
     && contract !== "-"
     && contract !== "DA ASSEGNARE"
     && contract !== "PENDING"
-    && (isSecondContractYear(entry, seasonName) || !hasKnownLifecycle);
+    && (isSecondContractYear(entry, completedSeasonName) || !hasKnownLifecycle);
 }
 
-export function applyMandatoryTwoWayPromotion(entry: RosterEntry, seasonName: string): RosterEntry {
-  if (entry.playoffTeamOptionPromotionSeason === seasonName) {
-    return {
-      ...entry,
-      slot: entry.state === "active" && (entry.slot === "g_league" || entry.slot === "two_way") ? "regular" : entry.slot,
-      playoffTeamOptionPromotionSeason: undefined,
-      twoWayPromotionLocked: entry.state === "active" && entry.slot !== "regular" ? true : entry.twoWayPromotionLocked,
-    };
-  }
-  return requiresMandatoryTwoWayPromotion(entry, seasonName)
+export function requiresPlayoffTeamOptionPromotion(entry: RosterEntry, seasonName: string) {
+  return entry.playoffTeamOptionPromotionSeason === seasonName
+    && entry.state === "active"
+    && (entry.slot === "g_league" || entry.slot === "two_way");
+}
+
+export function applySecondYearTwoWayPromotion(entry: RosterEntry, completedSeasonName: string): RosterEntry {
+  return requiresSecondYearTwoWayPromotion(entry, completedSeasonName)
     ? { ...entry, slot: "regular", twoWayPromotionLocked: true }
     : entry;
 }
 
-export function buildTwoWayPromotionReport(
+export function applyPlayoffTeamOptionPromotion(entry: RosterEntry, seasonName: string): RosterEntry {
+  if (!requiresPlayoffTeamOptionPromotion(entry, seasonName)) return entry;
+  return {
+    ...entry,
+    slot: "regular",
+    playoffTeamOptionPromotionSeason: undefined,
+    twoWayPromotionLocked: true,
+  };
+}
+
+function buildPromotionReport(
   teams: Pick<TeamSummary, "code" | "name">[],
   rosterEntries: RosterEntry[],
-  seasonName: string,
+  isDue: (entry: RosterEntry) => boolean,
 ): TwoWayPromotionReport {
   const promotionTeams = teams.flatMap((team) => {
     const entries = rosterEntries.filter((entry) => entry.teamCode === team.code);
-    const players = entries.filter((entry) => requiresMandatoryTwoWayPromotion(entry, seasonName)).map((entry) => entry.name);
+    const players = entries.filter(isDue).map((entry) => entry.name);
     if (!players.length) return [];
     const regularSlotsUsed = entries.filter((entry) => entry.state === "active" && entry.slot === "regular").length;
     const regularSlotsAvailable = Math.max(0, 15 - regularSlotsUsed);
@@ -80,4 +83,16 @@ export function buildTwoWayPromotionReport(
     totalShortfall: promotionTeams.reduce((total, team) => total + team.shortfall, 0),
     blockedTeams: promotionTeams.filter((team) => team.shortfall > 0),
   };
+}
+
+export function buildSecondYearTwoWayPromotionReport(
+  teams: Pick<TeamSummary, "code" | "name">[],
+  rosterEntries: RosterEntry[],
+  completedSeasonName: string,
+) {
+  return buildPromotionReport(
+    teams,
+    rosterEntries,
+    (entry) => requiresSecondYearTwoWayPromotion(entry, completedSeasonName),
+  );
 }

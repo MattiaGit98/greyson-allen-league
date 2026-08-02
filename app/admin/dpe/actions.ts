@@ -68,7 +68,7 @@ export async function applyDpeOperation(formData: FormData) {
   const label = operation === "dpe_activate" ? "Esercizio DPE" : "Reintegro anticipato dalla DPE";
   const response = await persistLeagueMovement(supabase, state, nextState, operation, capOverrideSummary(`${label}: ${playerName}`, capWarnings, forceCap));
   if (response.error) fail(response.error.message);
-  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni", "/admin/rettifiche"]
+  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni"]
     .forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${encodeURIComponent(`${label} registrato per ${playerName}.`)}`);
 }

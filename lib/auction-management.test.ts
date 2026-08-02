@@ -61,7 +61,7 @@ describe("pannello asta", () => {
   });
 
   it("richiede che l'offerta RFA superi la qualifying offer rifiutata", () => {
-    expect(qualifyingAuctionErrors({
+    const wrongHolder = qualifyingAuctionErrors({
       hasQualifyingRight: true,
       outcome: "restricted_free_agent",
       rightTeamCode: "AAA",
@@ -69,7 +69,9 @@ describe("pannello asta", () => {
       teamCode: "BBB",
       price: 7,
       slot: "regular",
-    })).toContain("L'offerta finale per un restricted free agent deve superare l'importo della Q.O. rifiutata.");
+    });
+    expect(wrongHolder).toContain("L'offerta finale per un restricted free agent deve superare l'importo della Q.O. rifiutata.");
+    expect(wrongHolder).toContain("L’acquisto tramite Q.O. o come restricted free agent spetta alla squadra che detiene il diritto.");
     expect(qualifyingAuctionErrors({
       hasQualifyingRight: true,
       outcome: "restricted_free_agent",

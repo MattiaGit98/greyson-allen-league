@@ -281,26 +281,14 @@ describe("trade rules", () => {
     expect(result.errors.some((error) => error.code === "TRADE_PICK_ALREADY_CONDITIONED")).toBe(true);
   });
 
-  it("requires the protected pick to be transferred and its counterparty to remain with the protecting team", () => {
+  it("allows a protection on a pick that is not transferred in the same trade", () => {
     const result = evaluateTrade({
       phase: "offseason",
       tradableDraftYears: [2027, 2028, 2029],
       protectionCounterpartyDraftYears: [2027, 2028, 2029, 2030],
       teams: teams.slice(0, 2),
       playerMoves: [],
-      pickMoves: [{
-        id: "aaa-pick",
-        fromTeamCode: "AAA",
-        toTeamCode: "BBB",
-        year: 2027,
-        round: "1° giro",
-        hasExistingCondition: false,
-        clause: "none",
-        counterpartyPickId: null,
-        counterpartyYear: null,
-        counterpartyRound: null,
-        counterpartyHasExistingCondition: false,
-      }],
+      pickMoves: [],
       pickClauses: [{
         id: "clause-one",
         pickId: "aaa-pick",
@@ -315,7 +303,6 @@ describe("trade rules", () => {
         counterpartyRound: "1° giro",
         counterpartyHasExistingCondition: false,
         counterpartyOwnerTeamCode: "AAA",
-        pickTransferred: true,
       }],
       cuts: [],
     });
@@ -343,13 +330,61 @@ describe("trade rules", () => {
         counterpartyRound: "1° giro",
         counterpartyHasExistingCondition: false,
         counterpartyOwnerTeamCode: "BBB",
-        pickTransferred: false,
       }],
       cuts: [],
     });
 
     expect(result.errors.some((error) => error.code === "TRADE_PROTECTION_COUNTERPART_OWNER_INVALID")).toBe(true);
-    expect(result.errors.some((error) => error.code === "TRADE_PROTECTION_REQUIRES_PICK_TRANSFER")).toBe(true);
+  });
+
+  it("allows an existing clause to change in a multi-team trade when both pick holders participate", () => {
+    const result = evaluateTrade({
+      phase: "offseason",
+      tradableDraftYears: [2027, 2028, 2029],
+      protectionCounterpartyDraftYears: [2027, 2028, 2029, 2030],
+      teams,
+      playerMoves: [],
+      pickMoves: [],
+      existingClauseChanges: [{
+        agreementId: "agreement-one",
+        subjectOwnerTeamCode: "AAA",
+        counterpartyOwnerTeamCode: "BBB",
+        subjectYear: 2027,
+        counterpartyYear: 2028,
+        subjectRound: "1° giro",
+        counterpartyRound: "1° giro",
+        action: "modify",
+        clause: "protected_top_3",
+      }],
+      cuts: [],
+    });
+
+    expect(result.errors.some((error) => error.code === "TRADE_EXISTING_CLAUSE_TEAMS_REQUIRED")).toBe(false);
+    expect(result.valid).toBe(true);
+  });
+
+  it("blocks an existing-clause change when one of the two current holders is absent", () => {
+    const result = evaluateTrade({
+      phase: "offseason",
+      tradableDraftYears: [2027, 2028, 2029],
+      teams: [teams[0], teams[2]],
+      playerMoves: [],
+      pickMoves: [],
+      existingClauseChanges: [{
+        agreementId: "agreement-one",
+        subjectOwnerTeamCode: "AAA",
+        counterpartyOwnerTeamCode: "BBB",
+        subjectYear: 2027,
+        counterpartyYear: 2028,
+        subjectRound: "1° giro",
+        counterpartyRound: "1° giro",
+        action: "remove",
+        clause: null,
+      }],
+      cuts: [],
+    });
+
+    expect(result.errors.some((error) => error.code === "TRADE_EXISTING_CLAUSE_TEAMS_REQUIRED")).toBe(true);
   });
 
   it("allows qualifying-offer trades only during the offseason", () => {

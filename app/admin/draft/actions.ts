@@ -72,7 +72,6 @@ export async function assignDraftPlayer(formData: FormData) {
     "/storico",
     "/admin",
     "/admin/draft",
-    "/admin/rettifiche",
     "/admin/storico",
     "/admin/contratti",
     "/admin/posizioni-draft",

@@ -2,9 +2,9 @@
 
 import { useActionState, useEffect, useState } from "react";
 import type { TeamSummary } from "@/lib/league-types";
-import { saveTeamIdentity, type LeagueEditorSaveState } from "@/app/admin/rettifiche/actions";
+import { saveTeamIdentity, type TeamIdentitySaveState } from "./actions";
 
-const initialState: LeagueEditorSaveState = {};
+const initialState: TeamIdentitySaveState = {};
 
 export function TeamIdentityEditor({ teams }: { teams: TeamSummary[] }) {
   const [selectedCode, setSelectedCode] = useState(teams[0]?.code ?? "");
@@ -15,7 +15,7 @@ export function TeamIdentityEditor({ teams }: { teams: TeamSummary[] }) {
 
   return (
     <div className="team-identity-editor">
-      <label className="roster-editor-team-select">
+      <label className="admin-team-select">
         <span>Squadra</span>
         <select value={selectedCode} onChange={(event) => setSelectedCode(event.target.value)}>
           {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}

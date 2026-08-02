@@ -169,7 +169,7 @@ export async function signFreeAgent(formData: FormData) {
   );
   if (response.error) fail(response.error.message);
 
-  ["/squadre", "/giocatori", "/movimenti", "/asta", "/admin", path, "/admin/listone", "/admin/asta", "/admin/rettifiche"].forEach((route) => revalidatePath(route));
+  ["/squadre", "/giocatori", "/movimenti", "/asta", "/admin", path, "/admin/listone", "/admin/asta"].forEach((route) => revalidatePath(route));
   const suffix = cutPlayer ? ` Taglio contestuale: ${cutPlayer.name}.` : "";
   redirect(`${path}?updated=${encodeURIComponent(`${player.name} firmato da ${teamCode} per ${price}.${suffix}`)}`);
 }

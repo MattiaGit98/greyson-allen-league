@@ -124,7 +124,7 @@ export async function assignPostAuctionContracts(formData: FormData) {
     capOverrideSummary(`${assignments.length} contratti assegnati a ${teamCode}`, capWarnings, forceCap),
   );
   if (response.error) fail(response.error.message);
-  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/asta", "/admin/rettifiche"].forEach((route) => revalidatePath(route));
+  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/asta"].forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${assignments.length}`);
 }
 

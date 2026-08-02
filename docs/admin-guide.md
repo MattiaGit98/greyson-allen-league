@@ -3,7 +3,7 @@
 ## Flusso normale
 
 1. Aprire `/admin` e controllare gli avvisi prima del prossimo avanzamento.
-2. Usare il blocco specifico per l'operazione; **Rettifiche roster** è riservato alle correzioni manuali.
+2. Usare sempre il blocco specifico per l'operazione.
 3. Leggere errori, avvisi di cap e situazione prima/dopo.
 4. Confermare l'operazione. Ogni salvataggio aggiorna lo stato corrente e registra il movimento.
 5. Usare **Annulla movimenti** solo se gli elementi coinvolti non sono stati modificati da operazioni successive.
@@ -23,4 +23,4 @@ Il passaggio crea un backup della situazione immediatamente precedente. La modif
 
 Le pagine pubbliche e amministrative leggono lo stesso stato Supabase. Se lo stato non è disponibile, il sito mostra un errore esplicito invece di usare dati iniziali o valori dimostrativi.
 
-La lista Movimenti è un registro persistente: non nasce dal confronto con vecchi snapshot. Le rettifiche e gli annullamenti sono anch'essi operazioni registrate.
+La lista Movimenti è un registro persistente: non nasce dal confronto con vecchi snapshot. Gli annullamenti sono anch'essi operazioni registrate.

@@ -42,7 +42,7 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
 
   return (
     <>
-      <label className="roster-editor-team-select other-operations-team-select">
+      <label className="admin-team-select other-operations-team-select">
         <span>Squadra</span>
         <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setSelectedPlayerId(null); }}>
           {props.teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
@@ -59,7 +59,9 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
           </div>
 
           {groups.map((group) => {
-            const rows = team.players.filter((player) => placementOf(player) === group.key);
+            const rows = team.players
+              .filter((player) => placementOf(player) === group.key)
+              .sort((left, right) => right.cost - left.cost || left.name.localeCompare(right.name, "it"));
             return (
               <section className="accordion-data-section other-operations-section" key={group.key}>
                 <p>{group.label}{group.limit ? ` (${rows.length}/${group.limit})` : ""}</p>

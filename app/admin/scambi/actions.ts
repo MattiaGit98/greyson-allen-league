@@ -204,7 +204,6 @@ export async function registerTrade(formData: FormData) {
       counterpartyRound: counterpart?.pick.round ?? null,
       counterpartyHasExistingCondition: counterpart ? hasDraftCondition(counterpart.pick) : false,
       counterpartyOwnerTeamCode: counterpart?.pick.teamCode ?? null,
-      pickTransferred: payload.pickMoves.some((move) => move.id === requested.pickId),
     };
   });
 
@@ -364,7 +363,7 @@ export async function registerTrade(formData: FormData) {
       movementSummary,
     );
   if (response.error) fail(response.error.message);
-  ["/squadre", "/giocatori", "/movimenti", "/storico", "/admin", path, "/admin/draft", "/admin/contratti", "/admin/rettifiche", "/admin/posizioni-draft"]
+  ["/squadre", "/giocatori", "/movimenti", "/storico", "/admin", path, "/admin/draft", "/admin/contratti", "/admin/posizioni-draft"]
     .forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${encodeURIComponent(provisionalSignAndTrade ? "Sign and trade registrato." : "Scambio registrato.")}`);
 

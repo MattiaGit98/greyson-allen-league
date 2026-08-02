@@ -74,7 +74,7 @@ export async function saveTeamOptionDecisions(formData: FormData) {
   const nextState = { ...state, rosterEntries };
   const response = await persistLeagueMovement(supabase, state, nextState, "team_option", capOverrideSummary(`${decisions.length} team option risolte per ${teamCode}`, capWarnings, forceCap));
   if (response.error) fail(response.error.message);
-  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni", "/admin/rettifiche"].forEach((route) => revalidatePath(route));
+  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni"].forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${decisions.length}`);
 }
 
@@ -136,7 +136,7 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
     capOverrideSummary(`${playerNames.length} team option esercitate per utilizzo nei playoff da ${teamCode}`, capWarnings, forceCap),
   );
   if (response.error) fail(response.error.message);
-  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni", "/admin/rettifiche"].forEach((route) => revalidatePath(route));
+  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni"].forEach((route) => revalidatePath(route));
   redirect(`${path}?playoff_updated=${playerNames.length}`);
 }
 

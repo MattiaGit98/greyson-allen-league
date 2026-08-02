@@ -36,13 +36,13 @@ export function buildMovementReversal(
 ): EditableLeagueState {
   return {
     ...current,
-    rosterEntries: restoreGroups(
+    rosterEntries: sortRosterEntriesByBlock(restoreGroups(
       current.rosterEntries,
       before.rosterEntries,
       after.rosterEntries,
       (entry) => entry.name.trim().toLocaleLowerCase("it-IT"),
       "giocatori coinvolti",
-    ),
+    )),
     draftAssets: restoreGroups(
       current.draftAssets,
       before.draftAssets,
@@ -65,6 +65,25 @@ export function buildMovementReversal(
       "giocatori del listone coinvolti",
     ),
   };
+}
+
+export function movementReversalSlotErrors(
+  current: EditableLeagueState,
+  restored: EditableLeagueState,
+) {
+  const affectedTeams = changedSlotTeamCodes(current.rosterEntries, restored.rosterEntries);
+  return findAllSlotOverflows(restored.rosterEntries, affectedTeams).map(slotOverflowMessage);
+}
+
+function sortRosterEntriesByBlock(entries: EditableLeagueState["rosterEntries"]) {
+  const blockOrder = { regular: 0, two_way: 1, g_league: 2, dpe: 3 } as const;
+  return [...entries].sort((left, right) => (
+    left.teamCode.localeCompare(right.teamCode, "it")
+    || Number(left.state === "cut") - Number(right.state === "cut")
+    || blockOrder[left.slot] - blockOrder[right.slot]
+    || right.cost - left.cost
+    || left.name.localeCompare(right.name, "it")
+  ));
 }
 
 function restoreGroups<T>(

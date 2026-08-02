@@ -114,7 +114,7 @@ export function AuctionPanel({
           if (event.target === event.currentTarget) setSelectedName(null);
         }}>
           {selected.roster
-            ? <EditPlayerDialog key={`edit-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} onClose={() => setSelectedName(null)} />
+            ? <EditPlayerDialog key={`edit-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setSelectedName(null)} />
             : <PurchasePlayerDialog key={`buy-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setSelectedName(null)} />}
         </div>
       )}
@@ -130,7 +130,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   const [qualifyingOutcome, setQualifyingOutcome] = useState<QualifyingAuctionOutcome | "">(row.qualifying ? "" : "normal");
   const [forceCap, setForceCap] = useState(false);
   const constrainedAcquisition = qualifyingOutcome === "qualifying_offer" || qualifyingOutcome === "restricted_free_agent";
-  const effectiveTeamCode = qualifyingOutcome === "qualifying_offer" ? row.qualifying?.teamCode ?? "" : teamCode;
+  const effectiveTeamCode = constrainedAcquisition ? row.qualifying?.teamCode ?? "" : teamCode;
   const effectivePrice = qualifyingOutcome === "qualifying_offer" ? row.qualifying?.amount ?? 0 : price;
   const effectiveSlot: AuctionSlot = constrainedAcquisition ? "regular" : slot;
   const team = teams.find((item) => item.code === effectiveTeamCode) ?? teams[0];
@@ -177,9 +177,9 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
             <small>{row.qualifying.amount} crediti</small>
           </div>
         )}
-        <div className="auction-modal-fields">
+        <div className={`auction-modal-fields${row.qualifying ? " qualifying-outcome-layout" : ""}`}>
           {row.qualifying && (
-            <Field label="Esito qualifying offer">
+            <Field label="Esito Q.O.">
               <select value={qualifyingOutcome} onChange={(event) => {
                 const outcome = event.target.value as QualifyingAuctionOutcome | "";
                 setQualifyingOutcome(outcome);
@@ -195,7 +195,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
             </Field>
           )}
           <Field label="Squadra acquirente">
-            <select value={effectiveTeamCode} disabled={qualifyingOutcome === "qualifying_offer"} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setForceCap(false); }}>
+            <select value={effectiveTeamCode} disabled={constrainedAcquisition} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setForceCap(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
@@ -253,7 +253,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   );
 }
 
-function EditPlayerDialog({ row, rows, teams, phase, seasonName, onClose }: DialogProps) {
+function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPicks = 0, onClose }: DialogProps & { pendingDraftPicks?: number }) {
   const roster = row.roster!;
   const [kind, setKind] = useState<"delete" | "cut" | "price" | "slot">("price");
   const [newPrice, setNewPrice] = useState(roster.cost);
@@ -279,6 +279,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, onClose }: Dial
   const afterSpaces = editSpaces(row, team, kind, newPrice, newSlot, exchangePlayer);
   const errors = [
     ...(phase !== "auction" ? ["La fase della lega non è impostata su Asta."] : []),
+    ...(pendingDraftPicks > 0 ? [`Il Draft dell'annata non è completo: restano ${pendingDraftPicks} scelte.`] : []),
     ...(kind === "price" && (!Number.isInteger(newPrice) || newPrice < 1) ? ["Il prezzo deve essere un intero di almeno 1 credito."] : []),
     ...(kind === "price" && newPrice === roster.cost ? ["Il nuovo prezzo coincide con quello attuale."] : []),
     ...(kind === "slot" && newSlot === roster.slot ? ["Seleziona uno slot diverso da quello attuale."] : []),
@@ -316,7 +317,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, onClose }: Dial
         </div>
         <div className="auction-modal-actions">
           <button className="button secondary" type="button" onClick={() => setReviewing(false)}>Indietro</button>
-          <button className="button primary danger-button" type="submit">Conferma definitivamente</button>
+          <button className="button primary danger-button" type="submit" disabled={pendingDraftPicks > 0}>Conferma definitivamente</button>
         </div>
       </form>
     );
