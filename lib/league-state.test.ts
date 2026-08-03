@@ -12,4 +12,11 @@ describe("league state normalization", () => {
       playerList: [],
     });
   });
+
+  it("preserves the years whose Draft order has been finalized", () => {
+    expect(normalizeState({
+      ...emptyLeagueState(),
+      finalizedDraftPositionYears: [2027, 2028, "2029"],
+    }).finalizedDraftPositionYears).toEqual([2027, 2028]);
+  });
 });

@@ -72,9 +72,9 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     entry.name === cutPlayerName
     && entry.teamCode === teamCode
     && entry.state === "active"
-    && entry.slot !== "dpe"
+    && entry.slot === slot
   )) : -1;
-  if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile.");
+  if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile nello slot di destinazione.");
   if (cutPlayerName === playerName) fail("Il nuovo acquisto non può essere anche il giocatore tagliato.");
 
   const rosterEntry: RosterEntry = {
@@ -114,7 +114,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     state,
     nextState,
     "acquisto_asta",
-    capOverrideSummary(`${playerName} assegnato a ${teamCode} per ${price} (${acquisitionSummary(qualifyingOutcome)})${cutPlayerName ? `; tagliato ${cutPlayerName}` : ""}`, capWarnings, forceCap),
+    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto ${rosterEntry.contract}; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}`, capWarnings, forceCap),
   );
 
   const suffix = cutPlayerName ? ` Taglio contestuale: ${cutPlayerName}.` : "";

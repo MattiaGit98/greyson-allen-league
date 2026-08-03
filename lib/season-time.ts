@@ -7,7 +7,7 @@ export function advanceSeasonName(name: string) {
   return `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
 }
 
-export function displayedSeasonName(name: string, _phase: LeaguePhase) {
+export function displayedSeasonName(name: string) {
   return name;
 }
 

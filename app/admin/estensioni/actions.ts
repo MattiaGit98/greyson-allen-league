@@ -82,7 +82,7 @@ export async function applyContractExtension(formData: FormData) {
   }
   requireCapOverride(capWarnings, forceCap, (message) => fail(path, message));
   const nextState = { ...state, rosterEntries };
-  const response = await persistLeagueMovement(supabase, state, nextState, "estensione_contrattuale", capOverrideSummary(`${playerName}: ${entry.cost} → ${newCost}, scadenza ${String(endYear + 1).slice(-2)}`, capWarnings, forceCap));
+  const response = await persistLeagueMovement(supabase, state, nextState, "estensione_contrattuale", capOverrideSummary(`${playerName}: estensione esercitata da ${teamCode}; costo ${entry.cost} → ${newCost} crediti; scadenza ${String(endYear + 1).slice(-2)}`, capWarnings, forceCap));
   if (response.error) fail(path, response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", "/admin/altre-operazioni", path].forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${encodeURIComponent(`Estensione registrata: ${playerName}.`)}`);

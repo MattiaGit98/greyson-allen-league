@@ -62,7 +62,7 @@ export async function assignDraftPlayer(formData: FormData) {
     expected_before_history: history.competitions.Draft,
     next_history: assignment.historyEntries,
     movement_type: "scelta_draft",
-    movement_summary: `${assignment.teamCode}: ${assignment.playerName} scelto e inserito nello slot ${draftSlotLabel(assignment.slot)}`,
+    movement_summary: `Draft ${requestedDraftYear}, scelta ${assignment.position}: ${assignment.playerName} scelto da ${assignment.teamCode} per ${assignment.price} crediti; slot ${draftSlotLabel(assignment.slot)}; contratto T.O.`,
   });
   if (response.error) fail(response.error.message);
 

@@ -41,7 +41,7 @@ function isCurrent(pathname: string, href: string) {
   return pathname.startsWith(href);
 }
 
-export function SiteNavigation({ seasonName, phaseName, phase, auctionOpen }: { seasonName: string; phaseName: string; phase: string; auctionOpen: boolean }) {
+export function SiteNavigation({ seasonName, phaseName, auctionOpen }: { seasonName: string; phaseName: string; auctionOpen: boolean }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
   const isLogin = pathname.startsWith("/login");

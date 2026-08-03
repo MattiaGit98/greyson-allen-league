@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { persistLeagueMovement } from "@/lib/league-movements";
+import { persistLeagueMovements, type LeagueMovementDraft } from "@/lib/league-movements";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, previousSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -72,7 +72,32 @@ export async function saveTeamOptionDecisions(formData: FormData) {
   }
   requireCapOverride(capWarnings, forceCap, fail);
   const nextState = { ...state, rosterEntries };
-  const response = await persistLeagueMovement(supabase, state, nextState, "team_option", capOverrideSummary(`${decisions.length} team option risolte per ${teamCode}`, capWarnings, forceCap));
+  let movementState = state;
+  const movements: LeagueMovementDraft[] = decisions.map((decision) => {
+    const before = movementState;
+    const resolvedEntry = rosterEntries.find((entry) => entry.teamCode === teamCode && entry.name === decision.playerName);
+    const after = {
+      ...before,
+      rosterEntries: before.rosterEntries.flatMap((entry) => (
+        entry.teamCode === teamCode && entry.name === decision.playerName
+          ? resolvedEntry ? [resolvedEntry] : []
+          : [entry]
+      )),
+    };
+    movementState = after;
+    const detail = decision.decision === "decline"
+      ? `${decision.playerName}: T.O. non esercitata da ${teamCode}; giocatore rilasciato`
+      : `${decision.playerName}: T.O. esercitata da ${teamCode}; slot ${slotLabel(resolvedEntry?.slot)}; ${resolvedEntry?.cost ?? 0} crediti; scadenza ${resolvedEntry?.contract ?? "-"}`;
+    return {
+      before,
+      after,
+      operationType: "team_option",
+      summary: capOverrideSummary(detail, capWarnings, forceCap),
+      seasonName: activeSeasonName,
+      undoBeforeMoment: "team_option_deadline",
+    };
+  });
+  const response = await persistLeagueMovements(supabase, state, nextState, movements);
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni"].forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${decisions.length}`);
@@ -128,13 +153,27 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
   });
   requireCapOverride(capWarnings, forceCap, fail);
 
-  const response = await persistLeagueMovement(
-    supabase,
-    state,
-    { ...state, rosterEntries },
-    "team_option_playoff",
-    capOverrideSummary(`${playerNames.length} team option esercitate per utilizzo nei playoff da ${teamCode}`, capWarnings, forceCap),
-  );
+  const nextState = { ...state, rosterEntries };
+  let movementState = state;
+  const movements: LeagueMovementDraft[] = playerNames.map((playerName) => {
+    const before = movementState;
+    const exercisedEntry = rosterEntries.find((entry) => entry.teamCode === teamCode && entry.name === playerName);
+    const after = {
+      ...before,
+      rosterEntries: before.rosterEntries.map((entry) => (
+        entry.teamCode === teamCode && entry.name === playerName && exercisedEntry ? exercisedEntry : entry
+      )),
+    };
+    movementState = after;
+    return {
+      before,
+      after,
+      operationType: "team_option_playoff",
+      summary: capOverrideSummary(`${playerName}: T.O. esercitata anticipatamente da ${teamCode} per utilizzo nei playoff; promozione obbligatoria nel roster all'inizio dell'offseason`, capWarnings, forceCap),
+      seasonName: activeSeasonName,
+    };
+  });
+  const response = await persistLeagueMovements(supabase, state, nextState, movements);
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni"].forEach((route) => revalidatePath(route));
   redirect(`${path}?playoff_updated=${playerNames.length}`);
@@ -159,6 +198,13 @@ function parsePlayerNames(value: FormDataEntryValue | null) {
   const names = parsed.map((item) => String(item ?? "").trim()).filter(Boolean);
   if (new Set(names).size !== names.length) throw new Error("Un giocatore compare più di una volta.");
   return names;
+}
+
+function slotLabel(slot: string | undefined) {
+  if (slot === "regular") return "Roster";
+  if (slot === "two_way") return "Two-way";
+  if (slot === "g_league") return "G-League";
+  return slot ?? "-";
 }
 
 function fail(message: string): never {

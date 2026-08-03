@@ -165,7 +165,7 @@ export async function signFreeAgent(formData: FormData) {
     state,
     nextState,
     "firma_free_agent",
-    capOverrideSummary(`${player.name} firmato da ${teamCode} per ${price}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; tagliato ${cutPlayer.name}` : ""}`, capWarnings, forceCap),
+    capOverrideSummary(`${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}`, capWarnings, forceCap),
   );
   if (response.error) fail(response.error.message);
 
@@ -176,6 +176,13 @@ export async function signFreeAgent(formData: FormData) {
 
 function clean(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
+}
+
+function freeAgentSlotLabel(slot: string) {
+  if (slot === "regular") return "Roster";
+  if (slot === "two_way") return "Two-way";
+  if (slot === "g_league") return "G-League";
+  return slot;
 }
 
 function fail(message: string): never {

@@ -10,7 +10,7 @@ const entries: RosterEntry[] = [
 
 describe("logica temporale della stagione", () => {
   it("usa direttamente l'annata assegnata alla fase", () => {
-    expect(displayedSeasonName("2026/27", "offseason")).toBe("2026/27");
+    expect(displayedSeasonName("2026/27")).toBe("2026/27");
     expect(previousSeasonName("2026/27")).toBe("2025/26");
   });
 

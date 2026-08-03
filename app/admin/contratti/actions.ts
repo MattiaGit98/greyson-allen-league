@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { allowedPostAuctionContracts, isPostAuctionContractAssignmentCandidate, type PostAuctionContractKind } from "@/lib/auction-management";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { persistLeagueMovement } from "@/lib/league-movements";
+import { persistLeagueMovements, type LeagueMovementDraft } from "@/lib/league-movements";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
@@ -116,13 +116,30 @@ export async function assignPostAuctionContracts(formData: FormData) {
   requireCapOverride(capWarnings, forceCap, fail);
 
   const nextState = { ...state, rosterEntries };
-  const response = await persistLeagueMovement(
-    supabase,
-    state,
-    nextState,
-    "assegnazione_contratti",
-    capOverrideSummary(`${assignments.length} contratti assegnati a ${teamCode}`, capWarnings, forceCap),
-  );
+  let movementState = state;
+  const movements: LeagueMovementDraft[] = assignments.map((assignment) => {
+    const before = movementState;
+    const oldEntry = before.rosterEntries.find((entry) => entry.teamCode === teamCode && entry.name === assignment.playerName);
+    const assignedEntry = rosterEntries.find((entry) => entry.teamCode === teamCode && entry.name === assignment.playerName);
+    const after = {
+      ...before,
+      rosterEntries: before.rosterEntries.map((entry) => (
+        entry.teamCode === teamCode && entry.name === assignment.playerName && assignedEntry ? assignedEntry : entry
+      )),
+    };
+    movementState = after;
+    const priceDetail = oldEntry && assignedEntry && oldEntry.cost !== assignedEntry.cost
+      ? `; prezzo ${oldEntry.cost} → ${assignedEntry.cost} crediti`
+      : `; prezzo ${assignedEntry?.cost ?? oldEntry?.cost ?? 0} crediti`;
+    return {
+      before,
+      after,
+      operationType: "assegnazione_contratti",
+      summary: capOverrideSummary(`${assignment.playerName}: ${contractLabel(assignment.contract)} assegnato da ${teamCode}${priceDetail}; scadenza ${assignedEntry?.contract ?? "-"}; slot ${slotLabel(assignment.slot)}`, capWarnings, forceCap),
+      seasonName: activeSeasonName,
+    };
+  });
+  const response = await persistLeagueMovements(supabase, state, nextState, movements);
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/asta"].forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${assignments.length}`);
@@ -147,6 +164,19 @@ function parseAssignments(value: FormDataEntryValue | null): Assignment[] {
 
 function clean(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
+}
+
+function contractLabel(contract: ContractKind) {
+  if (contract === "annual") return "Contratto annuale";
+  if (contract === "biennial") return "Contratto biennale";
+  if (contract === "triennial") return "Contratto triennale";
+  return "Team option";
+}
+
+function slotLabel(slot: ContractSlot) {
+  if (slot === "regular") return "Roster";
+  if (slot === "two_way") return "Two-way";
+  return "G-League";
 }
 
 function fail(message: string): never {

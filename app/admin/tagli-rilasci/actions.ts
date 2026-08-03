@@ -143,7 +143,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   const optionCutDetail = optionCutAdjustment?.adjusted && changedGuaranteeYear >= 0 && adjustedOptionCharges
     ? ` · garanzia ultimo anno ex T.O. ${charges[changedGuaranteeYear]} → ${adjustedOptionCharges[changedGuaranteeYear]}`
     : "";
-  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName}${releaseDetail}${buyoutDetail}${optionCutDetail}`, capWarnings, forceCap));
+  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}${optionCutDetail}`, capWarnings, forceCap));
   if (response.error) operationError(returnPath, response.error.message);
   revalidateOperationPaths();
   redirect(`${returnPath}?updated=${encodeURIComponent(`${label}: ${playerName}.`)}`);
@@ -187,7 +187,7 @@ export async function applyStretchProvision(formData: FormData) {
   requireCapOverride(capWarnings, forceCap, (message) => operationError(returnPath, message));
 
   const nextState = { ...state, rosterEntries };
-  const response = await persistLeagueMovement(supabase, state, nextState, "stretch_provision", capOverrideSummary(`Stretch provision applicata a ${playerName}`, capWarnings, forceCap));
+  const response = await persistLeagueMovement(supabase, state, nextState, "stretch_provision", capOverrideSummary(`${playerName} (${teamCode}): stretch provision in ${installments} rate da ${stretch.installment} crediti; scadenza ${String(finalExpiry).slice(-2)}`, capWarnings, forceCap));
   if (response.error) operationError(returnPath, response.error.message);
   revalidateOperationPaths();
   redirect(`${returnPath}?updated=${encodeURIComponent(`Stretch provision applicata a ${playerName}: ${installments} rate da ${stretch.installment}.`)}`);

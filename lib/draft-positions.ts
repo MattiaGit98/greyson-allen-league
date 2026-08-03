@@ -1,7 +1,6 @@
 import type { DraftAsset, DraftClauseResolution } from "./league-types";
-import { draftOverallPosition, draftPrice } from "./draft-rules";
+import { draftOverallPosition } from "./draft-rules";
 
-export type DraftPositionUpdate = { stateIndex: number; position: number };
 export type DraftOrderAssignment = {
   position: number;
   originTeamCode: string;
@@ -32,31 +31,6 @@ export function highlightedDraftYear(draftAssets: DraftAsset[], configuredYears:
   const positionsDefined = configuredYears.includes(nextYear)
     || draftAssets.some((asset) => asset.year === nextYear && draftOverallPosition(asset.originOrOverall) !== null);
   return positionsDefined ? nextYear : null;
-}
-
-export function applyDraftPositionUpdates(
-  draftAssets: DraftAsset[],
-  draftYear: number,
-  updates: DraftPositionUpdate[],
-) {
-  const updateByIndex = new Map(updates.map((update) => [update.stateIndex, update.position]));
-  for (const [stateIndex, position] of updateByIndex) {
-    const asset = draftAssets[stateIndex];
-    if (!asset || asset.year !== draftYear) throw new Error("Una scelta non appartiene al draft selezionato.");
-    if (draftOverallPosition(position) === null || draftPrice(position, asset.round) === null) {
-      throw new Error(`Posizione ${position} non valida per ${asset.round}.`);
-    }
-  }
-
-  const nextAssets = draftAssets.map((asset, index) => updateByIndex.has(index)
-    ? { ...asset, originOrOverall: updateByIndex.get(index)! }
-    : asset);
-  const positions = nextAssets
-    .filter((asset) => asset.year === draftYear)
-    .map((asset) => draftOverallPosition(asset.originOrOverall))
-    .filter((position): position is number => position !== null);
-  if (new Set(positions).size !== positions.length) throw new Error("Ogni posizione può essere assegnata a una sola scelta.");
-  return nextAssets;
 }
 
 export function applyCompleteDraftOrder(
@@ -96,8 +70,8 @@ export function applyCompleteDraftOrder(
           label: "Scelta",
           year: draftYear,
           round,
-          teamCode: assignment.originTeamCode,
         }),
+        teamCode: assignment.originTeamCode,
         originOrOverall: assignment.position,
         originTeamCode: assignment.originTeamCode,
         isBonus: true,
@@ -198,6 +172,29 @@ export function validateDraftOrderProgress(assignments: DraftOrderAssignment[], 
     if (new Set(ordinaryOrigins).size !== ordinaryOrigins.length) {
       const duplicateTeams = [...new Set(ordinaryOrigins.filter((code, index) => ordinaryOrigins.indexOf(code) !== index))];
       throw new Error(`${round}: ${duplicateTeams.join(", ")} compare più volte tra le scelte non bonus.`);
+    }
+  }
+}
+
+export function validateDraftOrderDraftStructure(assignments: DraftOrderAssignment[], teamCodes: string[], draftYear: number) {
+  const maximumPositions = defaultDraftPositionCount(draftYear, teamCodes.length);
+  if (assignments.length < 1 || assignments.length > maximumPositions) {
+    throw new Error(`Il pannello deve contenere da 1 a ${maximumPositions} posizioni.`);
+  }
+  const positions = assignments.map((assignment) => assignment.position);
+  if (positions.some((position) => !Number.isInteger(position) || position < 1 || position > assignments.length)) {
+    throw new Error(`Le posizioni devono essere comprese tra 1 e ${assignments.length}.`);
+  }
+  if (new Set(positions).size !== assignments.length) {
+    throw new Error(`Ogni posizione da 1 a ${assignments.length} deve comparire una sola volta.`);
+  }
+  if (assignments.some((assignment) => assignment.originTeamCode && !teamCodes.includes(assignment.originTeamCode))) {
+    throw new Error("Una delle squadre selezionate non appartiene alla lega.");
+  }
+  const maximumPerRound = maximumPositions / 2;
+  for (const round of ["1° giro", "2° giro"] as const) {
+    if (assignments.filter((assignment) => assignmentRound(assignment, maximumPositions) === round).length > maximumPerRound) {
+      throw new Error(`${round}: risultano troppe righe.`);
     }
   }
 }

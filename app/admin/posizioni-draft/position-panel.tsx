@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { defaultDraftPositionCount } from "@/lib/draft-positions";
-import { saveDraftPositions } from "./actions";
+import { finalizeDraftPositions, saveDraftPositionDraft } from "./actions";
 
 type TeamOption = { code: string; name: string };
 type DraftRound = "1° giro" | "2° giro";
@@ -17,26 +17,29 @@ export function DraftPositionPanel({
   draftYear,
   teams,
   initialAssignments,
+  finalized,
 }: {
   draftYear: number | null;
   teams: TeamOption[];
   initialAssignments: AssignmentRow[];
+  finalized: boolean;
 }) {
   const [assignments, setAssignments] = useState(() => renumberAssignments(initialAssignments));
+  const [reviewingFinalSave, setReviewingFinalSave] = useState(false);
   const maximumRows = draftYear === null ? teams.length * 2 : defaultDraftPositionCount(draftYear, teams.length);
   const maximumRowsPerRound = maximumRows / 2;
-  const errors = useMemo(
+  const finalErrors = useMemo(
     () => validateAssignments(assignments, teams, draftYear, maximumRowsPerRound),
     [assignments, teams, draftYear, maximumRowsPerRound],
   );
   const definedPositions = assignments.filter((assignment) => assignment.originTeamCode).length;
   const firstRoundAssignments = assignments.filter((assignment) => assignment.round === "1° giro");
   const secondRoundAssignments = assignments.filter((assignment) => assignment.round === "2° giro");
-  const isComplete = assignments.length === maximumRows
+  const allRowsFilled = assignments.length === maximumRows
     && definedPositions === maximumRows
     && firstRoundAssignments.length === maximumRowsPerRound
-    && secondRoundAssignments.length === maximumRowsPerRound
-    && !errors.length;
+    && secondRoundAssignments.length === maximumRowsPerRound;
+  const finalChecksPassed = allRowsFilled && !finalErrors.length;
 
   function updateAssignment(position: number, patch: Partial<Pick<AssignmentRow, "originTeamCode" | "isBonus">>) {
     setAssignments((current) => current.map((assignment) => (
@@ -67,7 +70,7 @@ export function DraftPositionPanel({
   }
 
   return (
-    <form action={saveDraftPositions} className="draft-position-panel">
+    <form action={saveDraftPositionDraft} className={`draft-position-panel ${finalized ? "finalized" : ""}`}>
       <input type="hidden" name="draft_year" value={draftYear} />
       <input type="hidden" name="positions_json" value={JSON.stringify(assignments)} />
       <div className="draft-position-year">
@@ -81,6 +84,7 @@ export function DraftPositionPanel({
         assignments={firstRoundAssignments}
         teams={teams}
         canAdd={firstRoundAssignments.length < maximumRowsPerRound}
+        locked={finalized}
         updateAssignment={updateAssignment}
         addRow={addRow}
         removeRow={removeRow}
@@ -91,6 +95,7 @@ export function DraftPositionPanel({
         assignments={secondRoundAssignments}
         teams={teams}
         canAdd={secondRoundAssignments.length < maximumRowsPerRound}
+        locked={finalized}
         updateAssignment={updateAssignment}
         addRow={addRow}
         removeRow={removeRow}
@@ -99,12 +104,43 @@ export function DraftPositionPanel({
       <div className="draft-position-footer">
         <div>
           <span className="draft-position-progress">Posizioni inserite: {definedPositions}/{maximumRows} · Righe presenti: {assignments.length}/{maximumRows}</span>
-          {errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
+          {!finalized && !allRowsFilled && <p className="validation warning">Bozza modificabile: i controlli definitivi verranno eseguiti soltanto quando tutte le righe saranno compilate.</p>}
+          {!finalized && allRowsFilled && finalChecksPassed && <p className="validation success">Salvataggio finale: tutti i controlli sono superati. Dopo la conferma l'ordine non sarà più modificabile.</p>}
+          {!finalized && allRowsFilled && !finalChecksPassed && <p className="validation error">Salvataggio finale non disponibile: i controlli non sono stati superati.</p>}
+          {!finalized && allRowsFilled && finalErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
+          {finalized && <p className="validation success">Ordine definitivo del Draft {draftYear}: posizioni e scelte bonus non sono più modificabili.</p>}
         </div>
-        <button className="button primary" type="submit" disabled={errors.length > 0 || !assignments.length}>
-          {isComplete ? "Salva e applica le clausole" : "Salva posizioni"}
-        </button>
+        {!finalized && (
+          <div className="draft-position-footer-actions">
+            {(!allRowsFilled || !finalChecksPassed) && <button className="button secondary" type="submit" disabled={!assignments.length}>Salva bozza</button>}
+            {finalChecksPassed && <button className="button primary" type="button" onClick={() => setReviewingFinalSave(true)}>Completa ordine Draft</button>}
+          </div>
+        )}
       </div>
+
+      {reviewingFinalSave && finalChecksPassed && (
+        <div className="auction-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setReviewingFinalSave(false); }}>
+          <section className="auction-modal draft-position-final-modal" role="alertdialog" aria-modal="true" aria-label={`Conferma ordine definitivo Draft ${draftYear}`}>
+            <div className="auction-modal-header">
+              <div><span>Salvataggio finale</span><strong>Draft {draftYear}</strong><small>{assignments.length} posizioni complete</small></div>
+              <button type="button" onClick={() => setReviewingFinalSave(false)} aria-label="Chiudi">×</button>
+            </div>
+            <div className="auction-modal-body">
+              <p className="validation success">Tutti i controlli sono stati superati.</p>
+              <ul className="draft-position-final-checks">
+                <li>{teams.length * 2} scelte ordinarie verranno abbinate alle posizioni indicate.</li>
+                <li>{assignments.filter((assignment) => assignment.isBonus).length} scelte bonus verranno create e assegnate alle squadre indicate.</li>
+                <li>Protezioni e diritti di swap verranno applicati sul risultato definitivo.</li>
+                <li>Dopo la conferma il tabellone non potrà più essere modificato o annullato.</li>
+              </ul>
+            </div>
+            <div className="auction-modal-actions">
+              <button className="button secondary" type="button" onClick={() => setReviewingFinalSave(false)}>Torna al tabellone</button>
+              <button className="button primary" type="submit" formAction={finalizeDraftPositions}>Conferma ordine definitivo</button>
+            </div>
+          </section>
+        </div>
+      )}
     </form>
   );
 }
@@ -115,6 +151,7 @@ function DraftRoundTable({
   assignments,
   teams,
   canAdd,
+  locked,
   updateAssignment,
   addRow,
   removeRow,
@@ -124,6 +161,7 @@ function DraftRoundTable({
   assignments: AssignmentRow[];
   teams: TeamOption[];
   canAdd: boolean;
+  locked: boolean;
   updateAssignment: (position: number, patch: Partial<Pick<AssignmentRow, "originTeamCode" | "isBonus">>) => void;
   addRow: (round: DraftRound) => void;
   removeRow: (position: number) => void;
@@ -134,19 +172,19 @@ function DraftRoundTable({
       <div className="draft-position-table draft-order-table">
         <div className="draft-position-head"><span>Posizione</span><span>Scelta originaria</span><span>Bonus</span><span></span></div>
         {assignments.map((assignment) => {
-          const removalLocked = Boolean(assignment.originTeamCode || assignment.isBonus);
+          const removalLocked = locked || Boolean(assignment.originTeamCode || assignment.isBonus);
           return (
             <div className={`draft-position-row ${assignment.originTeamCode ? "defined" : ""} ${assignment.isBonus ? "bonus" : ""}`} key={`${assignment.round}-${assignment.position}`}>
               <div className="draft-position-pick"><strong>#{assignment.position}</strong></div>
               <label className="draft-order-team">
                 <span>Scelta originaria</span>
-                <select value={assignment.originTeamCode} onChange={(event) => updateAssignment(assignment.position, { originTeamCode: event.target.value })}>
+                <select value={assignment.originTeamCode} disabled={locked} onChange={(event) => updateAssignment(assignment.position, { originTeamCode: event.target.value })}>
                   <option value="">Seleziona squadra</option>
                   {teams.map((team) => <option value={team.code} key={team.code}>{formatTeamName(team.name)}</option>)}
                 </select>
               </label>
               <label className="draft-order-bonus">
-                <input type="checkbox" checked={assignment.isBonus} onChange={(event) => updateAssignment(assignment.position, { isBonus: event.target.checked })} />
+                <input type="checkbox" checked={assignment.isBonus} disabled={locked} onChange={(event) => updateAssignment(assignment.position, { isBonus: event.target.checked })} />
                 <span>Scelta bonus</span>
               </label>
               <button
@@ -164,9 +202,9 @@ function DraftRoundTable({
         })}
         {!assignments.length && <p className="data-empty">Nessuna riga nel {title.toLocaleLowerCase("it-IT")}.</p>}
       </div>
-      <div className="draft-position-row-controls">
+      {!locked && <div className="draft-position-row-controls">
         <button type="button" onClick={() => addRow(round)} disabled={!canAdd}>+ Aggiungi riga al {title.toLocaleLowerCase("it-IT")}</button>
-      </div>
+      </div>}
     </section>
   );
 }

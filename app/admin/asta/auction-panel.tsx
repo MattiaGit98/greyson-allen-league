@@ -134,7 +134,8 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   const effectivePrice = qualifyingOutcome === "qualifying_offer" ? row.qualifying?.amount ?? 0 : price;
   const effectiveSlot: AuctionSlot = constrainedAcquisition ? "regular" : slot;
   const team = teams.find((item) => item.code === effectiveTeamCode) ?? teams[0];
-  const cutPlayer = team?.players.find((player) => player.name === cutPlayerName);
+  const cutCandidates = (team?.players ?? []).filter((player) => player.slot === effectiveSlot);
+  const cutPlayer = cutCandidates.find((player) => player.name === cutPlayerName);
   const errors = [
     ...(phase !== "auction" ? ["La fase della lega non è impostata su Asta."] : []),
     ...(pendingDraftPicks > 0 ? [`Il Draft dell'annata non è completo: restano ${pendingDraftPicks} scelte.`] : []),
@@ -203,7 +204,10 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
             <input type="number" min="1" step="1" inputMode="numeric" value={effectivePrice} disabled={qualifyingOutcome === "qualifying_offer"} onChange={(event) => { setPrice(Number(event.target.value)); setForceCap(false); }} />
           </Field>
           <Field label="Slot">
-            <select value={effectiveSlot} disabled={constrainedAcquisition} onChange={(event) => setSlot(event.target.value as AuctionSlot)}>
+            <select value={effectiveSlot} disabled={constrainedAcquisition} onChange={(event) => {
+              setSlot(event.target.value as AuctionSlot);
+              setCutPlayerName("");
+            }}>
               <option value="regular">Roster</option>
               <option value="two_way">Two-way</option>
               <option value="g_league">G-League</option>
@@ -212,7 +216,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
           <Field label="Giocatore da tagliare">
             <select value={cutPlayerName} onChange={(event) => setCutPlayerName(event.target.value)}>
               <option value="">Nessun taglio</option>
-              {(team?.players ?? []).map((player) => (
+              {cutCandidates.map((player) => (
                 <option value={player.name} key={player.name}>
                   {player.name} · {slotLabel(player.slot)} · {player.cost}
                 </option>

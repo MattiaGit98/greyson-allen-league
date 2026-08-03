@@ -339,11 +339,40 @@ export async function registerTrade(formData: FormData) {
     ...[...actualCapWarningsByTeam.entries()].flatMap(([teamCode, warnings]) => warnings.map((warning) => `${teamCode}: ${warning}`)),
   ])];
   requireCapOverride(capWarnings, forceCap, fail);
-  const assetCount = playerMoves.length + pickMoves.length + pickClauses.length + evaluatedExistingClauseChanges.length + qualifyingOfferMoves.length;
   const operationType = provisionalSignAndTrade ? "sign_and_trade" : "scambio";
-  const summary = provisionalSignAndTrade
-    ? `Sign and trade ${provisionalSignAndTrade.playerName} (${provisionalSignAndTrade.signerTeamCode}) · ${participantCodes.join(" ↔ ")}: ${assetCount} elementi${cuts.length ? `; ${cuts.length} tagli contestuali` : ""}`
-    : `Scambio ${participantCodes.join(" ↔ ")}: ${assetCount} elementi${cuts.length ? `; ${cuts.length} tagli contestuali` : ""}`;
+  const movementDetails = [
+    ...(provisionalSignAndTrade ? [provisionalSignAndTrade.label] : []),
+    ...playerChanges.flatMap((change) => {
+      const entry = state.rosterEntries[change.stateIndex];
+      return entry ? [`${entry.name}: ${entry.teamCode} → ${change.toTeamCode}; ${tradeSlotLabel(entry.slot)} → ${tradeSlotLabel(change.destinationSlot)}; ${entry.cost} crediti, contratto ${entry.contract}`] : [];
+    }),
+    ...pickChanges.flatMap((change) => {
+      const pick = state.draftAssets[change.stateIndex];
+      return pick ? [`Scelta ${tradePickLabel(pick)}: ${pick.teamCode} → ${change.toTeamCode}`] : [];
+    }),
+    ...pickClauseChanges.flatMap((change) => {
+      const subject = state.draftAssets[change.subjectIndex];
+      const counterparty = change.counterpartyIndex === null ? null : state.draftAssets[change.counterpartyIndex];
+      return subject ? [`Clausola su scelta ${tradePickLabel(subject)}: ${tradeClauseLabel(change.clause)}${counterparty ? `; contropartita ${tradePickLabel(counterparty)}` : ""}`] : [];
+    }),
+    ...evaluatedExistingClauseChanges.map((change) => (
+      change.action === "remove"
+        ? `Clausola eliminata: scelta ${change.subjectYear} ${change.subjectRound} (${change.subjectOwnerTeamCode}) con contropartita ${change.counterpartyYear} ${change.counterpartyRound} (${change.counterpartyOwnerTeamCode})`
+        : `Clausola modificata: scelta ${change.subjectYear} ${change.subjectRound} (${change.subjectOwnerTeamCode}); ${tradeClauseLabel(change.clause)}`
+    )),
+    ...qualifyingChanges.flatMap((change) => {
+      const right = state.qualifyingOfferRights[change.stateIndex];
+      return right ? [`Diritti Q.O. su ${right.playerName}: ${right.teamCode} → ${change.toTeamCode}; importo ${right.qualifyingAmount}`] : [];
+    }),
+    ...cutChanges.flatMap((change) => {
+      const entry = state.rosterEntries[change.stateIndex];
+      return entry ? [`Taglio contestuale: ${entry.name} (${entry.teamCode}); ${entry.cost} crediti, contratto ${entry.contract}`] : [];
+    }),
+  ];
+  const heading = provisionalSignAndTrade
+    ? `Sign and trade ${participantCodes.join(" ↔ ")}`
+    : `Scambio ${participantCodes.join(" ↔ ")}`;
+  const summary = `${heading}: ${movementDetails.join("; ")}`;
   const movementSummary = capOverrideSummary(summary, capWarnings, forceCap);
   const response = provisionalSignAndTrade?.draftAssignment
     ? await supabase.rpc("apply_league_state_and_history_movement", {
@@ -386,6 +415,24 @@ export async function registerTrade(formData: FormData) {
       countTeamOptions,
     }));
   }
+}
+
+function tradePickLabel(pick: { year: number; round: string; originTeamCode?: string; originOrOverall: string | number }) {
+  return `${pick.year} ${pick.round}, Orig/pos ${pick.originTeamCode ?? pick.originOrOverall}`;
+}
+
+function tradeClauseLabel(clause: string | null) {
+  if (!clause) return "nessuna clausola";
+  if (clause === "swap") return "diritto di swap";
+  return clause.replace("protected_top_", "protetta top ");
+}
+
+function tradeSlotLabel(slot: string) {
+  if (slot === "regular") return "Roster";
+  if (slot === "two_way") return "Two-way";
+  if (slot === "g_league") return "G-League";
+  if (slot === "dpe") return "DPE";
+  return slot;
 }
 
 function parsePayload(value: FormDataEntryValue | null): TradeTransactionPayload {

@@ -62,7 +62,7 @@ export async function moveRosterSlot(formData: FormData) {
     state,
     nextState,
     "spostamento_slot",
-    `${playerName}: ${slotLabel(sourceSlot)} → ${slotLabel(destination)}`,
+    `${playerName} (${teamCode}): ${slotLabel(sourceSlot)} → ${slotLabel(destination)}`,
   );
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/altre-operazioni"]

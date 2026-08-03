@@ -62,7 +62,6 @@ export default async function AdminDashboardPage() {
     loadEditableLeagueState(),
     loadCurrentHistoryImports(),
   ]);
-  const phase = activeSeason.season.status;
   const seasonName = activeSeason.season.name;
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
   const preAdvanceChecklist = buildPreAdvanceChecklist({

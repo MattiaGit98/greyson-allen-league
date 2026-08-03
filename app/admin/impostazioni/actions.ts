@@ -13,7 +13,6 @@ import {
   nextLeagueTransition,
   teamOptionsAreResolved,
   tradeDeadlineHasPassed,
-  type LeagueMoment,
 } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { applyTeamOptionDeadline, buildLeagueTransitionPreview } from "@/lib/league-transition";

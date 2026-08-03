@@ -66,7 +66,8 @@ export async function applyDpeOperation(formData: FormData) {
   requireCapOverride(capWarnings, forceCap, fail);
   const nextState = { ...state, rosterEntries };
   const label = operation === "dpe_activate" ? "Esercizio DPE" : "Reintegro anticipato dalla DPE";
-  const response = await persistLeagueMovement(supabase, state, nextState, operation, capOverrideSummary(`${label}: ${playerName}`, capWarnings, forceCap));
+  const slotDetail = operation === "dpe_activate" ? "Roster → DPE" : "DPE → Roster";
+  const response = await persistLeagueMovement(supabase, state, nextState, operation, capOverrideSummary(`${playerName}: ${label.toLocaleLowerCase("it-IT")} per ${teamCode}; ${slotDetail}`, capWarnings, forceCap));
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni"]
     .forEach((route) => revalidatePath(route));

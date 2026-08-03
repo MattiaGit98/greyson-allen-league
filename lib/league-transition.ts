@@ -109,7 +109,7 @@ export function buildLeagueTransitionPreview(input: {
   });
 
   if (!preview.automaticActions.length) preview.automaticActions.push("Nessuna modifica automatica a roster, contratti o listone.");
-  preview.warnings.push("Prima dell’operazione saranno scaricati il backup ripristinabile e il backup Excel; sarà inoltre creato un punto di ripristino interno.");
+  preview.warnings.push("Prima dell’operazione sarà scaricato il backup ripristinabile; sarà inoltre creato un punto di ripristino interno.");
   return preview;
 }
 

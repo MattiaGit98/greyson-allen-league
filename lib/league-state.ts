@@ -18,6 +18,7 @@ export type EditableLeagueState = {
   playerListStatus: "offseason" | "published";
   draftPositionYears?: number[];
   draftOrders?: SavedDraftOrderAssignment[];
+  finalizedDraftPositionYears?: number[];
 };
 
 export const loadEditableLeagueState = cache(async function loadEditableLeagueState(): Promise<EditableLeagueState> {
@@ -84,6 +85,9 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
         && (row.round === undefined || row.round === "1° giro" || row.round === "2° giro")
       ))
       : [],
+    finalizedDraftPositionYears: Array.isArray(input.finalizedDraftPositionYears)
+      ? input.finalizedDraftPositionYears.filter((year): year is number => Number.isInteger(year))
+      : [],
   };
 }
 
@@ -97,5 +101,6 @@ export function emptyLeagueState(): EditableLeagueState {
     playerListStatus: "offseason",
     draftPositionYears: [],
     draftOrders: [],
+    finalizedDraftPositionYears: [],
   };
 }

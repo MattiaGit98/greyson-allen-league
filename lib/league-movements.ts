@@ -1,8 +1,18 @@
 import type { EditableLeagueState } from "./league-state";
+import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { changedSlotTeamCodes, findAllSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
 import type { createSupabaseServerClient } from "./supabase/server";
 
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+
+export type LeagueMovementDraft = {
+  before: EditableLeagueState;
+  after: EditableLeagueState;
+  operationType: string;
+  summary: string;
+  seasonName?: string;
+  undoBeforeMoment?: LeagueMoment;
+};
 
 export async function persistLeagueMovement(
   supabase: Supabase,
@@ -27,6 +37,80 @@ export async function persistLeagueMovement(
     movement_type: operationType,
     movement_summary: summary,
   });
+}
+
+export async function persistLeagueMovements(
+  supabase: Supabase,
+  before: EditableLeagueState,
+  after: EditableLeagueState,
+  movements: LeagueMovementDraft[],
+) {
+  if (!movements.length) {
+    return { data: null, error: { message: "Nessun movimento da registrare." } };
+  }
+  const affectedTeams = changedSlotTeamCodes(before.rosterEntries, after.rosterEntries);
+  const slotErrors = findAllSlotOverflows(after.rosterEntries, affectedTeams).map(slotOverflowMessage);
+  if (slotErrors.length) {
+    return {
+      data: null,
+      error: {
+        message: `${slotErrors.join(" ")} Libera prima uno slot adeguato e ripeti l'operazione.`,
+      },
+    };
+  }
+  return supabase.rpc("apply_league_state_movements", {
+    expected_before_state: before,
+    next_state: after,
+    movement_rows: movements.map((movement) => ({
+      before_state: movement.before,
+      after_state: movement.after,
+      operation_type: movement.operationType,
+      summary: movement.summary,
+      season_name: movement.seasonName ?? null,
+      undo_before_moment: movement.undoBeforeMoment ?? null,
+    })),
+  });
+}
+
+export function movementUndoWindowError({
+  operationType,
+  movementSeasonName,
+  undoBeforeMoment,
+  currentSeasonName,
+  currentMoment,
+}: {
+  operationType: string;
+  movementSeasonName?: string | null;
+  undoBeforeMoment?: string | null;
+  currentSeasonName: string;
+  currentMoment: LeagueMoment;
+}) {
+  if (operationType === "ordine_draft_finale") {
+    return "L'ordine definitivo del Draft non può essere annullato.";
+  }
+  const isOrdinaryTeamOption = operationType === "team_option";
+  if (!isOrdinaryTeamOption && undoBeforeMoment !== "team_option_deadline") return null;
+  if (isOrdinaryTeamOption && !movementSeasonName) {
+    return "Questo movimento T.O. non contiene l'annata necessaria per annullarlo in sicurezza.";
+  }
+  if (
+    (movementSeasonName && movementSeasonName !== currentSeasonName)
+    || hasReachedMoment(currentMoment, "team_option_deadline")
+  ) {
+    return "Le decisioni sulle team option non sono più annullabili dopo la scadenza per l'esercizio delle T.O.";
+  }
+  return null;
+}
+
+export function movementUndoMetadataFromState(value: unknown) {
+  if (!value || typeof value !== "object") return { seasonName: null, undoBeforeMoment: null };
+  const metadata = (value as Record<string, unknown>)._movementMeta;
+  if (!metadata || typeof metadata !== "object") return { seasonName: null, undoBeforeMoment: null };
+  const record = metadata as Record<string, unknown>;
+  return {
+    seasonName: typeof record.season_name === "string" ? record.season_name : null,
+    undoBeforeMoment: typeof record.undo_before_moment === "string" ? record.undo_before_moment : null,
+  };
 }
 
 export function buildMovementReversal(

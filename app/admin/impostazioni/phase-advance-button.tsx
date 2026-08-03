@@ -14,7 +14,7 @@ export function PhaseAdvanceButton({ currentLabel, nextLabel, preview }: { curre
     if (pending || preview.errors.length) return;
     setError("");
     try {
-      await downloadBackups();
+      await downloadImportableBackup();
       startTransition(() => advanceLeaguePhaseStep());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Backup non riuscito.");
@@ -133,14 +133,6 @@ export function RestorePhaseButton({ backupId, transitionLabel }: { backupId: st
 function PreviewSection({ title, items, tone }: { title: string; items: string[]; tone: string }) {
   if (!items.length) return null;
   return <section className={`phase-preview-section ${tone}`}><strong>{title}</strong><ul>{items.map((item) => <li key={item}>{item}</li>)}</ul></section>;
-}
-
-async function downloadBackups() {
-  const files = await Promise.all([
-    fetchBackup("/admin/importa-dati/backup", "backup-ripristino.json"),
-    fetchBackup("/admin/backup/excel", "backup.xlsx"),
-  ]);
-  downloadFiles(files);
 }
 
 async function downloadImportableBackup() {

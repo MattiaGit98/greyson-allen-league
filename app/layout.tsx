@@ -12,15 +12,14 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const { season } = await loadActiveSeason();
-  const phase = season?.status ?? "offseason";
-  const seasonName = season ? displayedSeasonName(season.name, phase) : "—";
+  const seasonName = season ? displayedSeasonName(season.name) : "—";
   const leagueMoment = season ? leagueMomentFromSeason(season) : null;
   const phaseName = leagueMoment ? (macroPhaseForMoment(leagueMoment) === "offseason" ? "Offseason" : "Stagione") : "Stato non disponibile";
   const auctionOpen = leagueMoment ? operationWindows.auction(leagueMoment) : false;
   return (
     <html lang="it">
       <body>
-        <SiteNavigation seasonName={seasonName} phaseName={phaseName} phase={phase} auctionOpen={auctionOpen} />
+        <SiteNavigation seasonName={seasonName} phaseName={phaseName} auctionOpen={auctionOpen} />
         <main>{children}</main>
       </body>
     </html>

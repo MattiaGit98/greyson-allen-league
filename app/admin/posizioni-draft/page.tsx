@@ -17,6 +17,7 @@ export default async function DraftPositionsPage({
   const draftYear = nextDraftYear(leagueState.draftAssets);
   const teams = leagueState.teams.map((team) => ({ code: team.code, name: team.name }));
   const savedAssignments = (leagueState.draftOrders ?? []).filter((assignment) => assignment.year === draftYear);
+  const finalized = draftYear !== null && (leagueState.finalizedDraftPositionYears ?? []).includes(draftYear);
   const expectedPositionCount = draftYear === null ? 0 : defaultDraftPositionCount(draftYear, teams.length);
   const positionCount = savedAssignments.length || expectedPositionCount;
   const inferredOrigins = draftYear === null ? new Map<number, string>() : inferLegacyDraftOrigins({
@@ -47,6 +48,7 @@ export default async function DraftPositionsPage({
         draftYear={draftYear}
         teams={teams}
         initialAssignments={initialAssignments}
+        finalized={finalized}
       />
     </section>
   );

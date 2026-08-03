@@ -9,6 +9,9 @@ import { highlightedDraftYear } from "@/lib/draft-positions";
 
 type SortKey = "role" | "name" | "contract" | "cost";
 type SortState = { key: SortKey; direction: "asc" | "desc" };
+const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
+type DataSectionKey = (typeof dataSectionKeys)[number];
+type OpenSectionsByTeam = Record<string, DataSectionKey[]>;
 
 export function TeamAccordion({
   teams,
@@ -40,9 +43,14 @@ export function TeamAccordion({
   const [openTeams, setOpenTeams] = useState<string[]>(
     initialTeam && teams.some((team) => team.code === initialTeam) ? [initialTeam] : [],
   );
+  const [openSectionsByTeam, setOpenSectionsByTeam] = useState<OpenSectionsByTeam>(() => (
+    initialTeam && teams.some((team) => team.code === initialTeam) ? { [initialTeam]: ["roster"] } : {}
+  ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const highlightedYear = highlightedDraftYear(draftAssets, draftPositionYears);
-  const allExpanded = openTeams.length === teams.length;
+  const allExpanded = teams.length > 0
+    && openTeams.length === teams.length
+    && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
 
   const changeSort = (key: SortKey) => {
     setSort((current) => current.key === key
@@ -50,10 +58,46 @@ export function TeamAccordion({
       : { key, direction: key === "cost" ? "desc" : "asc" });
   };
 
+  const toggleEverything = () => {
+    if (allExpanded) {
+      setOpenTeams([]);
+      setOpenSectionsByTeam({});
+      return;
+    }
+    setOpenTeams(teams.map((team) => team.code));
+    setOpenSectionsByTeam(Object.fromEntries(
+      teams.map((team) => [team.code, [...dataSectionKeys]]),
+    ));
+  };
+
+  const toggleTeam = (teamCode: string, expanded: boolean) => {
+    setOpenTeams((current) => expanded
+      ? current.filter((code) => code !== teamCode)
+      : [...current, teamCode]);
+    setOpenSectionsByTeam((current) => {
+      if (!expanded) return { ...current, [teamCode]: ["roster"] };
+      const next = { ...current };
+      delete next[teamCode];
+      return next;
+    });
+  };
+
+  const toggleDataSection = (teamCode: string, section: DataSectionKey) => {
+    setOpenSectionsByTeam((current) => {
+      const openSections = current[teamCode] ?? [];
+      return {
+        ...current,
+        [teamCode]: openSections.includes(section)
+          ? openSections.filter((item) => item !== section)
+          : [...openSections, section],
+      };
+    });
+  };
+
   return (
     <>
       <div className="team-accordion-toolbar">
-        <button type="button" onClick={() => setOpenTeams(allExpanded ? [] : teams.map((team) => team.code))}>
+        <button type="button" onClick={toggleEverything}>
           <span>{allExpanded ? "−" : "+"}</span>
           {allExpanded ? "Minimizza tutto" : "Espandi tutto"}
         </button>
@@ -67,9 +111,7 @@ export function TeamAccordion({
               className="team-accordion-trigger"
               type="button"
               aria-expanded={expanded}
-              onClick={() => setOpenTeams((current) => expanded
-                ? current.filter((code) => code !== team.code)
-                : [...current, team.code])}
+              onClick={() => toggleTeam(team.code, expanded)}
             >
               <b className={`team-code-badge team-hue-${index % 7}`}>{team.code}</b>
               <strong>{team.name}</strong>
@@ -78,7 +120,6 @@ export function TeamAccordion({
             </button>
             {expanded && (
               <TeamDetails
-                team={team}
                 entries={rosterEntries.filter((entry) => entry.teamCode === team.code)}
                 assets={draftAssets.filter((asset) => asset.teamCode === team.code)}
                 rights={qualifyingOfferRights.filter((right) => right.teamCode === team.code)}
@@ -91,6 +132,8 @@ export function TeamAccordion({
                 countTeamOptions={countTeamOptions}
                 sort={sort}
                 changeSort={changeSort}
+                openSections={openSectionsByTeam[team.code] ?? ["roster"]}
+                toggleSection={(section) => toggleDataSection(team.code, section)}
               />
             )}
           </article>
@@ -102,7 +145,6 @@ export function TeamAccordion({
 }
 
 function TeamDetails({
-  team,
   entries,
   assets,
   rights,
@@ -115,8 +157,9 @@ function TeamDetails({
   highlightedDraftYear,
   sort,
   changeSort,
+  openSections,
+  toggleSection,
 }: {
-  team: TeamSummary;
   entries: RosterEntry[];
   assets: DraftAsset[];
   rights: QualifyingOfferRight[];
@@ -129,6 +172,8 @@ function TeamDetails({
   highlightedDraftYear: number | null;
   sort: SortState;
   changeSort: (key: SortKey) => void;
+  openSections: DataSectionKey[];
+  toggleSection: (section: DataSectionKey) => void;
 }) {
   const active = entries.filter((entry) => entry.state === "active");
   const regular = active.filter((entry) => entry.slot === "regular");
@@ -197,7 +242,7 @@ function TeamDetails({
         </section>
       )}
 
-      <DataSection label={`Roster (${regular.length}/15)`}>
+      <DataSection label={`Roster (${regular.length}/15)`} expanded={openSections.includes("roster")} onToggle={() => toggleSection("roster")}>
         <div className="data-table roster-data-table">
           <div className="data-head">
             <SortButton label="Giocatore" sortKey="name" sort={sort} onClick={changeSort} />
@@ -210,19 +255,19 @@ function TeamDetails({
         </div>
       </DataSection>
 
-      <DataSection label={`Two-way (${twoWay.length}/2)`}>
+      <DataSection label={`Two-way (${twoWay.length}/2)`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
         <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} />
       </DataSection>
 
-      <DataSection label={`G-League (${gLeague.length}/3)`}>
+      <DataSection label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>
         <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} />
       </DataSection>
 
-      <DataSection label={`Disabled player exception (${dpe.length}/1)`}>
+      <DataSection label={`Disabled player exception (${dpe.length}/1)`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
         <SimplePlayerTable entries={dpe} seasonName={capSeasonName} />
       </DataSection>
 
-      <DataSection label="Scelte">
+      <DataSection label={`Scelte (${sortedAssets.length})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
         <div className="data-table draft-data-table">
           <div className="data-head"><span>Anno</span><span>Giro</span><span>SQ / POS</span><span>Clausola</span></div>
           {sortedAssets.map((asset, index) => {
@@ -244,11 +289,11 @@ function TeamDetails({
         </div>
       </DataSection>
 
-      <DataSection label="Tagliati">
+      <DataSection label={`Tagliati (${cut.length})`} expanded={openSections.includes("cut")} onToggle={() => toggleSection("cut")}>
         <SimplePlayerTable entries={cut} seasonName={capSeasonName} cutPlayers />
       </DataSection>
 
-      <DataSection label="Qualifying offer">
+      <DataSection label={`Qualifying offer (${showQualifyingOffers ? rights.length : 0})`} expanded={openSections.includes("qualifying_offer")} onToggle={() => toggleSection("qualifying_offer")}>
         <div className="data-table qo-data-table">
           <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
           {showQualifyingOffers && rights.map((right) => (
@@ -265,8 +310,26 @@ function SummaryValue({ label, value }: { label: string; value: string }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function DataSection({ label, children }: { label: string; children: React.ReactNode }) {
-  return <section className="accordion-data-section"><p>{label}</p>{children}</section>;
+function DataSection({
+  label,
+  expanded,
+  onToggle,
+  children,
+}: {
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`accordion-data-section ${expanded ? "open" : ""}`}>
+      <button className="accordion-data-section-trigger" type="button" aria-expanded={expanded} onClick={onToggle}>
+        <span>{label}</span>
+        <i aria-hidden="true">{expanded ? "−" : "+"}</i>
+      </button>
+      {expanded && children}
+    </section>
+  );
 }
 
 function SortButton({ label, sortKey, sort, onClick }: { label: string; sortKey: SortKey; sort: SortState; onClick: (key: SortKey) => void }) {
@@ -364,7 +427,7 @@ function ContractDisplay({ value, auctionAcquisition, playoffTeamOptionPromotion
   const markers = [
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "+ Q.O.", kind: "qo" }] : []),
-    ...(/\((?:2X|X2)\)/i.test(value) ? [{ label: "+ ×2", kind: "double" }] : []),
+    ...(/\((?:2X|X2)\)/i.test(value) ? [{ label: "×2", kind: "double" }] : []),
     ...(playoffTeamOptionPromotionSeason ? [{ label: "+ PO", kind: "playoff-promotion" }] : []),
     ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
     ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),

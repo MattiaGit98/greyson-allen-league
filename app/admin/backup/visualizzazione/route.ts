@@ -34,7 +34,7 @@ export async function GET() {
       loadEditableLeagueState(),
     ]);
     const phase = activeSeason.season.status;
-    const seasonName = displayedSeasonName(activeSeason.season.name, phase);
+    const seasonName = displayedSeasonName(activeSeason.season.name);
     const exportedAt = new Date();
     const html = renderStaticLeagueHtml({
       exportedAt,

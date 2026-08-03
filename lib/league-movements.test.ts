@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildMovementReversal, movementReversalSlotErrors } from "./league-movements";
+import {
+  buildMovementReversal,
+  movementReversalSlotErrors,
+  movementUndoMetadataFromState,
+  movementUndoWindowError,
+} from "./league-movements";
 import type { EditableLeagueState } from "./league-state";
 
 function state(teamCode: string): EditableLeagueState {
@@ -16,6 +21,54 @@ describe("movement reversal", () => {
     const current = { ...after, qualifyingOfferRights: [{ playerName: "Other", teamCode: "CCC", qualifyingAmount: 1 }] };
     expect(buildMovementReversal(current, before, after).rosterEntries[0].teamCode).toBe("AAA");
     expect(buildMovementReversal(current, before, after).qualifyingOfferRights).toHaveLength(1);
+  });
+
+  it("allows an ordinary team-option reversal only before its deadline", () => {
+    const input = {
+      operationType: "team_option",
+      movementSeasonName: "2026/27",
+      undoBeforeMoment: "team_option_deadline",
+      currentSeasonName: "2026/27",
+    } as const;
+    expect(movementUndoWindowError({ ...input, currentMoment: "offseason_start" })).toBeNull();
+    expect(movementUndoWindowError({ ...input, currentMoment: "team_option_deadline" })).toMatch(/non sono più annullabili/);
+  });
+
+  it("does not reopen an old team-option reversal in the next offseason", () => {
+    expect(movementUndoWindowError({
+      operationType: "team_option",
+      movementSeasonName: "2026/27",
+      undoBeforeMoment: "team_option_deadline",
+      currentSeasonName: "2027/28",
+      currentMoment: "offseason_start",
+    })).toMatch(/non sono più annullabili/);
+  });
+
+  it("blocks a legacy team-option movement when its season cannot be identified", () => {
+    expect(movementUndoWindowError({
+      operationType: "team_option",
+      movementSeasonName: null,
+      undoBeforeMoment: null,
+      currentSeasonName: "2026/27",
+      currentMoment: "offseason_start",
+    })).toMatch(/non contiene l'annata/);
+  });
+
+  it("never allows the definitive Draft order to be reversed", () => {
+    expect(movementUndoWindowError({
+      operationType: "ordine_draft_finale",
+      movementSeasonName: null,
+      undoBeforeMoment: null,
+      currentSeasonName: "2026/27",
+      currentMoment: "offseason_start",
+    })).toMatch(/non può essere annullato/);
+  });
+
+  it("recovers movement undo metadata preserved inside backup snapshots", () => {
+    expect(movementUndoMetadataFromState({
+      rosterEntries: [],
+      _movementMeta: { season_name: "2026/27", undo_before_moment: "team_option_deadline" },
+    })).toEqual({ seasonName: "2026/27", undoBeforeMoment: "team_option_deadline" });
   });
 
   it("blocks reversal after the same player moves again", () => {

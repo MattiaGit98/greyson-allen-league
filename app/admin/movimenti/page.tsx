@@ -1,17 +1,32 @@
-import { buildMovementReversal, movementReversalSlotErrors } from "@/lib/league-movements";
+import { requireActiveSeason } from "@/lib/active-season";
+import { leagueMomentFromSeason } from "@/lib/league-moments";
+import { buildMovementReversal, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { UndoMovementButton } from "./undo-movement-button";
 
 export default async function MovementAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; reverted?: string }> }) {
   const query = await searchParams;
-  const [supabase, current] = await Promise.all([createSupabaseServerClient(), loadEditableLeagueState()]);
-  if (!supabase) throw new Error("Supabase non configurato: registro movimenti non disponibile.");
-  const response = await supabase.from("league_movements").select("id,operation_type,summary,before_state,after_state,created_at,reverted_at").order("created_at", { ascending: false }).limit(100);
+  const [{ supabase, season }, current] = await Promise.all([requireActiveSeason(), loadEditableLeagueState()]);
+  const currentMoment = leagueMomentFromSeason(season);
+  const response = await supabase.from("league_movements").select("id,operation_type,summary,before_state,after_state,season_name,undo_before_moment,created_at,reverted_at").order("created_at", { ascending: false }).limit(100);
   if (response.error) throw new Error(`Registro movimenti non disponibile: ${response.error.message}`);
   const movements = (response.data ?? []).map((movement) => {
     let reversible = !movement.reverted_at;
     let reason = "";
+    if (reversible) {
+      const snapshotMetadata = movementUndoMetadataFromState(movement.before_state);
+      const windowError = movementUndoWindowError({
+        operationType: movement.operation_type,
+        movementSeasonName: movement.season_name ?? snapshotMetadata.seasonName,
+        undoBeforeMoment: movement.undo_before_moment ?? snapshotMetadata.undoBeforeMoment,
+        currentSeasonName: season.name,
+        currentMoment,
+      });
+      if (windowError) {
+        reversible = false;
+        reason = windowError;
+      }
+    }
     if (reversible) {
       try {
         const restored = buildMovementReversal(

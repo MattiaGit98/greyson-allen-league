@@ -14,7 +14,7 @@ export default async function TeamsPage({
     loadEditableLeagueState(),
   ]);
   const phase = activeSeason.season.status;
-  const capSeasonName = displayedSeasonName(activeSeason.season.name, phase);
+  const capSeasonName = displayedSeasonName(activeSeason.season.name);
   const teamOptionsResolved = activeSeason.season.team_options_resolved;
   const countTeamOptions = shouldCountTeamOptions(phase, teamOptionsResolved);
 
