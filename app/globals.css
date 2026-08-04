@@ -243,10 +243,11 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .movement-list-meta span, .calendar-list-meta span { color: var(--muted); font-size: 11px; }
 .movement-list, .calendar-list { overflow: hidden; border: 1px solid var(--line); border-top: 2px solid var(--green); border-radius: 12px; background: rgba(255,255,255,.9); box-shadow: 0 4px 14px rgba(24,63,52,.035); }
 .movement-list-head, .calendar-list-head { min-height: 38px; display: grid; align-items: center; gap: 14px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: #f0f1e9; color: #596158; font-size: 9px; font-weight: 900; text-align: left; text-transform: uppercase; letter-spacing: .08em; }
-.movement-list-head { grid-template-columns: .8fr 2fr; }
-.movement-list-row { min-height: 48px; display: grid; grid-template-columns: .8fr 2fr; align-items: center; gap: 14px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.movement-list-head { grid-template-columns: minmax(110px, .72fr) minmax(0, 2fr) 132px; }
+.movement-list-row { min-height: 48px; display: grid; grid-template-columns: minmax(110px, .72fr) minmax(0, 2fr) 132px; align-items: center; gap: 14px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
 .movement-list-row strong { color: var(--green); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
-.movement-list-row span { font-size: 11px; }
+.movement-list-row .movement-detail { overflow: hidden; display: -webkit-box; font-size: 10px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.movement-list-row time { color: var(--muted); font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .movement-empty { min-height: 150px; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
 .calendar-list-head, .calendar-row { grid-template-columns: minmax(220px, 1fr) 180px; }
 .calendar-row { min-height: 52px; display: grid; align-items: center; gap: 14px; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 12px; transition: background .15s; }
@@ -1582,7 +1583,9 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 @media (max-width: 850px) {
   .movement-admin-list article { align-items: stretch; flex-direction: column; margin: 0 8px; }
   .movement-admin-list button { width: 100%; }
-  .movement-list-row { grid-template-columns: 88px minmax(0, 1fr); gap: 8px; padding: 9px 8px; }
+  .movement-list-head { grid-template-columns: 76px minmax(0, 1fr) 94px; gap: 8px; padding-right: 8px; padding-left: 8px; }
+  .movement-list-row { grid-template-columns: 76px minmax(0, 1fr) 94px; gap: 8px; padding: 9px 8px; }
+  .movement-list-row time { font-size: 8px; }
   .phase-progress-card, .phase-restore-card { grid-template-columns: 1fr; margin-right: 8px; margin-left: 8px; }
   .phase-progress-card > b { transform: rotate(90deg); justify-self: center; }
   .phase-progress-card .button, .phase-restore-card .button { width: 100%; }

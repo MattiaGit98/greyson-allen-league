@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { DraftAsset, PlayerListEntry, QualifyingOfferRight, RosterEntry, TeamSummary } from "@/lib/league-types";
 import { calculateCapSpace, contractCostForSeason, followingSeasonName } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
@@ -203,17 +203,6 @@ function TeamDetails({
     optionSeasonName: capSeasonName,
     countTeamOptions,
   }));
-  const sortedRegular = useMemo(() => [...regular].sort((left, right) => {
-    const direction = sort.direction === "asc" ? 1 : -1;
-    if (sort.key === "cost") return (contractCostForSeason(left, capSeasonName) - contractCostForSeason(right, capSeasonName)) * direction;
-    if (sort.key === "contract") {
-      const contract = (value: string) => Number(String(value).match(/\d+/)?.[0] ?? 999);
-      return (contract(left.contract) - contract(right.contract)) * direction;
-    }
-    if (sort.key === "role") return String(left.role ?? "").localeCompare(String(right.role ?? ""), "it") * direction;
-    return left.name.localeCompare(right.name, "it") * direction;
-  }), [capSeasonName, regular, sort]);
-
   return (
     <div className="team-accordion-content">
       <div className="current-cap-highlight">
@@ -243,24 +232,15 @@ function TeamDetails({
       )}
 
       <DataSection label={`Roster (${regular.length}/15)`} expanded={openSections.includes("roster")} onToggle={() => toggleSection("roster")}>
-        <div className="data-table roster-data-table">
-          <div className="data-head">
-            <SortButton label="Giocatore" sortKey="name" sort={sort} onClick={changeSort} />
-            <SortButton label="Ruolo" sortKey="role" sort={sort} onClick={changeSort} />
-            <SortButton label="Scadenza" sortKey="contract" sort={sort} onClick={changeSort} />
-            <SortButton label="Costo" sortKey="cost" sort={sort} onClick={changeSort} />
-          </div>
-          {sortedRegular.map((entry) => <PlayerDataRow entry={entry} seasonName={capSeasonName} key={entry.name} />)}
-          {!sortedRegular.length && <EmptyRow />}
-        </div>
+        <SimplePlayerTable entries={regular} seasonName={capSeasonName} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection label={`Two-way (${twoWay.length}/2)`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
-        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} />
+        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>
-        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} />
+        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection label={`Disabled player exception (${dpe.length}/1)`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
@@ -341,22 +321,69 @@ function SimplePlayerTable({
   entries,
   seasonName,
   cutPlayers = false,
+  sort,
+  onSort,
 }: {
   entries: RosterEntry[];
   seasonName: string;
   cutPlayers?: boolean;
+  sort?: SortState;
+  onSort?: (key: SortKey) => void;
 }) {
-  const sortedEntries = [...entries].sort((left, right) => (
-    contractCostForSeason(right, seasonName) - contractCostForSeason(left, seasonName)
-    || left.name.localeCompare(right.name, "it")
-  ));
+  const sortedEntries = sort
+    ? sortPlayerEntries(entries, seasonName, sort)
+    : [...entries].sort((left, right) => (
+      contractCostForSeason(right, seasonName) - contractCostForSeason(left, seasonName)
+      || left.name.localeCompare(right.name, "it")
+    ));
   return (
     <div className={`data-table roster-data-table ${cutPlayers ? "cut-player-table" : ""}`}>
-      <div className="data-head"><span>Giocatore</span><span>{cutPlayers ? "Stretch" : "Ruolo"}</span><span>Scadenza</span><span>Costo</span></div>
+      <div className="data-head">
+        {sort && onSort && !cutPlayers ? <>
+          <SortButton label="Giocatore" sortKey="name" sort={sort} onClick={onSort} />
+          <SortButton label="Ruolo" sortKey="role" sort={sort} onClick={onSort} />
+          <SortButton label="Scadenza" sortKey="contract" sort={sort} onClick={onSort} />
+          <SortButton label="Costo" sortKey="cost" sort={sort} onClick={onSort} />
+        </> : <>
+          <span>Giocatore</span>
+          <span>{cutPlayers ? "Stretch" : "Ruolo"}</span>
+          <span>Scadenza</span>
+          <span>Costo</span>
+        </>}
+      </div>
       {sortedEntries.map((entry) => <PlayerDataRow entry={entry} seasonName={seasonName} cutPlayer={cutPlayers} key={`${entry.name}-${entry.state}`} />)}
       {!sortedEntries.length && <EmptyRow />}
     </div>
   );
+}
+
+function sortPlayerEntries(entries: RosterEntry[], seasonName: string, sort: SortState) {
+  const direction = sort.direction === "asc" ? 1 : -1;
+  return [...entries].sort((left, right) => {
+    let result: number;
+    if (sort.key === "cost") {
+      result = contractCostForSeason(left, seasonName) - contractCostForSeason(right, seasonName);
+    } else if (sort.key === "contract") {
+      result = contractSortValue(left.contract) - contractSortValue(right.contract);
+    } else if (sort.key === "role") {
+      const leftRole = roleSortValue(left.role);
+      const rightRole = roleSortValue(right.role);
+      result = leftRole === 3 || rightRole === 3
+        ? leftRole === rightRole ? 0 : leftRole === 3 ? direction : -direction
+        : leftRole - rightRole;
+    } else {
+      result = left.name.localeCompare(right.name, "it");
+    }
+    return result * direction || left.name.localeCompare(right.name, "it");
+  });
+}
+
+function contractSortValue(value: string) {
+  return Number(String(value).match(/\d+/)?.[0] ?? 999);
+}
+
+function roleSortValue(role: RosterEntry["role"]) {
+  return role === "G" ? 0 : role === "A" ? 1 : role === "C" ? 2 : 3;
 }
 
 function PlayerDataRow({ entry, seasonName, cutPlayer = false }: { entry: RosterEntry; seasonName: string; cutPlayer?: boolean }) {
