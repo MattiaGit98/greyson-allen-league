@@ -1,6 +1,6 @@
 import type { AuctionAcquisitionKind } from "@/lib/league-types";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { calculateCapSpace, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
 import { leagueMomentFromSeason, type LeagueMoment } from "@/lib/league-moments";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { requireActiveSeason } from "@/lib/active-season";
@@ -60,6 +60,8 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
   ]);
   const phase = activeSeason.season.status;
   const seasonName = activeSeason.season.name;
+  const currentSeasonEndYear = seasonEndYear(seasonName);
+  if (currentSeasonEndYear === null) throw new Error(`Annata attiva non valida: ${seasonName}.`);
   const teamOptionsResolved = activeSeason.season.team_options_resolved;
   const tradeDeadlinePassed = activeSeason.season.trade_deadline_passed;
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
@@ -78,7 +80,7 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
     teamOptionsResolved,
     tradeDeadlinePassed,
     leagueMoment,
-    seasonEndYear: seasonEndYear(seasonName) ?? 2027,
+    seasonEndYear: currentSeasonEndYear,
     teams: leagueState.teams.map((team) => {
       const entries = leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code);
       const capSpaceFor = (targetSeasonName: string, isCurrentSeason = false) => calculateCapSpace({
@@ -93,21 +95,20 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
         optionSeasonName: seasonName,
         countTeamOptions: false,
       });
-      const nextSeasonStart = Number(seasonName.slice(0, 4)) + 1;
-      const nextSeasonName = `${nextSeasonStart}/${String((nextSeasonStart + 1) % 100).padStart(2, "0")}`;
-      const followingSeasonName = `${nextSeasonStart + 1}/${String((nextSeasonStart + 2) % 100).padStart(2, "0")}`;
+      const nextSeasonName = followingSeasonName(seasonName);
+      const followingSeason = followingSeasonName(seasonName, 2);
       return {
         code: team.code,
         name: team.name,
         space: capSpaceFor(seasonName, true),
         spaceBeforeOptions: capSpaceBeforeOptions,
         nextSpace: capSpaceFor(nextSeasonName),
-        followingSpace: capSpaceFor(followingSeasonName),
+        followingSpace: capSpaceFor(followingSeason),
         players: entries.map((entry, index) => {
           const listPlayer = playerDetails.get(entry.name.trim().toLocaleLowerCase("it-IT"));
           const expiry = entry.contract.match(/\d{2}/)?.[0];
           const fullExpiryYear = expiry
-            ? Math.floor((seasonEndYear(seasonName) ?? 2000) / 100) * 100 + Number(expiry)
+            ? Math.floor(currentSeasonEndYear / 100) * 100 + Number(expiry)
             : null;
           return {
             id: `${team.code}:${index}:${entry.name}`,

@@ -13,6 +13,11 @@ function state(): EditableLeagueState {
       { name: "Attivo", role: "G", cost: 20, contract: "28 (2X)", state: "active", slot: "regular", teamCode: "AAA", teamOptionBaseCost: 20, teamOptionFinalYear: 2028 },
       { name: "Tagliato", role: "A", cost: 8, contract: "27", state: "cut", slot: "regular", teamCode: "AAA" },
     ],
+    playerList: [
+      { name: "Attivo", role: "G", realTeam: "ROM", rookie: false, under23: false },
+      { name: "Tagliato", role: "A", realTeam: "MIL", rookie: false, under23: false },
+      { name: "Libero", role: "C", realTeam: "NAP", rookie: false, under23: false },
+    ],
   };
 }
 
@@ -71,5 +76,29 @@ describe("rettifiche roster", () => {
       state: state(), teamCode: "AAA", seasonName: "2026/27",
       corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 20, contract: "PENDING", remove: false }],
     })).toThrow("PENDING può restare soltanto");
+  });
+
+  it("può aggiungere come attivo un giocatore già tagliato lasciando intatto il vecchio addebito", () => {
+    const result = applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27", corrections: [],
+      addition: { playerName: "Tagliato", cost: 3, contract: "27", slot: "g_league" },
+    });
+    expect(result.state.rosterEntries.filter((entry) => entry.name === "Tagliato")).toEqual([
+      expect.objectContaining({ state: "cut", cost: 8 }),
+      expect.objectContaining({ state: "active", slot: "g_league", cost: 3 }),
+    ]);
+  });
+
+  it("esclude dalle aggiunte chi è attivo o ha una qualifying offer", () => {
+    expect(() => applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27", corrections: [],
+      addition: { playerName: "Attivo", cost: 3, contract: "27", slot: "regular" },
+    })).toThrow("già attivo");
+    const withQualifyingOffer = state();
+    withQualifyingOffer.qualifyingOfferRights = [{ playerName: "Libero", qualifyingAmount: 4, teamCode: "AAA" }];
+    expect(() => applyRosterCorrections({
+      state: withQualifyingOffer, teamCode: "AAA", seasonName: "2026/27", corrections: [],
+      addition: { playerName: "Libero", cost: 3, contract: "27", slot: "regular" },
+    })).toThrow("qualifying offer");
   });
 });

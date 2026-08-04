@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  defaultCompetitionMap,
   normalizeCompetitionContent,
   sortedCupTeams,
   type CompetitionTeam,
@@ -13,6 +14,12 @@ const teams: CompetitionTeam[] = [
 ];
 
 describe("gestione classifiche", () => {
+  it("dimensiona le classifiche usando il numero corrente di squadre", () => {
+    const competitions = defaultCompetitionMap(teams.length);
+    expect(competitions["Regular season"]).toEqual({ kind: "ranking", positions: [null, null, null] });
+    expect(competitions["March Madness"]).toEqual({ kind: "ranking", positions: [null, null, null] });
+  });
+
   it("ordina il girone prima per vittorie e poi per punteggio totale", () => {
     const content: CupGroupContent = {
       kind: "cup_group",

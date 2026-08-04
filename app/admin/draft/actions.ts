@@ -16,7 +16,7 @@ export async function assignDraftPlayer(formData: FormData) {
   const requestedDraftYear = Number(formData.get("draft_year"));
   const playerName = String(formData.get("player_name") ?? "").trim();
   const destinationSlot = String(formData.get("destination_slot") ?? "") as DraftDestinationSlot;
-  if (!Number.isInteger(pickIndex) || !Number.isInteger(requestedDraftYear) || !playerName || !["regular", "two_way", "g_league"].includes(destinationSlot)) {
+  if (!Number.isInteger(pickIndex) || !Number.isInteger(requestedDraftYear) || !playerName || !["regular", "two_way", "g_league", "immediate_cut", "immediate_release"].includes(destinationSlot)) {
     fail("Scelta o giocatore non validi.");
   }
 
@@ -40,6 +40,9 @@ export async function assignDraftPlayer(formData: FormData) {
   if (currentDraftYear === null || currentDraftYear !== requestedDraftYear) {
     fail("La scelta non appartiene al prossimo draft. Aggiorna la pagina e riprova.");
   }
+  if (!(state.finalizedDraftPositionYears ?? []).includes(requestedDraftYear)) {
+    fail(`Completa prima l'ordine ufficiale del Draft ${requestedDraftYear}.`);
+  }
 
   let assignment: ReturnType<typeof buildDraftAssignment>;
   try {
@@ -62,7 +65,11 @@ export async function assignDraftPlayer(formData: FormData) {
     expected_before_history: history.competitions.Draft,
     next_history: assignment.historyEntries,
     movement_type: "scelta_draft",
-    movement_summary: `Draft ${requestedDraftYear}, scelta ${assignment.position}: ${assignment.playerName} scelto da ${assignment.teamCode} per ${assignment.price} crediti; slot ${draftSlotLabel(assignment.slot)}; contratto T.O.`,
+    movement_summary: assignment.slot === "immediate_cut"
+      ? `${assignment.playerName}: scelto al Draft ${requestedDraftYear} da ${assignment.teamCode} e tagliato immediatamente`
+      : assignment.slot === "immediate_release"
+        ? `${assignment.playerName}: scelto al Draft ${requestedDraftYear} da ${assignment.teamCode} e rilasciato immediatamente`
+        : `${assignment.playerName}: scelto al Draft ${requestedDraftYear} da ${assignment.teamCode} nello slot ${draftSlotLabel(assignment.slot)}`,
   });
   if (response.error) fail(response.error.message);
 

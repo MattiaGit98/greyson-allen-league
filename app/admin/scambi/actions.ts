@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { normalizePlayerName } from "@/lib/admin-alerts";
 import { capOverrideRequested, capOverrideSummary, requireCapOverride, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { nextDraftYear } from "@/lib/draft-positions";
+import { synchronizeUnassignedDraftOwners } from "@/lib/draft-history";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
@@ -59,10 +60,10 @@ export async function registerTrade(formData: FormData) {
   const moment = leagueMomentFromSeason(season);
   if (!operationWindows.trades(moment)) fail("Gli scambi non sono disponibili durante l'asta o dopo la trade deadline.");
 
-  const originalState = await loadEditableLeagueState();
-  const draftHistory = payload.signAndTrade?.kind === "draft"
-    ? (await loadHistoryCompetitionState()).competitions.Draft
-    : undefined;
+  const [originalState, history] = await Promise.all([
+    loadEditableLeagueState(),
+    loadHistoryCompetitionState(),
+  ]);
   let provisionalSignAndTrade: ReturnType<typeof buildSignAndTradeProvisional> | null = null;
   if (payload.signAndTrade) {
     try {
@@ -72,7 +73,6 @@ export async function registerTrade(formData: FormData) {
         seasonName: season.name,
         phase: season.status,
         moment,
-        draftHistoryEntries: draftHistory,
       });
     } catch (error) {
       fail(error instanceof Error ? error.message : "Sign and trade non valido.");
@@ -374,13 +374,18 @@ export async function registerTrade(formData: FormData) {
     : `Scambio ${participantCodes.join(" ↔ ")}`;
   const summary = `${heading}: ${movementDetails.join("; ")}`;
   const movementSummary = capOverrideSummary(summary, capWarnings, forceCap);
-  const response = provisionalSignAndTrade?.draftAssignment
+  const synchronizedHistory = synchronizeUnassignedDraftOwners(
+    history.competitions.Draft,
+    nextState.draftAssets,
+    nextState.finalizedDraftPositionYears ?? [],
+  );
+  const response = synchronizedHistory.changed
     ? await supabase.rpc("apply_league_state_and_history_movement", {
       expected_before_state: originalState,
       next_state: nextState,
       history_category: "Draft",
-      expected_before_history: provisionalSignAndTrade.draftHistoryBefore,
-      next_history: provisionalSignAndTrade.draftHistoryAfter,
+      expected_before_history: history.competitions.Draft,
+      next_history: synchronizedHistory.entries,
       movement_type: operationType,
       movement_summary: movementSummary,
     })
@@ -497,12 +502,6 @@ function validateSignAndTradeRequest(value: unknown): asserts value is SignAndTr
       || !["G", "A", "C", "X", ""].includes(value.playerRole)
       || typeof value.realTeam !== "string"
     ) throw new Error("Firma free agent del sign and trade non valida.");
-    return;
-  }
-  if (value.kind === "draft") {
-    if (!Number.isInteger(value.pickIndex) || !Number.isInteger(value.draftYear) || !["regular", "two_way", "g_league"].includes(String(value.destinationSlot))) {
-      throw new Error("Scelta al Draft del sign and trade non valida.");
-    }
     return;
   }
   throw new Error("Tipo di sign and trade non valido.");

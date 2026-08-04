@@ -320,7 +320,7 @@ export function TradeBuilder({
             <strong>{formatSpace(signAndTrade.spaceBefore)} → {formatSpace(signAndTrade.spaceAfterSigning)}</strong>
             <small>Lo slot deve risultare regolare al termine dello scambio.</small>
           </div>
-          <a href={signAndTrade.request.kind === "draft" ? "/admin/draft" : "/admin/free-agent"}>Annulla</a>
+          <a href="/admin/free-agent">Annulla</a>
         </section>
       )}
       <div className="trade-toolbar">

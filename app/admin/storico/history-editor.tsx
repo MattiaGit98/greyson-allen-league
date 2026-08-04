@@ -104,7 +104,7 @@ function HistoryCategoryForm({
           </div>
           {!selected && (
             <div className="history-create-season">
-              <label><span>Nome nuova annata</span><input autoFocus value={newSeason} onChange={(event) => setNewSeason(event.target.value)} placeholder="Es. 2026/27" /></label>
+              <label><span>Nome nuova annata</span><input autoFocus value={newSeason} onChange={(event) => setNewSeason(event.target.value)} placeholder="Formato AAAA/AA" /></label>
               <button type="button" onClick={createSeason} disabled={!newSeason.trim()}>Crea annata vuota</button>
             </div>
           )}

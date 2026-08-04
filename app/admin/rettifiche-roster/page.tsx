@@ -22,6 +22,14 @@ export default async function RosterCorrectionsPage({
       role: officialRole && officialRole !== "X" ? officialRole : entry.role,
     };
   });
+  const activePlayers = new Set(state.rosterEntries
+    .filter((entry) => entry.state === "active")
+    .map((entry) => normalizePlayerName(entry.name)));
+  const qualifyingPlayers = new Set(state.qualifyingOfferRights.map((right) => normalizePlayerName(right.playerName)));
+  const freeAgents = state.playerList.filter((player) => {
+    const name = normalizePlayerName(player.name);
+    return player.role !== "X" && !activePlayers.has(name) && !qualifyingPlayers.has(name);
+  });
 
   return (
     <section className="section page-top admin-dashboard roster-correction-page">
@@ -30,6 +38,7 @@ export default async function RosterCorrectionsPage({
       <RosterCorrectionPanel
         teams={state.teams.map((team) => ({ code: team.code, name: team.name }))}
         entries={entries}
+        freeAgents={freeAgents}
         seasonName={activeSeason.season.name}
         phase={activeSeason.season.status}
         countTeamOptions={shouldCountTeamOptions(

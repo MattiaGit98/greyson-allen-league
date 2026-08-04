@@ -2,9 +2,7 @@ import type { PlayerListEntry } from "./league-types";
 import { nbaTeamCodes } from "../data/nba-teams";
 import { normalizePlayerName } from "./admin-alerts";
 import { isCapIssueCode } from "./cap-override";
-import { buildDraftAssignment, type DraftAssignmentResult, type DraftDestinationSlot } from "./draft-assignment";
 import type { RosterEntry } from "./league-types";
-import type { HistoryCompetitionEntry } from "./history-competitions";
 import type { EditableLeagueState } from "./league-state";
 import { operationWindows, tradeDeadlineHasPassed, type LeagueMoment } from "./league-moments";
 import { evaluateFreeAgentSigning } from "./rules/free-agent";
@@ -12,7 +10,7 @@ import { countRosterRoles } from "./rules/roster";
 import { calculateCapSpace, seasonEndYear } from "./season-time";
 import { tradePlayerId } from "./trade-state";
 
-export type FreeAgentSignAndTradeRequest = {
+export type SignAndTradeRequest = {
   kind: "free_agent";
   playerSource: "list" | "outside";
   playerName: string;
@@ -23,22 +21,8 @@ export type FreeAgentSignAndTradeRequest = {
   destinationSlot: "regular" | "two_way";
 };
 
-export type DraftSignAndTradeRequest = {
-  kind: "draft";
-  playerName: string;
-  signerTeamCode: string;
-  pickIndex: number;
-  draftYear: number;
-  destinationSlot: DraftDestinationSlot;
-};
-
-export type SignAndTradeRequest = FreeAgentSignAndTradeRequest | DraftSignAndTradeRequest;
-
 export type SignAndTradeProvisional = {
   state: EditableLeagueState;
-  draftAssignment: DraftAssignmentResult | null;
-  draftHistoryBefore: HistoryCompetitionEntry[] | null;
-  draftHistoryAfter: HistoryCompetitionEntry[] | null;
   signingEntry: RosterEntry;
   signingEntryId: string;
   signerTeamCode: string;
@@ -56,22 +40,10 @@ export function buildSignAndTradeProvisional(input: {
   seasonName: string;
   phase: string;
   moment: LeagueMoment;
-  draftHistoryEntries?: HistoryCompetitionEntry[];
 }): SignAndTradeProvisional {
   if (!operationWindows.trades(input.moment)) {
     throw new Error("Il sign and trade non è disponibile durante l'asta o dopo la trade deadline.");
   }
-  if (input.request.kind === "draft") return buildDraftProvisional({ ...input, request: input.request });
-  return buildFreeAgentProvisional({ ...input, request: input.request });
-}
-
-function buildFreeAgentProvisional(input: {
-  state: EditableLeagueState;
-  request: FreeAgentSignAndTradeRequest;
-  seasonName: string;
-  phase: string;
-  moment: LeagueMoment;
-}) {
   const { state, request } = input;
   if (!operationWindows.freeAgency(input.moment)) throw new Error("La free agency non è aperta.");
   if (state.playerListStatus !== "published") throw new Error("Il listone ufficiale non è ancora pubblicato.");
@@ -167,9 +139,6 @@ function buildFreeAgentProvisional(input: {
       rosterEntries: [...state.rosterEntries, signingEntry],
       playerList: request.playerSource === "outside" ? [...state.playerList, player] : state.playerList,
     },
-    draftAssignment: null,
-    draftHistoryBefore: null,
-    draftHistoryAfter: null,
     signingEntry,
     signingEntryId: tradePlayerId(request.signerTeamCode, signingEntry.name),
     signerTeamCode: request.signerTeamCode,
@@ -182,62 +151,7 @@ function buildFreeAgentProvisional(input: {
   } satisfies SignAndTradeProvisional;
 }
 
-function buildDraftProvisional(input: {
-  state: EditableLeagueState;
-  request: DraftSignAndTradeRequest;
-  seasonName: string;
-  phase: string;
-  moment: LeagueMoment;
-  draftHistoryEntries?: HistoryCompetitionEntry[];
-}) {
-  if (!operationWindows.draft(input.moment)) throw new Error("Il Draft non è aperto.");
-  const activeDraftYear = Number(input.seasonName.slice(0, 4));
-  if (input.request.draftYear !== activeDraftYear) {
-    throw new Error(`Il Draft ${input.request.draftYear} è soltanto in anteprima nell'annata attuale.`);
-  }
-  const historyEntries = input.draftHistoryEntries ?? [];
-  const assignment = buildDraftAssignment({
-    state: input.state,
-    historyEntries,
-    draftYear: input.request.draftYear,
-    pickIndex: input.request.pickIndex,
-    requestedPlayerName: input.request.playerName,
-    destinationSlot: input.request.destinationSlot,
-    allowTemporarySlotOverflow: true,
-  });
-  if (assignment.teamCode !== input.request.signerTeamCode) throw new Error("La scelta non appartiene più alla squadra indicata.");
-  const signingEntry = assignment.state.rosterEntries.find((entry) => (
-    entry.name === assignment.playerName
-    && entry.teamCode === assignment.teamCode
-    && entry.state === "active"
-  ));
-  if (!signingEntry) throw new Error("Non è stato possibile preparare la firma del rookie.");
-  const beforeEntries = input.state.rosterEntries.filter((entry) => entry.teamCode === assignment.teamCode && (entry.state !== "active" || entry.slot !== "dpe"));
-  const afterEntries = assignment.state.rosterEntries.filter((entry) => entry.teamCode === assignment.teamCode && (entry.state !== "active" || entry.slot !== "dpe"));
-  const capInput = {
-    seasonName: input.seasonName,
-    optionSeasonName: input.seasonName,
-    countTeamOptions: true,
-  };
-  return {
-    state: assignment.state,
-    draftAssignment: assignment,
-    draftHistoryBefore: historyEntries,
-    draftHistoryAfter: assignment.historyEntries,
-    signingEntry,
-    signingEntryId: tradePlayerId(assignment.teamCode, signingEntry.name),
-    signerTeamCode: assignment.teamCode,
-    playerName: assignment.playerName,
-    label: `Scelta #${assignment.position} · ${assignment.teamCode} · ${assignment.price} crediti · ${slotLabel(assignment.slot)}`,
-    capWarnings: [],
-    warnings: [],
-    spaceBefore: calculateCapSpace({ entries: beforeEntries, ...capInput }),
-    spaceAfterSigning: calculateCapSpace({ entries: afterEntries, ...capInput }),
-  } satisfies SignAndTradeProvisional;
-}
-
-function slotLabel(slot: DraftDestinationSlot | "regular" | "two_way") {
+function slotLabel(slot: "regular" | "two_way") {
   if (slot === "two_way") return "Two-way";
-  if (slot === "g_league") return "G-League";
   return "Roster";
 }

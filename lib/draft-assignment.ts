@@ -1,10 +1,11 @@
 import type { EditableLeagueState } from "./league-state";
 import type { HistoryCompetitionEntry, HistoryDraftRow } from "./history-competitions";
-import { draftOverallPosition, draftPrice } from "./draft-rules";
+import { draftOverallPosition } from "./draft-rules";
 import { findTeamSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
 
-export type DraftDestinationSlot = "regular" | "two_way" | "g_league";
-export type DraftSlotCounts = Record<DraftDestinationSlot | "dpe", number>;
+export type DraftRosterSlot = "regular" | "two_way" | "g_league";
+export type DraftDestinationSlot = DraftRosterSlot | "immediate_cut" | "immediate_release";
+export type DraftSlotCounts = Record<DraftRosterSlot | "dpe", number>;
 
 export const draftSlotLimits: DraftSlotCounts = { regular: 15, two_way: 2, g_league: 3, dpe: 1 };
 
@@ -45,9 +46,16 @@ export function buildDraftAssignment({
   if (!pick || pick.year !== draftYear) throw new Error("La scelta non appartiene al draft attuale.");
 
   const position = draftOverallPosition(pick.originOrOverall);
-  const price = draftPrice(position, pick.round);
-  if (position === null || price === null) {
-    throw new Error("Assegna prima una posizione numerica alla scelta per determinarne il prezzo.");
+  const configuredCost = pick.draftCost;
+  if (position === null || !Number.isInteger(configuredCost) || Number(configuredCost) < 1) {
+    throw new Error("Assegna prima posizione e costo alla scelta.");
+  }
+  const price = Number(configuredCost);
+  if (destinationSlot === "immediate_cut" && pick.round !== "1° giro") {
+    throw new Error("Il taglio immediato è disponibile soltanto per il primo giro.");
+  }
+  if (destinationSlot === "immediate_release" && pick.round !== "2° giro") {
+    throw new Error("Il rilascio immediato è disponibile soltanto per il secondo giro.");
   }
 
   const normalizedRequestedName = normalizePlayerName(requestedPlayerName);
@@ -114,24 +122,29 @@ export function buildDraftAssignment({
     futurePicksAdded = generated.added;
   }
 
+  const createsRosterEntry = destinationSlot !== "immediate_release";
+  const activeSlot = destinationSlot === "immediate_cut" ? "regular" : destinationSlot;
+  const nextRosterEntries = createsRosterEntry ? [
+    ...state.rosterEntries,
+    {
+      name: player.name,
+      role: player.role === "X" ? undefined : player.role,
+      cost: price,
+      contract: destinationSlot === "immediate_cut" ? String((draftYear + 1) % 100).padStart(2, "0") : "T.O.",
+      state: destinationSlot === "immediate_cut" ? "cut" as const : "active" as const,
+      slot: activeSlot as DraftRosterSlot,
+      teamCode: pick.teamCode,
+      contractStartSeason: `${draftYear}/${String((draftYear + 1) % 100).padStart(2, "0")}`,
+    },
+  ] : state.rosterEntries;
   const nextState: EditableLeagueState = {
     ...state,
-    rosterEntries: [
-      ...state.rosterEntries,
-      {
-        name: player.name,
-        role: player.role === "X" ? undefined : player.role,
-        cost: price,
-        contract: "T.O.",
-        state: "active",
-        slot: destinationSlot,
-        teamCode: pick.teamCode,
-        contractStartSeason: `${draftYear}/${String((draftYear + 1) % 100).padStart(2, "0")}`,
-      },
-    ],
+    rosterEntries: nextRosterEntries,
     draftAssets: nextDraftAssets,
   };
-  const finalSlotErrors = findTeamSlotOverflows(nextState.rosterEntries, pick.teamCode).map(slotOverflowMessage);
+  const finalSlotErrors = destinationSlot === "immediate_cut" || destinationSlot === "immediate_release"
+    ? []
+    : findTeamSlotOverflows(nextState.rosterEntries, pick.teamCode).map(slotOverflowMessage);
   if (!allowTemporarySlotOverflow && finalSlotErrors.length) {
     throw new Error(`${finalSlotErrors.join(" ")} Libera prima uno slot adeguato e poi assegna il rookie.`);
   }
@@ -177,6 +190,7 @@ export function draftSlotAssignmentErrors({
   counts: DraftSlotCounts;
 }) {
   const errors: string[] = [];
+  if (slot === "immediate_cut" || slot === "immediate_release") return errors;
   if (!(slot in draftSlotLimits)) return ["Seleziona uno slot valido."];
   (Object.keys(draftSlotLimits) as (keyof DraftSlotCounts)[]).forEach((checkedSlot) => {
     const projectedCount = counts[checkedSlot] + (checkedSlot === slot ? 1 : 0);
@@ -193,6 +207,8 @@ export function draftSlotAssignmentErrors({
 }
 
 export function draftSlotLabel(slot: DraftDestinationSlot | "dpe") {
+  if (slot === "immediate_cut") return "Taglio immediato";
+  if (slot === "immediate_release") return "Rilascio immediato";
   if (slot === "two_way") return "Two-way";
   if (slot === "g_league") return "G-League";
   if (slot === "dpe") return "DPE";

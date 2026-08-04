@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoleMinimumAlerts, findRosterPlayersMissingFromOfficialList } from "./admin-alerts";
+import { buildRoleMinimumAlerts } from "./admin-alerts";
 import type { EditableLeagueState } from "./league-state";
 
 function state(status: EditableLeagueState["playerListStatus"]): EditableLeagueState {
@@ -23,16 +23,6 @@ function state(status: EditableLeagueState["playerListStatus"]): EditableLeagueS
 }
 
 describe("admin list and roster alerts", () => {
-  it("does not compare the provisional offseason list", () => {
-    expect(findRosterPlayersMissingFromOfficialList(state("offseason"))).toEqual([]);
-  });
-
-  it("reports roster names missing from the official list", () => {
-    expect(findRosterPlayersMissingFromOfficialList(state("published"))).toEqual([
-      { playerName: "Assente", teamCodes: ["AAA"] },
-    ]);
-  });
-
   it("counts only active non-DPE players with an official G/A/C role", () => {
     expect(buildRoleMinimumAlerts(state("published"))[0]).toMatchObject({
       teamCode: "AAA",

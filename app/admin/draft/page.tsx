@@ -1,4 +1,4 @@
-import { compareDraftPicks, draftOverallPosition, draftPrice } from "@/lib/draft-rules";
+import { compareDraftPicks } from "@/lib/draft-rules";
 import { draftTeamSlotCounts } from "@/lib/draft-assignment";
 import { nextDraftYear } from "@/lib/draft-positions";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
@@ -27,7 +27,7 @@ export default async function DraftAdminPage({
   const draftWindowOpen = operationWindows.draft(leagueMoment);
   const activeDraftYear = Number(seasonName.slice(0, 4));
   const draftOpen = draftWindowOpen && draftYear === activeDraftYear;
-  const signAndTradeOpen = draftOpen && operationWindows.trades(leagueMoment);
+  const orderFinalized = draftYear !== null && (leagueState.finalizedDraftPositionYears ?? []).includes(draftYear);
 
   const ownedPlayers = new Set(leagueState.rosterEntries.map((entry) => normalizeName(entry.name)));
   const qualifyingPlayers = new Set(
@@ -52,23 +52,26 @@ export default async function DraftAdminPage({
       id: `draft-${stateIndex}-${pick.teamCode}-${pick.year}-${pick.round}-${pick.originOrOverall}`,
       stateIndex,
       ...pick,
-      price: draftPrice(draftOverallPosition(pick.originOrOverall), pick.round),
+      price: pick.draftCost ?? null,
       ownerName: leagueState.teams.find((team) => team.code === pick.teamCode)?.name ?? pick.teamCode,
       slots: teamState.get(pick.teamCode)?.slots ?? { regular: 0, two_way: 0, g_league: 0, dpe: 0 },
       capSpace: teamState.get(pick.teamCode)?.capSpace ?? 1000,
     }))
-    .filter((pick) => draftYear === null || pick.year === draftYear)
+    .filter((pick) => orderFinalized && (draftYear === null || pick.year === draftYear))
     .sort(compareDraftPicks);
 
+  const draftedPlayers = new Set(history.competitions.Draft.flatMap((entry) => (
+    entry.content.kind === "draft" ? entry.content.rows.map((row) => normalizeName(row.player)) : []
+  )));
   const players = leagueState.playerList.filter((player) => {
     const name = normalizeName(player.name);
-    return player.rookie && !ownedPlayers.has(name) && !qualifyingPlayers.has(name);
+    return player.rookie && !ownedPlayers.has(name) && !qualifyingPlayers.has(name) && !draftedPlayers.has(name);
   });
   const draftHistory = history.competitions.Draft.find((entry) => entry.season === String(draftYear));
   const assignedCount = draftHistory?.content.kind === "draft"
     ? draftHistory.content.rows.filter((row) => row.team.trim() && row.player.trim()).length
     : 0;
-  const expectedCount = picks.length + assignedCount;
+  const expectedCount = draftHistory?.content.kind === "draft" ? draftHistory.content.rows.length : 0;
 
   return (
     <section className="section page-top admin-dashboard">
@@ -78,7 +81,7 @@ export default async function DraftAdminPage({
       {draftWindowOpen && draftYear !== null && draftYear !== activeDraftYear && (
         <p className="notice">Il Draft {draftYear} è visibile come prossimo Draft, ma potrà essere assegnato nell'annata {draftYear}/{String((draftYear + 1) % 100).padStart(2, "0")}.</p>
       )}
-      <DraftPanel draftYear={draftYear} picks={picks} players={players} assignedCount={assignedCount} expectedCount={expectedCount} draftOpen={draftOpen} signAndTradeOpen={signAndTradeOpen} />
+      <DraftPanel draftYear={draftYear} picks={picks} players={players} assignedCount={assignedCount} expectedCount={expectedCount} draftOpen={draftOpen && orderFinalized} orderFinalized={orderFinalized} />
     </section>
   );
 }

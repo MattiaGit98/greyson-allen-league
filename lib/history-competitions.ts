@@ -89,9 +89,9 @@ export function defaultHistoryEntryContent(name: HistoryCompetitionName): Histor
       })),
     };
   }
-  if (historyRankingNames.has(name)) return { kind: "ranking", positions: Array.from({ length: 14 }, () => "") };
+  if (historyRankingNames.has(name)) return { kind: "ranking", positions: [] };
   if (name === "Draft") {
-    return { kind: "draft", rows: Array.from({ length: 30 }, (_, index) => ({ pick: String(index + 1), team: "", player: "" })) };
+    return { kind: "draft", rows: [] };
   }
   if (name === "Roster vincitore") {
     return { kind: "winning_roster", teamName: "", players: Array.from({ length: 13 }, () => "") };
@@ -119,15 +119,6 @@ export function emptyHistoryContentFromTemplate(
   if (template.kind === "winning_roster") return { kind: "winning_roster", teamName: "", players: template.players.map(() => "") };
   if (template.kind === "honours") return { kind: "honours", rows: template.rows.map((row) => ({ season: row.season, team: "", owners: "" })) };
   return { kind: "title_counts", rows: template.rows.map(() => ({ label: "", count: "" })) };
-}
-
-export function isHistoryContentEmpty(content: HistoryEntryContent) {
-  if (content.kind === "ranking") return content.positions.every((value) => !value.trim());
-  if (content.kind === "bracket") return content.stages.every((stage) => stage.matches.every((match) => match.teams.every((team) => !team.teamName.trim() && !team.score.trim() && !team.homeAdvantage)));
-  if (content.kind === "draft") return content.rows.every((row) => !row.team.trim() && !row.player.trim());
-  if (content.kind === "winning_roster") return !content.teamName.trim() && content.players.every((player) => !player.trim());
-  if (content.kind === "honours") return content.rows.every((row) => !row.team.trim() && !row.owners.trim());
-  return content.rows.every((row) => !row.label.trim() && !row.count.trim());
 }
 
 export function emptyHistoryCompetitionMap(): HistoryCompetitionMap {

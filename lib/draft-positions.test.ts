@@ -3,10 +3,7 @@ import type { DraftAsset } from "./league-types";
 import {
   applyCompleteDraftOrder,
   highlightedDraftYear,
-  nextDraftYear,
   validateDraftOrderDraftStructure,
-  validateDraftOrderProgress,
-  yearsWithDefinedDraftPositions,
 } from "./draft-positions";
 
 const picks: DraftAsset[] = [
@@ -25,34 +22,68 @@ describe("posizioni draft", () => {
     const positioned = picks.map((pick, index) => pick.year === 2027
       ? { ...pick, originOrOverall: index + 1 }
       : pick);
-    expect(yearsWithDefinedDraftPositions(positioned)).toEqual([2027]);
-    expect(highlightedDraftYear(positioned)).toBe(2027);
+    expect(highlightedDraftYear(positioned)).toBeNull();
+    expect(highlightedDraftYear(positioned, [2027])).toBe(2027);
   });
 
-  it("accetta un ordine parziale senza applicare ancora le clausole", () => {
+  it("accetta una bozza parziale con giri espliciti", () => {
     const teamCodes = ["AAA", "BBB", "CCC"];
-    const partial = Array.from({ length: 30 }, (_, index) => ({
-      position: index + 1,
-      originTeamCode: index < 2 ? teamCodes[index] : "",
-      isBonus: false,
-    }));
-    expect(() => validateDraftOrderProgress(partial, teamCodes)).not.toThrow();
-    partial[2].originTeamCode = "AAA";
-    expect(() => validateDraftOrderProgress(partial, teamCodes)).toThrow("compare più volte");
+    const partial = [
+      { position: 1, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const, cost: null },
+      { position: 2, originTeamCode: "", isBonus: false, round: "1° giro" as const, cost: null },
+      { position: 3, originTeamCode: "AAA", isBonus: false, round: "2° giro" as const, cost: 1 },
+    ];
+    expect(() => validateDraftOrderDraftStructure(partial, teamCodes)).not.toThrow();
   });
 
   it("salva una bozza intermedia anche con controlli finali ancora non rispettati", () => {
     const assignments = [
-      { position: 1, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const },
-      { position: 2, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const },
-      { position: 3, originTeamCode: "BBB", isBonus: true, round: "2° giro" as const },
-      { position: 4, originTeamCode: "CCC", isBonus: true, round: "2° giro" as const },
+      { position: 1, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const, cost: null },
+      { position: 2, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const, cost: null },
+      { position: 3, originTeamCode: "BBB", isBonus: true, round: "2° giro" as const, cost: 1 },
+      { position: 4, originTeamCode: "CCC", isBonus: true, round: "2° giro" as const, cost: 1 },
     ];
-    expect(() => validateDraftOrderDraftStructure(assignments, ["AAA", "BBB", "CCC"], 2027)).not.toThrow();
-    expect(() => validateDraftOrderProgress(assignments, ["AAA", "BBB", "CCC"], 2027)).toThrow();
+    expect(() => validateDraftOrderDraftStructure(assignments, ["AAA", "BBB", "CCC"])).not.toThrow();
   });
 
-  it("crea le due scelte bonus e applica automaticamente uno swap", () => {
+  it("completa un draft senza imporre scelte bonus", () => {
+    const teamCodes = ["AAA", "BBB", "CCC"];
+    const assets = teamCodes.flatMap((teamCode) => ([
+      { label: "Scelta", round: "1° giro", year: 2027, originOrOverall: teamCode, teamCode },
+      { label: "Scelta", round: "2° giro", year: 2027, originOrOverall: teamCode, teamCode },
+    ] satisfies DraftAsset[]));
+    const assignments = [
+      ...teamCodes.map((originTeamCode, index) => ({ position: index + 1, originTeamCode, isBonus: false, round: "1° giro" as const, cost: 5 })),
+      ...teamCodes.map((originTeamCode, index) => ({ position: index + 4, originTeamCode, isBonus: false, round: "2° giro" as const, cost: 1 })),
+    ];
+
+    const result = applyCompleteDraftOrder(assets, 2027, assignments, teamCodes);
+
+    expect(result.draftAssets.filter((asset) => asset.year === 2027)).toHaveLength(6);
+    expect(result.draftAssets.some((asset) => asset.isBonus)).toBe(false);
+  });
+
+  it("accetta qualsiasi numero di bonus, anche distribuito in modo diverso tra i giri", () => {
+    const teamCodes = ["AAA", "BBB", "CCC"];
+    const assets = teamCodes.flatMap((teamCode) => ([
+      { label: "Scelta", round: "1° giro", year: 2027, originOrOverall: teamCode, teamCode },
+      { label: "Scelta", round: "2° giro", year: 2027, originOrOverall: teamCode, teamCode },
+    ] satisfies DraftAsset[]));
+    const assignments = [
+      ...teamCodes.map((originTeamCode, index) => ({ position: index + 1, originTeamCode, isBonus: false, round: "1° giro" as const, cost: 5 })),
+      { position: 4, originTeamCode: "AAA", isBonus: true, round: "1° giro" as const, cost: 2 },
+      { position: 5, originTeamCode: "BBB", isBonus: true, round: "1° giro" as const, cost: 2 },
+      ...teamCodes.map((originTeamCode, index) => ({ position: index + 6, originTeamCode, isBonus: false, round: "2° giro" as const, cost: 1 })),
+      { position: 9, originTeamCode: "CCC", isBonus: true, round: "2° giro" as const, cost: 1 },
+    ];
+
+    const result = applyCompleteDraftOrder(assets, 2027, assignments, teamCodes);
+
+    expect(result.draftAssets.filter((asset) => asset.year === 2027)).toHaveLength(9);
+    expect(result.draftAssets.filter((asset) => asset.year === 2027 && asset.isBonus)).toHaveLength(3);
+  });
+
+  it("crea le scelte bonus indicate e applica automaticamente uno swap", () => {
     const teamCodes = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH", "III", "JJJ", "KKK", "LLL", "MMM", "NNN"];
     const assets: DraftAsset[] = [
       ...teamCodes.flatMap((teamCode) => ([
@@ -69,10 +100,10 @@ describe("posizioni draft", () => {
     ];
     const firstRoundOrder = ["BBB", "AAA", ...teamCodes.slice(2)];
     const assignments = [
-      ...firstRoundOrder.map((originTeamCode, index) => ({ position: index + 1, originTeamCode, isBonus: false })),
-      { position: 15, originTeamCode: "AAA", isBonus: true },
-      ...teamCodes.map((originTeamCode, index) => ({ position: index + 16, originTeamCode, isBonus: false })),
-      { position: 30, originTeamCode: "BBB", isBonus: true },
+      ...firstRoundOrder.map((originTeamCode, index) => ({ position: index + 1, originTeamCode, isBonus: false, round: "1° giro" as const, cost: 10 })),
+      { position: 15, originTeamCode: "AAA", isBonus: true, round: "1° giro" as const, cost: 2 },
+      ...teamCodes.map((originTeamCode, index) => ({ position: index + 16, originTeamCode, isBonus: false, round: "2° giro" as const, cost: 1 })),
+      { position: 30, originTeamCode: "BBB", isBonus: true, round: "2° giro" as const, cost: 1 },
     ];
 
     const result = applyCompleteDraftOrder(assets, 2027, assignments, teamCodes);
@@ -92,54 +123,27 @@ describe("posizioni draft", () => {
     expect(bbbPick).toMatchObject({ originOrOverall: 1, teamCode: "AAA", label: "Scelta" });
   });
 
-  it("gestisce il Draft 2026 da 28 scelte e individua poi l'annata successiva", () => {
-    const teamCodes = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH", "III", "JJJ", "KKK", "LLL", "MMM", "NNN"];
-    const assets: DraftAsset[] = teamCodes.flatMap((teamCode) => ([
-      { label: "Scelta", round: "1° giro", year: 2026, originOrOverall: teamCode, teamCode: teamCode === "AAA" ? "BBB" : teamCode },
-      { label: "Scelta", round: "2° giro", year: 2026, originOrOverall: teamCode, teamCode },
-    ]));
-    const assignments = [
-      ...teamCodes.map((originTeamCode, index) => ({ position: index + 1, originTeamCode, isBonus: false })),
-      ...teamCodes.map((originTeamCode, index) => ({ position: index + 15, originTeamCode, isBonus: false })),
-    ];
-
-    const result = applyCompleteDraftOrder(assets, 2026, assignments, teamCodes);
-    expect(result.draftAssets.filter((asset) => asset.year === 2026)).toHaveLength(28);
-    expect(result.draftAssets.find((asset) => asset.year === 2026 && asset.round === "1° giro" && asset.originTeamCode === "AAA")).toMatchObject({
-      originOrOverall: 1,
-      teamCode: "BBB",
-      isBonus: false,
-    });
-    expect(result.draftAssets.find((asset) => asset.originOrOverall === 15)?.round).toBe("2° giro");
-    expect(nextDraftYear([...result.draftAssets, { ...assets[0], year: 2027 }])).toBe(2026);
-    expect(nextDraftYear(result.draftAssets.filter((asset) => asset.year !== 2026).concat({ ...assets[0], year: 2027 }))).toBe(2027);
-    expect(() => applyCompleteDraftOrder(
-      assets.map((asset) => ({ ...asset, year: 2027 })),
-      2027,
-      assignments,
-      teamCodes,
-    )).toThrow(/30 totali/i);
-  });
-
-  it("mantiene 15 righe nel primo giro futuro anche durante una compilazione parziale", () => {
-    const teamCodes = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH", "III", "JJJ", "KKK", "LLL", "MMM", "NNN"];
-    const partial = Array.from({ length: 28 }, (_, index) => ({
+  it("non impone un massimo fisso alle righe di un giro", () => {
+    const teamCodes = ["AAA", "BBB", "CCC"];
+    const partial = Array.from({ length: 5 }, (_, index) => ({
       position: index + 1,
-      originTeamCode: index === 0 || index === 14 ? "AAA" : "",
-      isBonus: false,
+      originTeamCode: "",
+      isBonus: index >= teamCodes.length,
+      round: "1° giro" as const,
+      cost: null,
     }));
-    expect(() => validateDraftOrderProgress(partial, teamCodes, 2027)).toThrow(/AAA.*più volte/i);
+    expect(() => validateDraftOrderDraftStructure(partial, teamCodes)).not.toThrow();
   });
 
   it("mantiene distinti i due giri quando una riga del primo viene rimossa", () => {
     const teamCodes = ["AAA", "BBB", "CCC"];
     const partial = [
-      { position: 1, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const },
-      { position: 2, originTeamCode: "BBB", isBonus: false, round: "1° giro" as const },
-      { position: 3, originTeamCode: "AAA", isBonus: false, round: "2° giro" as const },
-      { position: 4, originTeamCode: "BBB", isBonus: false, round: "2° giro" as const },
+      { position: 1, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const, cost: null },
+      { position: 2, originTeamCode: "BBB", isBonus: false, round: "1° giro" as const, cost: null },
+      { position: 3, originTeamCode: "AAA", isBonus: false, round: "2° giro" as const, cost: 1 },
+      { position: 4, originTeamCode: "BBB", isBonus: false, round: "2° giro" as const, cost: 1 },
     ];
-    expect(() => validateDraftOrderProgress(partial, teamCodes, 2027)).not.toThrow();
+    expect(() => validateDraftOrderDraftStructure(partial, teamCodes)).not.toThrow();
   });
 
   it("applica una protezione e la ricalcola se l'ordine viene corretto", () => {
@@ -158,10 +162,10 @@ describe("posizioni draft", () => {
       { label: "C.p. se 1a 2027 CCC in top 5", round: "1° giro", year: 2028, originOrOverall: "CCC", teamCode: "CCC" },
     ];
     const assignmentsFor = (firstRound: string[]) => ([
-      ...firstRound.map((originTeamCode, index) => ({ position: index + 1, originTeamCode, isBonus: false })),
-      { position: 15, originTeamCode: "AAA", isBonus: true },
-      ...teamCodes.map((originTeamCode, index) => ({ position: index + 16, originTeamCode, isBonus: false })),
-      { position: 30, originTeamCode: "BBB", isBonus: true },
+      ...firstRound.map((originTeamCode, index) => ({ position: index + 1, originTeamCode, isBonus: false, round: "1° giro" as const, cost: 10 })),
+      { position: 15, originTeamCode: "AAA", isBonus: true, round: "1° giro" as const, cost: 2 },
+      ...teamCodes.map((originTeamCode, index) => ({ position: index + 16, originTeamCode, isBonus: false, round: "2° giro" as const, cost: 1 })),
+      { position: 30, originTeamCode: "BBB", isBonus: true, round: "2° giro" as const, cost: 1 },
     ]);
 
     const triggered = applyCompleteDraftOrder(assets, 2027, assignmentsFor(["CCC", ...teamCodes.filter((code) => code !== "CCC")]), teamCodes);

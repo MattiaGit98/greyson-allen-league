@@ -1,7 +1,5 @@
 import { DraftPositionPanel } from "./position-panel";
-import { inferLegacyDraftOrigins } from "@/lib/draft-order-bootstrap";
-import { defaultDraftPositionCount, draftRoundForPosition, nextDraftYear } from "@/lib/draft-positions";
-import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
+import { nextDraftYear } from "@/lib/draft-positions";
 import { loadEditableLeagueState } from "@/lib/league-state";
 
 export default async function DraftPositionsPage({
@@ -10,33 +8,23 @@ export default async function DraftPositionsPage({
   searchParams: Promise<{ error?: string; updated?: string }>;
 }) {
   const query = await searchParams;
-  const [leagueState, history] = await Promise.all([
-    loadEditableLeagueState(),
-    loadHistoryCompetitionState(),
-  ]);
+  const leagueState = await loadEditableLeagueState();
   const draftYear = nextDraftYear(leagueState.draftAssets);
   const teams = leagueState.teams.map((team) => ({ code: team.code, name: team.name }));
   const savedAssignments = (leagueState.draftOrders ?? []).filter((assignment) => assignment.year === draftYear);
   const finalized = draftYear !== null && (leagueState.finalizedDraftPositionYears ?? []).includes(draftYear);
-  const expectedPositionCount = draftYear === null ? 0 : defaultDraftPositionCount(draftYear, teams.length);
-  const positionCount = savedAssignments.length || expectedPositionCount;
-  const inferredOrigins = draftYear === null ? new Map<number, string>() : inferLegacyDraftOrigins({
-    draftYear,
-    positionCount,
-    teams,
-    draftAssets: leagueState.draftAssets,
-    regularSeasonEntries: history.competitions["Regular season"],
-    playoffEntries: history.competitions.Playoff,
-  });
+  const initialPositionCount = savedAssignments.length || teams.length * 2;
   const savedByPosition = new Map(savedAssignments.map((assignment) => [assignment.position, assignment]));
-  const initialAssignments = Array.from({ length: positionCount }, (_, index) => {
+  const initialAssignments = Array.from({ length: initialPositionCount }, (_, index) => {
     const position = index + 1;
     const saved = savedByPosition.get(position);
+    const round = saved?.round ?? (index < teams.length ? "1° giro" : "2° giro");
     return {
       position,
-      originTeamCode: saved ? saved.originTeamCode : inferredOrigins.get(position) || "",
+      originTeamCode: saved?.originTeamCode ?? "",
       isBonus: saved?.isBonus ?? false,
-      round: saved?.round ?? draftRoundForPosition(position, expectedPositionCount),
+      round,
+      cost: saved ? saved.cost : round === "2° giro" ? 1 : null,
     };
   });
 

@@ -16,7 +16,7 @@ export function TeamAccordion({
   teams,
   rosterEntries,
   draftAssets,
-  draftPositionYears,
+  finalizedDraftPositionYears,
   qualifyingOfferRights,
   playerList,
   playerListPublished,
@@ -29,7 +29,7 @@ export function TeamAccordion({
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
   draftAssets: DraftAsset[];
-  draftPositionYears: number[];
+  finalizedDraftPositionYears: number[];
   qualifyingOfferRights: QualifyingOfferRight[];
   playerList: PlayerListEntry[];
   playerListPublished: boolean;
@@ -46,7 +46,7 @@ export function TeamAccordion({
     initialTeam && teams.some((team) => team.code === initialTeam) ? { [initialTeam]: ["roster"] } : {}
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
-  const highlightedYear = highlightedDraftYear(draftAssets, draftPositionYears);
+  const highlightedYear = highlightedDraftYear(draftAssets, finalizedDraftPositionYears);
   const allExpanded = teams.length > 0
     && openTeams.length === teams.length
     && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));

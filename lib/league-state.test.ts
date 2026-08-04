@@ -19,4 +19,20 @@ describe("league state normalization", () => {
       finalizedDraftPositionYears: [2027, 2028, "2029"],
     }).finalizedDraftPositionYears).toEqual([2027, 2028]);
   });
+
+  it("keeps only Draft rows in the current explicit format", () => {
+    const normalized = normalizeState({
+      ...emptyLeagueState(),
+      draftPositionYears: [2026],
+      draftOrders: [
+        { year: 2027, position: 1, originTeamCode: "AAA", isBonus: false },
+        { year: 2027, position: 2, originTeamCode: "BBB", isBonus: false, round: "1° giro", cost: null },
+      ],
+    });
+
+    expect(normalized.draftOrders).toEqual([
+      { year: 2027, position: 2, originTeamCode: "BBB", isBonus: false, round: "1° giro", cost: null },
+    ]);
+    expect("draftPositionYears" in normalized).toBe(false);
+  });
 });

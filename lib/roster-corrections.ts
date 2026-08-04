@@ -10,6 +10,13 @@ export type RosterCorrectionInput = {
   remove: boolean;
 };
 
+export type RosterAdditionInput = {
+  playerName: string;
+  cost: number;
+  contract: string;
+  slot: RosterEntry["slot"];
+};
+
 export type AppliedRosterCorrection = {
   sourceIndex: number;
   before: RosterEntry;
@@ -25,25 +32,21 @@ export function normalizeRosterCorrectionContract(value: string) {
   return match[2] ? `${match[1]} (${match[2]})` : match[1];
 }
 
-export function rosterCorrectionContractError(value: string) {
-  return normalizeRosterCorrectionContract(value) === null
-    ? "Scadenza non riconosciuta. Usa solo uno dei formati indicati nella legenda."
-    : null;
-}
-
 export function applyRosterCorrections({
   state,
   teamCode,
   seasonName,
   corrections,
+  addition = null,
 }: {
   state: EditableLeagueState;
   teamCode: string;
   seasonName: string;
   corrections: RosterCorrectionInput[];
+  addition?: RosterAdditionInput | null;
 }) {
   if (!state.teams.some((team) => team.code === teamCode)) throw new Error("Squadra non valida.");
-  if (!corrections.length) throw new Error("Non hai inserito alcuna rettifica.");
+  if (!corrections.length && !addition) throw new Error("Non hai inserito alcuna rettifica.");
   const indices = new Set<number>();
   const changes: AppliedRosterCorrection[] = [];
 
@@ -74,13 +77,47 @@ export function applyRosterCorrections({
     changes.push({ sourceIndex: correction.sourceIndex, before: entry, after });
   }
 
-  if (!changes.length) throw new Error("Non hai inserito alcuna rettifica.");
+  if (!changes.length && !addition) throw new Error("Non hai inserito alcuna rettifica.");
   const changeByIndex = new Map(changes.map((change) => [change.sourceIndex, change]));
-  const rosterEntries = state.rosterEntries.flatMap((entry, index) => {
+  let rosterEntries = state.rosterEntries.flatMap((entry, index) => {
     const change = changeByIndex.get(index);
     if (!change) return [entry];
     return change.after ? [change.after] : [];
   });
+
+  let addedEntry: RosterEntry | null = null;
+  if (addition) {
+    const requestedName = normalizeName(addition.playerName);
+    const player = state.playerList.find((item) => normalizeName(item.name) === requestedName);
+    if (!player || player.role === "X") throw new Error("Seleziona un free agent del listone con ruolo riconosciuto.");
+    if (state.rosterEntries.some((entry) => entry.state === "active" && normalizeName(entry.name) === requestedName)) {
+      throw new Error(`${player.name} è già attivo in un roster.`);
+    }
+    if (state.qualifyingOfferRights.some((right) => normalizeName(right.playerName) === requestedName)) {
+      throw new Error(`${player.name} ha una qualifying offer e non è un free agent puro.`);
+    }
+    if (!Number.isSafeInteger(addition.cost) || addition.cost < 0) {
+      throw new Error(`${player.name}: il costo deve essere un numero intero non negativo.`);
+    }
+    const contract = normalizeRosterCorrectionContract(addition.contract);
+    if (!contract || contract === "PENDING") {
+      throw new Error(`${player.name}: scadenza non riconosciuta. Usa solo uno dei formati indicati nella legenda.`);
+    }
+    if (!["regular", "two_way", "g_league", "dpe"].includes(addition.slot)) {
+      throw new Error("Slot della nuova aggiunta non valido.");
+    }
+    addedEntry = correctedContractMetadata({
+      name: player.name,
+      role: player.role,
+      cost: addition.cost,
+      contract,
+      state: "active",
+      slot: addition.slot,
+      teamCode,
+      contractStartSeason: seasonName,
+    }, seasonName);
+    rosterEntries = [...rosterEntries, addedEntry];
+  }
 
   for (const entry of rosterEntries.filter((item) => item.teamCode === teamCode)) {
     if (normalizeRosterCorrectionContract(entry.contract) === null) {
@@ -91,7 +128,7 @@ export function applyRosterCorrections({
     }
   }
 
-  return { state: { ...state, rosterEntries }, changes };
+  return { state: { ...state, rosterEntries }, changes, addition: addedEntry };
 }
 
 function correctedContractMetadata(entry: RosterEntry, seasonName: string): RosterEntry {
@@ -111,4 +148,8 @@ function correctedContractMetadata(entry: RosterEntry, seasonName: string): Rost
     teamOptionFinalYear: isFutureTeamOption ? finalYear : keepsTeamOptionHistory ? entry.teamOptionFinalYear : undefined,
     playoffTeamOptionPromotionSeason: keepsTeamOptionHistory ? entry.playoffTeamOptionPromotionSeason : undefined,
   };
+}
+
+function normalizeName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
 }

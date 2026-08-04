@@ -25,10 +25,7 @@ export const leagueMomentLabels: Record<LeagueTransition, string> = {
 };
 
 export type MomentSeason = {
-  status: string;
-  timeline_moment?: string | null;
-  team_options_resolved?: boolean | null;
-  trade_deadline_passed?: boolean | null;
+  timeline_moment?: unknown;
 };
 
 export function isLeagueMoment(value: unknown): value is LeagueMoment {
@@ -37,9 +34,7 @@ export function isLeagueMoment(value: unknown): value is LeagueMoment {
 
 export function leagueMomentFromSeason(season: MomentSeason): LeagueMoment {
   if (isLeagueMoment(season.timeline_moment)) return season.timeline_moment;
-  if (season.status === "offseason") return season.team_options_resolved ? "team_option_deadline" : "offseason_start";
-  if (season.status === "regular_season") return season.trade_deadline_passed ? "trade_deadline" : "contract_delivery";
-  return "team_option_deadline";
+  throw new Error("Momento della lega non valido o non inizializzato.");
 }
 
 export function nextLeagueTransition(moment: LeagueMoment): LeagueTransition {
@@ -53,10 +48,6 @@ export function momentIndex(moment: LeagueMoment) {
 
 export function hasReachedMoment(current: LeagueMoment, target: LeagueMoment) {
   return momentIndex(current) >= momentIndex(target);
-}
-
-export function hasPassedMoment(current: LeagueMoment, target: LeagueMoment) {
-  return momentIndex(current) > momentIndex(target);
 }
 
 export function macroPhaseForMoment(moment: LeagueMoment): "offseason" | "regular_season" {

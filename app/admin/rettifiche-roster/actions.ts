@@ -8,7 +8,7 @@ import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovements, type LeagueMovementDraft } from "@/lib/league-movements";
 import type { RosterEntry } from "@/lib/league-types";
-import { applyRosterCorrections, type RosterCorrectionInput } from "@/lib/roster-corrections";
+import { applyRosterCorrections, type RosterAdditionInput, type RosterCorrectionInput } from "@/lib/roster-corrections";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 
 const path = "/admin/rettifiche-roster";
@@ -17,8 +17,10 @@ export async function saveRosterCorrections(formData: FormData) {
   const teamCode = clean(formData.get("team_code")).toLocaleUpperCase("it-IT");
   const forceCap = capOverrideRequested(formData);
   let corrections: RosterCorrectionInput[];
+  let addition: RosterAdditionInput | null;
   try {
     corrections = parseCorrections(formData.get("corrections_json"));
+    addition = parseAddition(formData.get("addition_json"));
   } catch (error) {
     fail(error instanceof Error ? error.message : "Rettifiche non valide.");
   }
@@ -35,6 +37,7 @@ export async function saveRosterCorrections(formData: FormData) {
       teamCode,
       seasonName: activeSeason.season.name,
       corrections,
+      addition,
     });
   } catch (error) {
     fail(error instanceof Error ? error.message : "Rettifiche non valide.");
@@ -72,6 +75,17 @@ export async function saveRosterCorrections(formData: FormData) {
       summary: capOverrideSummary(correctionSummary(change.before, change.after), capWarnings, forceCap),
     };
   });
+  if (applied.addition) {
+    const before = movementState;
+    const after = { ...before, rosterEntries: [...before.rosterEntries, applied.addition] };
+    movementState = after;
+    movements.push({
+      before,
+      after,
+      operationType: "rettifica_roster_aggiunta",
+      summary: capOverrideSummary(`${applied.addition.name}: aggiunto da ${teamCode} nello slot ${slotLabel(applied.addition.slot)}`, capWarnings, forceCap),
+    });
+  }
 
   const response = await persistLeagueMovements(activeSeason.supabase, state, movementState, movements);
   if (response.error) fail(response.error.message);
@@ -85,7 +99,22 @@ export async function saveRosterCorrections(formData: FormData) {
     "/admin/impostazioni",
     path,
   ].forEach((route) => revalidatePath(route));
-  redirect(`${path}?updated=${applied.changes.length}`);
+  redirect(`${path}?updated=${applied.changes.length + Number(Boolean(applied.addition))}`);
+}
+
+function parseAddition(value: FormDataEntryValue | null): RosterAdditionInput | null {
+  const parsed = JSON.parse(String(value ?? "null")) as unknown;
+  if (parsed === null) return null;
+  if (!parsed || typeof parsed !== "object") throw new Error("Nuova aggiunta non valida.");
+  const row = parsed as Partial<RosterAdditionInput>;
+  const playerName = String(row.playerName ?? "").trim();
+  const cost = Number(row.cost);
+  const contract = String(row.contract ?? "").trim();
+  const slot = String(row.slot ?? "") as RosterAdditionInput["slot"];
+  if (!playerName || !Number.isSafeInteger(cost) || cost < 0 || !contract || !["regular", "two_way", "g_league", "dpe"].includes(slot)) {
+    throw new Error("Completa giocatore, scadenza, costo e slot della nuova aggiunta.");
+  }
+  return { playerName, cost, contract, slot };
 }
 
 function parseCorrections(value: FormDataEntryValue | null): RosterCorrectionInput[] {

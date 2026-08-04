@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { defaultDraftPositionCount } from "@/lib/draft-positions";
 import { finalizeDraftPositions, saveDraftPositionDraft } from "./actions";
 
 type TeamOption = { code: string; name: string };
@@ -11,6 +10,7 @@ type AssignmentRow = {
   originTeamCode: string;
   isBonus: boolean;
   round: DraftRound;
+  cost: number | null;
 };
 
 export function DraftPositionPanel({
@@ -26,22 +26,24 @@ export function DraftPositionPanel({
 }) {
   const [assignments, setAssignments] = useState(() => renumberAssignments(initialAssignments));
   const [reviewingFinalSave, setReviewingFinalSave] = useState(false);
-  const maximumRows = draftYear === null ? teams.length * 2 : defaultDraftPositionCount(draftYear, teams.length);
-  const maximumRowsPerRound = maximumRows / 2;
   const finalErrors = useMemo(
-    () => validateAssignments(assignments, teams, draftYear, maximumRowsPerRound),
-    [assignments, teams, draftYear, maximumRowsPerRound],
+    () => validateAssignments(assignments, teams),
+    [assignments, teams],
   );
   const definedPositions = assignments.filter((assignment) => assignment.originTeamCode).length;
+  const definedCosts = assignments.filter((assignment) => Number.isInteger(assignment.cost) && Number(assignment.cost) > 0).length;
   const firstRoundAssignments = assignments.filter((assignment) => assignment.round === "1° giro");
   const secondRoundAssignments = assignments.filter((assignment) => assignment.round === "2° giro");
-  const allRowsFilled = assignments.length === maximumRows
-    && definedPositions === maximumRows
-    && firstRoundAssignments.length === maximumRowsPerRound
-    && secondRoundAssignments.length === maximumRowsPerRound;
+  const firstRoundOrdinary = firstRoundAssignments.filter((assignment) => !assignment.isBonus).length;
+  const secondRoundOrdinary = secondRoundAssignments.filter((assignment) => !assignment.isBonus).length;
+  const bonusCount = assignments.filter((assignment) => assignment.isBonus).length;
+  const minimumRows = teams.length * 2;
+  const allRowsFilled = assignments.length >= minimumRows
+    && definedPositions === assignments.length
+    && definedCosts === assignments.length;
   const finalChecksPassed = allRowsFilled && !finalErrors.length;
 
-  function updateAssignment(position: number, patch: Partial<Pick<AssignmentRow, "originTeamCode" | "isBonus">>) {
+  function updateAssignment(position: number, patch: Partial<Pick<AssignmentRow, "originTeamCode" | "isBonus" | "cost">>) {
     setAssignments((current) => current.map((assignment) => (
       assignment.position === position ? { ...assignment, ...patch } : assignment
     )));
@@ -49,20 +51,27 @@ export function DraftPositionPanel({
 
   function addRow(round: DraftRound) {
     setAssignments((current) => {
-      if (current.filter((assignment) => assignment.round === round).length >= maximumRowsPerRound) return current;
       return renumberAssignments([
         ...current,
-        { position: current.length + 1, originTeamCode: "", isBonus: false, round },
+        {
+          position: current.length + 1,
+          originTeamCode: "",
+          isBonus: false,
+          round,
+          cost: round === "2° giro" ? 1 : null,
+        },
       ]);
     });
+    setForceReviewClosed();
   }
 
   function removeRow(position: number) {
-    setAssignments((current) => {
-      const selected = current.find((assignment) => assignment.position === position);
-      if (!selected || selected.originTeamCode || selected.isBonus) return current;
-      return renumberAssignments(current.filter((assignment) => assignment.position !== position));
-    });
+    setAssignments((current) => renumberAssignments(current.filter((assignment) => assignment.position !== position)));
+    setForceReviewClosed();
+  }
+
+  function setForceReviewClosed() {
+    setReviewingFinalSave(false);
   }
 
   if (draftYear === null) {
@@ -83,7 +92,6 @@ export function DraftPositionPanel({
         round="1° giro"
         assignments={firstRoundAssignments}
         teams={teams}
-        canAdd={firstRoundAssignments.length < maximumRowsPerRound}
         locked={finalized}
         updateAssignment={updateAssignment}
         addRow={addRow}
@@ -94,7 +102,6 @@ export function DraftPositionPanel({
         round="2° giro"
         assignments={secondRoundAssignments}
         teams={teams}
-        canAdd={secondRoundAssignments.length < maximumRowsPerRound}
         locked={finalized}
         updateAssignment={updateAssignment}
         addRow={addRow}
@@ -103,8 +110,8 @@ export function DraftPositionPanel({
 
       <div className="draft-position-footer">
         <div>
-          <span className="draft-position-progress">Posizioni inserite: {definedPositions}/{maximumRows} · Righe presenti: {assignments.length}/{maximumRows}</span>
-          {!finalized && !allRowsFilled && <p className="validation warning">Bozza modificabile: i controlli definitivi verranno eseguiti soltanto quando tutte le righe saranno compilate.</p>}
+          <span className="draft-position-progress">Righe presenti: {assignments.length} · Squadre inserite: {definedPositions}/{assignments.length} · Costi inseriti: {definedCosts}/{assignments.length} · Ordinarie: 1° {firstRoundOrdinary}/{teams.length}, 2° {secondRoundOrdinary}/{teams.length} · Bonus: {bonusCount}</span>
+          {!finalized && !allRowsFilled && <p className="validation warning">Bozza modificabile: servono almeno {teams.length} scelte ordinarie per giro; ogni riga aggiuntiva deve essere bonus. Completa squadra e costo di tutte le righe per il salvataggio ufficiale.</p>}
           {!finalized && allRowsFilled && finalChecksPassed && <p className="validation success">Salvataggio finale: tutti i controlli sono superati. Dopo la conferma l'ordine non sarà più modificabile.</p>}
           {!finalized && allRowsFilled && !finalChecksPassed && <p className="validation error">Salvataggio finale non disponibile: i controlli non sono stati superati.</p>}
           {!finalized && allRowsFilled && finalErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
@@ -129,7 +136,8 @@ export function DraftPositionPanel({
               <p className="validation success">Tutti i controlli sono stati superati.</p>
               <ul className="draft-position-final-checks">
                 <li>{teams.length * 2} scelte ordinarie verranno abbinate alle posizioni indicate.</li>
-                <li>{assignments.filter((assignment) => assignment.isBonus).length} scelte bonus verranno create e assegnate alle squadre indicate.</li>
+                <li>{bonusCount} scelte bonus verranno create e assegnate alle squadre indicate.</li>
+                <li>Tutte le scelte useranno il costo indicato nel tabellone.</li>
                 <li>Protezioni e diritti di swap verranno applicati sul risultato definitivo.</li>
                 <li>Dopo la conferma il tabellone non potrà più essere modificato o annullato.</li>
               </ul>
@@ -150,7 +158,6 @@ function DraftRoundTable({
   round,
   assignments,
   teams,
-  canAdd,
   locked,
   updateAssignment,
   addRow,
@@ -160,9 +167,8 @@ function DraftRoundTable({
   round: DraftRound;
   assignments: AssignmentRow[];
   teams: TeamOption[];
-  canAdd: boolean;
   locked: boolean;
-  updateAssignment: (position: number, patch: Partial<Pick<AssignmentRow, "originTeamCode" | "isBonus">>) => void;
+  updateAssignment: (position: number, patch: Partial<Pick<AssignmentRow, "originTeamCode" | "isBonus" | "cost">>) => void;
   addRow: (round: DraftRound) => void;
   removeRow: (position: number) => void;
 }) {
@@ -170,9 +176,8 @@ function DraftRoundTable({
     <section className="draft-round-section">
       <div className="draft-round-label"><strong>{title}</strong><span>{assignments.length} scelte</span></div>
       <div className="draft-position-table draft-order-table">
-        <div className="draft-position-head"><span>Posizione</span><span>Scelta originaria</span><span>Bonus</span><span></span></div>
+        <div className="draft-position-head"><span>Posizione</span><span>Scelta originaria</span><span>Costo</span><span>Bonus</span><span></span></div>
         {assignments.map((assignment) => {
-          const removalLocked = locked || Boolean(assignment.originTeamCode || assignment.isBonus);
           return (
             <div className={`draft-position-row ${assignment.originTeamCode ? "defined" : ""} ${assignment.isBonus ? "bonus" : ""}`} key={`${assignment.round}-${assignment.position}`}>
               <div className="draft-position-pick"><strong>#{assignment.position}</strong></div>
@@ -183,6 +188,19 @@ function DraftRoundTable({
                   {teams.map((team) => <option value={team.code} key={team.code}>{formatTeamName(team.name)}</option>)}
                 </select>
               </label>
+              <label className="draft-order-cost">
+                <span>Costo</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={assignment.cost ?? ""}
+                  disabled={locked}
+                  onChange={(event) => updateAssignment(assignment.position, {
+                    cost: event.target.value === "" ? null : Number(event.target.value),
+                  })}
+                />
+              </label>
               <label className="draft-order-bonus">
                 <input type="checkbox" checked={assignment.isBonus} disabled={locked} onChange={(event) => updateAssignment(assignment.position, { isBonus: event.target.checked })} />
                 <span>Scelta bonus</span>
@@ -190,21 +208,23 @@ function DraftRoundTable({
               <button
                 className="draft-position-remove"
                 type="button"
-                disabled={removalLocked}
-                title={removalLocked ? "Svuota prima la scelta per rimuovere la riga" : "Rimuovi riga"}
+                disabled={locked}
                 aria-label={`Rimuovi posizione ${assignment.position}`}
+                title="Rimuovi scelta"
                 onClick={() => removeRow(assignment.position)}
-              >
-                Rimuovi
-              </button>
+              >Rimuovi</button>
             </div>
           );
         })}
         {!assignments.length && <p className="data-empty">Nessuna riga nel {title.toLocaleLowerCase("it-IT")}.</p>}
       </div>
-      {!locked && <div className="draft-position-row-controls">
-        <button type="button" onClick={() => addRow(round)} disabled={!canAdd}>+ Aggiungi riga al {title.toLocaleLowerCase("it-IT")}</button>
-      </div>}
+      {!locked && (
+        <div className="draft-position-row-controls">
+          <button type="button" onClick={() => addRow(round)}>
+            + Aggiungi scelta al {title.toLocaleLowerCase("it-IT")}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -212,17 +232,15 @@ function DraftRoundTable({
 function validateAssignments(
   assignments: AssignmentRow[],
   teams: TeamOption[],
-  draftYear: number | null,
-  maximumRowsPerRound: number,
 ) {
   const errors: string[] = [];
-  const expectedBonusCount = draftYear === 2026 ? 0 : 1;
+  if (assignments.some((assignment) => assignment.cost !== null && (!Number.isInteger(assignment.cost) || assignment.cost < 1))) {
+    errors.push("I costi devono essere numeri interi positivi.");
+  }
   for (const round of ["1° giro", "2° giro"] as const) {
     const rows = assignments.filter((assignment) => assignment.round === round);
-    if (rows.length > maximumRowsPerRound) errors.push(`${round}: risultano troppe righe.`);
-    const bonuses = rows.filter((assignment) => assignment.isBonus).length;
-    if (bonuses > expectedBonusCount) {
-      errors.push(expectedBonusCount ? `${round}: puoi selezionare una sola scelta bonus.` : `${round}: il Draft 2026 non prevede scelte bonus.`);
+    if (rows.length < teams.length) {
+      errors.push(`${round}: servono almeno ${teams.length} scelte.`);
     }
     const ordinary = rows
       .filter((assignment) => !assignment.isBonus && assignment.originTeamCode)
@@ -232,10 +250,7 @@ function validateAssignments(
       const duplicateNames = duplicateCodes.map((code) => formatTeamName(teams.find((team) => team.code === code)?.name ?? code));
       errors.push(`${round}: ${duplicateNames.join(", ")} compare più volte tra le scelte non bonus.`);
     }
-    const roundComplete = rows.length === maximumRowsPerRound && rows.every((assignment) => assignment.originTeamCode);
-    if (roundComplete && bonuses !== expectedBonusCount) {
-      errors.push(expectedBonusCount ? `${round}: deve esserci una scelta bonus.` : `${round}: non deve esserci una scelta bonus.`);
-    }
+    const roundComplete = rows.length >= teams.length && rows.every((assignment) => assignment.originTeamCode);
     if (roundComplete) {
       const missingTeams = teams.filter((team) => !ordinary.includes(team.code));
       if (missingTeams.length) {

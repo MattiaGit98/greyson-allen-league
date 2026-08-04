@@ -5,7 +5,6 @@ import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from
 import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { nextDraftYear } from "@/lib/draft-positions";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
-import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { requireActiveSeason } from "@/lib/active-season";
 
@@ -15,10 +14,9 @@ export default async function TradesPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const query = await searchParams;
-  const [activeSeason, rawLeagueState, history] = await Promise.all([
+  const [activeSeason, rawLeagueState] = await Promise.all([
     requireActiveSeason(),
     loadEditableLeagueState(),
-    loadHistoryCompetitionState(),
   ]);
   const phase = activeSeason.season.status;
   const seasonName = activeSeason.season.name;
@@ -34,7 +32,6 @@ export default async function TradesPage({
         seasonName,
         phase,
         moment: leagueMoment,
-        draftHistoryEntries: history.competitions.Draft,
       });
     } catch (error) {
       signAndTradeError = error instanceof Error ? error.message : "Sign and trade non valido.";
@@ -192,17 +189,6 @@ function parseSignAndTradeRequest(query: Record<string, string | undefined>): Si
       signerTeamCode: (query.sign_team ?? "").toUpperCase(),
       price: Number(query.sign_price),
       destinationSlot: query.sign_slot === "two_way" ? "two_way" : "regular",
-    };
-  }
-  if (query.sign_kind === "draft") {
-    const slot = (["regular", "two_way", "g_league"] as const).find((item) => item === query.sign_slot) ?? "regular";
-    return {
-      kind: "draft",
-      playerName: query.sign_player ?? "",
-      signerTeamCode: (query.sign_team ?? "").toUpperCase(),
-      pickIndex: Number(query.sign_pick_index),
-      draftYear: Number(query.sign_draft_year),
-      destinationSlot: slot,
     };
   }
   return null;

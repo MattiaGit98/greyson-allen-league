@@ -19,6 +19,7 @@ const operationLabels: Record<string, string> = {
   ordine_draft_finale: "Ordine draft finale",
   rettifica_roster_contratto: "Rettifica contratto",
   rettifica_roster_rimozione: "Rimozione dal roster",
+  rettifica_roster_aggiunta: "Aggiunta al roster",
 };
 
 export function movementOperationLabel(operationType: string) {
@@ -50,6 +51,8 @@ export function conciseMovementDetail(operationType: string, summary: string) {
     concise = conciseRosterCorrection(detail, "rimosso");
   } else if (normalizedType === "rettifica_roster_contratto") {
     concise = conciseRosterCorrection(detail, "contratto rettificato");
+  } else if (normalizedType === "rettifica_roster_aggiunta") {
+    concise = firstSegment(detail);
   } else if (normalizedType === "ordine_draft_finale") {
     concise = detail.split(":", 1)[0] ?? detail;
   } else if (normalizedType === "modifica_asta") {

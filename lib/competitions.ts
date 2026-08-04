@@ -52,7 +52,7 @@ export function emptyBracketMatch(): BracketMatchContent {
   return { teams: [emptyBracketSlot(), emptyBracketSlot()] };
 }
 
-export function defaultCompetitionContent(name: CompetitionName, teamCount = 14): CompetitionContent {
+export function defaultCompetitionContent(name: CompetitionName, teamCount: number): CompetitionContent {
   if (name === "Girone coppa") return { kind: "cup_group", rounds: 5, results: {} };
   if (bracketCompetitionNames.has(name)) {
     return {
@@ -66,7 +66,7 @@ export function defaultCompetitionContent(name: CompetitionName, teamCount = 14)
   return { kind: "ranking", positions: Array.from({ length: teamCount }, () => null) };
 }
 
-export function defaultCompetitionMap(teamCount = 14): CompetitionContentMap {
+export function defaultCompetitionMap(teamCount: number): CompetitionContentMap {
   return Object.fromEntries(
     competitionNames.map((name) => [name, defaultCompetitionContent(name, teamCount)]),
   ) as CompetitionContentMap;

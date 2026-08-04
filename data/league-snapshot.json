@@ -1675,10 +1675,10 @@
   ],
   "draftAssets": [
     {
-      "label": "13a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 27,
+      "originOrOverall": "SDR",
       "teamCode": "CSS"
     },
     {
@@ -1696,10 +1696,10 @@
       "teamCode": "CSS"
     },
     {
-      "label": "6a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 20,
+      "originOrOverall": "CSP",
       "teamCode": "CSP"
     },
     {
@@ -1752,10 +1752,10 @@
       "teamCode": "FAS"
     },
     {
-      "label": "3a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 17,
+      "originOrOverall": "FAS",
       "teamCode": "FAS"
     },
     {
@@ -1794,31 +1794,31 @@
       "teamCode": "SBB"
     },
     {
-      "label": "11a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 11,
+      "originOrOverall": "PSP",
       "teamCode": "SBB"
     },
     {
-      "label": "12a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 12,
+      "originOrOverall": "CHA",
       "teamCode": "SBB"
     },
     {
-      "label": "4a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 18,
+      "originOrOverall": "SBB",
       "teamCode": "SBB"
     },
     {
-      "label": "5a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 19,
+      "originOrOverall": "MBF",
       "teamCode": "SBB"
     },
     {
@@ -1857,24 +1857,24 @@
       "teamCode": "CCH"
     },
     {
-      "label": "13a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 13,
+      "originOrOverall": "SDR",
       "teamCode": "CCH"
     },
     {
-      "label": "8a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 22,
+      "originOrOverall": "BWE",
       "teamCode": "CCH"
     },
     {
-      "label": "12a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 26,
+      "originOrOverall": "CHA",
       "teamCode": "CCH"
     },
     {
@@ -1906,24 +1906,24 @@
       "teamCode": "CCH"
     },
     {
-      "label": "7a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 7,
+      "originOrOverall": "PPL",
       "teamCode": "PPL"
     },
     {
-      "label": "9a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 9,
+      "originOrOverall": "BCT",
       "teamCode": "PPL"
     },
     {
-      "label": "7a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 21,
+      "originOrOverall": "PPL",
       "teamCode": "PPL"
     },
     {
@@ -1948,10 +1948,10 @@
       "teamCode": "PPL"
     },
     {
-      "label": "9a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 23,
+      "originOrOverall": "BCT",
       "teamCode": "PSP"
     },
     {
@@ -1997,10 +1997,10 @@
       "teamCode": "MBF"
     },
     {
-      "label": "14a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 14,
+      "originOrOverall": "ORF",
       "teamCode": "MBF"
     },
     {
@@ -2046,31 +2046,31 @@
       "teamCode": "MMB"
     },
     {
-      "label": "8a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 8,
+      "originOrOverall": "BWE",
       "teamCode": "MMB"
     },
     {
-      "label": "10a scelta",
+      "label": "Scelta",
       "round": "1° giro",
       "year": 2026,
-      "originOrOverall": 10,
+      "originOrOverall": "CSS",
       "teamCode": "MMB"
     },
     {
-      "label": "2a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 16,
+      "originOrOverall": "MMB",
       "teamCode": "MMB"
     },
     {
-      "label": "14a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 28,
+      "originOrOverall": "ORF",
       "teamCode": "MMB"
     },
     {
@@ -2221,24 +2221,24 @@
       "teamCode": "ORF"
     },
     {
-      "label": "1a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 15,
+      "originOrOverall": "CCH",
       "teamCode": "SDR"
     },
     {
-      "label": "10a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 24,
+      "originOrOverall": "CSS",
       "teamCode": "SDR"
     },
     {
-      "label": "11a scelta",
+      "label": "Scelta",
       "round": "2° giro",
       "year": 2026,
-      "originOrOverall": 25,
+      "originOrOverall": "PSP",
       "teamCode": "SDR"
     },
     {

@@ -7,7 +7,7 @@ import {
   type TeamSummary,
 } from "@/lib/league-types";
 import { createSupabaseServerClient } from "./supabase/server";
-import { yearsWithDefinedDraftPositions, type SavedDraftOrderAssignment } from "./draft-positions";
+import type { SavedDraftOrderAssignment } from "./draft-positions";
 
 export type EditableLeagueState = {
   teams: TeamSummary[];
@@ -16,7 +16,6 @@ export type EditableLeagueState = {
   qualifyingOfferRights: QualifyingOfferRight[];
   playerList: PlayerListEntry[];
   playerListStatus: "offseason" | "published";
-  draftPositionYears?: number[];
   draftOrders?: SavedDraftOrderAssignment[];
   finalizedDraftPositionYears?: number[];
 };
@@ -72,9 +71,6 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
     qualifyingOfferRights,
     playerList: Array.isArray(input.playerList) ? input.playerList : fallback.playerList,
     playerListStatus: input.playerListStatus === "published" ? "published" : "offseason",
-    draftPositionYears: Array.isArray(input.draftPositionYears)
-      ? input.draftPositionYears.filter((year): year is number => Number.isInteger(year))
-      : yearsWithDefinedDraftPositions(draftAssets),
     draftOrders: Array.isArray(input.draftOrders)
       ? input.draftOrders.filter((row): row is SavedDraftOrderAssignment => (
         Boolean(row)
@@ -82,7 +78,8 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
         && Number.isInteger(row.position)
         && typeof row.originTeamCode === "string"
         && typeof row.isBonus === "boolean"
-        && (row.round === undefined || row.round === "1° giro" || row.round === "2° giro")
+        && (row.cost === null || (Number.isInteger(row.cost) && Number(row.cost) > 0))
+        && (row.round === "1° giro" || row.round === "2° giro")
       ))
       : [],
     finalizedDraftPositionYears: Array.isArray(input.finalizedDraftPositionYears)
@@ -99,7 +96,6 @@ export function emptyLeagueState(): EditableLeagueState {
     qualifyingOfferRights: [],
     playerList: [],
     playerListStatus: "offseason",
-    draftPositionYears: [],
     draftOrders: [],
     finalizedDraftPositionYears: [],
   };

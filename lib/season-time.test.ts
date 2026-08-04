@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCapSpace, displayedSeasonName, previousSeasonName, shouldCountTeamOptions } from "./season-time";
+import { advanceSeasonName, calculateCapSpace, displayedSeasonName, previousSeasonName, shouldCountTeamOptions } from "./season-time";
 import type { RosterEntry } from "./league-types";
 
 const entries: RosterEntry[] = [
@@ -12,6 +12,11 @@ describe("logica temporale della stagione", () => {
   it("usa direttamente l'annata assegnata alla fase", () => {
     expect(displayedSeasonName("2026/27")).toBe("2026/27");
     expect(previousSeasonName("2026/27")).toBe("2025/26");
+  });
+
+  it("blocca le annate non valide invece di usare un anno di riserva", () => {
+    expect(() => advanceSeasonName("annata corrente")).toThrow("Annata non valida");
+    expect(() => previousSeasonName("2026")).toThrow("Annata non valida");
   });
 
   it("distingue l'offseason prima e dopo l'esercizio delle team option", () => {

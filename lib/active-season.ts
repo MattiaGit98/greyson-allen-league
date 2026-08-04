@@ -1,5 +1,7 @@
 import { cache } from "react";
 import type { LeaguePhase } from "@/lib/league-types";
+import { isLeagueMoment } from "@/lib/league-moments";
+import { seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const activeSeasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment";
@@ -34,5 +36,11 @@ export const loadActiveSeason = cache(async function loadActiveSeason() {
 export async function requireActiveSeason() {
   const result = await loadActiveSeason();
   if (!result.season || !result.supabase) throw result.error;
+  if (seasonEndYear(result.season.name) === null) {
+    throw new Error(`L'annata attiva salvata in Supabase non è valida: ${result.season.name}.`);
+  }
+  if (!isLeagueMoment(result.season.timeline_moment)) {
+    throw new Error("Il momento della lega salvato in Supabase non è valido.");
+  }
   return { ...result, supabase: result.supabase, season: result.season };
 }

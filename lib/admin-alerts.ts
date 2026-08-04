@@ -1,10 +1,5 @@
 import type { EditableLeagueState } from "./league-state";
 
-export type MissingPlayerListEntry = {
-  playerName: string;
-  teamCodes: string[];
-};
-
 export type RoleMinimumAlert = {
   teamCode: string;
   teamName: string;
@@ -14,26 +9,6 @@ export type RoleMinimumAlert = {
 
 export function normalizePlayerName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
-}
-
-export function findRosterPlayersMissingFromOfficialList(
-  state: EditableLeagueState,
-): MissingPlayerListEntry[] {
-  if (state.playerListStatus !== "published") return [];
-  const listed = new Set(state.playerList.map((player) => normalizePlayerName(player.name)));
-  const missing = new Map<string, MissingPlayerListEntry>();
-
-  for (const entry of state.rosterEntries) {
-    const normalized = normalizePlayerName(entry.name);
-    if (!normalized || listed.has(normalized)) continue;
-    const current = missing.get(normalized) ?? { playerName: entry.name, teamCodes: [] };
-    if (!current.teamCodes.includes(entry.teamCode)) current.teamCodes.push(entry.teamCode);
-    missing.set(normalized, current);
-  }
-
-  return [...missing.values()]
-    .map((entry) => ({ ...entry, teamCodes: entry.teamCodes.sort((a, b) => a.localeCompare(b, "it")) }))
-    .sort((a, b) => a.playerName.localeCompare(b.playerName, "it"));
 }
 
 export function buildRoleMinimumAlerts(state: EditableLeagueState): RoleMinimumAlert[] {

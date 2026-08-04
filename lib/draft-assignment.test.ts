@@ -12,8 +12,8 @@ function state(): EditableLeagueState {
     rosterEntries: [],
     qualifyingOfferRights: [],
     draftAssets: [
-      { label: "Scelta", round: "1° giro", year: 2026, originOrOverall: 7, teamCode: "AAA" },
-      { label: "Scelta", round: "2° giro", year: 2026, originOrOverall: 15, teamCode: "AAA" },
+      { label: "Scelta", round: "1° giro", year: 2026, originOrOverall: 7, teamCode: "AAA", draftCost: 10 },
+      { label: "Scelta", round: "2° giro", year: 2026, originOrOverall: 15, teamCode: "AAA", draftCost: 1 },
     ],
     playerList: [
       { name: "Rookie Uno", role: "G", realTeam: "ROM", rookie: true, under23: true },
@@ -53,7 +53,7 @@ describe("assegnazione draft", () => {
     input.draftAssets[0].originOrOverall = "AAA";
     expect(() => buildDraftAssignment({
       state: input, historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "regular",
-    })).toThrow(/posizione numerica/i);
+    })).toThrow(/posizione e costo/i);
   });
 
   it("blocca gli slot pieni e applica i limiti di prezzo degli slot speciali", () => {
@@ -110,5 +110,26 @@ describe("assegnazione draft", () => {
       expect.objectContaining({ year: 2029, round: "2° giro", originTeamCode: "AAA", teamCode: "AAA" }),
     ]));
     expect(second.historyEntries[0].content).toMatchObject({ kind: "draft" });
+  });
+
+  it("taglia immediatamente una scelta del primo giro con contratto annuale", () => {
+    const result = buildDraftAssignment({
+      state: state(), historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "immediate_cut",
+    });
+    expect(result.state.rosterEntries[0]).toMatchObject({
+      name: "Rookie Uno", state: "cut", slot: "regular", contract: "27", cost: 10,
+    });
+    expect(result.historyEntries[0].content).toMatchObject({ kind: "draft" });
+  });
+
+  it("registra il rilascio immediato del secondo giro senza creare contratto", () => {
+    const result = buildDraftAssignment({
+      state: state(), historyEntries: [], draftYear: 2026, pickIndex: 1, requestedPlayerName: "Rookie Due", destinationSlot: "immediate_release",
+    });
+    expect(result.state.rosterEntries).toHaveLength(0);
+    expect(result.state.draftAssets).toHaveLength(1);
+    const content = result.historyEntries[0].content;
+    expect(content.kind).toBe("draft");
+    if (content.kind === "draft") expect(content.rows[14]).toEqual({ pick: "15", team: "AAA", player: "Rookie Due" });
   });
 });

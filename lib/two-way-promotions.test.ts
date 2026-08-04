@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { RosterEntry, TeamSummary } from "@/lib/league-types";
+import type { RosterEntry } from "@/lib/league-types";
 import {
   applyPlayoffTeamOptionPromotion,
   applySecondYearTwoWayPromotion,
-  buildSecondYearTwoWayPromotionReport,
   requiresPlayoffTeamOptionPromotion,
   requiresSecondYearTwoWayPromotion,
 } from "./two-way-promotions";
-
-const team = { code: "AAA", name: "Alpha", owner: "A" } as TeamSummary;
 
 function entry(patch: Partial<RosterEntry>): RosterEntry {
   return {
@@ -53,18 +50,6 @@ describe("promozioni obbligatorie Two-way", () => {
       twoWayPromotionLocked: true,
     });
     expect(applyPlayoffTeamOptionPromotion(playoffOption, "2027/28").playoffTeamOptionPromotionSeason).toBeUndefined();
-  });
-
-  it("calcola gli slot regolari mancanti per squadra", () => {
-    const roster = [
-      ...Array.from({ length: 14 }, (_, index) => entry({ name: `Roster ${index}`, slot: "regular" })),
-      entry({ name: "Two-way 1" }),
-      entry({ name: "Two-way 2" }),
-    ];
-    const report = buildSecondYearTwoWayPromotionReport([team], roster, "2026/27");
-    expect(report.totalPlayers).toBe(2);
-    expect(report.totalShortfall).toBe(1);
-    expect(report.blockedTeams[0]?.regularSlotsAvailable).toBe(1);
   });
 
   it("promuove nel roster e impedisce di annullare la promozione con la finestra del Draft", () => {

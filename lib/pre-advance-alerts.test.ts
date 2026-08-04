@@ -39,7 +39,6 @@ function state(rosterEntries: RosterEntry[] = []): EditableLeagueState {
     playerList: [],
     playerListStatus: "published",
     draftOrders: [],
-    draftPositionYears: [],
   };
 }
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CapForceControl } from "@/app/admin/cap-force-control";
 import { salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
-import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
+import type { LeaguePhase, PlayerListEntry, RosterEntry } from "@/lib/league-types";
 import { countActiveRosterSlots, rosterSlotLimits } from "@/lib/roster-slot-limits";
 import { normalizeRosterCorrectionContract } from "@/lib/roster-corrections";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
@@ -12,6 +12,7 @@ import { saveRosterCorrections } from "./actions";
 
 type CorrectionEntry = RosterEntry & { sourceIndex: number };
 type Draft = { cost: string; contract: string; remove: boolean };
+type AdditionDraft = { playerName: string; cost: string; contract: string; slot: RosterEntry["slot"] };
 type SortKey = "name" | "role" | "contract" | "cost";
 type SortState = { key: SortKey; direction: "asc" | "desc" };
 type GroupKey = RosterEntry["slot"] | "cut";
@@ -27,12 +28,14 @@ const groups: { key: GroupKey; label: string; limit?: number }[] = [
 export function RosterCorrectionPanel({
   teams,
   entries,
+  freeAgents,
   seasonName,
   phase,
   countTeamOptions,
 }: {
   teams: { code: string; name: string }[];
   entries: CorrectionEntry[];
+  freeAgents: PlayerListEntry[];
   seasonName: string;
   phase: LeaguePhase;
   countTeamOptions: boolean;
@@ -46,6 +49,7 @@ export function RosterCorrectionPanel({
     }]),
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
+  const [addition, setAddition] = useState<AdditionDraft>({ playerName: "", cost: "", contract: "", slot: "regular" });
   const [forceCap, setForceCap] = useState(false);
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
   const teamEntries = entries.filter((entry) => entry.teamCode === team?.code);
@@ -59,7 +63,9 @@ export function RosterCorrectionPanel({
     seasonName,
     phase,
     countTeamOptions,
-  }), [teamEntries, drafts, team?.code, seasonNames, seasonName, phase, countTeamOptions]);
+    addition,
+    freeAgents,
+  }), [teamEntries, drafts, team?.code, seasonNames, seasonName, phase, countTeamOptions, addition, freeAgents]);
 
   const changeSort = (key: SortKey) => {
     setSort((current) => current.key === key
@@ -77,6 +83,7 @@ export function RosterCorrectionPanel({
     <form action={saveRosterCorrections} className="roster-correction-form">
       <input type="hidden" name="team_code" value={team.code} />
       <input type="hidden" name="corrections_json" value={JSON.stringify(preview.corrections)} />
+      <input type="hidden" name="addition_json" value={JSON.stringify(preview.addition)} />
       <input type="hidden" name="force_cap" value={String(forceCap)} />
 
       <div className="contract-format-legend" aria-label="Legenda formati contrattuali">
@@ -158,10 +165,48 @@ export function RosterCorrectionPanel({
           );
         })}
 
+        <section className="accordion-data-section roster-correction-section roster-correction-addition">
+          <p>Aggiungi free agent</p>
+          <div className="roster-correction-add-grid">
+            <label>
+              <span>Giocatore</span>
+              <input
+                type="search"
+                list="roster-correction-free-agents"
+                value={addition.playerName}
+                placeholder="Cerca nel listone…"
+                onChange={(event) => { setAddition((current) => ({ ...current, playerName: event.target.value })); setForceCap(false); }}
+              />
+              <datalist id="roster-correction-free-agents">
+                {freeAgents.map((player) => <option value={player.name} key={player.name}>{player.role} · {player.realTeam}</option>)}
+              </datalist>
+            </label>
+            <label><span>Ruolo</span><strong>{preview.additionPlayer?.role ?? "—"}</strong></label>
+            <label>
+              <span>Scadenza</span>
+              <input value={addition.contract} onChange={(event) => { setAddition((current) => ({ ...current, contract: event.target.value })); setForceCap(false); }} />
+            </label>
+            <label>
+              <span>Costo</span>
+              <input type="number" min="0" step="1" value={addition.cost} onChange={(event) => { setAddition((current) => ({ ...current, cost: event.target.value })); setForceCap(false); }} />
+            </label>
+            <label>
+              <span>Slot</span>
+              <select value={addition.slot} onChange={(event) => { setAddition((current) => ({ ...current, slot: event.target.value as RosterEntry["slot"] })); setForceCap(false); }}>
+                <option value="regular">Roster</option>
+                <option value="two_way">Two-way</option>
+                <option value="g_league">G-League</option>
+                <option value="dpe">DPE</option>
+              </select>
+            </label>
+          </div>
+          <small>Sono inclusi anche i giocatori già tagliati; il vecchio taglio resta a roster come addebito.</small>
+        </section>
+
         <section className="roster-correction-recap">
           <header>
             <span>Riepilogo prima del salvataggio</span>
-            <strong>{preview.changedCount} modifiche · {preview.removedCount} rimozioni</strong>
+            <strong>{preview.changedCount} modifiche · {preview.removedCount} rimozioni · {preview.addition ? 1 : 0} aggiunte</strong>
           </header>
           <div className="roster-correction-metrics">
             {seasonNames.map((name, index) => (
@@ -182,7 +227,7 @@ export function RosterCorrectionPanel({
       <button
         className="button primary roster-correction-save"
         type="submit"
-        disabled={preview.errors.length > 0 || preview.corrections.length === 0 || (preview.capWarnings.length > 0 && !forceCap)}
+        disabled={preview.errors.length > 0 || (preview.corrections.length === 0 && !preview.addition) || (preview.capWarnings.length > 0 && !forceCap)}
       >Salva rettifiche roster</button>
     </form>
   );
@@ -196,6 +241,8 @@ function buildPreview({
   seasonName,
   phase,
   countTeamOptions,
+  addition,
+  freeAgents,
 }: {
   teamEntries: CorrectionEntry[];
   drafts: Record<number, Draft>;
@@ -204,6 +251,8 @@ function buildPreview({
   seasonName: string;
   phase: LeaguePhase;
   countTeamOptions: boolean;
+  addition: AdditionDraft;
+  freeAgents: PlayerListEntry[];
 }) {
   const errors: string[] = [];
   const corrections = teamEntries.flatMap((entry) => {
@@ -225,7 +274,7 @@ function buildPreview({
       remove: draft.remove,
     }] : [];
   });
-  const projectedEntries = teamEntries.flatMap((entry): RosterEntry[] => {
+  let projectedEntries = teamEntries.flatMap((entry): RosterEntry[] => {
     const draft = drafts[entry.sourceIndex];
     if (draft.remove) return [];
     return [{
@@ -234,6 +283,28 @@ function buildPreview({
       contract: normalizeRosterCorrectionContract(draft.contract) ?? entry.contract,
     }];
   });
+  const additionPlayer = freeAgents.find((player) => normalizeName(player.name) === normalizeName(addition.playerName));
+  const additionRequested = Boolean(addition.playerName.trim() || addition.cost.trim() || addition.contract.trim());
+  let validAddition: { playerName: string; cost: number; contract: string; slot: RosterEntry["slot"] } | null = null;
+  if (additionRequested) {
+    if (!additionPlayer) errors.push("Nuova aggiunta: seleziona un free agent dall’elenco.");
+    const contract = normalizeRosterCorrectionContract(addition.contract);
+    if (!contract || contract === "PENDING") errors.push("Nuova aggiunta: scadenza non riconosciuta.");
+    if (!validCost(addition.cost)) errors.push("Nuova aggiunta: il costo deve essere un intero non negativo.");
+    if (additionPlayer && contract && contract !== "PENDING" && validCost(addition.cost)) {
+      validAddition = { playerName: additionPlayer.name, cost: Number(addition.cost), contract, slot: addition.slot };
+      projectedEntries = [...projectedEntries, {
+        name: additionPlayer.name,
+        role: additionPlayer.role === "X" ? undefined : additionPlayer.role,
+        cost: Number(addition.cost),
+        contract,
+        state: "active",
+        slot: addition.slot,
+        teamCode,
+        contractStartSeason: seasonName,
+      }];
+    }
+  }
   const spacesBefore = capSpaces(teamEntries, seasonNames, seasonName, countTeamOptions);
   const spacesAfter = capSpaces(projectedEntries, seasonNames, seasonName, countTeamOptions);
   const capWarnings = salaryCapWarningsForSpaces({ before: spacesBefore, after: spacesAfter, seasonNames, phase });
@@ -255,6 +326,8 @@ function buildPreview({
     : [];
   return {
     corrections,
+    addition: validAddition,
+    additionPlayer,
     projectedEntries,
     spacesBefore,
     spacesAfter,
@@ -266,6 +339,10 @@ function buildPreview({
     removedCount: corrections.filter((correction) => correction.remove).length,
     changedCount: corrections.filter((correction) => !correction.remove).length,
   };
+}
+
+function normalizeName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
 }
 
 function capSpaces(entries: RosterEntry[], seasonNames: string[], optionSeasonName: string, countTeamOptions: boolean) {

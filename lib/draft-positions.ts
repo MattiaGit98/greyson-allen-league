@@ -1,11 +1,14 @@
 import type { DraftAsset, DraftClauseResolution } from "./league-types";
 import { draftOverallPosition } from "./draft-rules";
 
+export type DraftRound = "1° giro" | "2° giro";
+
 export type DraftOrderAssignment = {
   position: number;
   originTeamCode: string;
   isBonus: boolean;
-  round?: "1° giro" | "2° giro";
+  round: DraftRound;
+  cost: number | null;
 };
 export type SavedDraftOrderAssignment = DraftOrderAssignment & { year: number };
 
@@ -14,23 +17,10 @@ export function nextDraftYear(draftAssets: DraftAsset[]) {
   return Math.min(...draftAssets.map((asset) => asset.year));
 }
 
-export function defaultDraftPositionCount(draftYear: number, teamCount: number) {
-  return teamCount * 2 + (draftYear === 2026 ? 0 : 2);
-}
-
-export function yearsWithDefinedDraftPositions(draftAssets: DraftAsset[]) {
-  return [...new Set(draftAssets
-    .filter((asset) => draftOverallPosition(asset.originOrOverall) !== null)
-    .map((asset) => asset.year))]
-    .sort((left, right) => left - right);
-}
-
 export function highlightedDraftYear(draftAssets: DraftAsset[], configuredYears: number[] = []) {
   if (!draftAssets.length) return null;
   const nextYear = Math.min(...draftAssets.map((asset) => asset.year));
-  const positionsDefined = configuredYears.includes(nextYear)
-    || draftAssets.some((asset) => asset.year === nextYear && draftOverallPosition(asset.originOrOverall) !== null);
-  return positionsDefined ? nextYear : null;
+  return configuredYears.includes(nextYear) ? nextYear : null;
 }
 
 export function applyCompleteDraftOrder(
@@ -40,7 +30,6 @@ export function applyCompleteDraftOrder(
   teamCodes: string[],
 ) {
   validateCompleteDraftOrder(assignments, teamCodes, draftYear);
-  const positionCount = assignments.length;
   const assetsForYear = draftAssets.filter((asset) => asset.year === draftYear);
   const normalAssets = assetsForYear.filter((asset) => !asset.isBonus);
   const expectedNormalAssets = teamCodes.length * 2;
@@ -50,21 +39,25 @@ export function applyCompleteDraftOrder(
 
   const assetsByOrigin = new Map<string, DraftAsset>();
   for (const asset of normalAssets) {
-    let originTeamCode = draftOriginTeamCode(asset, teamCodes);
-    if (!originTeamCode && typeof asset.originOrOverall === "number") {
-      const assignment = assignments.find((item) => item.position === asset.originOrOverall);
-      if (assignment && !assignment.isBonus) originTeamCode = assignment.originTeamCode;
-    }
+    const originTeamCode = draftOriginTeamCode(asset, teamCodes);
     if (!originTeamCode) throw new Error(`Non è possibile identificare la scelta ${asset.round} di ${asset.teamCode}.`);
     const key = draftOriginKey(asset.round, originTeamCode);
     if (assetsByOrigin.has(key)) throw new Error(`La scelta originaria ${originTeamCode} · ${asset.round} compare più volte.`);
     assetsByOrigin.set(key, { ...asset, originTeamCode, isBonus: false });
   }
 
+  const existingBonuses = new Map<DraftRound, DraftAsset[]>([
+    ["1° giro", assetsForYear.filter((asset) => asset.isBonus && asset.round === "1° giro")],
+    ["2° giro", assetsForYear.filter((asset) => asset.isBonus && asset.round === "2° giro")],
+  ]);
+  const usedBonuses = new Map<DraftRound, number>([["1° giro", 0], ["2° giro", 0]]);
+
   const positionedAssets: DraftAsset[] = assignments.map((assignment) => {
-    const round = assignmentRound(assignment, positionCount);
+    const round = assignment.round;
     if (assignment.isBonus) {
-      const existingBonus = assetsForYear.find((asset) => asset.isBonus && asset.round === round);
+      const bonusIndex = usedBonuses.get(round) ?? 0;
+      const existingBonus = existingBonuses.get(round)?.[bonusIndex];
+      usedBonuses.set(round, bonusIndex + 1);
       return {
         ...(existingBonus ?? {
           label: "Scelta",
@@ -75,6 +68,7 @@ export function applyCompleteDraftOrder(
         originOrOverall: assignment.position,
         originTeamCode: assignment.originTeamCode,
         isBonus: true,
+        draftCost: assignment.cost ?? undefined,
       };
     }
     const asset = assetsByOrigin.get(draftOriginKey(round, assignment.originTeamCode));
@@ -84,6 +78,7 @@ export function applyCompleteDraftOrder(
       originOrOverall: assignment.position,
       originTeamCode: assignment.originTeamCode,
       isBonus: false,
+      draftCost: assignment.cost ?? undefined,
     };
   });
 
@@ -99,37 +94,31 @@ export function applyCompleteDraftOrder(
   };
 }
 
-export function validateCompleteDraftOrder(assignments: DraftOrderAssignment[], teamCodes: string[], draftYear?: number) {
+function validateCompleteDraftOrder(assignments: DraftOrderAssignment[], teamCodes: string[], draftYear: number) {
   const ordinaryPickCount = teamCodes.length * 2;
-  const expectedBonusCount = draftYear === 2026 ? 0 : draftYear === undefined ? assignments.length - ordinaryPickCount : 2;
-  const expectedPositionCount = ordinaryPickCount + expectedBonusCount;
-  if (draftYear !== undefined && assignments.length !== expectedPositionCount) {
-    throw new Error(`Il Draft ${draftYear} deve contenere ${ordinaryPickCount} scelte ordinarie + ${expectedBonusCount} scelte bonus: ${expectedPositionCount} totali.`);
+  if (assignments.length < ordinaryPickCount) {
+    throw new Error(`Il Draft ${draftYear} deve contenere almeno ${ordinaryPickCount} scelte: una scelta ordinaria per squadra in ciascun giro.`);
   }
-  if (draftYear === undefined && ![ordinaryPickCount, ordinaryPickCount + 2].includes(assignments.length)) {
-    throw new Error(`Il draft deve contenere ${ordinaryPickCount} oppure ${ordinaryPickCount + 2} posizioni.`);
-  }
-  validateDraftOrderProgress(assignments, teamCodes, draftYear);
-  const positions = assignments.map((assignment) => assignment.position);
-  if (positions.some((position) => !Number.isInteger(position) || position < 1 || position > assignments.length)) {
-    throw new Error(`Le posizioni devono essere comprese tra 1 e ${assignments.length}.`);
-  }
-  if (new Set(positions).size !== assignments.length) throw new Error(`Ogni posizione da 1 a ${assignments.length} deve comparire una sola volta.`);
+  validateDraftOrderDraftStructure(assignments, teamCodes);
   if (assignments.some((assignment) => !teamCodes.includes(assignment.originTeamCode))) {
     throw new Error("Una delle squadre selezionate non appartiene alla lega.");
   }
-  if (assignments.some((assignment) => assignment.round && assignment.round !== draftRoundForPosition(assignment.position, assignments.length))) {
+  const firstRoundCount = assignments.filter((assignment) => assignment.round === "1° giro").length;
+  if (assignments.some((assignment) => (
+    assignment.round === "1° giro"
+      ? assignment.position > firstRoundCount
+      : assignment.position <= firstRoundCount
+  ))) {
     throw new Error("Una scelta risulta inserita nel giro sbagliato.");
+  }
+  if (assignments.some((assignment) => !validDraftCost(assignment.cost))) {
+    throw new Error("Assegna un costo intero positivo a tutte le scelte.");
   }
 
   for (const round of ["1° giro", "2° giro"] as const) {
-    const roundAssignments = assignments.filter((assignment) => assignmentRound(assignment, assignments.length) === round);
-    const bonuses = roundAssignments.filter((assignment) => assignment.isBonus);
-    const expectedBonuses = expectedBonusCount / 2;
-    if (bonuses.length !== expectedBonuses) {
-      throw new Error(expectedBonuses
-        ? `${round}: seleziona esattamente una scelta bonus.`
-        : `${round}: il Draft 2026 non prevede scelte bonus.`);
+    const roundAssignments = assignments.filter((assignment) => assignment.round === round);
+    if (roundAssignments.length < teamCodes.length) {
+      throw new Error(`${round}: servono almeno ${teamCodes.length} scelte.`);
     }
     const ordinaryOrigins = roundAssignments.filter((assignment) => !assignment.isBonus).map((assignment) => assignment.originTeamCode);
     const missingTeams = teamCodes.filter((teamCode) => !ordinaryOrigins.includes(teamCode));
@@ -143,43 +132,9 @@ export function validateCompleteDraftOrder(assignments: DraftOrderAssignment[], 
   }
 }
 
-export function validateDraftOrderProgress(assignments: DraftOrderAssignment[], teamCodes: string[], draftYear?: number) {
-  if (assignments.length < 1 || assignments.length > 30) {
-    throw new Error("Il pannello deve contenere da 1 a 30 posizioni.");
-  }
-  const positions = assignments.map((assignment) => assignment.position);
-  if (positions.some((position) => !Number.isInteger(position) || position < 1 || position > assignments.length)) {
-    throw new Error(`Le posizioni devono essere comprese tra 1 e ${assignments.length}.`);
-  }
-  if (new Set(positions).size !== assignments.length) throw new Error(`Ogni posizione da 1 a ${assignments.length} deve comparire una sola volta.`);
-  if (assignments.some((assignment) => assignment.originTeamCode && !teamCodes.includes(assignment.originTeamCode))) {
-    throw new Error("Una delle squadre selezionate non appartiene alla lega.");
-  }
-  const roundPositionCount = draftYear === undefined
-    ? assignments.length
-    : defaultDraftPositionCount(draftYear, teamCodes.length);
-  for (const round of ["1° giro", "2° giro"] as const) {
-    const roundAssignments = assignments.filter((assignment) => assignmentRound(assignment, roundPositionCount) === round);
-    if (roundAssignments.length > roundPositionCount / 2) {
-      throw new Error(`${round}: risultano troppe righe.`);
-    }
-    if (roundAssignments.filter((assignment) => assignment.isBonus).length > 1) {
-      throw new Error(`${round}: puoi indicare una sola scelta bonus.`);
-    }
-    const ordinaryOrigins = roundAssignments
-      .filter((assignment) => !assignment.isBonus && assignment.originTeamCode)
-      .map((assignment) => assignment.originTeamCode);
-    if (new Set(ordinaryOrigins).size !== ordinaryOrigins.length) {
-      const duplicateTeams = [...new Set(ordinaryOrigins.filter((code, index) => ordinaryOrigins.indexOf(code) !== index))];
-      throw new Error(`${round}: ${duplicateTeams.join(", ")} compare più volte tra le scelte non bonus.`);
-    }
-  }
-}
-
-export function validateDraftOrderDraftStructure(assignments: DraftOrderAssignment[], teamCodes: string[], draftYear: number) {
-  const maximumPositions = defaultDraftPositionCount(draftYear, teamCodes.length);
-  if (assignments.length < 1 || assignments.length > maximumPositions) {
-    throw new Error(`Il pannello deve contenere da 1 a ${maximumPositions} posizioni.`);
+export function validateDraftOrderDraftStructure(assignments: DraftOrderAssignment[], teamCodes: string[]) {
+  if (assignments.length < 1) {
+    throw new Error("Il pannello deve contenere almeno una posizione.");
   }
   const positions = assignments.map((assignment) => assignment.position);
   if (positions.some((position) => !Number.isInteger(position) || position < 1 || position > assignments.length)) {
@@ -191,21 +146,21 @@ export function validateDraftOrderDraftStructure(assignments: DraftOrderAssignme
   if (assignments.some((assignment) => assignment.originTeamCode && !teamCodes.includes(assignment.originTeamCode))) {
     throw new Error("Una delle squadre selezionate non appartiene alla lega.");
   }
-  const maximumPerRound = maximumPositions / 2;
-  for (const round of ["1° giro", "2° giro"] as const) {
-    if (assignments.filter((assignment) => assignmentRound(assignment, maximumPositions) === round).length > maximumPerRound) {
-      throw new Error(`${round}: risultano troppe righe.`);
-    }
+  if (assignments.some((assignment) => assignment.cost != null && !validDraftCost(assignment.cost))) {
+    throw new Error("I costi inseriti devono essere numeri interi positivi.");
+  }
+  const firstRoundCount = assignments.filter((assignment) => assignment.round === "1° giro").length;
+  if (assignments.some((assignment) => (
+    assignment.round === "1° giro"
+      ? assignment.position > firstRoundCount
+      : assignment.position <= firstRoundCount
+  ))) {
+    throw new Error("Le posizioni del primo giro devono precedere quelle del secondo giro.");
   }
 }
 
-export function draftRoundForPosition(position: number, positionCount = 30) {
-  const firstRoundSize = positionCount === 28 ? 14 : 15;
-  return position <= firstRoundSize ? "1° giro" : "2° giro";
-}
-
-function assignmentRound(assignment: DraftOrderAssignment, positionCount: number) {
-  return assignment.round ?? draftRoundForPosition(assignment.position, positionCount);
+function validDraftCost(value: number | null | undefined) {
+  return Number.isInteger(value) && Number(value) > 0;
 }
 
 function draftOriginTeamCode(asset: DraftAsset, teamCodes: string[]) {

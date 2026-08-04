@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildAutomaticHistoryArchive } from "./history-archive";
 import {
   automaticallyArchivedHistoryNames,
+  defaultHistoryEntryContent,
   emptyHistoryCompetitionMap,
   type HistoryEntryContent,
 } from "./history-competitions";
@@ -13,6 +14,10 @@ function contentFor(category: string): HistoryEntryContent {
 }
 
 describe("archiviazione automatica delle competizioni", () => {
+  it("non presume un numero iniziale di squadre nello storico", () => {
+    expect(defaultHistoryEntryContent("Regular season")).toEqual({ kind: "ranking", positions: [] });
+  });
+
   it("crea una voce per la stagione conclusa soltanto nelle sei categorie automatiche", () => {
     const history = emptyHistoryCompetitionMap();
     history.Draft = [{ season: "2026", content: { kind: "draft", rows: [] } }];

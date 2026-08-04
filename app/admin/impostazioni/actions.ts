@@ -160,26 +160,14 @@ export async function restoreLatestPhaseBackup(formData: FormData) {
   const restored = await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backupId });
   if (restored.error) phaseError(restored.error.message);
   const snapshot = latest.data.season_snapshot as {
-    status?: string;
-    timeline_moment?: string;
-    team_options_resolved?: boolean;
-    trade_deadline_passed?: boolean;
+    timeline_moment?: unknown;
   };
-  const restoredMoment = leagueMomentFromSeason({
-    status: snapshot.status ?? "offseason",
-    timeline_moment: snapshot.timeline_moment,
-    team_options_resolved: snapshot.team_options_resolved,
-    trade_deadline_passed: snapshot.trade_deadline_passed,
-  });
+  if (!isLeagueMoment(snapshot.timeline_moment)) phaseError("Il backup non contiene un momento della lega valido.");
+  const restoredMoment = snapshot.timeline_moment;
   const momentRestore = await supabase.from("seasons").update({ timeline_moment: restoredMoment }).eq("id", latest.data.season_id);
   if (momentRestore.error) phaseError(momentRestore.error.message);
   revalidateLeaguePages();
   redirect("/admin/impostazioni?restored=1");
-}
-
-// Compatibilità con il vecchio componente: la chiusura ora passa dalla stessa sequenza guidata.
-export async function advanceLeagueSeason() {
-  return advanceLeaguePhaseStep();
 }
 
 async function performLeagueSeasonAdvance(

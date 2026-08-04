@@ -58,6 +58,7 @@ export type DraftAsset = {
   teamCode: string;
   originTeamCode?: string;
   isBonus?: boolean;
+  draftCost?: number;
   clauseResolution?: DraftClauseResolution;
 };
 

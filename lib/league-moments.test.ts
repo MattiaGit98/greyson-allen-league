@@ -7,9 +7,9 @@ import {
 } from "./league-moments";
 
 describe("momenti della lega", () => {
-  it("mantiene compatibili le vecchie fasi", () => {
-    expect(leagueMomentFromSeason({ status: "offseason", team_options_resolved: false })).toBe("offseason_start");
-    expect(leagueMomentFromSeason({ status: "regular_season", trade_deadline_passed: true })).toBe("trade_deadline");
+  it("usa esclusivamente il momento corrente salvato", () => {
+    expect(leagueMomentFromSeason({ timeline_moment: "offseason_start" })).toBe("offseason_start");
+    expect(() => leagueMomentFromSeason({})).toThrow("Momento della lega non valido");
   });
 
   it("passa alla stagione al termine dell'asta", () => {

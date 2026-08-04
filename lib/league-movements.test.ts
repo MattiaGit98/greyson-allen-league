@@ -64,6 +64,16 @@ describe("movement reversal", () => {
     })).toMatch(/non può essere annullato/);
   });
 
+  it("never allows an official Draft selection to be reversed", () => {
+    expect(movementUndoWindowError({
+      operationType: "scelta_draft",
+      movementSeasonName: null,
+      undoBeforeMoment: null,
+      currentSeasonName: "2026/27",
+      currentMoment: "offseason_start",
+    })).toMatch(/scelta ufficiale.*non può essere annullata/i);
+  });
+
   it("recovers movement undo metadata preserved inside backup snapshots", () => {
     expect(movementUndoMetadataFromState({
       rosterEntries: [],

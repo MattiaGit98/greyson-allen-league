@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { Fragment, useId, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { DraftAsset, PlayerListEntry } from "@/lib/league-types";
 import {
@@ -28,7 +28,7 @@ export function DraftPanel({
   assignedCount,
   expectedCount,
   draftOpen,
-  signAndTradeOpen,
+  orderFinalized,
 }: {
   draftYear: number | null;
   picks: DraftPickRow[];
@@ -36,7 +36,7 @@ export function DraftPanel({
   assignedCount: number;
   expectedCount: number;
   draftOpen: boolean;
-  signAndTradeOpen: boolean;
+  orderFinalized: boolean;
 }) {
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [destinations, setDestinations] = useState<Record<string, DraftDestinationSlot>>({});
@@ -50,12 +50,16 @@ export function DraftPanel({
         <span>Rookie disponibili <strong>{players.length}</strong></span>
       </div>
 
+      {draftYear !== null && !orderFinalized && (
+        <p className="notice draft-panel-notice">Il pannello si aprirà quando l’ordine del Draft {draftYear} sarà stato salvato ufficialmente in Posizioni Draft.</p>
+      )}
+
       {!players.length && (
         <p className="notice draft-panel-notice">Nessun rookie disponibile nel listone.</p>
       )}
       <div className="draft-panel-table">
         <div className="draft-panel-head"><span>Scelta</span><span>Proprietario</span><span>Prezzo</span><span>Giocatore</span><span>Slot</span><span></span></div>
-        {picks.map((pick) => {
+        {picks.map((pick, index) => {
           const selectedPlayer = selections[pick.id] ?? "";
           const destination = destinations[pick.id] ?? "regular";
           const slotErrors = pick.price === null ? [] : draftSlotAssignmentErrors({
@@ -63,14 +67,15 @@ export function DraftPanel({
             price: pick.price,
             counts: pick.slots,
           });
-          const capAfter = pick.price === null ? pick.capSpace : pick.capSpace - pick.price;
+          const capAfter = pick.price === null || destination === "immediate_release" ? pick.capSpace : pick.capSpace - pick.price;
           const capWarning = Boolean(selectedPlayer) && pick.price !== null && capAfter < 0;
           const canAssign = draftOpen && Boolean(selectedPlayer) && pick.price !== null && !slotErrors.length;
-          const signAndTradeErrors = slotErrors.filter((error) => !error.startsWith("Lo slot "));
-          const canSignAndTrade = signAndTradeOpen && Boolean(selectedPlayer) && pick.price !== null && !signAndTradeErrors.length;
           const position = draftOverallPosition(pick.originOrOverall);
+          const startsRound = index === 0 || picks[index - 1]?.round !== pick.round;
           return (
-            <form action={assignDraftPlayer} className="draft-panel-row" key={pick.id}>
+            <Fragment key={pick.id}>
+            {startsRound && <div className={`draft-panel-round-divider ${pick.round === "2° giro" ? "second-round" : "first-round"}`}><strong>{pick.round === "2° giro" ? "Secondo giro" : "Primo giro"}</strong></div>}
+            <form action={assignDraftPlayer} className="draft-panel-row">
               <input type="hidden" name="pick_index" value={pick.stateIndex} />
               <input type="hidden" name="draft_year" value={pick.year} />
               <input type="hidden" name="destination_slot" value={destination} />
@@ -100,37 +105,19 @@ export function DraftPanel({
                   <option value="regular">Roster ({pick.slots.regular}/{draftSlotLimits.regular})</option>
                   <option value="two_way">Two-way ({pick.slots.two_way}/{draftSlotLimits.two_way})</option>
                   <option value="g_league">G-League ({pick.slots.g_league}/{draftSlotLimits.g_league})</option>
+                  {pick.round === "1° giro" && <option value="immediate_cut">Taglio immediato</option>}
+                  {pick.round === "2° giro" && <option value="immediate_release">Rilascio immediato</option>}
                 </select>
               </label>
               <div className="draft-panel-actions">
-                <button
-                  className="secondary"
-                  type="button"
-                  disabled={!canSignAndTrade}
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      sign_kind: "draft",
-                      sign_player: selectedPlayer,
-                      sign_team: pick.teamCode,
-                      sign_pick_index: String(pick.stateIndex),
-                      sign_draft_year: String(pick.year),
-                      sign_slot: destination,
-                    });
-                    window.location.assign(`/admin/scambi?${params.toString()}`);
-                  }}
-                >
-                  Scegli e scambia
-                </button>
                 <DraftAssignButton enabled={canAssign} />
               </div>
               {selectedPlayer && slotErrors.map((error) => <p className="validation error draft-panel-row-message" key={error}>{error}</p>)}
-              {selectedPlayer && signAndTradeOpen && slotErrors.some((error) => error.startsWith("Lo slot ")) && !signAndTradeErrors.length && (
-                <p className="validation warning draft-panel-row-message">Puoi usare Scegli e scambia, purché lo slot venga liberato nello scambio finale.</p>
-              )}
               {capWarning && (
                 <p className="validation warning draft-panel-row-message">Cap libero: {pick.capSpace} → {capAfter}. L’assegnazione al draft resta consentita.</p>
               )}
             </form>
+            </Fragment>
           );
         })}
         {!picks.length && <p className="team-option-empty">Nessuna scelta residua per questo draft.</p>}

@@ -85,8 +85,10 @@ export function movementUndoWindowError({
   currentSeasonName: string;
   currentMoment: LeagueMoment;
 }) {
-  if (operationType === "ordine_draft_finale") {
-    return "L'ordine definitivo del Draft non può essere annullato.";
+  if (operationType === "ordine_draft_finale" || operationType === "scelta_draft") {
+    return operationType === "ordine_draft_finale"
+      ? "L'ordine definitivo del Draft non può essere annullato."
+      : "Una scelta ufficiale del Draft non può essere annullata.";
   }
   const isOrdinaryTeamOption = operationType === "team_option";
   if (!isOrdinaryTeamOption && undoBeforeMoment !== "team_option_deadline") return null;

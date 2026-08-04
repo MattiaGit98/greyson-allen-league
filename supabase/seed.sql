@@ -1197,7 +1197,7 @@ from public.seasons s join public.teams t on t.code = 'SDR' join public.players 
 where s.name = '2025/26';
 
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '13a scelta', '2° giro', 2026, '27'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'SDR'
 from public.seasons s join public.teams t on t.code = 'CSS' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '2° giro', 2027, 'CSS'
@@ -1206,7 +1206,7 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'C.p. se 1a 2027 CSS in top 5', '1° giro', 2028, 'CSS'
 from public.seasons s join public.teams t on t.code = 'CSS' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '6a scelta', '2° giro', 2026, '20'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'CSP'
 from public.seasons s join public.teams t on t.code = 'CSP' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Soggetta a dir swap con SDR', '1° giro', 2027, 'CSP'
@@ -1230,7 +1230,7 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '1° giro', 2026, 'FAS'
 from public.seasons s join public.teams t on t.code = 'FAS' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '3a scelta', '2° giro', 2026, '17'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'FAS'
 from public.seasons s join public.teams t on t.code = 'FAS' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '1° giro', 2027, 'FAS'
@@ -1248,16 +1248,16 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '1° giro', 2026, 'SBB'
 from public.seasons s join public.teams t on t.code = 'SBB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '11a scelta', '1° giro', 2026, '11'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'PSP'
 from public.seasons s join public.teams t on t.code = 'SBB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '12a scelta', '1° giro', 2026, '12'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'CHA'
 from public.seasons s join public.teams t on t.code = 'SBB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '4a scelta', '2° giro', 2026, '18'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'SBB'
 from public.seasons s join public.teams t on t.code = 'SBB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '5a scelta', '2° giro', 2026, '19'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'MBF'
 from public.seasons s join public.teams t on t.code = 'SBB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '1° giro', 2027, 'SBB'
@@ -1275,13 +1275,13 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '1° giro', 2026, 'CCH'
 from public.seasons s join public.teams t on t.code = 'CCH' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '13a scelta', '1° giro', 2026, '13'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'SDR'
 from public.seasons s join public.teams t on t.code = 'CCH' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '8a scelta', '2° giro', 2026, '22'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'BWE'
 from public.seasons s join public.teams t on t.code = 'CCH' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '12a scelta', '2° giro', 2026, '26'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'CHA'
 from public.seasons s join public.teams t on t.code = 'CCH' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '1° giro', 2027, 'CCH'
@@ -1296,13 +1296,13 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '2° giro', 2028, 'SDR'
 from public.seasons s join public.teams t on t.code = 'CCH' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '7a scelta', '1° giro', 2026, '7'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'PPL'
 from public.seasons s join public.teams t on t.code = 'PPL' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '9a scelta', '1° giro', 2026, '9'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'BCT'
 from public.seasons s join public.teams t on t.code = 'PPL' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '7a scelta', '2° giro', 2026, '21'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'PPL'
 from public.seasons s join public.teams t on t.code = 'PPL' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '2° giro', 2027, 'PPL'
@@ -1314,7 +1314,7 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '2° giro', 2028, 'PPL'
 from public.seasons s join public.teams t on t.code = 'PPL' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '9a scelta', '2° giro', 2026, '23'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'BCT'
 from public.seasons s join public.teams t on t.code = 'PSP' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '1° giro', 2027, 'PSP'
@@ -1335,7 +1335,7 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '1° giro', 2026, 'MBF'
 from public.seasons s join public.teams t on t.code = 'MBF' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '14a scelta', '1° giro', 2026, '14'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'ORF'
 from public.seasons s join public.teams t on t.code = 'MBF' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '1° giro', 2027, 'MBF'
@@ -1356,16 +1356,16 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '1° giro', 2026, 'CSP'
 from public.seasons s join public.teams t on t.code = 'MMB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '8a scelta', '1° giro', 2026, '8'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'BWE'
 from public.seasons s join public.teams t on t.code = 'MMB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '10a scelta', '1° giro', 2026, '10'
+select s.id, t.id, 'Scelta', '1° giro', 2026, 'CSS'
 from public.seasons s join public.teams t on t.code = 'MMB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '2a scelta', '2° giro', 2026, '16'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'MMB'
 from public.seasons s join public.teams t on t.code = 'MMB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '14a scelta', '2° giro', 2026, '28'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'ORF'
 from public.seasons s join public.teams t on t.code = 'MMB' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Scelta', '1° giro', 2027, 'MMB'
@@ -1431,13 +1431,13 @@ insert into public.imported_draft_assets(season_id, owning_team_id, label, round
 select s.id, t.id, 'Scelta', '2° giro', 2028, 'ORF'
 from public.seasons s join public.teams t on t.code = 'ORF' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '1a scelta', '2° giro', 2026, '15'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'CCH'
 from public.seasons s join public.teams t on t.code = 'SDR' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '10a scelta', '2° giro', 2026, '24'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'CSS'
 from public.seasons s join public.teams t on t.code = 'SDR' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
-select s.id, t.id, '11a scelta', '2° giro', 2026, '25'
+select s.id, t.id, 'Scelta', '2° giro', 2026, 'PSP'
 from public.seasons s join public.teams t on t.code = 'SDR' where s.name = '2025/26';
 insert into public.imported_draft_assets(season_id, owning_team_id, label, round_text, draft_year, origin_or_overall)
 select s.id, t.id, 'Diritto di swap con CSP', '1° giro', 2027, 'SDR'

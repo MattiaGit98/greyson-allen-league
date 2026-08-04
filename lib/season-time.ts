@@ -2,7 +2,7 @@ import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
 
 export function advanceSeasonName(name: string) {
   const match = name.match(/^(\d{4})\/(\d{2})$/);
-  if (!match) return name;
+  if (!match) throw new Error(`Annata non valida: ${name}.`);
   const start = Number(match[1]) + 1;
   return `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
 }
@@ -19,7 +19,7 @@ export function followingSeasonName(name: string, distance = 1) {
 
 export function previousSeasonName(name: string) {
   const match = name.match(/^(\d{4})\/(\d{2})$/);
-  if (!match) return name;
+  if (!match) throw new Error(`Annata non valida: ${name}.`);
   const start = Number(match[1]) - 1;
   return `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
 }

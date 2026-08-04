@@ -101,38 +101,4 @@ describe("sign and trade", () => {
     });
   });
 
-  it("prepara scelta, T.O. e storico Draft prima dello scambio senza richiedere subito lo slot", () => {
-    const state = baseState();
-    state.playerList.push({ name: "Rookie One", role: "A", realTeam: "CHI", rookie: true, under23: true });
-    state.draftAssets = [{
-      label: "Scelta",
-      round: "1° giro",
-      year: 2026,
-      originOrOverall: 1,
-      originTeamCode: "AAA",
-      teamCode: "AAA",
-    }];
-    const provisional = buildSignAndTradeProvisional({
-      state,
-      request: {
-        kind: "draft",
-        playerName: "Rookie One",
-        signerTeamCode: "AAA",
-        pickIndex: 0,
-        draftYear: 2026,
-        destinationSlot: "regular",
-      },
-      seasonName: "2026/27",
-      phase: "offseason",
-      moment: "team_option_deadline",
-      draftHistoryEntries: [],
-    });
-
-    expect(provisional.signingEntry).toMatchObject({ name: "Rookie One", contract: "T.O.", teamCode: "AAA" });
-    expect(provisional.draftHistoryAfter?.[0].content).toMatchObject({
-      kind: "draft",
-      rows: [{ pick: "1", team: "AAA", player: "Rookie One" }],
-    });
-    expect(provisional.state.draftAssets.some((pick) => pick.year === 2026)).toBe(false);
-  });
 });

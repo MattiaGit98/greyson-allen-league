@@ -1,6 +1,6 @@
 import { loadCompetitionState } from "./competition-store";
 import { loadHistoryCompetitionState } from "./history-competition-store";
-import { leagueMomentFromSeason, leagueMomentLabels } from "./league-moments";
+import { leagueMomentLabels } from "./league-moments";
 import type { EditableLeagueState } from "./league-state";
 import type { createSupabaseServerClient } from "./supabase/server";
 
@@ -37,14 +37,6 @@ export async function savePhaseBackup(
   }).select("id").single();
 }
 
-export function phaseStepKey(season: PhaseSeasonSnapshot) {
-  return leagueMomentFromSeason(season);
-}
-
 export const phaseStepLabels: Record<string, string> = {
   ...leagueMomentLabels,
-  offseason_before_options: "Offseason — prima delle T.O.",
-  offseason_after_options: "Offseason — dopo le T.O.",
-  regular_season_before_deadline: "Stagione — prima della deadline",
-  regular_season_after_deadline: "Stagione — dopo la deadline",
 };

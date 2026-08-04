@@ -24,7 +24,7 @@ export default async function TeamsPage({
         teams={leagueState.teams}
         rosterEntries={leagueState.rosterEntries}
         draftAssets={leagueState.draftAssets}
-        draftPositionYears={leagueState.draftPositionYears ?? []}
+        finalizedDraftPositionYears={leagueState.finalizedDraftPositionYears ?? []}
         qualifyingOfferRights={leagueState.qualifyingOfferRights}
         playerList={leagueState.playerList}
         playerListPublished={leagueState.playerListStatus === "published"}
