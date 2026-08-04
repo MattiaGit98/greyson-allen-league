@@ -1,0 +1,97 @@
+import { describe, expect, it } from "vitest";
+import { emptyLeagueState, type EditableLeagueState } from "./league-state";
+import {
+  applyPostAuctionContractDrafts,
+  missingPostAuctionContractDrafts,
+  type PostAuctionContractDraft,
+} from "./post-auction-contracts";
+
+const seasonName = "2026/27";
+
+function state(): EditableLeagueState {
+  return {
+    ...emptyLeagueState(),
+    teams: [{
+      code: "AAA", name: "Alpha", owner: "A", credits: 0, cost: 0, players: 2, cutPlayers: 0,
+      qualifyingOffers: 0, draftAssets: 0, nextSeasonCredits: 0, followingSeasonCredits: 0, slug: "alpha",
+    }],
+    playerList: [
+      { name: "Guardia", role: "G", realTeam: "", rookie: false, under23: false },
+      { name: "Rookie", role: "A", realTeam: "", rookie: true, under23: true },
+    ],
+    playerListStatus: "published",
+    rosterEntries: [
+      {
+        name: "Guardia", role: "G", cost: 100, contract: "PENDING", state: "active", slot: "regular",
+        teamCode: "AAA", auctionPrice: 100, contractStartSeason: seasonName,
+      },
+      {
+        name: "Rookie", role: "A", cost: 5, contract: "T.O.", state: "active", slot: "g_league",
+        teamCode: "AAA", auctionPrice: 5, contractStartSeason: seasonName,
+      },
+    ],
+  };
+}
+
+function draft(playerName: string, patch: Partial<PostAuctionContractDraft> = {}): PostAuctionContractDraft {
+  return {
+    seasonName,
+    teamCode: "AAA",
+    playerName,
+    contractKind: playerName === "Rookie" ? "team_option" : "annual",
+    slot: playerName === "Rookie" ? "g_league" : "regular",
+    ...patch,
+  };
+}
+
+describe("bozze private dei contratti post asta", () => {
+  it("individua i giocatori ancora senza bozza", () => {
+    expect(missingPostAuctionContractDrafts(state(), [draft("Guardia")], seasonName).map((entry) => entry.name))
+      .toEqual(["Rookie"]);
+  });
+
+  it("pubblica insieme tutte le bozze senza modificare lo stato di partenza", () => {
+    const current = state();
+    const published = applyPostAuctionContractDrafts({
+      state: current,
+      drafts: [draft("Guardia", { contractKind: "biennial" }), draft("Rookie")],
+      seasonName,
+    });
+
+    expect(current.rosterEntries[0].contract).toBe("PENDING");
+    expect(published.rosterEntries[0]).toMatchObject({ contract: "28", cost: 95, originalContractYears: 2 });
+    expect(published.rosterEntries[1]).toMatchObject({ contract: "T.O.", cost: 5, slot: "g_league" });
+  });
+
+  it("permette di sostituire una scelta già assegnata per l'asta corrente", () => {
+    const current = state();
+    current.rosterEntries[0] = { ...current.rosterEntries[0], contract: "28", originalContractYears: 2, cost: 95 };
+    const published = applyPostAuctionContractDrafts({
+      state: current,
+      drafts: [draft("Guardia", { contractKind: "triennial" }), draft("Rookie")],
+      seasonName,
+    });
+    expect(published.rosterEntries[0]).toMatchObject({ contract: "29", cost: 90, originalContractYears: 3 });
+  });
+
+  it("blocca la pubblicazione se manca anche una sola bozza", () => {
+    expect(() => applyPostAuctionContractDrafts({
+      state: state(),
+      drafts: [draft("Guardia")],
+      seasonName,
+    })).toThrow("1 contratti dell'asta non sono ancora stati assegnati");
+  });
+
+  it("ignora una vecchia bozza resa obsoleta da uno scambio", () => {
+    const published = applyPostAuctionContractDrafts({
+      state: state(),
+      drafts: [
+        draft("Guardia"),
+        draft("Rookie"),
+        draft("Giocatore scambiato", { teamCode: "BBB" }),
+      ],
+      seasonName,
+    });
+    expect(published.rosterEntries.map((entry) => entry.contract)).toEqual(["27", "T.O."]);
+  });
+});

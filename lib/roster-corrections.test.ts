@@ -1,0 +1,75 @@
+import { describe, expect, it } from "vitest";
+import { emptyLeagueState, type EditableLeagueState } from "./league-state";
+import { applyRosterCorrections, normalizeRosterCorrectionContract } from "./roster-corrections";
+
+function state(): EditableLeagueState {
+  return {
+    ...emptyLeagueState(),
+    teams: [{
+      code: "AAA", name: "Alpha", owner: "A", credits: 0, cost: 0, players: 1, cutPlayers: 1,
+      qualifyingOffers: 0, draftAssets: 0, nextSeasonCredits: 0, followingSeasonCredits: 0, slug: "alpha",
+    }],
+    rosterEntries: [
+      { name: "Attivo", role: "G", cost: 20, contract: "28 (2X)", state: "active", slot: "regular", teamCode: "AAA", teamOptionBaseCost: 20, teamOptionFinalYear: 2028 },
+      { name: "Tagliato", role: "A", cost: 8, contract: "27", state: "cut", slot: "regular", teamCode: "AAA" },
+    ],
+  };
+}
+
+describe("rettifiche roster", () => {
+  it("riconosce soltanto le notazioni contrattuali previste", () => {
+    expect(normalizeRosterCorrectionContract(" 28 (q) ")).toBe("28 (Q)");
+    expect(normalizeRosterCorrectionContract("T.O.")).toBe("T.O.");
+    expect(normalizeRosterCorrectionContract("da assegnare")).toBe("PENDING");
+    expect(normalizeRosterCorrectionContract("2028")).toBeNull();
+    expect(normalizeRosterCorrectionContract("28 + Q.O.")).toBeNull();
+    expect(normalizeRosterCorrectionContract("28 (EXT)")).toBeNull();
+  });
+
+  it("modifica costo e scadenza e pulisce i metadati di una vecchia team option", () => {
+    const result = applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27",
+      corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 25, contract: "29 (E)", remove: false }],
+    });
+    expect(result.state.rosterEntries[0]).toMatchObject({ cost: 25, contract: "29 (E)", originalContractYears: 3 });
+    expect(result.state.rosterEntries[0].teamOptionBaseCost).toBeUndefined();
+    expect(result.state.rosterEntries[0].teamOptionFinalYear).toBeUndefined();
+  });
+
+  it("rimuove anche un contratto tagliato", () => {
+    const result = applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27",
+      corrections: [{ sourceIndex: 1, playerName: "Tagliato", cost: 8, contract: "27", remove: true }],
+    });
+    expect(result.state.rosterEntries.map((entry) => entry.name)).toEqual(["Attivo"]);
+    expect(result.changes[0].after).toBeNull();
+  });
+
+  it("conserva lo storico della team option quando si rettifica il costo del suo anno finale", () => {
+    const current = state();
+    current.rosterEntries[0] = {
+      ...current.rosterEntries[0], cost: 40, contract: "27 (Q)", teamOptionBaseCost: 20, teamOptionFinalYear: 2027,
+    };
+    const result = applyRosterCorrections({
+      state: current, teamCode: "AAA", seasonName: "2026/27",
+      corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 42, contract: "27 (Q)", remove: false }],
+    });
+    expect(result.state.rosterEntries[0]).toMatchObject({
+      cost: 42, contract: "27 (Q)", teamOptionBaseCost: 20, teamOptionFinalYear: 2027,
+    });
+  });
+
+  it("blocca scadenze non riconosciute", () => {
+    expect(() => applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27",
+      corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 20, contract: "2029", remove: false }],
+    })).toThrow("scadenza non riconosciuta");
+  });
+
+  it("non permette di trasformare un contratto pubblicato in PENDING", () => {
+    expect(() => applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27",
+      corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 20, contract: "PENDING", remove: false }],
+    })).toThrow("PENDING può restare soltanto");
+  });
+});

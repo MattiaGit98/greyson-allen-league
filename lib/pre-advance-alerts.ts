@@ -12,6 +12,11 @@ import {
 import { draftOverallPosition } from "./draft-rules";
 import { calculateCapSpace, followingSeasonName } from "./season-time";
 import { slotEligibilityErrors } from "./slot-eligibility";
+import {
+  applyPostAuctionContractDrafts,
+  missingPostAuctionContractDrafts,
+  type PostAuctionContractDraft,
+} from "./post-auction-contracts";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -40,8 +45,10 @@ export function buildPreAdvanceChecklist(input: {
   seasonName: string;
   state: EditableLeagueState;
   currentHistorySeason?: string | null;
+  contractDrafts?: PostAuctionContractDraft[];
 }): PreAdvanceChecklist {
   const { currentMoment, seasonName, state } = input;
+  const contractDrafts = input.contractDrafts ?? [];
   const transition = nextLeagueTransition(currentMoment);
   const alerts: PreAdvanceAlert[] = [];
   const add = (alert: PreAdvanceAlert) => {
@@ -165,13 +172,13 @@ export function buildPreAdvanceChecklist(input: {
         actionLabel: "Pubblica il listone",
       });
     }
-    const pendingContracts = state.rosterEntries.filter((entry) => isPendingContract(entry.contract));
+    const pendingContracts = missingPostAuctionContractDrafts(state, contractDrafts, seasonName);
     if (pendingContracts.length) {
       add({
         id: "pending-contracts",
         tone: "blocker",
         title: `${pendingContracts.length} contratti ancora da assegnare`,
-        message: "Tutti i giocatori acquistati all’ultima asta devono ricevere un contratto entro la consegna.",
+        message: "Tutti i giocatori acquistati all’ultima asta devono avere una bozza completa prima della consegna.",
         items: groupPlayerEntries(pendingContracts),
         article: "Art. 3(b-c)",
         href: "/admin/contratti",
@@ -179,7 +186,26 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    const invalidSpecialSlots = state.rosterEntries.filter((entry) => (
+    let deliveryState = state;
+    try {
+      deliveryState = applyPostAuctionContractDrafts({
+        state,
+        drafts: contractDrafts,
+        seasonName,
+        requireComplete: false,
+      });
+    } catch (error) {
+      add({
+        id: "invalid-contract-drafts",
+        tone: "blocker",
+        title: "Bozze dei contratti non valide",
+        message: error instanceof Error ? error.message : "Correggi le bozze prima di avanzare.",
+        href: "/admin/contratti",
+        actionLabel: "Correggi le bozze",
+      });
+    }
+
+    const invalidSpecialSlots = deliveryState.rosterEntries.filter((entry) => (
       entry.state === "active"
       && (entry.slot === "two_way" || entry.slot === "g_league")
       && slotEligibilityErrors(entry, entry.slot, seasonName).length > 0
@@ -197,7 +223,7 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    const freeOneCreditOptions = state.rosterEntries.filter((entry) => (
+    const freeOneCreditOptions = deliveryState.rosterEntries.filter((entry) => (
       entry.state === "active" && entry.contract === "T.O." && entry.cost === 1
     ));
     if (freeOneCreditOptions.length) {
@@ -213,7 +239,7 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    addRoleMinimumAlert(add, state, "/admin/contratti", "Controlla i minimi di ruolo");
+    addRoleMinimumAlert(add, deliveryState, "/admin/contratti", "Controlla i minimi di ruolo");
     add({
       id: "special-slot-window-closing",
       tone: "info",

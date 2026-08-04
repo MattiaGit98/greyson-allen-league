@@ -29,6 +29,11 @@ describe("pannello asta", () => {
       auctionPrice: 5,
       contractStartSeason: "2025/26",
     }, "2026/27")).toBe(false);
+    expect(isPostAuctionContractAssignmentCandidate({
+      contract: "28 (E)",
+      auctionPrice: 200,
+      contractStartSeason: "2026/27",
+    }, "2026/27")).toBe(true);
   });
 
   it("distingue asta normale, Q.O. accettata e restricted free agent", () => {

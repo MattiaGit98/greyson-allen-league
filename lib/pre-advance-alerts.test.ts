@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
 import { buildPreAdvanceChecklist } from "./pre-advance-alerts";
+import type { PostAuctionContractDraft } from "./post-auction-contracts";
 
 function rosterEntry(name: string, patch: Partial<RosterEntry> = {}): RosterEntry {
   return {
@@ -96,6 +97,31 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     });
     expect(result.alerts.find((alert) => alert.id === "pending-contracts")?.tone).toBe("blocker");
     expect(result.alerts.find((alert) => alert.id === "pending-contracts")?.items?.join(" ")).toContain("Tagliato da firmare");
+  });
+
+  it("considera assegnato un contratto soltanto quando esiste la bozza privata", () => {
+    const current = state([
+      rosterEntry("In bozza", {
+        contract: "PENDING",
+        auctionPrice: 10,
+        contractStartSeason: "2026/27",
+      }),
+    ]);
+    current.playerList = [{ name: "In bozza", role: "G", realTeam: "", rookie: false, under23: false }];
+    const contractDrafts: PostAuctionContractDraft[] = [{
+      seasonName: "2026/27",
+      teamCode: "AAA",
+      playerName: "In bozza",
+      contractKind: "annual",
+      slot: "regular",
+    }];
+    const result = buildPreAdvanceChecklist({
+      currentMoment: "auction_completed",
+      seasonName: "2026/27",
+      state: current,
+      contractDrafts,
+    });
+    expect(result.alerts.find((alert) => alert.id === "pending-contracts")).toBeUndefined();
   });
 
   it("alla consegna accetta nei Two-way un free agent della stagione ma blocca chi non ha una categoria ammessa", () => {

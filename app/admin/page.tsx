@@ -4,6 +4,7 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
 import { buildPreAdvanceChecklist, type PreAdvanceChecklist } from "@/lib/pre-advance-alerts";
 import { requireActiveSeason } from "@/lib/active-season";
+import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
 
 const actionGroups = [
   {
@@ -43,6 +44,7 @@ const actionGroups = [
   {
     title: "Rettifiche",
     actions: [
+      { href: "/admin/rettifiche-roster", title: "Rettifiche roster" },
       { href: "/admin/movimenti", title: "Annulla movimenti" },
     ],
   },
@@ -64,11 +66,13 @@ export default async function AdminDashboardPage() {
   ]);
   const seasonName = activeSeason.season.name;
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
+  const contractDrafts = await loadPostAuctionContractDrafts(seasonName);
   const preAdvanceChecklist = buildPreAdvanceChecklist({
     currentMoment: leagueMoment,
     seasonName,
     state: leagueState,
     currentHistorySeason: currentHistory.season,
+    contractDrafts,
   });
   const blockingChecklist = {
     ...preAdvanceChecklist,

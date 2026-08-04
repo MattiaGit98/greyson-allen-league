@@ -7,6 +7,11 @@ import {
   type LeagueTransition,
 } from "./league-moments";
 import { buildPreAdvanceChecklist, type PreAdvanceAlert } from "./pre-advance-alerts";
+import {
+  missingPostAuctionContractDrafts,
+  postAuctionContractCandidates,
+  type PostAuctionContractDraft,
+} from "./post-auction-contracts";
 
 export type LeagueTransitionPreview = {
   transition: LeagueTransition;
@@ -23,6 +28,7 @@ export function buildLeagueTransitionPreview(input: {
   seasonName: string;
   state: EditableLeagueState;
   currentHistorySeason?: string | null;
+  contractDrafts?: PostAuctionContractDraft[];
 }): LeagueTransitionPreview {
   const transition = nextLeagueTransition(input.currentMoment);
   const preview: LeagueTransitionPreview = {
@@ -55,6 +61,10 @@ export function buildLeagueTransitionPreview(input: {
   }
 
   if (transition === "contract_delivery") {
+    const contractDrafts = input.contractDrafts ?? [];
+    const assignedContracts = postAuctionContractCandidates(input.state, input.seasonName).length
+      - missingPostAuctionContractDrafts(input.state, contractDrafts, input.seasonName).length;
+    preview.automaticActions.push(`${assignedContracts} contratti in bozza saranno pubblicati insieme.`);
     preview.newPossibilities.push("Si apre la free agency.");
     preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE per i giocatori tornati in campo.");
     preview.closedPossibilities.push("Si chiudono l’assegnazione dei contratti e la finestra speciale per gli spostamenti verso Two-way e G-League.");

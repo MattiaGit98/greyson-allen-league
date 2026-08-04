@@ -2,6 +2,7 @@ import { requireActiveSeason } from "@/lib/active-season";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
 import { buildMovementReversal, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
+import { conciseMovementDetail, movementOperationLabel } from "@/lib/movement-display";
 import { UndoMovementButton } from "./undo-movement-button";
 
 export default async function MovementAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; reverted?: string }> }) {
@@ -53,8 +54,8 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
       <div className="movement-admin-list">
         {movements.map((movement) => (
           <article className={movement.reverted_at ? "reverted" : ""} key={movement.id}>
-            <div><span>{movement.operation_type.replaceAll("_", " ")}</span><strong>{movement.summary}</strong>{movement.reason && <small>{movement.reason}</small>}{movement.reverted_at && <small>Movimento già annullato</small>}</div>
-            <UndoMovementButton movementId={movement.id} summary={movement.summary} disabled={!movement.reversible} />
+            <div><span>{movementOperationLabel(movement.operation_type)}</span><strong>{conciseMovementDetail(movement.operation_type, movement.summary)}</strong>{movement.reason && <small>{movement.reason}</small>}{movement.reverted_at && <small>Movimento già annullato</small>}</div>
+            <UndoMovementButton movementId={movement.id} summary={conciseMovementDetail(movement.operation_type, movement.summary)} disabled={!movement.reversible} />
           </article>
         ))}
         {!movements.length && <p className="data-empty">Nessun movimento annullabile registrato.</p>}

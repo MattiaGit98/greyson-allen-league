@@ -18,6 +18,8 @@ import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-
 import { applyTeamOptionDeadline, buildLeagueTransitionPreview } from "@/lib/league-transition";
 import { savePhaseBackup } from "@/lib/phase-backups";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { applyPostAuctionContractDrafts } from "@/lib/post-auction-contracts";
+import { contractDraftRows, loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
 
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 const seasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment";
@@ -53,15 +55,17 @@ export async function advanceLeaguePhaseStep() {
   const season = seasonResponse.data;
   const currentMoment = leagueMomentFromSeason(season);
   const transition = nextLeagueTransition(currentMoment);
-  const [state, currentHistory] = await Promise.all([
+  const [state, currentHistory, contractDrafts] = await Promise.all([
     loadEditableLeagueState(),
     loadCurrentHistoryImports(),
+    loadPostAuctionContractDrafts(season.name),
   ]);
   const preview = buildLeagueTransitionPreview({
     currentMoment,
     seasonName: season.name,
     state,
     currentHistorySeason: currentHistory.season,
+    contractDrafts,
   });
   if (preview.errors.length) phaseError(preview.errors.join(" "));
 
@@ -83,6 +87,34 @@ export async function advanceLeaguePhaseStep() {
     if (momentUpdate.error) phaseError(momentUpdate.error.message);
     revalidateLeaguePages();
     redirect(`/admin/impostazioni?advanced=${encodeURIComponent(result.nextSeasonName ?? "")}`);
+  }
+
+  if (transition === "contract_delivery") {
+    let publishedState: EditableLeagueState;
+    try {
+      publishedState = applyPostAuctionContractDrafts({
+        state,
+        drafts: contractDrafts,
+        seasonName: season.name,
+        requireComplete: true,
+      });
+    } catch (error) {
+      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
+      phaseError(error instanceof Error ? error.message : "Bozze dei contratti non valide.");
+    }
+    const published = await supabase.rpc("publish_post_auction_contracts", {
+      expected_state_payload: state,
+      published_state_payload: publishedState,
+      requested_season_id: season.id,
+      requested_season_name: season.name,
+      expected_draft_rows: contractDraftRows(contractDrafts),
+    });
+    if (published.error) {
+      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
+      phaseError(published.error.message);
+    }
+    revalidateLeaguePages();
+    redirect(`/admin/impostazioni?stepped=${encodeURIComponent(transition)}`);
   }
 
   let nextState = state;

@@ -1,0 +1,12 @@
+cd C:\Users\matti\OneDrive\Desktop\Dunkest\Sito
+$taskNode = (Resolve-Path '.node-runtime\node-v24.18.0-win-x64').Path
+$env:PATH = "$taskNode;$env:PATH"
+& "$taskNode\npm.cmd" run dev
+
+
+
+http://localhost:3000
+
+
+
+Per chiudere: Ctrl+C

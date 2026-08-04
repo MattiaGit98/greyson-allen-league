@@ -12,6 +12,7 @@ import { buildLeagueTransitionPreview } from "@/lib/league-transition";
 import { phaseStepLabels } from "@/lib/phase-backups";
 import { requireActiveSeason } from "@/lib/active-season";
 import { ManualPhaseButton, PhaseAdvanceButton, RestorePhaseButton } from "./phase-advance-button";
+import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
 
 const seasonOptions = Array.from({ length: 16 }, (_, index) => {
   const start = 2024 + index;
@@ -27,6 +28,7 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
   ]);
   const { supabase, season, error: seasonError, configured } = activeSeason;
   const currentMoment = leagueMomentFromSeason(season);
+  const contractDrafts = await loadPostAuctionContractDrafts(season.name);
   const transition = nextLeagueTransition(currentMoment);
   const nextSeasonName = transition === "season_end"
     ? `${Number(season.name.slice(0, 4)) + 1}/${String((Number(season.name.slice(0, 4)) + 2) % 100).padStart(2, "0")}`
@@ -36,6 +38,7 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
     seasonName: season.name,
     state,
     currentHistorySeason: currentHistory.season,
+    contractDrafts,
   });
   const backupResponse = supabase
     ? await supabase.from("league_phase_backups").select("id,from_phase,to_phase,created_at").is("restored_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle()

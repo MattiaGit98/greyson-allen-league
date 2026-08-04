@@ -364,9 +364,9 @@ function slotOverflow(entries: RosterEntry[], teamCode: string) {
 function modificationDetail(kind: AuctionEditKind, entry: RosterEntry, newPrice: number, newSlot: AuctionSlot, exchangeEntry?: RosterEntry) {
   if (kind === "delete") return `eliminato dal roster ${entry.teamCode}`;
   if (kind === "cut") return `tagliato da ${entry.teamCode}`;
-  if (kind === "price") return `prezzo modificato da ${entry.cost} a ${newPrice}`;
+  if (kind === "price") return `prezzo modificato da ${entry.cost} a ${newPrice} per ${entry.teamCode}`;
   const exchangeDetail = exchangeEntry ? `; ${exchangeEntry.name} spostato da ${slotLabel(newSlot)} a ${slotLabel(entry.slot)}` : "";
-  return `spostato da ${slotLabel(entry.slot)} a ${slotLabel(newSlot)}${exchangeDetail}`;
+  return `spostato per ${entry.teamCode} da ${slotLabel(entry.slot)} a ${slotLabel(newSlot)}${exchangeDetail}`;
 }
 
 function slotLabel(slot: RosterEntry["slot"] | AuctionSlot) {

@@ -39,9 +39,7 @@ export function isPostAuctionContractAssignmentCandidate(
 ) {
   const normalized = entry.contract.trim().toLocaleUpperCase("it-IT");
   if (["", "-", "PENDING", "DA ASSEGNARE"].includes(normalized)) return true;
-  return normalized === "T.O."
-    && entry.auctionPrice !== undefined
-    && entry.contractStartSeason === activeSeasonName;
+  return entry.auctionPrice !== undefined && entry.contractStartSeason === activeSeasonName;
 }
 
 export function qualifyingAuctionErrors({
