@@ -101,4 +101,23 @@ describe("sign and trade", () => {
     });
   });
 
+  it("non consente il sign and trade dopo la trade deadline", () => {
+    expect(() => buildSignAndTradeProvisional({
+      state: baseState(),
+      request: {
+        kind: "free_agent",
+        playerSource: "list",
+        playerName: "Free Agent",
+        playerRole: "",
+        realTeam: "",
+        signerTeamCode: "AAA",
+        price: 5,
+        destinationSlot: "regular",
+      },
+      seasonName: "2026/27",
+      phase: "regular_season",
+      moment: "trade_deadline",
+    })).toThrow("trade deadline");
+  });
+
 });

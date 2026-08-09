@@ -94,9 +94,6 @@ export function PlayerListEditor({
       </div>
 
       {provisionalList && <p className="notice">Listone provvisorio: è modificabile soltanto il ruolo.</p>}
-      {status === "published" && (
-        <p className="notice">Il salvataggio come listone ufficiale attiva i controlli sui roster e sui minimi di ruolo.</p>
-      )}
       {saveState.message && <p className="notice success">{saveState.message}</p>}
       {saveState.error && <p className="notice error">Salvataggio non riuscito: {saveState.error}</p>}
 

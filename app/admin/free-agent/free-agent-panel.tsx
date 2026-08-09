@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { nbaTeams } from "@/data/nba-teams";
-import { evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
+import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
 import { countRosterRoles } from "@/lib/rules/roster";
-import { seasonEndYear } from "@/lib/season-time";
 import { signFreeAgent } from "./actions";
 import { CapForceControl } from "@/app/admin/cap-force-control";
 import { isCapIssueCode } from "@/lib/cap-override";
@@ -31,6 +30,8 @@ type TeamOption = {
     slot: Slot;
     cost: number;
     contract: string;
+    cuttable: boolean;
+    promotionDestinations: Exclude<Slot, "dpe">[];
   }[];
 };
 
@@ -162,14 +163,21 @@ function FreeAgentDialog({
   const [price, setPrice] = useState(1);
   const [destination, setDestination] = useState<"regular" | "two_way">("regular");
   const [cutPlayerName, setCutPlayerName] = useState("");
+  const [promotionPlayerName, setPromotionPlayerName] = useState("");
+  const [promotionDestination, setPromotionDestination] = useState<"regular" | "two_way" | "g_league">("regular");
   const [outsideName, setOutsideName] = useState("");
   const [outsideRole, setOutsideRole] = useState<"G" | "A" | "C" | "X" | "">("");
   const [outsideRealTeam, setOutsideRealTeam] = useState("");
   const [forceCap, setForceCap] = useState(false);
   const [standingConfirmed, setStandingConfirmed] = useState(false);
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
-  const cuttablePlayers = (team?.rosterPlayers ?? []).filter((item) => item.slot === destination);
+  const cuttablePlayers = (team?.rosterPlayers ?? []).filter((item) => item.cuttable && item.name !== promotionPlayerName);
   const cutPlayer = cuttablePlayers.find((item) => item.name === cutPlayerName);
+  const promotablePlayers = (team?.rosterPlayers ?? []).filter((item) => (
+    item.promotionDestinations.length > 0 && item.name !== cutPlayerName
+  ));
+  const promotionPlayer = promotablePlayers.find((item) => item.name === promotionPlayerName);
+  const availablePromotionDestinations = promotionPlayer?.promotionDestinations ?? [];
   const customReady = outsideName.trim() && outsideRole && outsideRealTeam;
   const selectedRole: "G" | "A" | "C" | null = player
     ? player.role === "X" ? null : player.role
@@ -196,9 +204,10 @@ function FreeAgentDialog({
     playerRole: selectedRole,
     cutRole: cutPlayer?.role ?? null,
     cutSlot: cutPlayer?.slot ?? null,
+    promotionSourceSlot: promotionPlayer?.slot === "dpe" ? null : promotionPlayer?.slot ?? null,
+    promotionDestinationSlot: promotionPlayer ? promotionDestination : null,
   });
-  const expiry = String(seasonEndYear(seasonName) ?? "").slice(-2);
-  const contract = tradeDeadlinePassed ? expiry : `${expiry} + Q.O.`;
+  const contract = automaticFreeAgentContract(seasonName, tradeDeadlinePassed) ?? "—";
   const slotBefore = destination === "regular" ? slots.regular : slots.twoWay;
   const slotAfter = destination === "regular" ? preview.calculated.slotsAfter.regular : preview.calculated.slotsAfter.twoWay;
   const slotLimit = destination === "regular" ? 15 : 2;
@@ -233,6 +242,8 @@ function FreeAgentDialog({
       <input type="hidden" name="price" value={price} />
       <input type="hidden" name="destination" value={destination} />
       <input type="hidden" name="cut_player_name" value={cutPlayerName} />
+      <input type="hidden" name="promotion_player_name" value={promotionPlayerName} />
+      <input type="hidden" name="promotion_destination" value={promotionPlayer ? promotionDestination : ""} />
       <input type="hidden" name="force_cap" value={String(forceCap)} />
       <input type="hidden" name="standing_confirmed" value={String(standingConfirmed)} />
 
@@ -255,21 +266,38 @@ function FreeAgentDialog({
             </>
           )}
           <Field label="Squadra">
-            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setForceCap(false); setStandingConfirmed(false); }}>
+            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setForceCap(false); setStandingConfirmed(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
-          <Field label="Prezzo"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setForceCap(false); setStandingConfirmed(false); if (value > 10) { setDestination("regular"); setCutPlayerName(""); } }} /></Field>
+          <Field label="Prezzo"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setForceCap(false); setStandingConfirmed(false); if (value > 10) { setDestination("regular"); } }} /></Field>
           <Field label="Slot">
-            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); setCutPlayerName(""); setForceCap(false); }}>
+            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); setForceCap(false); }}>
               <option value="regular">Roster</option>
               <option value="two_way" disabled={price > 10}>Two-way</option>
             </select>
           </Field>
           <Field label="Giocatore da tagliare">
-            <select value={cutPlayerName} onChange={(event) => setCutPlayerName(event.target.value)}>
+            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); setForceCap(false); if (event.target.value === promotionPlayerName) setPromotionPlayerName(""); }}>
               <option value="">Nessun taglio</option>
-              {cuttablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {item.cost} · {item.contract}</option>)}
+              {cuttablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {item.cost} · {item.contract} · {slotLabel(item.slot)}</option>)}
+            </select>
+          </Field>
+          <Field label="Giocatore da promuovere">
+            <select value={promotionPlayerName} onChange={(event) => {
+              const nextPlayer = promotablePlayers.find((item) => item.name === event.target.value);
+              setPromotionPlayerName(event.target.value);
+              setPromotionDestination(nextPlayer?.promotionDestinations[0] ?? "regular");
+              setForceCap(false);
+              if (event.target.value === cutPlayerName) setCutPlayerName("");
+            }}>
+              <option value="">Nessuna promozione</option>
+              {promotablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {slotLabel(item.slot)}</option>)}
+            </select>
+          </Field>
+          <Field label="Destinazione promozione">
+            <select value={promotionDestination} onChange={(event) => { setPromotionDestination(event.target.value as typeof promotionDestination); setForceCap(false); }} disabled={!promotionPlayer}>
+              {availablePromotionDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
             </select>
           </Field>
         </div>
@@ -281,6 +309,7 @@ function FreeAgentDialog({
           <Metric label="Contratto" value={contract} />
         </div>
         {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
+        {promotionPlayer && <p className="auction-context-cut"><span>Promozione contestuale</span><strong>{promotionPlayer.name} · {slotLabel(promotionPlayer.slot)} → {slotLabel(promotionDestination)}</strong></p>}
         {outsideDuplicate && <p className="validation error">Il giocatore è già nel listone: selezionalo dall’elenco.</p>}
         {tradeDeadlinePassed && (
           <p className="validation warning free-agent-standing-reminder">Dopo la trade deadline, verifica manualmente la classifica: le ultime tre squadre possono acquistare free agent soltanto per 1 credito.</p>
@@ -297,7 +326,6 @@ function FreeAgentDialog({
         )}
         {otherWarnings.map((warning) => <p className="validation warning" key={warning.code}>{warning.message}</p>)}
         <CapForceControl warnings={capWarnings.map((warning) => warning.message)} checked={forceCap} onChange={setForceCap} />
-        {preview.valid && !standingConfirmationMissing && !outsideDuplicate && !preview.warnings.length && <p className="validation success">Controlli regolamentari superati.</p>}
       </div>
 
       <div className="auction-modal-actions">
@@ -322,6 +350,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function slotLabel(slot: Slot) {
+  if (slot === "two_way") return "Two-way";
+  if (slot === "g_league") return "G-League";
+  if (slot === "dpe") return "DPE";
+  return "Roster";
 }
 
 function normalizeName(value: string) {

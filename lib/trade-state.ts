@@ -40,6 +40,11 @@ export type TradeTransactionPayload = {
     id: string;
     teamCode: string;
   }[];
+  promotions?: {
+    id: string;
+    teamCode: string;
+    destinationSlot: TradeSlot;
+  }[];
 };
 
 export type ValidatedTradeChanges = {
@@ -57,6 +62,7 @@ export type ValidatedTradeChanges = {
     clause: Exclude<TradePickClause, "none"> | null;
   }[];
   cuts: { stateIndex: number; entry?: RosterEntry }[];
+  promotions?: { stateIndex: number; destinationSlot: TradeSlot }[];
 };
 
 export type ExistingTradeClauseAgreement = {
@@ -144,6 +150,7 @@ export function applyValidatedTrade(
 ): EditableLeagueState {
   const playerMoveByIndex = new Map(changes.playerMoves.map((move) => [move.stateIndex, move]));
   const cutIndexes = new Set(changes.cuts.map((cut) => cut.stateIndex));
+  const promotionByIndex = new Map((changes.promotions ?? []).map((promotion) => [promotion.stateIndex, promotion]));
   const rosterEntries: RosterEntry[] = state.rosterEntries.map((entry, index) => {
     const move = playerMoveByIndex.get(index);
     if (move) {
@@ -155,6 +162,8 @@ export function applyValidatedTrade(
       const replacement = changes.cuts.find((cut) => cut.stateIndex === index)?.entry;
       return replacement ?? { ...entry, state: "cut", slot: "regular" };
     }
+    const promotion = promotionByIndex.get(index);
+    if (promotion) return { ...entry, slot: promotion.destinationSlot };
     return entry;
   });
 

@@ -5,6 +5,7 @@ import {
   applyStandardContractCut,
   destinationAfterTeamOptionExercise,
   exercisePlayoffTeamOption,
+  isUnresolvedTeamOption,
   markExercisedTeamOption,
   teamOptionCutAdjustment,
 } from "./team-option-contract";
@@ -19,6 +20,13 @@ const option: RosterEntry = {
 };
 
 describe("garanzia dell'ultimo anno della team option", () => {
+  it("considera da risolvere solo le T.O. dell'anno precedente, fino alla relativa scadenza", () => {
+    const unresolved = { ...option, contract: "T.O." };
+    expect(isUnresolvedTeamOption(unresolved, "offseason_start")).toBe(true);
+    expect(isUnresolvedTeamOption(unresolved, "team_option_deadline")).toBe(false);
+    expect(isUnresolvedTeamOption(unresolved, "auction_start")).toBe(false);
+  });
+
   it("conserva costo base e ultimo anno quando la T.O. viene esercitata", () => {
     expect(markExercisedTeamOption(option, 2028)).toMatchObject({ teamOptionBaseCost: 5, teamOptionFinalYear: 2028 });
   });
@@ -34,10 +42,15 @@ describe("garanzia dell'ultimo anno della team option", () => {
 
   it("annulla il raddoppio se il taglio precede l'asta dell'ultimo anno", () => {
     const doubled = applyTeamOptionFinalYearDoubling(option, 2028);
-    expect(teamOptionCutAdjustment(doubled, 2028, "free_releases_start")).toMatchObject({
+    expect(teamOptionCutAdjustment(doubled, 2028, "team_option_deadline")).toMatchObject({
       adjusted: true,
       entry: { cost: 5, contract: "28" },
     });
+  });
+
+  it("non annulla il raddoppio dall'inizio dell'asta dell'ultimo anno", () => {
+    const doubled = applyTeamOptionFinalYearDoubling(option, 2028);
+    expect(teamOptionCutAdjustment(doubled, 2028, "auction_start").adjusted).toBe(false);
   });
 
   it("non annulla il raddoppio dopo la conclusione dell'asta dell'ultimo anno", () => {
@@ -47,7 +60,7 @@ describe("garanzia dell'ultimo anno della team option", () => {
 
   it("applica la garanzia ridotta anche a un taglio contestuale", () => {
     const doubled = applyTeamOptionFinalYearDoubling(option, 2028);
-    expect(applyStandardContractCut(doubled, 2028, "free_releases_start")).toMatchObject({
+    expect(applyStandardContractCut(doubled, 2028, "team_option_deadline")).toMatchObject({
       state: "cut",
       slot: "regular",
       cost: 5,

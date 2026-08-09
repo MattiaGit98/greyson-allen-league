@@ -10,6 +10,7 @@ import { persistLeagueMovements, type LeagueMovementDraft } from "@/lib/league-m
 import type { RosterEntry } from "@/lib/league-types";
 import { applyRosterCorrections, type RosterAdditionInput, type RosterCorrectionInput } from "@/lib/roster-corrections";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
+import { leagueMomentFromSeason } from "@/lib/league-moments";
 
 const path = "/admin/rettifiche-roster";
 
@@ -55,6 +56,7 @@ export async function saveRosterCorrections(formData: FormData) {
     after: spacesAfter,
     seasonNames,
     phase: activeSeason.season.status,
+    currentMoment: leagueMomentFromSeason(activeSeason.season),
   });
   requireCapOverride(capWarnings, forceCap, fail);
 

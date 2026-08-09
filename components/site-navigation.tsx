@@ -9,6 +9,7 @@ const publicLinks = [
   ["Movimenti", "/movimenti"],
   ["Calendario", "/calendario"],
   ["Classifiche e tabelloni", "/competizioni"],
+  ["Simulatore scambi", "/simulatore-scambi"],
   ["Storico", "/storico"],
   ["Regolamento", "/regolamento"],
   ["Asta live", "/asta"],
@@ -32,8 +33,8 @@ const adminLinks = [
   ["Importa dati", "/admin/importa-dati"],
   ["Avanzamento della lega", "/admin/impostazioni"],
   ["Pannello asta", "/admin/asta"],
-  ["Posizioni draft", "/admin/posizioni-draft"],
   ["Pannello draft", "/admin/draft"],
+  ["Posizioni draft", "/admin/posizioni-draft"],
 ];
 
 function isCurrent(pathname: string, href: string) {

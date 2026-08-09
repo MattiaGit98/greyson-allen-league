@@ -1,6 +1,14 @@
 import { validateCapOperation } from "./credits";
 import { validateRoleMinimums, validateSlots, type RoleCounts, type SlotCounts } from "./roster";
 import { result } from "./types";
+import { seasonEndYear } from "../season-time";
+
+export function automaticFreeAgentContract(seasonName: string, tradeDeadlinePassed: boolean) {
+  const endYear = seasonEndYear(seasonName);
+  if (endYear === null) return null;
+  const expiry = String(endYear).slice(-2);
+  return tradeDeadlinePassed ? expiry : `${expiry} (Q)`;
+}
 
 export function evaluateFreeAgentSigning(input: {
   phase: string;
@@ -16,6 +24,8 @@ export function evaluateFreeAgentSigning(input: {
   playerRole: "G" | "A" | "C" | null;
   cutRole: "G" | "A" | "C" | null;
   cutSlot: "regular" | "two_way" | "g_league" | "dpe" | null;
+  promotionSourceSlot?: "regular" | "two_way" | "g_league" | null;
+  promotionDestinationSlot?: "regular" | "two_way" | "g_league" | null;
 }) {
   const errors = [];
   const warnings = [];
@@ -64,6 +74,11 @@ export function evaluateFreeAgentSigning(input: {
   if (input.cutSlot === "two_way") slotsAfter.twoWay -= 1;
   if (input.cutSlot === "g_league") slotsAfter.gLeague -= 1;
   if (input.cutSlot === "dpe") slotsAfter.dpe -= 1;
+  if (input.promotionSourceSlot === "two_way") slotsAfter.twoWay -= 1;
+  if (input.promotionSourceSlot === "g_league") slotsAfter.gLeague -= 1;
+  if (input.promotionDestinationSlot === "regular") slotsAfter.regular += 1;
+  if (input.promotionDestinationSlot === "two_way") slotsAfter.twoWay += 1;
+  if (input.promotionDestinationSlot === "g_league") slotsAfter.gLeague += 1;
   const slotCheck = validateSlots(slotsAfter);
   const rolesAfter = { ...input.roles };
   if (input.playerRole) rolesAfter[input.playerRole] += 1;

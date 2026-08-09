@@ -17,9 +17,22 @@ describe("regole contratti", () => {
     });
     expect(assignedAuctionContract(199, "triennial", 2027).contract).toBe("29");
   });
+  it("assegna la Q.O. all'annuale acquistato a 1 credito", () => {
+    expect(assignedAuctionContract(1, "annual", 2027)).toMatchObject({
+      cost: 1,
+      contract: "27 (Q)",
+      auctionPrice: 1,
+      originalContractYears: 1,
+    });
+    expect(assignedAuctionContract(2, "annual", 2027).contract).toBe("27");
+  });
 });
 
 describe("cap e roster", () => {
+  it("oltre quota 1000 in offseason consente soltanto operazioni che non aumentano il cap", () => {
+    expect(validateCapOperation(1010, 0, "offseason").valid).toBe(true);
+    expect(validateCapOperation(1010, 1, "offseason").valid).toBe(false);
+  });
   it("blocca un acquisto d'asta >1 oltre cap", () => expect(validateCapOperation(1000, 2, "auction").valid).toBe(false));
   it("consente acquisto da 1 oltre cap in asta", () => expect(validateCapOperation(1000, 1, "auction").valid).toBe(true));
   it("segnala anche l'operazione che porta il cap stagionale oltre 1100", () => expect(validateCapOperation(1095, 10, "regular_season").valid).toBe(false));

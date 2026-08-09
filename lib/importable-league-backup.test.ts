@@ -34,6 +34,22 @@ describe("backup importabile della lega", () => {
     expect(parsed.payload.calendar).toEqual([{ event: "Asta", date: "Da definire" }]);
   });
 
+  it("converte il vecchio Inizio rilasci gratuiti in Inizio asta", () => {
+    const source = payload();
+    source.activeSeason = {
+      ...source.activeSeason,
+      timeline_moment: "free_releases_start" as never,
+      team_options_resolved: true,
+    };
+    const backup = createImportableBackupDocument(source, "2026-08-02T12:00:00.000Z");
+
+    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(backup)));
+
+    expect(parsed.payload.activeSeason.timeline_moment).toBe("auction_start");
+    expect(parsed.checksum).not.toBe(backup.checksum);
+    expect(parsed.schemaVersion).toBe("202608090022");
+  });
+
   it("rifiuta un file alterato dopo il download", () => {
     const backup = createImportableBackupDocument(payload(), "2026-08-02T12:00:00.000Z");
     backup.payload.activeSeason.name = "2027/28";

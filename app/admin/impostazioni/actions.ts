@@ -119,6 +119,9 @@ export async function advanceLeaguePhaseStep() {
 
   let nextState = state;
   if (transition === "team_option_deadline") nextState = applyTeamOptionDeadline(state);
+  if (transition === "auction_completed" && state.qualifyingOfferRights.length) {
+    nextState = { ...nextState, qualifyingOfferRights: [] };
+  }
   if (nextState !== state) {
     const savedState = await supabase.rpc("replace_league_state", { state_payload: nextState });
     if (savedState.error) {

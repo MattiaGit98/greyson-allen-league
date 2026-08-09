@@ -61,7 +61,33 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     expect(result.blockerCount).toBeGreaterThan(0);
   });
 
-  it("prima della chiusura dell’asta controlla Draft, Q.O. e roster minimo", () => {
+  it("prima di Inizio asta richiede listone, ordine definitivo e Draft completato", () => {
+    const current = state();
+    current.playerListStatus = "offseason";
+    current.draftAssets = [{
+      label: "Scelta",
+      round: "1\u00b0 giro",
+      year: 2026,
+      originOrOverall: 1,
+      teamCode: "AAA",
+      originTeamCode: "AAA",
+    }];
+
+    const result = buildPreAdvanceChecklist({
+      currentMoment: "team_option_deadline",
+      seasonName: "2026/27",
+      state: current,
+    });
+
+    expect(result.transition).toBe("auction_start");
+    expect(result.alerts.filter((alert) => alert.tone === "blocker").map((alert) => alert.id)).toEqual(expect.arrayContaining([
+      "official-list-draft",
+      "draft-positions-incomplete",
+      "draft-required-before-auction",
+    ]));
+  });
+
+  it("prima della chiusura dell’asta controlla Draft e roster minimo", () => {
     const current = state(Array.from({ length: 12 }, (_, index) => rosterEntry(`Roster ${index}`)));
     current.draftAssets = [{
       label: "Scelta",
@@ -73,15 +99,15 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     }];
     current.qualifyingOfferRights = [{ playerName: "Qualifying", qualifyingAmount: 3, teamCode: "AAA" }];
     const result = buildPreAdvanceChecklist({
-      currentMoment: "free_releases_start",
+      currentMoment: "auction_start",
       seasonName: "2026/27",
       state: current,
     });
     expect(result.alerts.filter((alert) => alert.tone === "blocker").map((alert) => alert.id)).toEqual(expect.arrayContaining([
       "draft-not-completed",
-      "qualifying-offers-unresolved",
       "auction-rosters-incomplete",
     ]));
+    expect(result.alerts.map((alert) => alert.id)).not.toContain("qualifying-offers-unresolved");
   });
 
   it("blocca la consegna se restano contratti dell’asta da assegnare", () => {

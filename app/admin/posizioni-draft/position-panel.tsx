@@ -112,7 +112,7 @@ export function DraftPositionPanel({
         <div>
           <span className="draft-position-progress">Righe presenti: {assignments.length} · Squadre inserite: {definedPositions}/{assignments.length} · Costi inseriti: {definedCosts}/{assignments.length} · Ordinarie: 1° {firstRoundOrdinary}/{teams.length}, 2° {secondRoundOrdinary}/{teams.length} · Bonus: {bonusCount}</span>
           {!finalized && !allRowsFilled && <p className="validation warning">Bozza modificabile: servono almeno {teams.length} scelte ordinarie per giro; ogni riga aggiuntiva deve essere bonus. Completa squadra e costo di tutte le righe per il salvataggio ufficiale.</p>}
-          {!finalized && allRowsFilled && finalChecksPassed && <p className="validation success">Salvataggio finale: tutti i controlli sono superati. Dopo la conferma l'ordine non sarà più modificabile.</p>}
+          {!finalized && allRowsFilled && finalChecksPassed && <p className="validation warning">Dopo la conferma l'ordine non sarà più modificabile.</p>}
           {!finalized && allRowsFilled && !finalChecksPassed && <p className="validation error">Salvataggio finale non disponibile: i controlli non sono stati superati.</p>}
           {!finalized && allRowsFilled && finalErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
           {finalized && <p className="validation success">Ordine definitivo del Draft {draftYear}: posizioni e scelte bonus non sono più modificabili.</p>}
@@ -133,7 +133,6 @@ export function DraftPositionPanel({
               <button type="button" onClick={() => setReviewingFinalSave(false)} aria-label="Chiudi">×</button>
             </div>
             <div className="auction-modal-body">
-              <p className="validation success">Tutti i controlli sono stati superati.</p>
               <ul className="draft-position-final-checks">
                 <li>{teams.length * 2} scelte ordinarie verranno abbinate alle posizioni indicate.</li>
                 <li>{bonusCount} scelte bonus verranno create e assegnate alle squadre indicate.</li>

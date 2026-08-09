@@ -100,12 +100,11 @@ function TeamSelect({ teams, value, onChange }: {
 }
 
 
-function Validation({ valid, errors, warnings = [] }: { valid: boolean; errors: string[]; warnings?: string[] }) {
+function Validation({ errors, warnings = [] }: { errors: string[]; warnings?: string[] }) {
   return (
     <div className="admin-operation-validation">
       {errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
       {warnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
-      {!errors.length && !warnings.length && valid && <p className="validation success">Controlli regolamentari superati.</p>}
     </div>
   );
 }
@@ -226,7 +225,7 @@ export function TeamOptionForm(props: OperationProps) {
           <Metric label="Two-way" value={`${after.two_way}/2`} />
           <Metric label="G-League" value={`${after.g_league}/3`} />
         </div>
-        <Validation valid={!errors.length && selectedPlayers.length > 0} errors={errors} />
+        <Validation errors={errors} />
         <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
       </aside>
     </form>
@@ -305,7 +304,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
           <Metric label="Slot attuale" value="G-League" />
           <Metric label="Promozione" value={`${nextSeasonName} · inizio offseason`} />
         </div>
-        <Validation valid={!errors.length && selectedPlayers.length > 0} errors={errors} />
+        <Validation errors={errors} />
         <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
       </aside>
     </form>
@@ -339,7 +338,7 @@ export function SlotMoveForm(props: OperationProps) {
     ...timingErrors,
     ...(after[destination] > slotLimits[destination] ? [`Lo slot ${slotLabel(destination)} è pieno.`] : []),
   ];
-  const capWarnings = salaryCapWarningsForSpaces({ before: capSpaces, after: capSpaces, seasonNames: capSeasonNames, phase: props.phase });
+  const capWarnings = salaryCapWarningsForSpaces({ before: capSpaces, after: capSpaces, seasonNames: capSeasonNames, phase: props.phase, currentMoment: props.leagueMoment });
   const roles = roleCounts(team);
   const slotGroups: { slot: Exclude<Slot, "dpe">; label: string; limit: number }[] = [
     { slot: "regular", label: "Roster", limit: 15 },
@@ -426,7 +425,7 @@ export function SlotMoveForm(props: OperationProps) {
             <Metric label="Slot origine" value={player ? `${after[player.slot]}/${slotLimits[player.slot]}` : "-"} />
             <Metric label="Slot destinazione" value={player ? `${after[destination]}/${slotLimits[destination]}` : "-"} />
           </div>
-          <Validation valid={!errors.length} errors={errors} warnings={capWarnings} />
+          <Validation errors={errors} warnings={capWarnings} />
         </div>
       </div>
       <button className="button primary slot-management-save" type="submit" disabled={errors.length > 0}>Registra cambio slot</button>
@@ -534,7 +533,6 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
       <input type="hidden" name="assignments_json" value={JSON.stringify(serializedAssignments)} />
       <input type="hidden" name="force_cap" value={String(forceCap)} />
       <div className="contract-assignment-editor">
-        <p className="notice contract-draft-notice">Le scelte salvate restano private e saranno pubblicate tutte insieme al termine della consegna dei contratti.</p>
         <div className="guided-operation-toolbar">
           <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setForceCap(false); }} /></Field>
         </div>
@@ -590,7 +588,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
             <Metric label={`Spazio ${seasonName}`} value={`${formatSpace(capSpacesBefore[index])} → ${formatSpace(capSpacesAfter[index])}`} key={seasonName} />
           ))}
         </div>
-        <Validation valid={!errors.length} errors={errors} />
+        <Validation errors={errors} />
         <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
       </aside>
     </form>

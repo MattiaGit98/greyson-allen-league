@@ -6,7 +6,7 @@ import { persistLeagueMovement } from "@/lib/league-movements";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, previousSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideRequested, capOverrideSummary, requireCapOverride } from "@/lib/cap-override";
 
 const defaultPath = "/admin/altre-operazioni";
@@ -26,7 +26,8 @@ export async function applyContractExtension(formData: FormData) {
   const season = await supabase.from("seasons").select("name,status,team_options_resolved,trade_deadline_passed,timeline_moment").eq("is_active", true).maybeSingle();
   if (season.error || !season.data) fail(path, season.error?.message ?? "Nessuna stagione attiva.");
   const activeSeasonName = season.data.name;
-  const windowOpen = operationWindows.extensions(leagueMomentFromSeason(season.data));
+  const leagueMoment = leagueMomentFromSeason(season.data);
+  const windowOpen = operationWindows.extensions(leagueMoment);
   if (!windowOpen) fail(path, "Le estensioni sono disponibili in offseason oppure durante la stagione dopo la deadline.");
   const endYear = seasonEndYear(season.data.name);
   if (!endYear) fail(path, "Annata non valida.");
@@ -75,7 +76,7 @@ export async function applyContractExtension(formData: FormData) {
       countTeamOptions,
     });
     if (distance > 0 && space < 0) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
-    if (distance === 0 && season.data.status === "offseason" && space < 0) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
+    if (distance === 0 && season.data.status === "offseason" && !hasReachedMoment(leagueMoment, "auction_start") && space < 0 && space < beforeSpace) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
     if (distance === 0 && season.data.status === "regular_season" && (space < -100 || (beforeSpace < -100 && space < beforeSpace))) {
       capWarnings.push(`L'estensione non rispetta il limite del cap durante la stagione (cap libero ${space}).`);
     }

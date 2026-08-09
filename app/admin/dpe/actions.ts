@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideRequested, capOverrideSummary, requireCapOverride, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 
 const path = "/admin/altre-operazioni";
 
@@ -42,6 +43,9 @@ export async function applyDpeOperation(formData: FormData) {
   ));
   const entry = state.rosterEntries[entryIndex];
   if (!entry) fail("Il giocatore non appartiene più al roster selezionato.");
+  if (isUnresolvedTeamOption(entry, leagueMoment)) {
+    fail("Una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.");
+  }
   const teamActive = state.rosterEntries.filter((item) => item.teamCode === teamCode && item.state === "active");
   if (operation === "dpe_activate") {
     if (entry.slot === "dpe") fail("Il giocatore è già nella DPE.");
@@ -62,6 +66,7 @@ export async function applyDpeOperation(formData: FormData) {
     after: spaces,
     seasonNames: [0, 1, 2].map((distance) => followingSeasonName(seasonName, distance)),
     phase: season.data.status,
+    currentMoment: leagueMoment,
   });
   requireCapOverride(capWarnings, forceCap, fail);
   const nextState = { ...state, rosterEntries };

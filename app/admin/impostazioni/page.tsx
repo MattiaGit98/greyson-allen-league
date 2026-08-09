@@ -62,8 +62,8 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
       </div>
 
       <section className="league-moment-board">
-        <MomentGroup title="Offseason" moments={leagueMoments.slice(0, 4)} currentMoment={currentMoment} />
-        <MomentGroup title="Stagione" moments={leagueMoments.slice(4)} currentMoment={currentMoment} includeSeasonEnd />
+        <MomentGroup title="Offseason" moments={leagueMoments.slice(0, 3)} currentMoment={currentMoment} />
+        <MomentGroup title="Stagione" moments={leagueMoments.slice(3)} currentMoment={currentMoment} includeSeasonEnd />
       </section>
 
       <section className="phase-progress-card moment-progress-card">

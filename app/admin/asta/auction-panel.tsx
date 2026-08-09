@@ -13,7 +13,7 @@ import {
 } from "@/lib/auction-management";
 import type { AuctionAcquisitionKind } from "@/lib/league-types";
 import { CapForceControl } from "@/app/admin/cap-force-control";
-import { declineQualifyingOffer, modifyAuctionPlayer, purchaseAuctionPlayer } from "./actions";
+import { modifyAuctionPlayer, purchaseAuctionPlayer } from "./actions";
 
 type AuctionTeam = {
   code: string;
@@ -189,7 +189,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
                 if (outcome === "qualifying_offer" || outcome === "restricted_free_agent") setSlot("regular");
               }}>
                 <option value="">Seleziona l'esito</option>
-                <option value="not_extended">Q.O. non estesa · asta normale</option>
+                <option value="normal">Asta normale</option>
                 <option value="qualifying_offer">Q.O. accettata</option>
                 <option value="restricted_free_agent">Restricted free agent</option>
               </select>
@@ -207,6 +207,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
             <select value={effectiveSlot} disabled={constrainedAcquisition} onChange={(event) => {
               setSlot(event.target.value as AuctionSlot);
               setCutPlayerName("");
+              setForceCap(false);
             }}>
               <option value="regular">Roster</option>
               <option value="two_way">Two-way</option>
@@ -214,7 +215,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
             </select>
           </Field>
           <Field label="Giocatore da tagliare">
-            <select value={cutPlayerName} onChange={(event) => setCutPlayerName(event.target.value)}>
+            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); setForceCap(false); }}>
               <option value="">Nessun taglio</option>
               {cutCandidates.map((player) => (
                 <option value={player.name} key={player.name}>
@@ -229,7 +230,6 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
           <Metric label={`Cap libero ${seasonName}`} value={team ? `${team.spaces[0]} → ${team.spaces[0] - effectivePrice}` : "—"} />
           <Metric label="Slot" value={team && afterSlots ? `${team.slots[effectiveSlot]}/${slotLimit} → ${afterSlots[effectiveSlot]}/${slotLimit}` : "—"} />
           <Metric label="Acquisto" value={qualifyingOutcome ? auctionAcquisitionLabel(qualifyingOutcome === "qualifying_offer" || qualifyingOutcome === "restricted_free_agent" ? qualifyingOutcome : undefined) : "Da specificare"} />
-          <Metric label="Contratto" value={qualifyingOutcome === "qualifying_offer" ? "Annuale obbligatorio" : qualifyingOutcome === "restricted_free_agent" ? "Annuale o biennale" : effectiveSlot === "regular" ? "Da assegnare" : "T.O."} />
         </div>
         {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
         {slotErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
@@ -238,19 +238,6 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
       </div>
       <div className="auction-modal-actions">
         <button className="button secondary" type="button" onClick={onClose}>Annulla</button>
-        {row.qualifying && (
-          <button
-            className="button secondary"
-            type="submit"
-            formAction={declineQualifyingOffer}
-            disabled={phase !== "auction" || pendingDraftPicks > 0}
-            onClick={(event) => {
-              if (!window.confirm(`Confermi di non estendere la Q.O. su ${row.name}? Il giocatore resterà disponibile all'asta normale.`)) event.preventDefault();
-            }}
-          >
-            Non estendere Q.O.
-          </button>
-        )}
         <button className="button primary" type="submit" disabled={errors.length > 0 || slotErrors.length > 0 || !team || (capWarnings.length > 0 && !forceCap)}>Registra acquisto</button>
       </div>
     </form>

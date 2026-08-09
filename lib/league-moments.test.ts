@@ -13,7 +13,7 @@ describe("momenti della lega", () => {
   });
 
   it("passa alla stagione al termine dell'asta", () => {
-    expect(macroPhaseForMoment("free_releases_start")).toBe("offseason");
+    expect(macroPhaseForMoment("auction_start")).toBe("offseason");
     expect(macroPhaseForMoment("auction_completed")).toBe("regular_season");
   });
 
@@ -24,18 +24,25 @@ describe("momenti della lega", () => {
     expect(operationWindows.playoffTeamOption("free_agency_end")).toBe(true);
     expect(operationWindows.freeAgency("contract_delivery")).toBe(true);
     expect(operationWindows.freeAgency("free_agency_end")).toBe(false);
+    expect(operationWindows.freeRelease("offseason_start")).toBe(true);
+    expect(operationWindows.freeRelease("free_agency_end")).toBe(false);
     expect(operationWindows.buyout("trade_deadline")).toBe(true);
     expect(operationWindows.buyout("buyout_end")).toBe(false);
     expect(operationWindows.dpeActivation("offseason_start")).toBe(true);
     expect(operationWindows.dpeActivation("team_option_deadline")).toBe(true);
-    expect(operationWindows.dpeActivation("free_releases_start")).toBe(false);
+    expect(operationWindows.draft("team_option_deadline")).toBe(true);
+    expect(operationWindows.draft("auction_start")).toBe(false);
+    expect(operationWindows.auction("team_option_deadline")).toBe(false);
+    expect(operationWindows.auction("auction_start")).toBe(true);
+    expect(operationWindows.auction("auction_completed")).toBe(false);
+    expect(operationWindows.dpeActivation("auction_start")).toBe(false);
     expect(operationWindows.dpeActivation("auction_completed")).toBe(true);
     expect(operationWindows.dpeActivation("trade_deadline")).toBe(false);
     expect(operationWindows.dpeReintegration("auction_completed")).toBe(false);
     expect(operationWindows.dpeReintegration("contract_delivery")).toBe(true);
     expect(operationWindows.dpeReintegration("free_agency_end")).toBe(false);
     expect(operationWindows.trades("team_option_deadline")).toBe(true);
-    expect(operationWindows.trades("free_releases_start")).toBe(false);
+    expect(operationWindows.trades("auction_start")).toBe(false);
     expect(operationWindows.trades("auction_completed")).toBe(true);
     expect(operationWindows.trades("trade_deadline")).toBe(false);
   });

@@ -12,6 +12,12 @@ import {
   type HistoryCompetitionName,
 } from "@/lib/history-competitions";
 
+const publicHistoryMenuOptions = [
+  ...historyCompetitionNames.filter((name) => name !== "Draft").slice(0, 2),
+  "Draft",
+  ...historyCompetitionNames.filter((name) => name !== "Draft").slice(2),
+] satisfies HistoryCompetitionName[];
+
 export function HistoryExplorer({ competitions }: { competitions: HistoryCompetitionMap }) {
   const [selectedName, setSelectedName] = useState<HistoryCompetitionName>(historyCompetitionNames[0]);
   const [selectedSeason, setSelectedSeason] = useState("");
@@ -34,7 +40,7 @@ export function HistoryExplorer({ competitions }: { competitions: HistoryCompeti
           label="Visualizza"
           value={selectedName}
           onChange={changeSection}
-          options={[...historyCompetitionNames]}
+          options={publicHistoryMenuOptions}
         />
         {!isAggregate && entries.length > 0 && (
           <label className="view-selector">

@@ -1,3 +1,5 @@
+import { hasReachedMoment, type LeagueMoment } from "./league-moments";
+
 export const capIssueCodes = new Set([
   "OFFSEASON_CAP",
   "AUCTION_OVER_CAP_MAX_ONE",
@@ -32,15 +34,22 @@ export function salaryCapWarningsForSpaces(input: {
   after: readonly number[];
   seasonNames: readonly string[];
   phase: string;
+  currentMoment?: LeagueMoment;
   currentLimit?: 1000 | 1100;
 }) {
   const warnings: string[] = [];
-  const currentLimit = input.currentLimit ?? (input.phase === "offseason" ? 1000 : 1100);
-  const currentFloor = 1000 - currentLimit;
   const currentBefore = input.before[0] ?? 0;
   const currentAfter = input.after[0] ?? 0;
+  const beforeAuction = input.phase === "offseason"
+    && (!input.currentMoment || !hasReachedMoment(input.currentMoment, "auction_start"));
+  const currentLimit = input.currentLimit ?? (beforeAuction ? 1000 : input.phase === "regular_season" ? 1100 : null);
+  const explicitHardCurrentLimit = input.currentLimit === 1000;
 
-  if (currentAfter < currentFloor && (currentLimit === 1000 || currentAfter < currentBefore)) {
+  if (
+    currentLimit !== null
+    && currentAfter < 1000 - currentLimit
+    && (explicitHardCurrentLimit || currentAfter < currentBefore)
+  ) {
     warnings.push(`Il cap libero ${input.seasonNames[0]} sarebbe ${currentAfter} (limite ${currentLimit}).`);
   }
   input.after.slice(1).forEach((space, index) => {

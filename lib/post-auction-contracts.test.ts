@@ -63,6 +63,62 @@ describe("bozze private dei contratti post asta", () => {
     expect(published.rosterEntries[1]).toMatchObject({ contract: "T.O.", cost: 5, slot: "g_league" });
   });
 
+  it("consente gli slot speciali alle sole T.O. idonee prima della consegna", () => {
+    const twoWay = applyPostAuctionContractDrafts({
+      state: state(),
+      drafts: [draft("Guardia"), draft("Rookie", { slot: "two_way" })],
+      seasonName,
+    });
+    expect(twoWay.rosterEntries.find((entry) => entry.name === "Rookie")).toMatchObject({
+      contract: "T.O.",
+      slot: "two_way",
+    });
+
+    expect(() => applyPostAuctionContractDrafts({
+      state: state(),
+      drafts: [draft("Guardia", { slot: "two_way" }), draft("Rookie")],
+      seasonName,
+    })).toThrow("slot speciali");
+  });
+
+  it("consente la T.O. ai rookie senza soglia e agli U23 soltanto fino a 15 crediti", () => {
+    const rookie = state();
+    rookie.rosterEntries[1] = {
+      ...rookie.rosterEntries[1],
+      cost: 20,
+      auctionPrice: 20,
+      contract: "PENDING",
+      slot: "regular",
+    };
+    expect(() => applyPostAuctionContractDrafts({
+      state: rookie,
+      drafts: [draft("Guardia"), draft("Rookie", { slot: "regular" })],
+      seasonName,
+    })).not.toThrow();
+
+    const under23 = state();
+    under23.playerList[1] = { ...under23.playerList[1], rookie: false, under23: true };
+    under23.rosterEntries[1] = {
+      ...under23.rosterEntries[1],
+      cost: 15,
+      auctionPrice: 15,
+      contract: "PENDING",
+      slot: "regular",
+    };
+    expect(() => applyPostAuctionContractDrafts({
+      state: under23,
+      drafts: [draft("Guardia"), draft("Rookie", { slot: "regular" })],
+      seasonName,
+    })).not.toThrow();
+
+    under23.rosterEntries[1] = { ...under23.rosterEntries[1], cost: 16, auctionPrice: 16 };
+    expect(() => applyPostAuctionContractDrafts({
+      state: under23,
+      drafts: [draft("Guardia"), draft("Rookie", { slot: "regular" })],
+      seasonName,
+    })).toThrow("requisiti per la T.O.");
+  });
+
   it("permette di sostituire una scelta già assegnata per l'asta corrente", () => {
     const current = state();
     current.rosterEntries[0] = { ...current.rosterEntries[0], contract: "28", originalContractYears: 2, cost: 95 };

@@ -37,7 +37,7 @@ describe("pannello asta", () => {
   });
 
   it("distingue asta normale, Q.O. accettata e restricted free agent", () => {
-    expect(acquisitionKindForOutcome("not_extended")).toBeUndefined();
+    expect(acquisitionKindForOutcome("normal")).toBeUndefined();
     expect(acquisitionKindForOutcome("qualifying_offer")).toBe("qualifying_offer");
     expect(acquisitionKindForOutcome("restricted_free_agent")).toBe("restricted_free_agent");
     expect(allowedPostAuctionContracts("qualifying_offer")).toEqual(["annual"]);
@@ -62,6 +62,18 @@ describe("pannello asta", () => {
       teamCode: "AAA",
       price: 7,
       slot: "regular",
+    })).toEqual([]);
+  });
+
+  it("tratta l'asta normale come un acquisto comune anche in presenza di una Q.O.", () => {
+    expect(qualifyingAuctionErrors({
+      hasQualifyingRight: true,
+      outcome: "normal",
+      rightTeamCode: "AAA",
+      rightAmount: 7,
+      teamCode: "BBB",
+      price: 8,
+      slot: "two_way",
     })).toEqual([]);
   });
 

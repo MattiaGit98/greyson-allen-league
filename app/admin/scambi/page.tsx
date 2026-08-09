@@ -1,8 +1,10 @@
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { TradeBuilder } from "./trade-builder";
-import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
-import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { registerTrade } from "./actions";
+import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction } from "@/lib/league-moments";
+import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { nextDraftYear } from "@/lib/draft-positions";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
 import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
@@ -21,6 +23,7 @@ export default async function TradesPage({
   const phase = activeSeason.season.status;
   const seasonName = activeSeason.season.name;
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
+  const tradesSuspendedForAuction = tradesAreSuspendedForAuction(leagueMoment);
   let signAndTrade = null;
   let signAndTradeError = "";
   const signAndTradeRequest = parseSignAndTradeRequest(query);
@@ -116,6 +119,14 @@ export default async function TradesPage({
           return role && role !== "X" ? role : null;
         })(),
         slot: entry.slot,
+        cuttable: !isUnresolvedTeamOption(entry, leagueMoment),
+        promotionDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment)
+          ? []
+          : legalPromotionDestinations(
+            { ...entry, slot: entry.slot as ManagedRosterSlot },
+            seasonName,
+            leagueMoment,
+          ),
         allowedDestinations: entry.slot === "dpe"
           ? ["dpe" as const]
           : orderCurrentSlotFirst(
@@ -154,10 +165,13 @@ export default async function TradesPage({
       {query.updated && <p className="notice success">{query.updated}</p>}
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
       {signAndTradeError && <p className="notice error">Sign and trade non disponibile: {signAndTradeError}</p>}
+      {tradesSuspendedForAuction && <p className="notice">Gli scambi sono sospesi da Inizio asta fino a Termine asta.</p>}
       <TradeBuilder
         phase={phase}
         tradeDeadlinePassed={tradeDeadlineHasPassed(leagueMoment)}
         tradesOpen={operationWindows.trades(leagueMoment)}
+        qualifyingOfferTransfersOpen={!hasReachedMoment(leagueMoment, "auction_completed")}
+        enforceOffseasonCap={!hasReachedMoment(leagueMoment, "auction_start")}
         tradableDraftYears={tradableDraftYears}
         protectionCounterpartyDraftYears={protectionCounterpartyDraftYears}
         existingClauseAgreements={existingClauseAgreements}
@@ -173,6 +187,7 @@ export default async function TradesPage({
           spaceAfterSigning: signAndTrade.spaceAfterSigning,
         } : null}
         teams={tradeTeams}
+        registerAction={registerTrade}
       />
     </section>
   );

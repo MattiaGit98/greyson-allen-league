@@ -55,6 +55,21 @@ describe("applicazione di uno scambio", () => {
     });
   });
 
+  it("applica una promozione contestuale senza alterare il contratto", () => {
+    const before = state();
+    const after = applyValidatedTrade(before, {
+      playerMoves: [],
+      pickMoves: [],
+      pickClauses: [],
+      existingClauseChanges: [],
+      qualifyingOfferMoves: [],
+      cuts: [],
+      promotions: [{ stateIndex: 0, destinationSlot: "regular" }],
+    });
+
+    expect(after.rosterEntries[0]).toEqual({ ...before.rosterEntries[0], slot: "regular" });
+  });
+
   it("trasferisce scelte e Q.O. e registra entrambe le facce di uno swap", () => {
     const after = applyValidatedTrade(state(), {
       playerMoves: [],
@@ -122,6 +137,25 @@ describe("applicazione di uno scambio", () => {
     });
 
     expect(after.draftAssets.map((asset) => asset.label)).toEqual(["Scelta", "Scelta"]);
+  });
+
+  it("sostituisce una clausola nello stesso scambio dopo aver rimosso quella esistente", () => {
+    const before = state();
+    before.draftAssets[0].label = "Diritto di swap con BBB";
+    before.draftAssets[1].label = "Subisce il diritto di swap con AAA";
+
+    const after = applyValidatedTrade(before, {
+      playerMoves: [],
+      pickMoves: [],
+      pickClauses: [{ subjectIndex: 0, counterpartyIndex: 1, clause: "protected_top_5" }],
+      existingClauseChanges: [{ subjectIndex: 0, counterpartyIndex: 1, clause: null }],
+      qualifyingOfferMoves: [],
+      cuts: [],
+    });
+
+    expect(after.draftAssets[0].label).toContain("Protetta top 5");
+    expect(after.draftAssets[1].label).toContain("Contropartita se");
+    expect(after.draftAssets[0].clauseResolution?.role).toBe("protected");
   });
 
   it("riconosce anche gli accordi importati dal vecchio foglio come testo", () => {

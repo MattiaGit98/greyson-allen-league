@@ -1,6 +1,7 @@
 import { requireActiveSeason } from "@/lib/active-season";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { shouldCountTeamOptions } from "@/lib/season-time";
+import { leagueMomentFromSeason } from "@/lib/league-moments";
 import { RosterCorrectionPanel } from "./roster-correction-panel";
 
 export default async function RosterCorrectionsPage({
@@ -41,6 +42,7 @@ export default async function RosterCorrectionsPage({
         freeAgents={freeAgents}
         seasonName={activeSeason.season.name}
         phase={activeSeason.season.status}
+        leagueMoment={leagueMomentFromSeason(activeSeason.season)}
         countTeamOptions={shouldCountTeamOptions(
           activeSeason.season.status,
           activeSeason.season.team_options_resolved,

@@ -1,7 +1,7 @@
 export const leagueMoments = [
   "offseason_start",
   "team_option_deadline",
-  "free_releases_start",
+  "auction_start",
   "auction_completed",
   "contract_delivery",
   "trade_deadline",
@@ -15,8 +15,8 @@ export type LeagueTransition = LeagueMoment | "season_end";
 export const leagueMomentLabels: Record<LeagueTransition, string> = {
   offseason_start: "Inizio offseason",
   team_option_deadline: "Scadenza esercizio T.O.",
-  free_releases_start: "Inizio rilasci gratuiti",
-  auction_completed: "Asta",
+  auction_start: "Inizio asta",
+  auction_completed: "Termine asta",
   contract_delivery: "Consegna contratti",
   trade_deadline: "Trade deadline",
   buyout_end: "Termine buyout",
@@ -62,23 +62,27 @@ export function tradeDeadlineHasPassed(moment: LeagueMoment) {
   return hasReachedMoment(moment, "trade_deadline");
 }
 
+export function tradesAreSuspendedForAuction(moment: LeagueMoment) {
+  return hasReachedMoment(moment, "auction_start") && !hasReachedMoment(moment, "auction_completed");
+}
+
 export const operationWindows = {
   teamOption: (moment: LeagueMoment) => moment === "offseason_start",
   playoffTeamOption: (moment: LeagueMoment) => moment === "free_agency_end",
-  draft: (moment: LeagueMoment) => hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "auction_completed"),
-  auction: (moment: LeagueMoment) => hasReachedMoment(moment, "free_releases_start") && !hasReachedMoment(moment, "auction_completed"),
+  draft: (moment: LeagueMoment) => hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "auction_start"),
+  auction: (moment: LeagueMoment) => hasReachedMoment(moment, "auction_start") && !hasReachedMoment(moment, "auction_completed"),
   contractAssignment: (moment: LeagueMoment) => moment === "auction_completed",
   freeAgency: (moment: LeagueMoment) => hasReachedMoment(moment, "contract_delivery") && !hasReachedMoment(moment, "free_agency_end"),
   trades: (moment: LeagueMoment) => (
-    moment !== "free_releases_start"
+    !tradesAreSuspendedForAuction(moment)
     && !hasReachedMoment(moment, "trade_deadline")
   ),
   extensions: (moment: LeagueMoment) => !hasReachedMoment(moment, "auction_completed")
     || (hasReachedMoment(moment, "trade_deadline") && !hasReachedMoment(moment, "free_agency_end")),
   buyout: (moment: LeagueMoment) => hasReachedMoment(moment, "trade_deadline") && !hasReachedMoment(moment, "buyout_end"),
-  freeRelease: (moment: LeagueMoment) => hasReachedMoment(moment, "free_releases_start") && !hasReachedMoment(moment, "free_agency_end"),
+  freeRelease: (moment: LeagueMoment) => !hasReachedMoment(moment, "free_agency_end"),
   dpeActivation: (moment: LeagueMoment) => (
-    (!hasReachedMoment(moment, "free_releases_start") || hasReachedMoment(moment, "auction_completed"))
+    (!hasReachedMoment(moment, "auction_start") || hasReachedMoment(moment, "auction_completed"))
     && !hasReachedMoment(moment, "trade_deadline")
   ),
   dpeReintegration: (moment: LeagueMoment) => (

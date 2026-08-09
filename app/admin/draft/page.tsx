@@ -26,7 +26,8 @@ export default async function DraftAdminPage({
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
   const draftWindowOpen = operationWindows.draft(leagueMoment);
   const activeDraftYear = Number(seasonName.slice(0, 4));
-  const draftOpen = draftWindowOpen && draftYear === activeDraftYear;
+  const officialListPublished = leagueState.playerListStatus === "published";
+  const draftOpen = draftWindowOpen && officialListPublished && draftYear === activeDraftYear;
   const orderFinalized = draftYear !== null && (leagueState.finalizedDraftPositionYears ?? []).includes(draftYear);
 
   const ownedPlayers = new Set(leagueState.rosterEntries.map((entry) => normalizeName(entry.name)));
@@ -77,7 +78,8 @@ export default async function DraftAdminPage({
     <section className="section page-top admin-dashboard">
       {query.assigned && <p className="notice success">{query.assigned}</p>}
       {query.error && <p className="notice error">Assegnazione non riuscita: {query.error}</p>}
-      {!draftWindowOpen && <p className="notice">Il Draft è disponibile dalla scadenza delle T.O. fino al termine dell’asta.</p>}
+      {!draftWindowOpen && <p className="notice">Il Draft è disponibile dalla scadenza delle T.O. fino all’inizio dell’asta.</p>}
+      {draftWindowOpen && !officialListPublished && <p className="notice">Pubblica il listone ufficiale per rendere operativo il Draft.</p>}
       {draftWindowOpen && draftYear !== null && draftYear !== activeDraftYear && (
         <p className="notice">Il Draft {draftYear} è visibile come prossimo Draft, ma potrà essere assegnato nell'annata {draftYear}/{String((draftYear + 1) % 100).padStart(2, "0")}.</p>
       )}

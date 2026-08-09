@@ -23,7 +23,7 @@ type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient
 
 export const importableBackupFormat = "greyson-allen-league-importable-backup";
 export const importableBackupFormatVersion = 1;
-export const importableBackupSchemaVersion = "202608020019";
+export const importableBackupSchemaVersion = "202608090022";
 
 export type ImportableSeason = {
   name: string;
@@ -143,17 +143,19 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   }
   const rawPayload = asRecord(document.payload);
   const rawSeason = asRecord(rawPayload?.activeSeason);
+  const legacyAuctionStart = rawSeason?.timeline_moment === "free_releases_start";
+  const timelineMoment = legacyAuctionStart ? "auction_start" : rawSeason?.timeline_moment;
   if (
     !rawPayload
     || !rawSeason
     || typeof rawSeason.name !== "string"
     || !/^\d{4}\/\d{2}$/.test(rawSeason.name)
-    || !isLeagueMoment(rawSeason.timeline_moment)
-    || rawSeason.status !== macroPhaseForMoment(rawSeason.timeline_moment)
+    || !isLeagueMoment(timelineMoment)
+    || rawSeason.status !== macroPhaseForMoment(timelineMoment)
     || typeof rawSeason.team_options_resolved !== "boolean"
     || typeof rawSeason.trade_deadline_passed !== "boolean"
-    || rawSeason.team_options_resolved !== teamOptionsAreResolved(rawSeason.timeline_moment)
-    || rawSeason.trade_deadline_passed !== tradeDeadlineHasPassed(rawSeason.timeline_moment)
+    || rawSeason.team_options_resolved !== teamOptionsAreResolved(timelineMoment)
+    || rawSeason.trade_deadline_passed !== tradeDeadlineHasPassed(timelineMoment)
   ) {
     throw new Error("Fase o annata del backup non valide.");
   }
@@ -203,10 +205,10 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   const payload: ImportableLeaguePayload = {
     activeSeason: {
       name: rawSeason.name,
-      status: macroPhaseForMoment(rawSeason.timeline_moment),
+      status: macroPhaseForMoment(timelineMoment),
       team_options_resolved: rawSeason.team_options_resolved,
       trade_deadline_passed: rawSeason.trade_deadline_passed,
-      timeline_moment: rawSeason.timeline_moment,
+      timeline_moment: timelineMoment,
     },
     leagueState,
     calendar,
@@ -214,16 +216,24 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
     history,
     movements,
   };
-  if (typeof document.checksum !== "string" || document.checksum !== checksumForPayload(payload)) {
+  const checksumPayload = legacyAuctionStart
+    ? {
+        ...payload,
+        activeSeason: { ...payload.activeSeason, timeline_moment: "free_releases_start" },
+      }
+    : payload;
+  if (typeof document.checksum !== "string" || document.checksum !== checksumForPayload(checksumPayload)) {
     throw new Error("Il controllo di integrità del backup non è riuscito: il file potrebbe essere incompleto o modificato.");
   }
 
   return {
     format: importableBackupFormat,
     formatVersion: importableBackupFormatVersion,
-    schemaVersion: typeof document.schemaVersion === "string" ? document.schemaVersion : "",
+    schemaVersion: legacyAuctionStart
+      ? importableBackupSchemaVersion
+      : typeof document.schemaVersion === "string" ? document.schemaVersion : "",
     exportedAt: document.exportedAt,
-    checksum: document.checksum,
+    checksum: checksumForPayload(payload),
     payload,
   };
 }
@@ -290,7 +300,7 @@ async function fetchAllMovements(supabase: Supabase): Promise<ImportableMovement
   throw new Error("Il registro movimenti supera il limite esportabile di 50.000 righe.");
 }
 
-function checksumForPayload(payload: ImportableLeaguePayload) {
+function checksumForPayload(payload: unknown) {
   return createHash("sha256").update(stableJson(payload)).digest("hex");
 }
 

@@ -42,22 +42,30 @@ export function buildLeagueTransitionPreview(input: {
   };
 
   if (transition === "team_option_deadline") {
-    preview.newPossibilities.push("Si apre il Draft.");
+    preview.newPossibilities.push("Il Draft diventa accessibile quando sono pronti anche il listone ufficiale e l’ordine definitivo.");
+    preview.newPossibilities.push("Si aprono le causali generali di rilascio gratuito previste dal regolamento.");
     preview.newPossibilities.push("Si apre la finestra speciale per spostare verso Two-way e G-League i giocatori al primo anno che rispettano i requisiti.");
     preview.closedPossibilities.push("Non sarà più possibile esercitare le team option.");
   }
 
-  if (transition === "free_releases_start") {
-    preview.newPossibilities.push("Si apre la finestra dei rilasci gratuiti prevista prima dell’asta.");
+  if (transition === "auction_start") {
+    preview.newPossibilities.push("Si apre il pannello asta.");
     preview.closedPossibilities.push("Si sospende l'esercizio della DPE per tutta la durata dell'asta.");
+    preview.closedPossibilities.push("Si sospendono gli scambi fino al termine dell’asta.");
+    preview.closedPossibilities.push("Si chiude il Draft.");
+    preview.closedPossibilities.push("Si chiudono i rilasci gratuiti per chi ha disputato meno della metà delle partite NBA.");
   }
 
   if (transition === "auction_completed") {
+    if (input.state.qualifyingOfferRights.length) {
+      preview.automaticActions.push(`${input.state.qualifyingOfferRights.length} qualifying offer non estese decadranno.`);
+    }
     preview.automaticActions.push("La macro-fase passerà da Offseason a Stagione.");
     preview.automaticActions.push("Per il cap corrente si applicherà la soglia prevista durante la stagione.");
     preview.newPossibilities.push("Si apre l’assegnazione dei contratti acquistati all’asta.");
     preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla trade deadline.");
-    preview.closedPossibilities.push("Si chiudono asta, draft ed estensioni contrattuali dell’offseason.");
+    preview.newPossibilities.push("Riaprono gli scambi fino alla trade deadline.");
+    preview.closedPossibilities.push("Si chiudono asta ed estensioni contrattuali dell’offseason.");
   }
 
   if (transition === "contract_delivery") {

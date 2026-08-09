@@ -17,7 +17,7 @@ import {
   isFreeReleaseReason,
   type FreeReleaseReason,
 } from "@/lib/free-release";
-import { teamOptionCutAdjustment } from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption, teamOptionCutAdjustment } from "@/lib/team-option-contract";
 
 export async function applyRosterExitOperation(formData: FormData) {
   const forceCap = capOverrideRequested(formData);
@@ -37,6 +37,9 @@ export async function applyRosterExitOperation(formData: FormData) {
   const entryIndex = state.rosterEntries.findIndex((entry) => entry.teamCode === teamCode && entry.name === playerName);
   const entry = state.rosterEntries[entryIndex];
   if (!entry) operationError(returnPath, "Il giocatore non appartiene alla squadra selezionata.");
+  if (isUnresolvedTeamOption(entry, leagueMoment)) {
+    operationError(returnPath, "Una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.");
+  }
   if (kind === "cut" && entry.state !== "active") operationError(returnPath, "Puoi tagliare soltanto un giocatore attivo.");
   if (kind === "buyout" && entry.state !== "active") {
     operationError(returnPath, "Il buyout richiede un giocatore ancora sotto contratto e attivo.");
@@ -81,13 +84,7 @@ export async function applyRosterExitOperation(formData: FormData) {
       buyoutApplied: true,
     } : item);
   } else {
-    const initialAdjustment = teamOptionCutAdjustment(entry, currentEndYear, leagueMoment);
-    const finalYearAuctionTimingMustBeConfirmed = leagueMoment === "free_releases_start"
-      && initialAdjustment.adjusted
-      && initialAdjustment.entry.teamOptionFinalYear === currentEndYear;
-    const adjustment = finalYearAuctionTimingMustBeConfirmed && !confirmed
-      ? teamOptionCutAdjustment(entry, currentEndYear, "auction_completed")
-      : initialAdjustment;
+    const adjustment = teamOptionCutAdjustment(entry, currentEndYear, leagueMoment);
     optionCutAdjustment = adjustment;
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
       ...adjustment.entry,
@@ -121,6 +118,7 @@ export async function applyRosterExitOperation(formData: FormData) {
     after: spacesAfter,
     seasonNames: [0, 1, 2].map((distance) => followingSeasonName(season.name, distance)),
     phase: season.status,
+    currentMoment: leagueMoment,
     currentLimit: kind === "buyout" ? 1000 : undefined,
   });
   if (hasBlockingDpeCutCapViolation(kind === "cut" && dpeExemption, capWarnings)) {
@@ -158,6 +156,7 @@ export async function applyStretchProvision(formData: FormData) {
   if (!teamCode || !playerName || (installments !== 2 && installments !== 3)) operationError(returnPath, "Operazione non valida.");
 
   const { supabase, season } = await operationContext(returnPath);
+  const leagueMoment = leagueMomentFromSeason(season);
   const state = await loadEditableLeagueState();
   const entryIndex = state.rosterEntries.findIndex((entry) => entry.teamCode === teamCode && entry.name === playerName);
   const entry = state.rosterEntries[entryIndex];
@@ -183,6 +182,7 @@ export async function applyStretchProvision(formData: FormData) {
     after: spacesAfter,
     seasonNames: [0, 1, 2].map((distance) => followingSeasonName(season.name, distance)),
     phase: season.status,
+    currentMoment: leagueMoment,
   });
   requireCapOverride(capWarnings, forceCap, (message) => operationError(returnPath, message));
 

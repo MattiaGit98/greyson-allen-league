@@ -38,7 +38,6 @@ export function PhaseAdvanceButton({ currentLabel, nextLabel, preview }: { curre
               <PreviewSection title="Backup e indicazioni" items={preview.warnings} tone="warning" />
               {preview.errors.length > 0 && <PreviewSection title="Errori da risolvere" items={preview.errors} tone="error" />}
               {error && <p className="validation error">{error}</p>}
-              {!preview.errors.length && <p className="validation success">Il passaggio può essere eseguito.</p>}
             </div>
             <div className="auction-modal-actions">
               <button className="button secondary" type="button" onClick={() => setOpen(false)} disabled={pending}>Annulla</button>

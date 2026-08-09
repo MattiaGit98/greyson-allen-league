@@ -9,7 +9,6 @@ import {
   type LeagueMoment,
   type LeagueTransition,
 } from "./league-moments";
-import { draftOverallPosition } from "./draft-rules";
 import { calculateCapSpace, followingSeasonName } from "./season-time";
 import { slotEligibilityErrors } from "./slot-eligibility";
 import {
@@ -85,17 +84,21 @@ export function buildPreAdvanceChecklist(input: {
     }
   }
 
-  if (transition === "free_releases_start") {
+  if (transition === "auction_start") {
     addDraftPreparationAlerts(add, seasonName, state);
-    add({
-      id: "free-release-window-opening",
-      tone: "info",
-      title: "Inizia la finestra dei rilasci gratuiti pre-asta",
-      message: "Dal prossimo momento saranno disponibili i rilasci previsti a partire da tre giorni prima dell’asta.",
-      article: "Art. 10(c-d, f)",
-      href: "/admin/altre-operazioni",
-      actionLabel: "Apri le altre operazioni",
-    });
+    const draftYear = seasonStartYear(seasonName);
+    const remainingPicks = draftYear === null ? [] : state.draftAssets.filter((asset) => asset.year === draftYear);
+    if (remainingPicks.length) {
+      add({
+        id: "draft-required-before-auction",
+        tone: "blocker",
+        title: `Draft ${draftYear} non completato`,
+        message: `Restano ${remainingPicks.length} scelte da assegnare prima di poter iniziare l’asta.`,
+        article: "Art. 6(a)",
+        href: "/admin/draft",
+        actionLabel: "Completa il draft",
+      });
+    }
   }
 
   if (transition === "auction_completed") {
@@ -122,19 +125,6 @@ export function buildPreAdvanceChecklist(input: {
         article: "Art. 6(a)",
         href: "/admin/draft",
         actionLabel: "Continua il draft",
-      });
-    }
-
-    if (state.qualifyingOfferRights.length) {
-      add({
-        id: "qualifying-offers-unresolved",
-        tone: "blocker",
-        title: `${state.qualifyingOfferRights.length} qualifying offer ancora da risolvere`,
-        message: "Le Q.O. devono essere estese, rifiutate o lasciate decadere durante l’asta.",
-        items: groupRights(state.qualifyingOfferRights),
-        article: "Art. 8(b-e)",
-        href: "/admin/asta",
-        actionLabel: "Apri il pannello asta",
       });
     }
 
@@ -420,23 +410,22 @@ function addDraftPreparationAlerts(
   if (state.playerListStatus !== "published") {
     add({
       id: "official-list-draft",
-      tone: "warning",
+      tone: "blocker",
       title: "Listone ufficiale non ancora pubblicato",
-      message: "Senza il listone Dunkest non è possibile svolgere il Draft né l’asta.",
+      message: "Senza il listone Dunkest non è possibile iniziare l’asta.",
       article: "Art. 4(a); Art. 6(a)",
       href: "/admin/listone",
       actionLabel: "Vai al listone",
     });
   }
   const draftYear = seasonStartYear(seasonName);
-  const picks = draftYear === null ? [] : state.draftAssets.filter((asset) => asset.year === draftYear);
-  const missingPositions = picks.filter((asset) => draftOverallPosition(asset.originOrOverall) === null).length;
-  if (missingPositions) {
+  const orderFinalized = draftYear !== null && (state.finalizedDraftPositionYears ?? []).includes(draftYear);
+  if (!orderFinalized) {
     add({
       id: "draft-positions-incomplete",
-      tone: "warning",
-      title: `${missingPositions} posizioni del Draft ${draftYear} ancora da definire`,
-      message: "Le clausole sulle scelte verranno applicate soltanto quando l’ordine sarà completo.",
+      tone: "blocker",
+      title: `Ordine del Draft ${draftYear} non definitivo`,
+      message: "Completa e salva definitivamente l’ordine prima di iniziare l’asta.",
       article: "Art. 6(b-c); Art. 14",
       href: "/admin/posizioni-draft",
       actionLabel: "Completa le posizioni",
@@ -515,18 +504,18 @@ function addStructuralAlerts(
       id: "strict-offseason-cap",
       tone: "warning",
       title: "Salary cap corrente oltre 1000 crediti",
-      message: "Prima dell’inizio del Draft il limite è 1000; l’avanzamento resta confermabile come forzatura amministrativa.",
+      message: "Fino all’inizio dell’asta il limite è 1000; l’avanzamento resta confermabile come forzatura amministrativa.",
       items: currentCapIssues.map((issue) => `${issue.teamCode}: ${issue.cost} crediti · cap libero ${issue.space}`),
       article: "Art. 9(a)",
       href: "/admin/altre-operazioni",
       actionLabel: "Riduci il cap",
     });
-  } else if ((currentMoment === "team_option_deadline" || currentMoment === "free_releases_start") && currentCapIssues.length) {
+  } else if ((currentMoment === "team_option_deadline" || currentMoment === "auction_start") && currentCapIssues.length) {
     add({
       id: "draft-window-cap",
       tone: "warning",
-      title: "Squadre oltre 1000 crediti nella finestra Draft/asta",
-      message: "Il superamento dovuto al Draft è ammesso, ma finché permane non sono consentite altre operazioni che aumentino il cap; durante l’asta gli acquisti sono limitati a 1 credito.",
+      title: "Squadre oltre 1000 crediti",
+      message: "Il superamento dovuto al Draft è ammesso, ma finché permane non sono consentite altre operazioni che aumentino ulteriormente il cap; durante l’asta gli acquisti sono limitati a 1 credito.",
       items: currentCapIssues.map((issue) => `${issue.teamCode}: ${issue.cost} crediti · cap libero ${issue.space}`),
       article: "Art. 9(b-c)",
     });

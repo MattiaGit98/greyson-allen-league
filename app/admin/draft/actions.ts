@@ -36,6 +36,7 @@ export async function assignDraftPlayer(formData: FormData) {
     loadEditableLeagueState(),
     loadHistoryCompetitionState(),
   ]);
+  if (state.playerListStatus !== "published") fail("Pubblica prima il listone ufficiale.");
   const currentDraftYear = nextDraftYear(state.draftAssets);
   if (currentDraftYear === null || currentDraftYear !== requestedDraftYear) {
     fail("La scelta non appartiene al prossimo draft. Aggiorna la pagina e riprova.");

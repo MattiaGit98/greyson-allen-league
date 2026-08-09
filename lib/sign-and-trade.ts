@@ -4,10 +4,10 @@ import { normalizePlayerName } from "./admin-alerts";
 import { isCapIssueCode } from "./cap-override";
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
-import { operationWindows, tradeDeadlineHasPassed, type LeagueMoment } from "./league-moments";
-import { evaluateFreeAgentSigning } from "./rules/free-agent";
+import { operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction, type LeagueMoment } from "./league-moments";
+import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "./rules/free-agent";
 import { countRosterRoles } from "./rules/roster";
-import { calculateCapSpace, seasonEndYear } from "./season-time";
+import { calculateCapSpace } from "./season-time";
 import { tradePlayerId } from "./trade-state";
 
 export type SignAndTradeRequest = {
@@ -42,7 +42,9 @@ export function buildSignAndTradeProvisional(input: {
   moment: LeagueMoment;
 }): SignAndTradeProvisional {
   if (!operationWindows.trades(input.moment)) {
-    throw new Error("Il sign and trade non è disponibile durante l'asta o dopo la trade deadline.");
+    throw new Error(tradesAreSuspendedForAuction(input.moment)
+      ? "Il sign and trade è sospeso durante l'asta."
+      : "Il sign and trade non è disponibile dopo la trade deadline.");
   }
   const { state, request } = input;
   if (!operationWindows.freeAgency(input.moment)) throw new Error("La free agency non è aperta.");
@@ -117,14 +119,13 @@ export function buildSignAndTradeProvisional(input: {
   });
   const blockingErrors = evaluation.errors.filter((issue) => !issue.code.startsWith("SLOT_"));
   if (blockingErrors.length) throw new Error(blockingErrors.map((issue) => issue.message).join(" "));
-  const endYear = seasonEndYear(input.seasonName);
-  if (!endYear) throw new Error("Annata non valida.");
-  const expiry = String(endYear).slice(-2);
+  const contract = automaticFreeAgentContract(input.seasonName, tradeDeadlineHasPassed(input.moment));
+  if (!contract) throw new Error("Annata non valida.");
   const signingEntry: RosterEntry = {
     name: player.name,
     role: player.role === "X" ? undefined : player.role,
     cost: request.price,
-    contract: tradeDeadlineHasPassed(input.moment) ? expiry : `${expiry} (Q)`,
+    contract,
     state: "active",
     slot: request.destinationSlot,
     teamCode: request.signerTeamCode,

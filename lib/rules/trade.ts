@@ -35,6 +35,13 @@ export type TradeCut = {
   slot: TradeSlot;
 };
 
+export type TradePromotion = {
+  id: string;
+  teamCode: string;
+  sourceSlot: Exclude<TradeSlot, "dpe">;
+  destinationSlot: Exclude<TradeSlot, "dpe">;
+};
+
 export type TradePickMove = {
   id: string;
   fromTeamCode: string;
@@ -94,6 +101,7 @@ export function evaluateTrade(input: {
   phase: string;
   tradeDeadlinePassed?: boolean;
   tradesOpen?: boolean;
+  enforceOffseasonCap?: boolean;
   tradableDraftYears?: number[];
   protectionCounterpartyDraftYears?: number[];
   teams: TradeTeamState[];
@@ -102,16 +110,15 @@ export function evaluateTrade(input: {
   pickClauses?: TradePickClauseAgreement[];
   existingClauseChanges?: TradeExistingClauseChange[];
   qualifyingOfferMoves?: TradeQualifyingOfferMove[];
+  qualifyingOfferTransfersOpen?: boolean;
   cuts: TradeCut[];
+  promotions?: TradePromotion[];
 }) {
   const errors: { code: string; message: string }[] = [];
   const warnings: { code: string; message: string }[] = [];
 
-  if (input.tradesOpen === false) {
-    errors.push({ code: "TRADES_CLOSED", message: "Gli scambi non sono disponibili durante l'asta o dopo la trade deadline." });
-  }
-  if (input.phase === "auction") {
-    errors.push({ code: "TRADES_CLOSED_DURING_AUCTION", message: "Gli scambi non sono consentiti durante l’asta." });
+  if (input.tradesOpen === false && !(input.phase === "regular_season" && input.tradeDeadlinePassed)) {
+    errors.push({ code: "TRADES_CLOSED", message: "Gli scambi non sono disponibili in questo momento della lega." });
   }
   if (input.phase === "regular_season" && input.tradeDeadlinePassed) {
     errors.push({
@@ -361,6 +368,9 @@ export function evaluateTrade(input: {
         message: "Un accordo esistente può essere modificato o eliminato soltanto se allo scambio partecipano entrambi gli attuali detentori delle scelte interessate.",
       });
     }
+    if (change.action !== "remove" || change.clause !== null) {
+      errors.push({ code: "TRADE_EXISTING_CLAUSE_REMOVE_ONLY", message: "Le clausole esistenti possono soltanto essere rimosse." });
+    }
     if (change.action === "modify" && !change.clause) {
       errors.push({ code: "TRADE_EXISTING_CLAUSE_VALUE_REQUIRED", message: "Seleziona la nuova condizione dell'accordo." });
     }
@@ -407,7 +417,7 @@ export function evaluateTrade(input: {
         message: "La qualifying offer deve essere trasferita a un'altra squadra.",
       });
     }
-    if (input.phase !== "offseason") {
+    if (input.qualifyingOfferTransfersOpen === false || input.phase !== "offseason") {
       errors.push({
         code: "TRADE_QO_OFFSEASON_ONLY",
         message: "Le qualifying offer per la prossima asta si possono scambiare soltanto in offseason.",
@@ -424,6 +434,27 @@ export function evaluateTrade(input: {
       });
     }
     seenCuts.add(cut.id);
+  }
+
+  const seenPromotions = new Set<string>();
+  for (const promotion of input.promotions ?? []) {
+    if (seenPromotions.has(promotion.id) || seenPlayers.has(promotion.id) || seenCuts.has(promotion.id)) {
+      errors.push({
+        code: "TRADE_PROMOTION_DUPLICATE",
+        message: "Un giocatore non può essere contemporaneamente ceduto, tagliato e promosso.",
+      });
+    }
+    seenPromotions.add(promotion.id);
+    if (
+      promotion.sourceSlot === "regular"
+      || promotion.sourceSlot === promotion.destinationSlot
+      || !allowedTradeDestinations(promotion.sourceSlot).includes(promotion.destinationSlot)
+    ) {
+      errors.push({
+        code: "TRADE_PROMOTION_INVALID",
+        message: "La promozione contestuale deve avvenire verso uno slot superiore consentito.",
+      });
+    }
   }
 
   const teamResults = input.teams.map((team) => {
@@ -450,6 +481,11 @@ export function evaluateTrade(input: {
       if (cut.slot !== "dpe" && cut.role) roles[cut.role] -= 1;
     }
 
+    for (const promotion of (input.promotions ?? []).filter((item) => item.teamCode === team.code)) {
+      slots[slotKey(promotion.sourceSlot)] -= 1;
+      slots[slotKey(promotion.destinationSlot)] += 1;
+    }
+
     const slotValidation = validateSlots(slots);
     errors.push(...slotValidation.errors.map((error) => ({
       ...error,
@@ -457,7 +493,17 @@ export function evaluateTrade(input: {
       message: `${team.code}: ${error.message}`,
     })));
 
-    if (input.phase === "offseason" && costAfter > 1000) {
+    const minimums: Record<TradeRole, number> = { G: 5, A: 5, C: 3 };
+    const missingRoles = input.phase === "regular_season"
+      ? (Object.keys(minimums) as TradeRole[]).reduce((result, role) => ({
+        ...result,
+        [role]: Math.max(0, minimums[role] - roles[role]),
+      }), { G: 0, A: 0, C: 0 })
+      : { G: 0, A: 0, C: 0 };
+    const requiredRoleFreeAgents = missingRoles.G + missingRoles.A + missingRoles.C;
+    const projectedCostAfter = costAfter + requiredRoleFreeAgents;
+
+    if ((input.enforceOffseasonCap ?? input.phase === "offseason") && projectedCostAfter > 1000 && projectedCostAfter > team.currentCost) {
       warnings.push({
         code: `TRADE_OFFSEASON_CAP_${team.code}`,
         message: `${team.code}: lo scambio porterebbe lo spazio libero sotto zero.`,
@@ -466,8 +512,8 @@ export function evaluateTrade(input: {
     if (
       input.phase === "regular_season"
       && (
-        (team.currentCost <= 1100 && costAfter > 1100)
-        || (team.currentCost > 1100 && costAfter > team.currentCost)
+        (team.currentCost <= 1100 && projectedCostAfter > 1100)
+        || (team.currentCost > 1100 && projectedCostAfter > team.currentCost)
       )
     ) {
       warnings.push({
@@ -501,26 +547,25 @@ export function evaluateTrade(input: {
       };
     });
 
-    if (input.phase === "regular_season") {
-      const minimums: Record<TradeRole, number> = { G: 5, A: 5, C: 3 };
-      for (const role of Object.keys(minimums) as TradeRole[]) {
-        if (roles[role] < minimums[role]) {
-          warnings.push({
-            code: `TRADE_ROLE_MINIMUM_${team.code}_${role}`,
-            message: `${team.code}: dopo lo scambio mancano giocatori di ruolo ${role}; si applica il ripristino previsto dal regolamento.`,
-          });
-        }
+    for (const role of Object.keys(minimums) as TradeRole[]) {
+      if (missingRoles[role]) {
+        warnings.push({
+          code: `TRADE_ROLE_MINIMUM_${team.code}_${role}`,
+          message: `${team.code}: dopo lo scambio mancano ${missingRoles[role]} giocatori di ruolo ${role}; va assegnato un free agent casuale da 1 credito per ogni carenza.`,
+        });
       }
     }
 
     return {
       code: team.code,
       costBefore: team.currentCost,
-      costAfter,
+      costAfter: projectedCostAfter,
       spaceBefore: 1000 - team.currentCost,
-      spaceAfter: 1000 - costAfter,
+      spaceAfter: 1000 - projectedCostAfter,
       slots,
       roles,
+      missingRoles,
+      requiredRoleFreeAgents,
       futureCaps,
     };
   });

@@ -11,6 +11,18 @@ const seasons = ["2026/27", "2027/28", "2028/29"];
 describe("forceable salary-cap warnings", () => {
   it("uses the strict 1000 limit in offseason", () => {
     expect(salaryCapWarningsForSpaces({ before: [10, 10, 10], after: [-1, 10, 10], seasonNames: seasons, phase: "offseason" })).toHaveLength(1);
+    expect(salaryCapWarningsForSpaces({ before: [-10, 10, 10], after: [-5, 10, 10], seasonNames: seasons, phase: "offseason" })).toHaveLength(0);
+    expect(salaryCapWarningsForSpaces({ before: [-10, 10, 10], after: [-11, 10, 10], seasonNames: seasons, phase: "offseason" })).toHaveLength(1);
+  });
+
+  it("chiude il limite offseason all'inizio dell'asta", () => {
+    expect(salaryCapWarningsForSpaces({
+      before: [10, 10, 10],
+      after: [-1, 10, 10],
+      seasonNames: seasons,
+      phase: "offseason",
+      currentMoment: "auction_start",
+    })).toHaveLength(0);
   });
 
   it("allows the seasonal room between 1000 and 1100", () => {
@@ -25,6 +37,7 @@ describe("forceable salary-cap warnings", () => {
   it("keeps the future cap at 1000 and the buyout current cap at 1000", () => {
     expect(salaryCapWarningsForSpaces({ before: [10, 10, 10], after: [10, -1, 10], seasonNames: seasons, phase: "regular_season" })).toHaveLength(1);
     expect(salaryCapWarningsForSpaces({ before: [10, 10, 10], after: [-1, 10, 10], seasonNames: seasons, phase: "regular_season", currentLimit: 1000 })).toHaveLength(1);
+    expect(salaryCapWarningsForSpaces({ before: [-20, 10, 10], after: [-10, 10, 10], seasonNames: seasons, phase: "regular_season", currentLimit: 1000 })).toHaveLength(1);
   });
 
   it("recognizes and records an explicit force", () => {

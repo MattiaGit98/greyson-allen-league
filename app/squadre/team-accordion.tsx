@@ -25,6 +25,7 @@ export function TeamAccordion({
   showQualifyingOffers,
   capSeasonName,
   countTeamOptions,
+  pendingAuctionContracts,
 }: {
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
@@ -38,6 +39,7 @@ export function TeamAccordion({
   showQualifyingOffers: boolean;
   capSeasonName: string;
   countTeamOptions: boolean;
+  pendingAuctionContracts: boolean;
 }) {
   const [openTeams, setOpenTeams] = useState<string[]>(
     initialTeam && teams.some((team) => team.code === initialTeam) ? [initialTeam] : [],
@@ -129,6 +131,7 @@ export function TeamAccordion({
                 showQualifyingOffers={showQualifyingOffers}
                 capSeasonName={capSeasonName}
                 countTeamOptions={countTeamOptions}
+                pendingAuctionContracts={pendingAuctionContracts}
                 sort={sort}
                 changeSort={changeSort}
                 openSections={openSectionsByTeam[team.code] ?? ["roster"]}
@@ -153,6 +156,7 @@ function TeamDetails({
   showQualifyingOffers,
   capSeasonName,
   countTeamOptions,
+  pendingAuctionContracts,
   highlightedDraftYear,
   sort,
   changeSort,
@@ -168,6 +172,7 @@ function TeamDetails({
   showQualifyingOffers: boolean;
   capSeasonName: string;
   countTeamOptions: boolean;
+  pendingAuctionContracts: boolean;
   highlightedDraftYear: number | null;
   sort: SortState;
   changeSort: (key: SortKey) => void;
@@ -231,19 +236,19 @@ function TeamDetails({
       )}
 
       <DataSection label={`Roster (${regular.length}/15)`} expanded={openSections.includes("roster")} onToggle={() => toggleSection("roster")}>
-        <SimplePlayerTable entries={regular} seasonName={capSeasonName} sort={sort} onSort={changeSort} />
+        <SimplePlayerTable entries={regular} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection label={`Two-way (${twoWay.length}/2)`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
-        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} sort={sort} onSort={changeSort} />
+        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>
-        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} sort={sort} onSort={changeSort} />
+        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection label={`Disabled player exception (${dpe.length}/1)`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
-        <SimplePlayerTable entries={dpe} seasonName={capSeasonName} />
+        <SimplePlayerTable entries={dpe} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} />
       </DataSection>
 
       <DataSection label={`Scelte (${sortedAssets.length})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
@@ -255,7 +260,7 @@ function TeamDetails({
             return (
             <div className={`data-row draft-row ${isHighlightedDraft ? "next-draft-position" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
               <span><i className="draft-year">{asset.year}</i></span>
-              <span>{asset.round}</span>
+              <span><i className={`draft-round ${asset.round === "1° giro" ? "first-round" : "second-round"}`}>{asset.round}</i></span>
               <strong>
                 {numericalPosition !== null
                   ? <i className={isHighlightedDraft ? "draft-position" : "draft-origin"}>#{numericalPosition}</i>
@@ -269,7 +274,7 @@ function TeamDetails({
       </DataSection>
 
       <DataSection label={`Tagliati (${cut.length})`} expanded={openSections.includes("cut")} onToggle={() => toggleSection("cut")}>
-        <SimplePlayerTable entries={cut} seasonName={capSeasonName} cutPlayers />
+        <SimplePlayerTable entries={cut} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} cutPlayers />
       </DataSection>
 
       <DataSection label={`Qualifying offer (${showQualifyingOffers ? rights.length : 0})`} expanded={openSections.includes("qualifying_offer")} onToggle={() => toggleSection("qualifying_offer")}>
@@ -319,12 +324,16 @@ function SortButton({ label, sortKey, sort, onClick }: { label: string; sortKey:
 function SimplePlayerTable({
   entries,
   seasonName,
+  playerList,
+  pendingAuctionContracts,
   cutPlayers = false,
   sort,
   onSort,
 }: {
   entries: RosterEntry[];
   seasonName: string;
+  playerList: PlayerListEntry[];
+  pendingAuctionContracts: boolean;
   cutPlayers?: boolean;
   sort?: SortState;
   onSort?: (key: SortKey) => void;
@@ -350,15 +359,34 @@ function SimplePlayerTable({
           <span>Costo</span>
         </>}
       </div>
-      {sortedEntries.map((entry) => <PlayerDataRow entry={entry} seasonName={seasonName} cutPlayer={cutPlayers} key={`${entry.name}-${entry.state}`} />)}
+      {sortedEntries.map((entry) => <PlayerDataRow
+        entry={entry}
+        seasonName={seasonName}
+        player={playerList.find((item) => normalizePlayerName(item.name) === normalizePlayerName(entry.name))}
+        pendingAuctionContract={pendingAuctionContracts && isPendingAuctionContract(entry, seasonName)}
+        cutPlayer={cutPlayers}
+        key={`${entry.name}-${entry.state}`}
+      />)}
       {!sortedEntries.length && <EmptyRow />}
     </div>
   );
 }
 
-function PlayerDataRow({ entry, seasonName, cutPlayer = false }: { entry: RosterEntry; seasonName: string; cutPlayer?: boolean }) {
+function PlayerDataRow({
+  entry,
+  seasonName,
+  player,
+  pendingAuctionContract,
+  cutPlayer = false,
+}: {
+  entry: RosterEntry;
+  seasonName: string;
+  player?: PlayerListEntry;
+  pendingAuctionContract: boolean;
+  cutPlayer?: boolean;
+}) {
   return (
-    <div className="data-row">
+    <div className={`data-row ${pendingAuctionContract ? "pending-auction-contract" : ""}`}>
       <strong>{entry.name}</strong>
       <span>{cutPlayer
         ? isStretchUnavailable(entry) ? <i className="stretch-status applied">X</i> : "—"
@@ -367,6 +395,8 @@ function PlayerDataRow({ entry, seasonName, cutPlayer = false }: { entry: Roster
         value={entry.contract}
         auctionAcquisition={entry.auctionAcquisition}
         playoffTeamOptionPromotionSeason={entry.playoffTeamOptionPromotionSeason}
+        pendingAuctionContract={pendingAuctionContract}
+        teamOptionEligible={Boolean(player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15))}
       /></span>
       <span><i className="credit-value">{contractCostForSeason(entry, seasonName)}</i></span>
     </div>
@@ -417,7 +447,33 @@ function compareDraftAssets(left: DraftAsset, right: DraftAsset) {
   return (leftNumber ?? 0) - (rightNumber ?? 0);
 }
 
-function ContractDisplay({ value, auctionAcquisition, playoffTeamOptionPromotionSeason }: Pick<RosterEntry, "auctionAcquisition" | "playoffTeamOptionPromotionSeason"> & { value: string }) {
+function isPendingAuctionContract(entry: RosterEntry, seasonName: string) {
+  return entry.auctionPrice !== undefined && entry.contractStartSeason === seasonName;
+}
+
+function ContractDisplay({
+  value,
+  auctionAcquisition,
+  playoffTeamOptionPromotionSeason,
+  pendingAuctionContract,
+  teamOptionEligible,
+}: Pick<RosterEntry, "auctionAcquisition" | "playoffTeamOptionPromotionSeason"> & {
+  value: string;
+  pendingAuctionContract: boolean;
+  teamOptionEligible: boolean;
+}) {
+  if (pendingAuctionContract) {
+    const pendingMarkers = [
+      ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
+      ...(auctionAcquisition === "qualifying_offer" ? [{ label: "Q.O.", kind: "acquisition-qo" }] : []),
+      ...(teamOptionEligible && value !== "T.O." ? [{ label: "T.O. possibile", kind: "pending-option" }] : []),
+      ...(value === "T.O." ? [{ label: "T.O. da confermare", kind: "pending-option" }] : []),
+    ];
+    return <span className="contract-group">
+      <i className="contract-value contract-pending">Da definire</i>
+      {pendingMarkers.map((marker) => <i className={`contract-marker contract-marker-${marker.kind}`} key={marker.kind}>{marker.label}</i>)}
+    </span>;
+  }
   if (!value) return <i className="contract-value">—</i>;
   if (value === "T.O.") return <i className="contract-value contract-team-option">T.O.</i>;
   const year = value.match(/\d{2}/)?.[0] ?? value;

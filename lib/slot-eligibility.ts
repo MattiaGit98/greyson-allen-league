@@ -85,6 +85,16 @@ export function legalSlotDestinations(
   ));
 }
 
+export function legalPromotionDestinations(
+  entry: SlotEligibilityEntry & { slot: ManagedRosterSlot },
+  seasonName: string,
+  moment: LeagueMoment,
+) {
+  return legalSlotDestinations(entry, seasonName, moment).filter((destination) => (
+    destination !== entry.slot && !isSlotDemotion(entry.slot, destination)
+  ));
+}
+
 export function moveRosterEntryToSlot<T extends RosterEntry>(entry: T, destination: ManagedRosterSlot): T {
   return { ...entry, slot: destination };
 }

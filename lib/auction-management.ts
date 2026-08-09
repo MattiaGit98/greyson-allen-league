@@ -3,7 +3,7 @@ import type { AuctionAcquisitionKind, RosterEntry } from "./league-types";
 export type AuctionSlot = "regular" | "two_way" | "g_league";
 export type AuctionRosterSlot = AuctionSlot | "dpe";
 export type AuctionSlotCounts = Record<AuctionSlot, number>;
-export type QualifyingAuctionOutcome = "normal" | "not_extended" | AuctionAcquisitionKind;
+export type QualifyingAuctionOutcome = "normal" | AuctionAcquisitionKind;
 export type PostAuctionContractKind = "annual" | "biennial" | "triennial" | "team_option";
 
 export const auctionSlotLimits: AuctionSlotCounts = {
@@ -60,7 +60,7 @@ export function qualifyingAuctionErrors({
   slot: AuctionSlot;
 }) {
   if (!hasQualifyingRight) return outcome === "normal" ? [] : ["Il giocatore non possiede un diritto di Q.O."];
-  if (!(["not_extended", "qualifying_offer", "restricted_free_agent"] as string[]).includes(outcome)) {
+  if (!(["normal", "qualifying_offer", "restricted_free_agent"] as string[]).includes(outcome)) {
     return ["Specifica l'esito della qualifying offer."];
   }
   const errors: string[] = [];

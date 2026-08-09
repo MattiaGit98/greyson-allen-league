@@ -23,6 +23,55 @@ const teams: TradeTeamState[] = [
 ];
 
 describe("trade rules", () => {
+  it("keeps a regular-season trade registrable while pricing the mandatory role restoration", () => {
+    const result = evaluateTrade({
+      phase: "regular_season",
+      teams: [teams[0], { ...teams[1], slots: { ...teams[1].slots, regular: 14 } }],
+      playerMoves: [{
+        id: "guard-out",
+        fromTeamCode: "AAA",
+        toTeamCode: "BBB",
+        cost: 20,
+        capCost: 20,
+        role: "G",
+        sourceSlot: "regular",
+        destinationSlot: "regular",
+      }],
+      pickMoves: [],
+      cuts: [],
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.calculated.teamResults.find((team) => team.code === "AAA")).toMatchObject({
+      missingRoles: { G: 1, A: 0, C: 0 },
+      requiredRoleFreeAgents: 1,
+      costAfter: 681,
+      spaceAfter: 319,
+    });
+    expect(result.warnings.some((warning) => warning.code === "TRADE_ROLE_MINIMUM_AAA_G")).toBe(true);
+  });
+
+  it("includes the mandatory role-restoration credit in the cap check", () => {
+    const result = evaluateTrade({
+      phase: "regular_season",
+      teams: [{ ...teams[0], currentCost: 1100 }, { ...teams[1], slots: { ...teams[1].slots, regular: 14 } }],
+      playerMoves: [{
+        id: "guard-out",
+        fromTeamCode: "AAA",
+        toTeamCode: "BBB",
+        cost: 0,
+        capCost: 0,
+        role: "G",
+        sourceSlot: "regular",
+        destinationSlot: "regular",
+      }],
+      pickMoves: [],
+      cuts: [],
+    });
+
+    expect(result.warnings.some((warning) => warning.code === "TRADE_REGULAR_SEASON_CAP_AAA")).toBe(true);
+  });
+
   it("allows the destinations required for Two-way and G-League players", () => {
     expect(allowedTradeDestinations("two_way")).toEqual(["two_way", "regular"]);
     expect(allowedTradeDestinations("g_league")).toEqual(["g_league", "two_way", "regular"]);
@@ -337,11 +386,9 @@ describe("trade rules", () => {
     expect(result.errors.some((error) => error.code === "TRADE_PROTECTION_COUNTERPART_OWNER_INVALID")).toBe(true);
   });
 
-  it("allows an existing clause to change in a multi-team trade when both pick holders participate", () => {
+  it("allows removing an existing clause in a multi-team trade when both pick holders participate", () => {
     const result = evaluateTrade({
       phase: "offseason",
-      tradableDraftYears: [2027, 2028, 2029],
-      protectionCounterpartyDraftYears: [2027, 2028, 2029, 2030],
       teams,
       playerMoves: [],
       pickMoves: [],
@@ -353,8 +400,8 @@ describe("trade rules", () => {
         counterpartyYear: 2028,
         subjectRound: "1° giro",
         counterpartyRound: "1° giro",
-        action: "modify",
-        clause: "protected_top_3",
+        action: "remove",
+        clause: null,
       }],
       cuts: [],
     });
@@ -409,6 +456,43 @@ describe("trade rules", () => {
     expect(inSeason.errors.some((error) => error.code === "TRADE_QO_OFFSEASON_ONLY")).toBe(true);
   });
 
+  it("blocks qualifying-offer trades after the auction has ended", () => {
+    const result = evaluateTrade({
+      phase: "offseason",
+      qualifyingOfferTransfersOpen: false,
+      teams: teams.slice(0, 2),
+      playerMoves: [],
+      pickMoves: [],
+      qualifyingOfferMoves: [{ id: "qo-player", fromTeamCode: "AAA", toTeamCode: "BBB" }],
+      cuts: [],
+    });
+
+    expect(result.errors.some((error) => error.code === "TRADE_QO_OFFSEASON_ONLY")).toBe(true);
+  });
+
+  it("rejects replacing an existing clause", () => {
+    const result = evaluateTrade({
+      phase: "offseason",
+      teams,
+      playerMoves: [],
+      pickMoves: [],
+      existingClauseChanges: [{
+        agreementId: "agreement-one",
+        subjectOwnerTeamCode: "AAA",
+        counterpartyOwnerTeamCode: "BBB",
+        subjectYear: 2027,
+        counterpartyYear: 2028,
+        subjectRound: "1° giro",
+        counterpartyRound: "1° giro",
+        action: "modify",
+        clause: "protected_top_3",
+      }],
+      cuts: [],
+    });
+
+    expect(result.errors.some((error) => error.code === "TRADE_EXISTING_CLAUSE_REMOVE_ONLY")).toBe(true);
+  });
+
   it("closes trades once the in-season deadline has passed", () => {
     const result = evaluateTrade({
       phase: "regular_season",
@@ -431,7 +515,7 @@ describe("trade rules", () => {
     expect(result.errors.some((error) => error.code === "TRADES_CLOSED_AFTER_DEADLINE")).toBe(true);
   });
 
-  it("closes the trade panel during the auction milestone", () => {
+  it("closes the trade panel during the auction", () => {
     const result = evaluateTrade({
       phase: "offseason",
       tradesOpen: false,
@@ -501,5 +585,37 @@ describe("trade rules", () => {
     });
 
     expect(result.errors.some((error) => error.code === "TRADE_CUT_CONTRACT_NOT_TRADABLE")).toBe(true);
+  });
+
+  it("calcola le promozioni contestuali negli slot finali dello scambio", () => {
+    const result = evaluateTrade({
+      phase: "offseason",
+      teams: [teams[0], teams[2]],
+      playerMoves: [],
+      pickMoves: [{
+        id: "pick",
+        fromTeamCode: "AAA",
+        toTeamCode: "CCC",
+        year: 2027,
+        round: "1Â° giro",
+        hasExistingCondition: false,
+        clause: "none",
+        counterpartyPickId: null,
+        counterpartyYear: null,
+        counterpartyRound: null,
+        counterpartyHasExistingCondition: false,
+      }],
+      cuts: [],
+      promotions: [{
+        id: "g-league-player",
+        teamCode: "CCC",
+        sourceSlot: "g_league",
+        destinationSlot: "regular",
+      }],
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.calculated.teamResults.find((team) => team.code === "CCC")?.slots)
+      .toEqual({ regular: 15, twoWay: 0, gLeague: 0, dpe: 0 });
   });
 });

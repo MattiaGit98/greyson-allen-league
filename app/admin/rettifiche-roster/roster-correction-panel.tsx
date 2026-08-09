@@ -5,6 +5,7 @@ import { CapForceControl } from "@/app/admin/cap-force-control";
 import { salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import type { LeaguePhase, PlayerListEntry, RosterEntry } from "@/lib/league-types";
+import type { LeagueMoment } from "@/lib/league-moments";
 import { countActiveRosterSlots, rosterSlotLimits } from "@/lib/roster-slot-limits";
 import { normalizeRosterCorrectionContract } from "@/lib/roster-corrections";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
@@ -31,6 +32,7 @@ export function RosterCorrectionPanel({
   freeAgents,
   seasonName,
   phase,
+  leagueMoment,
   countTeamOptions,
 }: {
   teams: { code: string; name: string }[];
@@ -38,6 +40,7 @@ export function RosterCorrectionPanel({
   freeAgents: PlayerListEntry[];
   seasonName: string;
   phase: LeaguePhase;
+  leagueMoment: LeagueMoment;
   countTeamOptions: boolean;
 }) {
   const [teamCode, setTeamCode] = useState(teams[0]?.code ?? "");
@@ -62,10 +65,11 @@ export function RosterCorrectionPanel({
     seasonNames,
     seasonName,
     phase,
+    leagueMoment,
     countTeamOptions,
     addition,
     freeAgents,
-  }), [teamEntries, drafts, team?.code, seasonNames, seasonName, phase, countTeamOptions, addition, freeAgents]);
+  }), [teamEntries, drafts, team?.code, seasonNames, seasonName, phase, leagueMoment, countTeamOptions, addition, freeAgents]);
 
   const changeSort = (key: SortKey) => {
     setSort((current) => current.key === key
@@ -218,9 +222,6 @@ export function RosterCorrectionPanel({
           {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
           {preview.roleWarnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
           <CapForceControl warnings={preview.capWarnings} checked={forceCap} onChange={setForceCap} />
-          {!preview.errors.length && !preview.roleWarnings.length && !preview.capWarnings.length && (
-            <p className="validation success">Salary cap, slot, ruoli e scadenze controllati.</p>
-          )}
         </section>
       </div>
 
@@ -240,6 +241,7 @@ function buildPreview({
   seasonNames,
   seasonName,
   phase,
+  leagueMoment,
   countTeamOptions,
   addition,
   freeAgents,
@@ -250,6 +252,7 @@ function buildPreview({
   seasonNames: string[];
   seasonName: string;
   phase: LeaguePhase;
+  leagueMoment: LeagueMoment;
   countTeamOptions: boolean;
   addition: AdditionDraft;
   freeAgents: PlayerListEntry[];
@@ -307,7 +310,7 @@ function buildPreview({
   }
   const spacesBefore = capSpaces(teamEntries, seasonNames, seasonName, countTeamOptions);
   const spacesAfter = capSpaces(projectedEntries, seasonNames, seasonName, countTeamOptions);
-  const capWarnings = salaryCapWarningsForSpaces({ before: spacesBefore, after: spacesAfter, seasonNames, phase });
+  const capWarnings = salaryCapWarningsForSpaces({ before: spacesBefore, after: spacesAfter, seasonNames, phase, currentMoment: leagueMoment });
   const slots = countActiveRosterSlots(projectedEntries, teamCode);
   (Object.keys(rosterSlotLimits) as (keyof typeof rosterSlotLimits)[]).forEach((slot) => {
     if (slots[slot] > rosterSlotLimits[slot]) errors.push(`Slot ${slotLabel(slot)} oltre il limite: ${slots[slot]}/${rosterSlotLimits[slot]}.`);

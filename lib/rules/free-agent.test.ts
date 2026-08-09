@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateFreeAgentSigning } from "./free-agent";
+import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "./free-agent";
 
 const baseInput = {
   phase: "regular_season",
@@ -18,6 +18,11 @@ const baseInput = {
 };
 
 describe("evaluateFreeAgentSigning", () => {
+  it("assigns the annual contract with Q.O. only through the trade deadline", () => {
+    expect(automaticFreeAgentContract("2026/27", false)).toBe("27 (Q)");
+    expect(automaticFreeAgentContract("2026/27", true)).toBe("27");
+  });
+
   it("requires a regular roster cut when all 15 places are occupied", () => {
     const result = evaluateFreeAgentSigning(baseInput);
 
@@ -63,6 +68,20 @@ describe("evaluateFreeAgentSigning", () => {
     expect(result.valid).toBe(true);
     expect(result.calculated.slotsAfter).toEqual({ regular: 15, twoWay: 2, gLeague: 0, dpe: 0 });
     expect(result.calculated.rolesAfter).toEqual({ G: 6, A: 5, C: 5 });
+  });
+
+  it("can promote a Two-way player contextually to make room for a free agent", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      price: 10,
+      destination: "two_way",
+      slots: { regular: 14, twoWay: 2, gLeague: 0, dpe: 0 },
+      promotionSourceSlot: "two_way",
+      promotionDestinationSlot: "regular",
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.calculated.slotsAfter).toEqual({ regular: 15, twoWay: 2, gLeague: 0, dpe: 0 });
   });
 
   it("rejects a two-way assignment above 10 credits", () => {

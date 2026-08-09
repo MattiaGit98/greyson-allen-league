@@ -7,13 +7,17 @@ import { nbaTeamCodes } from "@/data/nba-teams";
 import { normalizePlayerName } from "@/lib/admin-alerts";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
-import { evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
+import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
 import { countRosterRoles } from "@/lib/rules/roster";
 import { calculateCapSpace, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
 import { capOverrideRequested, capOverrideSummary, requireCapOverride } from "@/lib/cap-override";
-import { applyStandardContractCut } from "@/lib/team-option-contract";
+import {
+  applyStandardContractCut,
+  isUnresolvedTeamOption,
+} from "@/lib/team-option-contract";
+import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 
 const path = "/admin/free-agent";
 
@@ -26,11 +30,14 @@ export async function signFreeAgent(formData: FormData) {
   const realTeam = clean(formData.get("real_team")).toUpperCase();
   const teamCode = clean(formData.get("team_code")).toUpperCase();
   const cutPlayerName = clean(formData.get("cut_player_name"));
+  const promotionPlayerName = clean(formData.get("promotion_player_name"));
+  const promotionDestination = clean(formData.get("promotion_destination")) as ManagedRosterSlot;
   const price = Number(formData.get("price"));
   const destination = clean(formData.get("destination")) as "regular" | "two_way";
   if (!["list", "outside"].includes(playerSource) || !playerName || playerName.length > 120 || !teamCode || !["regular", "two_way"].includes(destination)) {
     fail("Dati della firma non validi.");
   }
+  if (Boolean(promotionPlayerName) !== Boolean(promotionDestination)) fail("Promozione contestuale non valida.");
   if (playerSource === "outside" && (!["G", "A", "C", "X"].includes(playerRole) || !nbaTeamCodes.has(realTeam))) {
     fail("Per il giocatore fuori listone devi indicare ruolo e squadra NBA.");
   }
@@ -78,10 +85,31 @@ export async function signFreeAgent(formData: FormData) {
     entry.name === cutPlayerName
     && entry.teamCode === teamCode
     && entry.state === "active"
-    && entry.slot === destination
   )) : -1;
   if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile.");
   const cutPlayer = cutIndex >= 0 ? state.rosterEntries[cutIndex] : undefined;
+  if (cutPlayer && isUnresolvedTeamOption(cutPlayer, moment)) {
+    fail("Una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.");
+  }
+  const promotionIndex = promotionPlayerName ? state.rosterEntries.findIndex((entry) => (
+    entry.name === promotionPlayerName
+    && entry.teamCode === teamCode
+    && entry.state === "active"
+  )) : -1;
+  if (promotionPlayerName && promotionIndex < 0) fail("Il giocatore scelto per la promozione non è più disponibile.");
+  if (promotionIndex === cutIndex && promotionIndex >= 0) fail("Lo stesso giocatore non può essere tagliato e promosso.");
+  const promotionPlayer = promotionIndex >= 0 ? state.rosterEntries[promotionIndex] : undefined;
+  if (promotionPlayer) {
+    if (promotionPlayer.slot === "dpe" || isUnresolvedTeamOption(promotionPlayer, moment)) {
+      fail("Questo giocatore non può essere promosso in questa fase.");
+    }
+    const destinations = legalPromotionDestinations(
+      { ...promotionPlayer, slot: promotionPlayer.slot as ManagedRosterSlot },
+      seasonResponse.data.name,
+      moment,
+    );
+    if (!destinations.includes(promotionDestination)) fail("La destinazione della promozione non è consentita.");
+  }
   const roleByName = new Map(state.playerList.map((item) => [
     normalizePlayerName(item.name),
     item.role === "X" ? null : item.role,
@@ -114,13 +142,18 @@ export async function signFreeAgent(formData: FormData) {
     playerRole: player.role === "X" ? null : player.role,
     cutRole: cutPlayer ? roleByName.get(normalizePlayerName(cutPlayer.name)) ?? null : null,
     cutSlot: cutPlayer?.slot ?? null,
+    promotionSourceSlot: promotionPlayer?.slot === "dpe" ? null : promotionPlayer?.slot ?? null,
+    promotionDestinationSlot: promotionPlayer ? promotionDestination : null,
   });
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
 
   const endYear = seasonEndYear(seasonResponse.data.name);
   if (!endYear) fail("Annata non valida.");
-  const expiry = String(endYear).slice(-2);
-  const contract = tradeDeadlineHasPassed(moment) ? expiry : `${expiry} (Q)`;
+  const contract = automaticFreeAgentContract(
+    seasonResponse.data.name,
+    tradeDeadlineHasPassed(moment),
+  );
+  if (!contract) fail("Annata non valida.");
   const rosterEntry: RosterEntry = {
     name: player.name,
     role: player.role === "X" ? undefined : player.role,
@@ -135,9 +168,11 @@ export async function signFreeAgent(formData: FormData) {
     contractStartSeason: seasonResponse.data.name,
   };
   const rosterEntries = [
-    ...state.rosterEntries.map((entry, index) => index === cutIndex ? {
-      ...applyStandardContractCut(entry, endYear, moment),
-    } : entry),
+    ...state.rosterEntries.map((entry, index) => {
+      if (index === cutIndex) return applyStandardContractCut(entry, endYear, moment);
+      if (index === promotionIndex) return { ...entry, slot: promotionDestination };
+      return entry;
+    }),
     rosterEntry,
   ];
   const afterCost = 1000 - calculateCapSpace({
@@ -165,12 +200,12 @@ export async function signFreeAgent(formData: FormData) {
     state,
     nextState,
     "firma_free_agent",
-    capOverrideSummary(`${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}`, capWarnings, forceCap),
+    capOverrideSummary(`${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}` : ""}`, capWarnings, forceCap),
   );
   if (response.error) fail(response.error.message);
 
   ["/squadre", "/giocatori", "/movimenti", "/asta", "/admin", path, "/admin/listone", "/admin/asta"].forEach((route) => revalidatePath(route));
-  const suffix = cutPlayer ? ` Taglio contestuale: ${cutPlayer.name}.` : "";
+  const suffix = `${cutPlayer ? ` Taglio contestuale: ${cutPlayer.name}.` : ""}${promotionPlayer ? ` Promozione contestuale: ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}.` : ""}`;
   redirect(`${path}?updated=${encodeURIComponent(`${player.name} firmato da ${teamCode} per ${price}.${suffix}`)}`);
 }
 

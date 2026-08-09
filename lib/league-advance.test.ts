@@ -37,6 +37,28 @@ describe("avanzamento della lega", () => {
     ]);
   });
 
+  it("genera a scadenza le Q.O. per asta annuale da 1 credito e free agent pre-deadline", () => {
+    const qualifyingResult = calculateLeagueAdvance({
+      seasonName: "2026/27",
+      rosterEntries: [
+        { name: "Asta annuale da 1", cost: 1, contract: "27 (Q)", auctionPrice: 1, originalContractYears: 1, role: "G", state: "active", slot: "regular", teamCode: "AAA" },
+        { name: "Free agent pre-deadline", cost: 27, contract: "27 (Q)", freeAgentSignedSeason: "2026/27", role: "A", state: "active", slot: "regular", teamCode: "BBB" },
+        { name: "Free agent post-deadline", cost: 27, contract: "27", freeAgentSignedSeason: "2026/27", role: "C", state: "active", slot: "regular", teamCode: "CCC" },
+      ],
+      qualifyingOfferRights: [],
+      playerList: [
+        { name: "Asta annuale da 1", role: "G", realTeam: "", rookie: false, under23: false },
+        { name: "Free agent pre-deadline", role: "A", realTeam: "", rookie: false, under23: false },
+        { name: "Free agent post-deadline", role: "C", realTeam: "", rookie: false, under23: false },
+      ],
+    });
+
+    expect(qualifyingResult.qualifyingOfferRights).toEqual([
+      { playerName: "Asta annuale da 1", qualifyingAmount: 1, teamCode: "AAA" },
+      { playerName: "Free agent pre-deadline", qualifyingAmount: 27, teamCode: "BBB" },
+    ]);
+  });
+
   it("rende effettivo il raddoppio e attribuisce la Q.O. futura", () => {
     const option = result.rosterEntries.find((entry) => entry.name === "Ex T.O.");
     expect(option).toMatchObject({ cost: 10, contract: "28 (Q)", teamOptionBaseCost: 5, teamOptionFinalYear: 2028 });
@@ -52,6 +74,21 @@ describe("avanzamento della lega", () => {
       optionSeasonName: "2027/28",
       countTeamOptions: true,
     })).toBe(990);
+  });
+
+  it("genera la Q.O. alla scadenza del secondo anno della T.O. esercitata", () => {
+    const finalYear = calculateLeagueAdvance({
+      seasonName: "2027/28",
+      rosterEntries: result.rosterEntries,
+      qualifyingOfferRights: [],
+      playerList: result.playerList,
+    });
+
+    expect(finalYear.qualifyingOfferRights).toContainEqual({
+      playerName: "Ex T.O.",
+      qualifyingAmount: 10,
+      teamCode: "AAA",
+    });
   });
 
   it("non raddoppia una ex T.O. giÃ  tagliata prima dell'asta", () => {

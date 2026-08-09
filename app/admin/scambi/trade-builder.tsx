@@ -9,12 +9,12 @@ import {
   type TradePickClause,
   type TradePickMove,
   type TradePlayerMove,
+  type TradePromotion,
   type TradeQualifyingOfferMove,
   type TradeSlot,
 } from "@/lib/rules/trade";
 import { countRosterRoles } from "@/lib/rules/roster";
 import { CapForceControl } from "@/app/admin/cap-force-control";
-import { registerTrade } from "./actions";
 import type { ExistingTradeClauseAgreement } from "@/lib/trade-state";
 import type { SignAndTradeRequest } from "@/lib/sign-and-trade";
 
@@ -27,6 +27,8 @@ type RosterPlayer = {
   contract: string;
   role: "G" | "A" | "C" | null;
   slot: TradeSlot;
+  cuttable: boolean;
+  promotionDestinations: Exclude<TradeSlot, "dpe">[];
   allowedDestinations: TradeSlot[];
   newSigning?: boolean;
 };
@@ -89,19 +91,29 @@ type CutMove = TradeCut & {
   contract: string;
 };
 
+type PromotionMove = TradePromotion & {
+  name: string;
+};
+
 export function TradeBuilder({
   phase,
   tradeDeadlinePassed,
   tradesOpen,
+  qualifyingOfferTransfersOpen,
+  enforceOffseasonCap,
   tradableDraftYears,
   protectionCounterpartyDraftYears,
   existingClauseAgreements,
   signAndTrade,
   teams,
+  mode = "admin",
+  registerAction,
 }: {
   phase: string;
   tradeDeadlinePassed: boolean;
   tradesOpen: boolean;
+  qualifyingOfferTransfersOpen: boolean;
+  enforceOffseasonCap: boolean;
   tradableDraftYears: number[];
   protectionCounterpartyDraftYears: number[];
   existingClauseAgreements: ExistingTradeClauseAgreement[];
@@ -117,7 +129,10 @@ export function TradeBuilder({
     spaceAfterSigning: number;
   };
   teams: TradeTeam[];
+  mode?: "admin" | "simulator";
+  registerAction?: (formData: FormData) => void | Promise<void>;
 }) {
+  const simulator = mode === "simulator";
   const [participantCodes, setParticipantCodes] = useState(() => {
     if (!signAndTrade) return teams.slice(0, 2).map((team) => team.code);
     const other = teams.find((team) => team.code !== signAndTrade.signerTeamCode);
@@ -128,11 +143,14 @@ export function TradeBuilder({
   const [pickClauses, setPickClauses] = useState<PickClauseAgreement[]>([]);
   const [qualifyingOfferMoves, setQualifyingOfferMoves] = useState<QualifyingOfferMove[]>([]);
   const [cuts, setCuts] = useState<CutMove[]>([]);
+  const [promotions, setPromotions] = useState<PromotionMove[]>([]);
   const [clausePickId, setClausePickId] = useState("");
   const [pickClause, setPickClause] = useState<TradePickClause>("none");
   const [counterpartyPickId, setCounterpartyPickId] = useState("");
   const [existingClauseChanges, setExistingClauseChanges] = useState<TradeExistingClauseChange[]>([]);
   const [forceCap, setForceCap] = useState(false);
+  const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
+  const [roleMinimumSlotConfirmed, setRoleMinimumSlotConfirmed] = useState(false);
 
   const participants = participantCodes
     .map((code) => teams.find((team) => team.code === code))
@@ -141,10 +159,17 @@ export function TradeBuilder({
   const reservedPickIds = new Set(pickClauses.flatMap((agreement) => (
     [agreement.pickId, ...(agreement.counterpartyPickId ? [agreement.counterpartyPickId] : [])]
   )));
+  const removedClausePickIds = new Set(existingClauseChanges.flatMap((change) => {
+    const agreement = existingClauseAgreements.find((item) => item.agreementId === change.agreementId);
+    return agreement ? [agreement.subjectPickId, agreement.counterpartyPickId] : [];
+  }));
+  const canReuseConditionedPick = (pick: DraftPick) => (
+    !pick.hasExistingCondition || removedClausePickIds.has(pick.id)
+  );
   const clausePicksByTeam = participants.map((ownerTeam) => ({
     team: ownerTeam,
     picks: ownerTeam.picks.filter((pick) => (
-      pick.tradable && !pick.hasExistingCondition && !reservedPickIds.has(pick.id)
+      pick.tradable && canReuseConditionedPick(pick) && !reservedPickIds.has(pick.id)
     )),
   }));
   const selectedClausePickOwner = participants.find((ownerTeam) => (
@@ -155,7 +180,7 @@ export function TradeBuilder({
     team: ownerTeam,
     picks: ownerTeam.picks.filter((pick) => {
       if (!selectedClausePick || pickClause === "none") return false;
-      if (pick.id === selectedClausePick.id || pick.hasExistingCondition || reservedPickIds.has(pick.id)) return false;
+      if (pick.id === selectedClausePick.id || !canReuseConditionedPick(pick) || reservedPickIds.has(pick.id)) return false;
       if (pickClause === "swap") {
         return ownerTeam.code !== selectedClausePickOwner?.code
           && pick.year === selectedClausePick.year
@@ -179,6 +204,7 @@ export function TradeBuilder({
     phase,
     tradeDeadlinePassed,
     tradesOpen,
+    enforceOffseasonCap,
     tradableDraftYears,
     protectionCounterpartyDraftYears,
     teams: participants.map((team) => ({
@@ -201,17 +227,37 @@ export function TradeBuilder({
     })),
     existingClauseChanges,
     qualifyingOfferMoves,
+    qualifyingOfferTransfersOpen,
     cuts,
-  }), [cuts, existingClauseChanges, participants, phase, pickClauses, pickMoves, playerMoves, protectionCounterpartyDraftYears, qualifyingOfferMoves, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
+    promotions,
+  }), [cuts, enforceOffseasonCap, existingClauseChanges, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
   const capWarnings = [...new Set([
     ...(signAndTrade?.capWarnings ?? []),
     ...evaluation.warnings
       .filter((warning) => warning.code.includes("CAP"))
       .map((warning) => displayIssue(warning.message, teams)),
   ])];
+  const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
+  const roleMinimumConfirmationRequired = roleMinimumRestorations.length > 0;
+  const simulationValid = evaluation.valid && (capWarnings.length === 0 || forceCap);
+  const simulationRecap = simulator && simulationValid
+    ? tradeSimulationRecap({
+      teams,
+      participantCodes,
+      playerMoves,
+      pickMoves,
+      pickClauses,
+      existingClauseChanges,
+      qualifyingOfferMoves,
+      cuts,
+      promotions,
+      existingClauseAgreements,
+    })
+    : "";
 
   function changeParticipant(previousCode: string, nextCode: string) {
     if (previousCode === signAndTrade?.signerTeamCode) return;
+    invalidateTradeConfirmations();
     setParticipantCodes((current) => current.map((code) => (
       code === previousCode ? nextCode : code
     )));
@@ -230,12 +276,14 @@ export function TradeBuilder({
       move.fromTeamCode !== previousCode && move.toTeamCode !== previousCode
     )));
     setCuts((current) => current.filter((cut) => cut.teamCode !== previousCode));
+    setPromotions((current) => current.filter((promotion) => promotion.teamCode !== previousCode));
     setExistingClauseChanges([]);
     resetPickClauseComposer();
   }
 
   function removeParticipant(teamCode: string) {
     if (participantCodes.length <= 2 || teamCode === signAndTrade?.signerTeamCode) return;
+    invalidateTradeConfirmations();
     setParticipantCodes((current) => current.filter((code) => code !== teamCode));
     setPlayerMoves((current) => current.filter((move) => (
       move.fromTeamCode !== teamCode && move.toTeamCode !== teamCode
@@ -252,13 +300,17 @@ export function TradeBuilder({
       move.fromTeamCode !== teamCode && move.toTeamCode !== teamCode
     )));
     setCuts((current) => current.filter((cut) => cut.teamCode !== teamCode));
+    setPromotions((current) => current.filter((promotion) => promotion.teamCode !== teamCode));
     setExistingClauseChanges([]);
     resetPickClauseComposer();
   }
 
   function addParticipant() {
     const nextTeam = teams.find((team) => !participantCodes.includes(team.code));
-    if (nextTeam) setParticipantCodes((current) => [...current, nextTeam.code]);
+    if (nextTeam) {
+      invalidateTradeConfirmations();
+      setParticipantCodes((current) => [...current, nextTeam.code]);
+    }
   }
 
   function resetPickClauseComposer() {
@@ -267,9 +319,16 @@ export function TradeBuilder({
     setCounterpartyPickId("");
   }
 
+  function invalidateTradeConfirmations() {
+    setForceCap(false);
+    setRoleMinimumConfirmed(false);
+    setRoleMinimumSlotConfirmed(false);
+  }
+
   function addPickClause() {
     if (!selectedClausePick || !selectedClausePickOwner || pickClause === "none") return;
     if (!selectedCounterparty || !selectedCounterpartyOwner) return;
+    invalidateTradeConfirmations();
     setPickClauses((current) => [...current, {
       id: `${selectedClausePickOwner.code}:clause:${selectedClausePick.id}`,
       pickId: selectedClausePick.id,
@@ -277,12 +336,12 @@ export function TradeBuilder({
       beneficiaryTeamCode: selectedClausePickOwner.code,
       year: selectedClausePick.year,
       round: selectedClausePick.round,
-      hasExistingCondition: selectedClausePick.hasExistingCondition,
+      hasExistingCondition: selectedClausePick.hasExistingCondition && !removedClausePickIds.has(selectedClausePick.id),
       clause: pickClause,
       counterpartyPickId: selectedCounterparty?.id ?? null,
       counterpartyYear: selectedCounterparty?.year ?? null,
       counterpartyRound: selectedCounterparty?.round ?? null,
-      counterpartyHasExistingCondition: selectedCounterparty?.hasExistingCondition ?? false,
+      counterpartyHasExistingCondition: (selectedCounterparty?.hasExistingCondition ?? false) && !removedClausePickIds.has(selectedCounterparty?.id ?? ""),
       pickTitle: pickTitle(selectedClausePick),
       pickOwnerName: formatTeamName(selectedClausePickOwner.name),
       counterpartyTitle: selectedCounterparty ? pickTitle(selectedCounterparty) : null,
@@ -292,8 +351,12 @@ export function TradeBuilder({
   }
 
   return (
-    <form action={registerTrade} className="trade-builder">
-      <input
+    <form
+      action={simulator ? undefined : registerAction}
+      className={`trade-builder${simulator ? " trade-simulator-builder" : ""}`}
+      onSubmit={simulator ? (event) => event.preventDefault() : undefined}
+    >
+      {!simulator && <input
         type="hidden"
         name="trade_json"
         value={JSON.stringify({
@@ -305,9 +368,12 @@ export function TradeBuilder({
           qualifyingOfferMoves,
           existingClauseChanges,
           cuts,
+          promotions,
         })}
-      />
-      <input type="hidden" name="force_cap" value={String(forceCap)} />
+      />}
+      {!simulator && <input type="hidden" name="force_cap" value={String(forceCap)} />}
+      {!simulator && <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />}
+      {!simulator && <input type="hidden" name="role_minimum_slot_confirmed" value={String(roleMinimumSlotConfirmed)} />}
       {signAndTrade && (
         <section className="sign-trade-banner">
           <div>
@@ -343,22 +409,26 @@ export function TradeBuilder({
             participants={participants}
             participantCodes={participantCodes}
             phase={phase}
+            qualifyingOfferTransfersOpen={qualifyingOfferTransfersOpen}
             playerMoves={playerMoves}
             pickMoves={pickMoves}
             qualifyingOfferMoves={qualifyingOfferMoves}
             cuts={cuts}
+            promotions={promotions}
             canRemove={participants.length > 2 && team.code !== signAndTrade?.signerTeamCode}
             locked={team.code === signAndTrade?.signerTeamCode}
             onTeamChange={(nextCode) => changeParticipant(team.code, nextCode)}
             onRemove={() => removeParticipant(team.code)}
-            onAddPlayer={(move) => setPlayerMoves((current) => [...current, move])}
-            onRemovePlayer={(id) => setPlayerMoves((current) => current.filter((move) => move.id !== id))}
-            onAddPick={(move) => setPickMoves((current) => [...current, move])}
-            onRemovePick={(id) => setPickMoves((current) => current.filter((move) => move.id !== id))}
-            onAddQualifyingOffer={(move) => setQualifyingOfferMoves((current) => [...current, move])}
-            onRemoveQualifyingOffer={(id) => setQualifyingOfferMoves((current) => current.filter((move) => move.id !== id))}
-            onAddCut={(cut) => setCuts((current) => [...current, cut])}
-            onRemoveCut={(id) => setCuts((current) => current.filter((cut) => cut.id !== id))}
+            onAddPlayer={(move) => { invalidateTradeConfirmations(); setPlayerMoves((current) => [...current, move]); }}
+            onRemovePlayer={(id) => { invalidateTradeConfirmations(); setPlayerMoves((current) => current.filter((move) => move.id !== id)); }}
+            onAddPick={(move) => { invalidateTradeConfirmations(); setPickMoves((current) => [...current, move]); }}
+            onRemovePick={(id) => { invalidateTradeConfirmations(); setPickMoves((current) => current.filter((move) => move.id !== id)); }}
+            onAddQualifyingOffer={(move) => { invalidateTradeConfirmations(); setQualifyingOfferMoves((current) => [...current, move]); }}
+            onRemoveQualifyingOffer={(id) => { invalidateTradeConfirmations(); setQualifyingOfferMoves((current) => current.filter((move) => move.id !== id)); }}
+            onAddCut={(cut) => { invalidateTradeConfirmations(); setCuts((current) => [...current, cut]); }}
+            onRemoveCut={(id) => { invalidateTradeConfirmations(); setCuts((current) => current.filter((cut) => cut.id !== id)); }}
+            onAddPromotion={(promotion) => { invalidateTradeConfirmations(); setPromotions((current) => [...current, promotion]); }}
+            onRemovePromotion={(id) => { invalidateTradeConfirmations(); setPromotions((current) => current.filter((promotion) => promotion.id !== id)); }}
           />
         ))}
       </div>
@@ -381,6 +451,7 @@ export function TradeBuilder({
                   </span>
                 ))}
                 <span>Ruoli<b>{result.roles.G} G · {result.roles.A} A · {result.roles.C} C</b></span>
+                {result.requiredRoleFreeAgents > 0 && <span className="role-restoration-cap">Ripristino<b>+{result.requiredRoleFreeAgents} FA · {result.requiredRoleFreeAgents} cr</b></span>}
                 <span>Roster<b>{result.slots.regular} / 15</b></span>
                 <span>Two-way<b>{result.slots.twoWay} / 2</b></span>
                 <span>G-League<b>{result.slots.gLeague} / 3</b></span>
@@ -460,11 +531,11 @@ export function TradeBuilder({
             secondary: pickClauseAgreementLabel(agreement, teams),
           }))}
           empty="Nessuna clausola inserita"
-          onRemove={(id) => setPickClauses((current) => current.filter((clause) => clause.id !== id))}
+          onRemove={(id) => { invalidateTradeConfirmations(); setPickClauses((current) => current.filter((clause) => clause.id !== id)); }}
         />
 
         <div className="trade-existing-clauses">
-          <span className="trade-section-label">Accordi esistenti</span>
+          <span className="trade-section-label">Clausole rimuovibili</span>
           {existingClauseAgreements
             .filter((agreement) => (
               participantCodes.includes(agreement.subjectOwnerTeamCode)
@@ -472,17 +543,18 @@ export function TradeBuilder({
             ))
             .map((agreement) => {
               const change = existingClauseChanges.find((item) => item.agreementId === agreement.agreementId);
-              const value = change?.action === "remove" ? "remove" : change?.clause ?? "keep";
               return (
                 <label className="trade-existing-clause-row" key={agreement.agreementId}>
                   <span>{agreement.label}</span>
-                  <select
-                    value={value}
+                  <input
+                    type="checkbox"
+                    checked={Boolean(change)}
+                    aria-label={`Rimuovi ${agreement.label}`}
                     onChange={(event) => {
-                      const nextValue = event.target.value;
+                      invalidateTradeConfirmations();
                       setExistingClauseChanges((current) => {
                         const others = current.filter((item) => item.agreementId !== agreement.agreementId);
-                        if (nextValue === "keep") return others;
+                        if (!event.target.checked) return others;
                         return [...others, {
                           agreementId: agreement.agreementId,
                           subjectOwnerTeamCode: agreement.subjectOwnerTeamCode,
@@ -491,19 +563,13 @@ export function TradeBuilder({
                           counterpartyYear: agreement.counterpartyYear,
                           subjectRound: agreement.round,
                           counterpartyRound: agreement.round,
-                          action: nextValue === "remove" ? "remove" : "modify",
-                          clause: nextValue === "remove" ? null : nextValue as Exclude<TradePickClause, "none">,
+                          action: "remove",
+                          clause: null,
                         }];
                       });
                     }}
-                  >
-                    <option value="keep">Mantieni invariato</option>
-                    <option value="remove">Elimina accordo</option>
-                    <option value="swap">Diritto di swap</option>
-                    {Array.from({ length: 13 }, (_, index) => index + 1).map((position) => (
-                      <option value={`protected_top_${position}`} key={position}>Protetta top {position}</option>
-                    ))}
-                  </select>
+                  />
+                  <small>Rimuovi</small>
                 </label>
               );
             })}
@@ -524,21 +590,58 @@ export function TradeBuilder({
             {displayIssue(warning.message, teams)}
           </p>
         ))}
-        {evaluation.valid && !evaluation.warnings.length && (
-          <p className="validation success">Controlli regolamentari superati.</p>
-        )}
       </div>
 
       <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
 
-      <button
-        className="button primary trade-submit"
-        type="submit"
-        disabled={!evaluation.valid || (capWarnings.length > 0 && !forceCap)}
-      >
-        {evaluation.valid ? "Registra scambio" : "Operazione non disponibile"}
-      </button>
+      {!simulator && roleMinimumConfirmationRequired && (
+        <section className="trade-role-restoration" aria-label="Ripristino obbligatorio dei ruoli">
+          <strong>Attenzione: dopo lo scambio va assegnato un free agent casuale da 1 credito</strong>
+          <p>{roleMinimumRestorations.map((team) => `${formatTeamName(teams.find((item) => item.code === team.code)?.name ?? team.code)}: ${roleMinimumLabel(team.missingRoles)}`).join("; ")}. Il costo è già incluso nello spazio libero mostrato sopra.</p>
+          <label>
+            <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
+            Confermo che assegnerò il free agent previsto dal regolamento in un passaggio successivo.
+          </label>
+          <label>
+            <input type="checkbox" checked={roleMinimumSlotConfirmed} onChange={(event) => setRoleMinimumSlotConfirmed(event.target.checked)} />
+            Confermo che verificherò e, se necessario, libererò lo slot necessario per la firma.
+          </label>
+        </section>
+      )}
+
+      {simulator ? (
+        <TradeSimulationStatus valid={simulationValid} recap={simulationRecap} />
+      ) : (
+        <button
+          className="button primary trade-submit"
+          type="submit"
+          disabled={!evaluation.valid || (capWarnings.length > 0 && !forceCap) || (roleMinimumConfirmationRequired && (!roleMinimumConfirmed || !roleMinimumSlotConfirmed))}
+        >
+          {evaluation.valid ? "Registra scambio" : "Operazione non disponibile"}
+        </button>
+      )}
     </form>
+  );
+}
+
+function roleMinimumLabel(missing: { G: number; A: number; C: number }) {
+  return [missing.G ? `${missing.G} G` : "", missing.A ? `${missing.A} A` : "", missing.C ? `${missing.C} C` : ""]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function TradeSimulationStatus({ valid, recap }: { valid: boolean; recap: string }) {
+  return (
+    <aside className={`trade-simulation-status ${valid ? "is-valid" : "is-invalid"}`} role="status" aria-live="polite">
+      <strong>{valid ? "Scambio valido" : "Scambio non ancora valido"}</strong>
+      <span>{valid ? "Tutti i controlli sono superati." : "Completa o correggi la proposta seguendo gli avvisi qui sopra."}</span>
+      {recap && (
+        <label>
+          <span>Recap da copiare</span>
+          <textarea value={recap} readOnly aria-label="Recap testuale dello scambio simulato" />
+        </label>
+      )}
+    </aside>
   );
 }
 
@@ -548,10 +651,12 @@ function TradeTeamCard({
   participants,
   participantCodes,
   phase,
+  qualifyingOfferTransfersOpen,
   playerMoves,
   pickMoves,
   qualifyingOfferMoves,
   cuts,
+  promotions,
   canRemove,
   locked,
   onTeamChange,
@@ -564,16 +669,20 @@ function TradeTeamCard({
   onRemoveQualifyingOffer,
   onAddCut,
   onRemoveCut,
+  onAddPromotion,
+  onRemovePromotion,
 }: {
   team: TradeTeam;
   allTeams: TradeTeam[];
   participants: TradeTeam[];
   participantCodes: string[];
   phase: string;
+  qualifyingOfferTransfersOpen: boolean;
   playerMoves: PlayerMove[];
   pickMoves: PickMove[];
   qualifyingOfferMoves: QualifyingOfferMove[];
   cuts: CutMove[];
+  promotions: PromotionMove[];
   canRemove: boolean;
   locked: boolean;
   onTeamChange: (teamCode: string) => void;
@@ -586,16 +695,21 @@ function TradeTeamCard({
   onRemoveQualifyingOffer: (id: string) => void;
   onAddCut: (cut: CutMove) => void;
   onRemoveCut: (id: string) => void;
+  onAddPromotion: (promotion: PromotionMove) => void;
+  onRemovePromotion: (id: string) => void;
 }) {
   const [playerId, setPlayerId] = useState("");
   const [destinationSlot, setDestinationSlot] = useState<TradeSlot>("regular");
   const [pickId, setPickId] = useState("");
   const [qualifyingOfferId, setQualifyingOfferId] = useState("");
   const [cutId, setCutId] = useState("");
+  const [promotionId, setPromotionId] = useState("");
+  const [promotionDestinationSlot, setPromotionDestinationSlot] = useState<Exclude<TradeSlot, "dpe">>("regular");
 
   const unavailableIds = new Set([
     ...playerMoves.map((move) => move.id),
     ...cuts.map((cut) => cut.id),
+    ...promotions.map((promotion) => promotion.id),
   ]);
   const otherParticipants = participants.filter((participant) => participant.code !== team.code);
   const availablePlayersByTeam = otherParticipants.map((sourceTeam) => ({
@@ -631,6 +745,7 @@ function TradeTeamCard({
     (offer) => offer.id === qualifyingOfferId,
   );
   const selectedCut = team.players.find((player) => player.id === cutId);
+  const selectedPromotion = team.players.find((player) => player.id === promotionId);
   const allowedDestinations = selectedPlayer
     ? selectedPlayer.allowedDestinations
     : ["regular" as TradeSlot];
@@ -638,6 +753,8 @@ function TradeTeamCard({
   const receivedPicks = pickMoves.filter((move) => move.toTeamCode === team.code);
   const receivedQualifyingOffers = qualifyingOfferMoves.filter((move) => move.toTeamCode === team.code);
   const teamCuts = cuts.filter((cut) => cut.teamCode === team.code);
+  const teamPromotions = promotions.filter((promotion) => promotion.teamCode === team.code);
+  const promotionDestinations = selectedPromotion?.promotionDestinations ?? [];
 
   function selectPlayer(nextId: string) {
     setPlayerId(nextId);
@@ -685,7 +802,7 @@ function TradeTeamCard({
   }
 
   function addQualifyingOffer() {
-    if (!selectedQualifyingOffer || !selectedQualifyingOfferSource || phase !== "offseason") return;
+    if (!selectedQualifyingOffer || !selectedQualifyingOfferSource || !qualifyingOfferTransfersOpen) return;
     onAddQualifyingOffer({
       id: selectedQualifyingOffer.id,
       playerName: selectedQualifyingOffer.playerName,
@@ -708,6 +825,25 @@ function TradeTeamCard({
       slot: selectedCut.slot,
     });
     setCutId("");
+  }
+
+  function selectPromotion(nextId: string) {
+    setPromotionId(nextId);
+    const player = team.players.find((item) => item.id === nextId);
+    setPromotionDestinationSlot(player?.promotionDestinations[0] ?? "regular");
+  }
+
+  function addPromotion() {
+    if (!selectedPromotion || !promotionDestinations.includes(promotionDestinationSlot)) return;
+    onAddPromotion({
+      id: selectedPromotion.id,
+      teamCode: team.code,
+      name: selectedPromotion.name,
+      sourceSlot: selectedPromotion.slot as Exclude<TradeSlot, "dpe">,
+      destinationSlot: promotionDestinationSlot,
+    });
+    setPromotionId("");
+    setPromotionDestinationSlot("regular");
   }
 
   return (
@@ -738,7 +874,7 @@ function TradeTeamCard({
               <optgroup label={formatTeamName(sourceTeam.name)} key={sourceTeam.code}>
                 {players.map((player) => (
                   <option value={player.id} key={player.id}>
-                    {player.name} · {player.cost} · {slotLabel(player.slot)}{player.newSigning ? " · Nuova firma" : ""}
+                    {playerOptionLabel(player)}{player.newSigning ? " · Nuova firma" : ""}
                   </option>
                 ))}
               </optgroup>
@@ -796,7 +932,7 @@ function TradeTeamCard({
         />
       </section>
 
-      <section className="trade-asset-section">
+      {qualifyingOfferTransfersOpen && <section className="trade-asset-section">
         <span className="trade-section-label">Qualifying offer ricevute</span>
         <div className="trade-composer cut">
           <select
@@ -834,16 +970,16 @@ function TradeTeamCard({
           empty="Nessuna qualifying offer ricevuta"
           onRemove={onRemoveQualifyingOffer}
         />
-      </section>
+      </section>}
 
       <section className="trade-asset-section cut">
         <span className="trade-section-label">Tagli contestuali</span>
         <div className="trade-composer cut">
           <select value={cutId} onChange={(event) => setCutId(event.target.value)}>
             <option value="">Seleziona giocatore</option>
-            {availableOwnPlayers.map((player) => (
+            {availableOwnPlayers.filter((player) => player.cuttable).map((player) => (
               <option value={player.id} key={player.id}>
-                {player.name} · {slotLabel(player.slot)}
+                {playerOptionLabel(player)}
               </option>
             ))}
           </select>
@@ -857,6 +993,38 @@ function TradeTeamCard({
           }))}
           empty="Nessun taglio"
           onRemove={onRemoveCut}
+        />
+      </section>
+
+      <section className="trade-asset-section cut">
+        <span className="trade-section-label">Promozioni contestuali</span>
+        <div className="trade-composer cut">
+          <select value={promotionId} onChange={(event) => selectPromotion(event.target.value)}>
+            <option value="">Seleziona giocatore</option>
+            {availableOwnPlayers.filter((player) => player.promotionDestinations.length > 0).map((player) => (
+              <option value={player.id} key={player.id}>
+                {playerOptionLabel(player)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={promotionDestinationSlot}
+            onChange={(event) => setPromotionDestinationSlot(event.target.value as Exclude<TradeSlot, "dpe">)}
+            disabled={!selectedPromotion}
+            aria-label="Destinazione della promozione"
+          >
+            {promotionDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
+          </select>
+          <button type="button" onClick={addPromotion} disabled={!selectedPromotion}>Promuovi</button>
+        </div>
+        <AssetList
+          items={teamPromotions.map((promotion) => ({
+            id: promotion.id,
+            primary: promotion.name,
+            secondary: `${slotLabel(promotion.sourceSlot)} → ${slotLabel(promotion.destinationSlot)}`,
+          }))}
+          empty="Nessuna promozione"
+          onRemove={onRemovePromotion}
         />
       </section>
 
@@ -901,6 +1069,96 @@ function slotLabel(slot: TradeSlot) {
   if (slot === "g_league") return "G-League";
   if (slot === "dpe") return "DPE";
   return "Roster";
+}
+
+function playerOptionLabel(player: Pick<RosterPlayer, "name" | "cost" | "slot" | "contract" | "role">) {
+  return `${player.name} · ${player.cost} · ${slotLabel(player.slot)} · ${player.contract} · Ruolo ${player.role ?? "—"}`;
+}
+
+export function tradeSimulationRecap({
+  teams,
+  participantCodes,
+  playerMoves,
+  pickMoves,
+  pickClauses,
+  existingClauseChanges,
+  qualifyingOfferMoves,
+  cuts,
+  promotions,
+  existingClauseAgreements,
+}: {
+  teams: TradeTeam[];
+  participantCodes: string[];
+  playerMoves: PlayerMove[];
+  pickMoves: PickMove[];
+  pickClauses: PickClauseAgreement[];
+  existingClauseChanges: TradeExistingClauseChange[];
+  qualifyingOfferMoves: QualifyingOfferMove[];
+  cuts: CutMove[];
+  promotions: PromotionMove[];
+  existingClauseAgreements: ExistingTradeClauseAgreement[];
+}) {
+  const lines = ["SCAMBIO SIMULATO"];
+  const movedPickIds = new Set(pickMoves.map((move) => move.id));
+
+  participantCodes.forEach((teamCode) => {
+    const outgoing = [
+      ...playerMoves
+        .filter((move) => move.fromTeamCode === teamCode)
+        .map((move) => `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.sourceSlot)})`),
+      ...pickMoves
+        .filter((move) => move.fromTeamCode === teamCode)
+        .map((move) => `Scelta ${pickTitle(move)}`),
+      ...qualifyingOfferMoves
+        .filter((move) => move.fromTeamCode === teamCode)
+        .map((move) => `Q.O. ${move.playerName} (${move.amount} crediti)`),
+    ];
+    const incoming = [
+      ...playerMoves
+        .filter((move) => move.toTeamCode === teamCode)
+        .map((move) => `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.destinationSlot)})`),
+      ...pickMoves
+        .filter((move) => move.toTeamCode === teamCode)
+        .map((move) => `Scelta ${pickTitle(move)}`),
+      ...qualifyingOfferMoves
+        .filter((move) => move.toTeamCode === teamCode)
+        .map((move) => `Q.O. ${move.playerName} (${move.amount} crediti)`),
+    ];
+    const operations = [
+      ...cuts
+        .filter((cut) => cut.teamCode === teamCode)
+        .map((cut) => `Taglio contestuale: ${cut.name}`),
+      ...promotions
+        .filter((promotion) => promotion.teamCode === teamCode)
+        .map((promotion) => `Promozione: ${promotion.name}, ${slotLabel(promotion.sourceSlot)} -> ${slotLabel(promotion.destinationSlot)}`),
+    ];
+    const clauses = [
+      ...pickClauses.flatMap((clause) => {
+        const subjectMoved = movedPickIds.has(clause.pickId);
+        const subjectNote = `${subjectMoved ? "scelta ceduta" : "scelta"} ${clause.pickTitle}`;
+        if (clause.pickOwnerTeamCode === teamCode) {
+          return [`Clausola inserita sulla ${subjectNote}: ${pickClauseAgreementLabel(clause, teams)}`];
+        }
+        if (clause.counterpartyTeamCode === teamCode && clause.counterpartyTitle) {
+          const role = clause.clause === "swap" ? "Controparte dello swap" : "Contropartita della protezione";
+          return [`${role}: ${clause.counterpartyTitle}, collegata alla ${subjectNote} (${teamName(clause.pickOwnerTeamCode, teams)})`];
+        }
+        return [];
+      }),
+      ...existingClauseChanges.flatMap((change) => {
+        const agreement = existingClauseAgreements.find((item) => item.agreementId === change.agreementId);
+        if (!agreement || (agreement.subjectOwnerTeamCode !== teamCode && agreement.counterpartyOwnerTeamCode !== teamCode)) return [];
+        return [`Clausola rimossa: ${agreement.label}`];
+      }),
+    ];
+
+    lines.push("", teamName(teamCode, teams).toUpperCase());
+    lines.push(`Cede: ${outgoing.length ? outgoing.join("; ") : "—"}`);
+    lines.push(`Riceve: ${incoming.length ? incoming.join("; ") : "—"}`);
+    if (operations.length) lines.push(`Operazioni contestuali: ${operations.join("; ")}`);
+    if (clauses.length) lines.push(`Clausole: ${clauses.join("; ")}`);
+  });
+  return lines.join("\n");
 }
 
 function pickTitle(pick: Pick<PickMove, "year" | "round" | "originOrOverall">) {

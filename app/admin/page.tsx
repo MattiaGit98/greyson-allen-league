@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
 import { loadCurrentHistoryImports } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
@@ -42,16 +43,16 @@ const actionGroups = [
     ],
   },
   {
-    title: "Rettifiche",
+    title: "Modifiche e rettifiche",
     actions: [
       { href: "/admin/rettifiche-roster", title: "Rettifiche roster" },
+      { href: "/admin/squadre-proprietari", title: "Squadre e proprietari" },
       { href: "/admin/movimenti", title: "Annulla movimenti" },
     ],
   },
   {
-    title: "Altro",
+    title: "Backup e ripristino",
     actions: [
-      { href: "/admin/squadre-proprietari", title: "Squadre e proprietari" },
       { href: "/admin/backup", title: "Backup" },
       { href: "/admin/importa-dati", title: "Importa dati" },
     ],
@@ -78,9 +79,28 @@ export default async function AdminDashboardPage() {
     ...preAdvanceChecklist,
     alerts: preAdvanceChecklist.alerts.filter((alert) => alert.tone === "blocker"),
   };
+  const roleMinimumAlerts = activeSeason.season.status === "regular_season"
+    ? buildRoleMinimumAlerts(leagueState)
+    : [];
 
   return (
     <section className="section page-top admin-dashboard">
+      {roleMinimumAlerts.length > 0 && (
+        <section className="admin-role-minimum-alert" role="alert">
+          <strong>Intervento richiesto: minimi di ruolo non rispettati</strong>
+          <p>Assegna casualmente un free agent da 1 credito per ogni carenza; il salvataggio dello scambio resta valido, ma l’operazione va completata manualmente.</p>
+          <ul>
+            {roleMinimumAlerts.map((team) => (
+              <li key={team.teamCode}><b>{team.teamName}</b>: {[
+                team.missing.G ? `${team.missing.G} G` : "",
+                team.missing.A ? `${team.missing.A} A` : "",
+                team.missing.C ? `${team.missing.C} C` : "",
+              ].filter(Boolean).join(" · ")}</li>
+            ))}
+          </ul>
+          <Link href="/admin/free-agent">Vai ai free agent →</Link>
+        </section>
+      )}
       <PreAdvanceChecklistView checklist={blockingChecklist} />
       <div className="admin-action-sections">
         {actionGroups.map((group) => (
@@ -132,9 +152,7 @@ function PreAdvanceChecklistView({ checklist }: { checklist: PreAdvanceChecklist
             </details>
           ))}
         </div>
-      ) : (
-        <p className="pre-advance-ready">Non risultano adempimenti o anomalie da segnalare per questo passaggio.</p>
-      )}
+      ) : null}
     </section>
   );
 }

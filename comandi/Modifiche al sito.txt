@@ -1,4 +1,0 @@
-cd "C:\Users\matti\OneDrive\Desktop\Dunkest\Sito"
-git add -A
-git commit -m "Varie"
-git push

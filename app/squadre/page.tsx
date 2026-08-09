@@ -1,5 +1,6 @@
 import { TeamAccordion } from "./team-accordion";
 import { loadEditableLeagueState } from "@/lib/league-state";
+import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { requireActiveSeason } from "@/lib/active-season";
 
@@ -17,6 +18,7 @@ export default async function TeamsPage({
   const capSeasonName = displayedSeasonName(activeSeason.season.name);
   const teamOptionsResolved = activeSeason.season.team_options_resolved;
   const countTeamOptions = shouldCountTeamOptions(phase, teamOptionsResolved);
+  const pendingAuctionContracts = operationWindows.contractAssignment(leagueMomentFromSeason(activeSeason.season));
 
   return (
     <section className="section teams-page">
@@ -33,6 +35,7 @@ export default async function TeamsPage({
         showQualifyingOffers={phase === "offseason"}
         capSeasonName={capSeasonName}
         countTeamOptions={countTeamOptions}
+        pendingAuctionContracts={pendingAuctionContracts}
       />
     </section>
   );

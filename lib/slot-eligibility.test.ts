@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contractIncludesTeamOption, isSecondContractYear, legalSlotDestinations, moveRosterEntryToSlot, slotEligibility, slotEligibilityErrors, slotMoveTimingErrors } from "./slot-eligibility";
+import { contractIncludesTeamOption, isSecondContractYear, legalPromotionDestinations, legalSlotDestinations, moveRosterEntryToSlot, slotEligibility, slotEligibilityErrors, slotMoveTimingErrors } from "./slot-eligibility";
 
 describe("idoneità Two-way e G-League", () => {
   it("riconosce sia una T.O. iniziale sia una già esercitata", () => {
@@ -13,6 +13,13 @@ describe("idoneità Two-way e G-League", () => {
     expect(slotEligibility({ contract: "T.O.", cost: 5 }, "2026/27").g_league).toBe(true);
     expect(slotEligibility({ contract: "T.O.", cost: 6 }, "2026/27").g_league).toBe(false);
     expect(slotEligibility({ contract: "27", cost: 5, freeAgentSignedSeason: "2026/27" }, "2026/27").g_league).toBe(false);
+  });
+
+  it("espone per una promozione soltanto gli slot superiori consentiti", () => {
+    expect(legalPromotionDestinations({ contract: "T.O.", cost: 5, slot: "g_league" }, "2026/27", "team_option_deadline"))
+      .toEqual(["regular", "two_way"]);
+    expect(legalPromotionDestinations({ contract: "T.O.", cost: 5, slot: "two_way" }, "2026/27", "team_option_deadline"))
+      .toEqual(["regular"]);
   });
 
   it("ammette nei Two-way tutte e tre le categorie fino a 10 crediti", () => {
@@ -57,6 +64,20 @@ describe("idoneità Two-way e G-League", () => {
     expect(legalSlotDestinations(regular, "2026/27", "contract_delivery")).toEqual(["regular"]);
     expect(legalSlotDestinations(twoWay, "2026/27", "contract_delivery")).toEqual(["regular", "two_way"]);
     expect(legalSlotDestinations(gLeague, "2026/27", "contract_delivery")).toEqual(["regular", "two_way", "g_league"]);
+  });
+
+  it("impone ai free agent di scegliere il Two-way direttamente al momento della firma", () => {
+    const freeAgent = {
+      contract: "27 (Q)",
+      cost: 10,
+      slot: "regular" as const,
+      freeAgentSignedSeason: "2026/27",
+      contractStartSeason: "2026/27",
+    };
+
+    expect(legalSlotDestinations(freeAgent, "2026/27", "contract_delivery")).toEqual(["regular"]);
+    expect(legalSlotDestinations({ ...freeAgent, slot: "two_way" as const }, "2026/27", "contract_delivery"))
+      .toEqual(["regular", "two_way"]);
   });
 
   it("dall'inizio del Draft consente i ripensamenti soltanto se il giocatore è idoneo e al primo anno", () => {

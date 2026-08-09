@@ -93,7 +93,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   };
   const rosterEntries = [
     ...state.rosterEntries.map((entry, index) => index === cutIndex ? {
-      ...applyStandardContractCut(entry, currentEndYear, "auction_completed"),
+      ...applyStandardContractCut(entry, currentEndYear, "auction_start"),
     } : entry),
     rosterEntry,
   ];
@@ -121,39 +121,9 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   success(`${playerName} assegnato a ${teamCode} per ${price} crediti.${suffix}`);
 }
 
-export async function declineQualifyingOffer(formData: FormData) {
-  const playerName = cleanText(formData.get("player_name"));
-  if (!playerName) fail("Giocatore non valido.");
-  const { supabase, season } = await auctionContext();
-  const state = await loadEditableLeagueState();
-  if (state.playerListStatus !== "published") fail("Il listone ufficiale non è ancora pubblicato.");
-  const pendingDraftPicks = currentSeasonDraftAssets(state, season.name);
-  if (pendingDraftPicks.length) {
-    fail(`Concludi prima il Draft ${season.name.slice(0, 4)}: restano ${pendingDraftPicks.length} scelte da assegnare.`);
-  }
-  const right = state.qualifyingOfferRights.find((item) => item.playerName === playerName);
-  if (!right) fail("La qualifying offer non è più disponibile.");
-  if (state.rosterEntries.some((entry) => entry.name === playerName && entry.state === "active")) {
-    fail("Il giocatore appartiene già a una squadra.");
-  }
-  const nextState = {
-    ...state,
-    qualifyingOfferRights: state.qualifyingOfferRights.filter((item) => item.playerName !== playerName),
-  };
-  await persistAuctionState(
-    supabase,
-    state,
-    nextState,
-    "qualifying_offer_non_estesa",
-    `Q.O. non estesa: ${playerName} (${right.teamCode})`,
-  );
-  success(`Qualifying offer non estesa per ${playerName}. Il giocatore resta disponibile all'asta normale.`);
-}
-
 function acquisitionSummary(outcome: QualifyingAuctionOutcome) {
   if (outcome === "qualifying_offer") return "Q.O. accettata";
   if (outcome === "restricted_free_agent") return "restricted free agent";
-  if (outcome === "not_extended") return "Q.O. non estesa; asta normale";
   return "asta normale";
 }
 
@@ -189,7 +159,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
     const currentEndYear = seasonEndYear(season.name);
     if (currentEndYear === null) fail("Annata non valida.");
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
-      ...applyStandardContractCut(item, currentEndYear, "auction_completed"),
+      ...applyStandardContractCut(item, currentEndYear, "auction_start"),
     } : item);
   } else if (kind === "price") {
     if (!Number.isInteger(newPrice) || newPrice < 1) fail("Il nuovo prezzo deve essere un intero di almeno 1 credito.");
@@ -313,7 +283,7 @@ async function auctionContext() {
     .maybeSingle();
   if (response.error || !response.data) fail(response.error?.message ?? "Nessuna stagione attiva.");
   if (!operationWindows.auction(leagueMomentFromSeason(response.data))) {
-    fail("Il pannello è operativo in Offseason — dopo le T.O.");
+    fail("Il pannello è operativo da Inizio asta fino a Termine asta.");
   }
   return { supabase, season: response.data };
 }

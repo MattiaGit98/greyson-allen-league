@@ -8,7 +8,7 @@ import { nextDraftYear } from "@/lib/draft-positions";
 import { synchronizeUnassignedDraftOwners } from "@/lib/draft-history";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction } from "@/lib/league-moments";
 import { persistLeagueMovement } from "@/lib/league-movements";
 import { countRosterRoles } from "@/lib/rules/roster";
 import {
@@ -17,14 +17,15 @@ import {
   type TradePickClauseAgreement,
   type TradePickMove,
   type TradePlayerMove,
+  type TradePromotion,
   type TradeQualifyingOfferMove,
   type TradeSlot,
 } from "@/lib/rules/trade";
 import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
-import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
-import { applyStandardContractCut } from "@/lib/team-option-contract";
+import { applyStandardContractCut, isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import {
   applyValidatedTrade,
   existingTradeClauseAgreements,
@@ -39,6 +40,8 @@ const path = "/admin/scambi";
 
 export async function registerTrade(formData: FormData) {
   const forceCap = capOverrideRequested(formData);
+  const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
+  const roleMinimumSlotConfirmed = formData.get("role_minimum_slot_confirmed") === "true";
   let payload: TradeTransactionPayload;
   try {
     payload = parsePayload(formData.get("trade_json"));
@@ -58,7 +61,11 @@ export async function registerTrade(formData: FormData) {
   if (seasonResponse.error || !seasonResponse.data) fail(seasonResponse.error?.message ?? "Nessuna stagione attiva.");
   const season = seasonResponse.data;
   const moment = leagueMomentFromSeason(season);
-  if (!operationWindows.trades(moment)) fail("Gli scambi non sono disponibili durante l'asta o dopo la trade deadline.");
+  if (!operationWindows.trades(moment)) {
+    fail(tradesAreSuspendedForAuction(moment)
+      ? "Gli scambi sono sospesi da Inizio asta fino a Termine asta."
+      : "Gli scambi non sono disponibili dopo la trade deadline.");
+  }
 
   const [originalState, history] = await Promise.all([
     loadEditableLeagueState(),
@@ -89,6 +96,7 @@ export async function registerTrade(formData: FormData) {
     fail("La squadra firmataria deve partecipare allo scambio.");
   }
   const participants = new Set(participantCodes);
+  const qualifyingOfferTransfersOpen = !hasReachedMoment(moment, "auction_completed");
 
   const endDraft = nextDraftYear(state.draftAssets);
   const tradableDraftYears = endDraft === null ? [] : [endDraft, endDraft + 1, endDraft + 2];
@@ -113,6 +121,17 @@ export async function registerTrade(formData: FormData) {
   const qualifyingOffers = new Map(state.qualifyingOfferRights.map((right, stateIndex) => (
     [tradeQualifyingOfferId(right.teamCode, right.playerName), { right, stateIndex }] as const
   )));
+  const existingAgreements = new Map(existingTradeClauseAgreements(
+    state.draftAssets,
+    state.teams.map((team) => team.code),
+  ).map((agreement) => [agreement.agreementId, agreement]));
+  const requestedRemovedAgreementIds = new Set(payload.existingClauseChanges
+    .filter((change) => change.action === "remove" && change.clause === null)
+    .map((change) => change.agreementId));
+  const releasedClausePickIndexes = new Set([...existingAgreements.values()]
+    .filter((agreement) => requestedRemovedAgreementIds.has(agreement.agreementId))
+    .flatMap((agreement) => [agreement.subjectIndex, agreement.counterpartyIndex]));
+  const conditionIsRemovedInThisTrade = (stateIndex: number) => releasedClausePickIndexes.has(stateIndex);
 
   const playerChanges: ValidatedTradeChanges["playerMoves"] = [];
   const playerMoves: TradePlayerMove[] = payload.playerMoves.map((requested) => {
@@ -197,31 +216,27 @@ export async function registerTrade(formData: FormData) {
       beneficiaryTeamCode: requested.beneficiaryTeamCode,
       year: subject.pick.year,
       round: subject.pick.round,
-      hasExistingCondition: hasDraftCondition(subject.pick),
+      hasExistingCondition: hasDraftCondition(subject.pick) && !conditionIsRemovedInThisTrade(subject.stateIndex),
       clause: requested.clause,
       counterpartyPickId: counterpart ? requested.counterpartyPickId : null,
       counterpartyYear: counterpart?.pick.year ?? null,
       counterpartyRound: counterpart?.pick.round ?? null,
-      counterpartyHasExistingCondition: counterpart ? hasDraftCondition(counterpart.pick) : false,
+      counterpartyHasExistingCondition: counterpart ? hasDraftCondition(counterpart.pick) && !conditionIsRemovedInThisTrade(counterpart.stateIndex) : false,
       counterpartyOwnerTeamCode: counterpart?.pick.teamCode ?? null,
     };
   });
 
-  const existingAgreements = new Map(existingTradeClauseAgreements(
-    state.draftAssets,
-    state.teams.map((team) => team.code),
-  ).map((agreement) => [agreement.agreementId, agreement]));
   const existingClauseChanges: ValidatedTradeChanges["existingClauseChanges"] = [];
   const evaluatedExistingClauseChanges = payload.existingClauseChanges.map((requested) => {
     const agreement = existingAgreements.get(requested.agreementId);
-    if (!agreement) fail("L'accordo da modificare non esiste più.");
+    if (!agreement) fail("La clausola da rimuovere non esiste più.");
     if (!participants.has(agreement.subjectOwnerTeamCode) || !participants.has(agreement.counterpartyOwnerTeamCode)) {
-      fail("Per modificare o eliminare un accordo devono partecipare entrambe le squadre interessate.");
+      fail("Per rimuovere una clausola devono partecipare entrambe le squadre interessate.");
     }
     existingClauseChanges.push({
       subjectIndex: agreement.subjectIndex,
       counterpartyIndex: agreement.counterpartyIndex,
-      clause: requested.action === "remove" ? null : requested.clause,
+      clause: null,
     });
     return {
       agreementId: agreement.agreementId,
@@ -238,6 +253,7 @@ export async function registerTrade(formData: FormData) {
 
   const qualifyingChanges: ValidatedTradeChanges["qualifyingOfferMoves"] = [];
   const qualifyingOfferMoves: TradeQualifyingOfferMove[] = payload.qualifyingOfferMoves.map((requested) => {
+    if (!qualifyingOfferTransfersOpen) fail("Le qualifying offer si possono scambiare soltanto dall'inizio dell'offseason fino al termine dell'asta.");
     const source = qualifyingOffers.get(requested.id);
     if (!source || source.right.teamCode !== requested.fromTeamCode) fail("Una qualifying offer non appartiene più alla squadra indicata.");
     if (!participants.has(requested.fromTeamCode) || !participants.has(requested.toTeamCode)) fail("Trasferimento della qualifying offer non valido.");
@@ -253,6 +269,9 @@ export async function registerTrade(formData: FormData) {
     if (!source || source.entry.teamCode !== requested.teamCode || !participants.has(requested.teamCode)) {
       fail("Un giocatore indicato per il taglio contestuale non è più disponibile.");
     }
+    if (isUnresolvedTeamOption(source.entry, moment)) {
+      fail(`${source.entry.name}: una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.`);
+    }
     cutChanges.push({
       stateIndex: source.stateIndex,
       entry: applyStandardContractCut(source.entry, currentEndYear, moment),
@@ -263,6 +282,33 @@ export async function registerTrade(formData: FormData) {
       cost: scheduledCost(source.entry, season.name),
       role: rolesByName.get(normalizePlayerName(source.entry.name)) ?? null,
       slot: source.entry.slot,
+    };
+  });
+
+  const promotionChanges: ValidatedTradeChanges["promotions"] = [];
+  const promotions: TradePromotion[] = (payload.promotions ?? []).map((requested) => {
+    const source = activePlayers.get(requested.id);
+    if (!source || source.entry.teamCode !== requested.teamCode || !participants.has(requested.teamCode)) {
+      fail("Un giocatore indicato per la promozione contestuale non è più disponibile.");
+    }
+    if (source.entry.slot === "dpe" || isUnresolvedTeamOption(source.entry, moment)) {
+      fail(`${source.entry.name}: questo giocatore non può essere promosso in questa fase.`);
+    }
+    const destinations = legalPromotionDestinations(
+      { ...source.entry, slot: source.entry.slot as ManagedRosterSlot },
+      season.name,
+      moment,
+    );
+    if (!destinations.includes(requested.destinationSlot as ManagedRosterSlot)) {
+      fail(`${source.entry.name}: la destinazione della promozione non è consentita.`);
+    }
+    const destinationSlot = requested.destinationSlot as Exclude<TradeSlot, "dpe">;
+    promotionChanges.push({ stateIndex: source.stateIndex, destinationSlot });
+    return {
+      id: requested.id,
+      teamCode: requested.teamCode,
+      sourceSlot: source.entry.slot as Exclude<TradeSlot, "dpe">,
+      destinationSlot,
     };
   });
 
@@ -302,6 +348,7 @@ export async function registerTrade(formData: FormData) {
     phase: season.status,
     tradeDeadlinePassed: tradeDeadlineHasPassed(moment),
     tradesOpen: operationWindows.trades(moment),
+    enforceOffseasonCap: !hasReachedMoment(moment, "auction_start"),
     tradableDraftYears,
     protectionCounterpartyDraftYears,
     teams: tradeTeams,
@@ -310,9 +357,15 @@ export async function registerTrade(formData: FormData) {
     pickClauses,
     existingClauseChanges: evaluatedExistingClauseChanges,
     qualifyingOfferMoves,
+    qualifyingOfferTransfersOpen,
     cuts,
+    promotions,
   });
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
+  const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
+  if (roleMinimumRestorations.length && (!roleMinimumConfirmed || !roleMinimumSlotConfirmed)) {
+    fail("Conferma l'assegnazione successiva del free agent da 1 credito e la verifica dello slot necessario.");
+  }
   const nextState = applyValidatedTrade(state, {
     playerMoves: playerChanges,
     pickMoves: pickChanges,
@@ -320,6 +373,7 @@ export async function registerTrade(formData: FormData) {
     existingClauseChanges,
     qualifyingOfferMoves: qualifyingChanges,
     cuts: cutChanges,
+    promotions: promotionChanges,
   });
   const actualCapWarningsByTeam = new Map(participantCodes.map((teamCode) => {
     const before = teamCapSpaces(state.rosterEntries, teamCode);
@@ -329,6 +383,7 @@ export async function registerTrade(formData: FormData) {
       after,
       seasonNames: capSeasons,
       phase: season.status,
+      currentMoment: moment,
     })] as const;
   }));
   const dpeCutTeams = new Set(cuts.filter((cut) => cut.slot === "dpe").map((cut) => cut.teamCode));
@@ -336,6 +391,9 @@ export async function registerTrade(formData: FormData) {
   if (blockingDpeCut) fail(`Il taglio di un giocatore dalla DPE non può violare il salary cap. ${blockingDpeCut}`);
   const capWarnings = [...new Set([
     ...(provisionalSignAndTrade?.capWarnings ?? []),
+    ...evaluation.warnings
+      .filter((warning) => warning.code.includes("CAP"))
+      .map((warning) => warning.message),
     ...[...actualCapWarningsByTeam.entries()].flatMap(([teamCode, warnings]) => warnings.map((warning) => `${teamCode}: ${warning}`)),
   ])];
   requireCapOverride(capWarnings, forceCap, fail);
@@ -368,6 +426,11 @@ export async function registerTrade(formData: FormData) {
       const entry = state.rosterEntries[change.stateIndex];
       return entry ? [`Taglio contestuale: ${entry.name} (${entry.teamCode}); ${entry.cost} crediti, contratto ${entry.contract}`] : [];
     }),
+    ...promotionChanges.flatMap((change) => {
+      const entry = state.rosterEntries[change.stateIndex];
+      return entry ? [`Promozione contestuale: ${entry.name} (${entry.teamCode}); ${tradeSlotLabel(entry.slot)} → ${tradeSlotLabel(change.destinationSlot)}`] : [];
+    }),
+    ...roleMinimumRestorations.map((team) => `Ripristino ruoli richiesto: ${team.code}; free agent casuali da 1 credito ${team.requiredRoleFreeAgents}`),
   ];
   const heading = provisionalSignAndTrade
     ? `Sign and trade ${participantCodes.join(" ↔ ")}`
@@ -443,7 +506,7 @@ function tradeSlotLabel(slot: string) {
 function parsePayload(value: FormDataEntryValue | null): TradeTransactionPayload {
   const parsed = JSON.parse(String(value ?? "")) as Partial<TradeTransactionPayload> | null;
   if (!parsed || typeof parsed !== "object") throw new Error("Scambio non valido.");
-  const arrayFields = ["participantCodes", "playerMoves", "pickMoves", "pickClauses", "qualifyingOfferMoves", "existingClauseChanges", "cuts"] as const;
+  const arrayFields = ["participantCodes", "playerMoves", "pickMoves", "pickClauses", "qualifyingOfferMoves", "existingClauseChanges", "cuts", "promotions"] as const;
   if (arrayFields.some((field) => !Array.isArray(parsed[field]))) throw new Error("Dati dello scambio incompleti.");
   const payload = parsed as TradeTransactionPayload;
   if (payload.signAndTrade === undefined) throw new Error("Dati del sign and trade mancanti.");
@@ -475,16 +538,19 @@ function parsePayload(value: FormDataEntryValue | null): TradeTransactionPayload
     if (
       !isRecord(change)
       || !textFields(change, "agreementId", "action")
-      || !["remove", "modify"].includes(String(change.action))
-      || (change.action === "remove" && change.clause !== null)
-      || (change.action === "modify" && (
-        typeof change.clause !== "string"
-        || !/^(swap|protected_top_(?:[1-9]|1[0-3]))$/.test(change.clause)
-      ))
+      || change.action !== "remove"
+      || change.clause !== null
     ) throw new Error("Modifica dell'accordo non valida.");
   }
   for (const cut of payload.cuts) {
     if (!isRecord(cut) || !textFields(cut, "id", "teamCode")) throw new Error("Taglio contestuale non valido.");
+  }
+  for (const promotion of payload.promotions ?? []) {
+    if (
+      !isRecord(promotion)
+      || !textFields(promotion, "id", "teamCode", "destinationSlot")
+      || !["regular", "two_way", "g_league"].includes(String(promotion.destinationSlot))
+    ) throw new Error("Promozione contestuale non valida.");
   }
   return payload;
 }

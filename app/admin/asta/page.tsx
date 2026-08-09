@@ -92,7 +92,7 @@ export default async function AuctionAdminPage({
       {query.updated && <p className="notice success">{query.updated}</p>}
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
       {leagueState.playerListStatus !== "published" && <p className="notice">Pubblica il listone ufficiale per rendere operativo il pannello asta.</p>}
-      {leagueState.playerListStatus === "published" && !auctionOpen && <p className="notice">Il pannello è operativo in Offseason — dopo le T.O.</p>}
+      {leagueState.playerListStatus === "published" && !auctionOpen && <p className="notice">Il pannello è operativo da Inizio asta fino a Termine asta.</p>}
       {auctionOpen && pendingDraftPicks > 0 && (
         <p className="notice error">Concludi prima il Draft {currentDraftYear}: restano {pendingDraftPicks} scelte da assegnare. Il pannello resta consultabile, ma tutte le operazioni sono bloccate.</p>
       )}

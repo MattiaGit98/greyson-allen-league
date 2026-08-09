@@ -82,10 +82,7 @@ function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImpo
                 );
               })}
             </div>
-          ) : (
-            <p className="validation success">Tutti i nomi di roster e Q.O. corrispondono perfettamente al listone importato.</p>
-          )}
-          <p className="list-reconciliation-note">Alla conferma i nomi nei roster, nei tagliati e nelle Q.O. verranno allineati al listone in un’unica operazione.</p>
+          ) : null}
         </div>
         <div className="auction-modal-actions">
           <button className="button secondary" type="button" onClick={() => setDismissed(true)}>Annulla importazione</button>

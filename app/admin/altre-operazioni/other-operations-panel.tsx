@@ -9,7 +9,7 @@ import type { RosterEntry } from "@/lib/league-types";
 import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
-import { operationWindows } from "@/lib/league-moments";
+import { hasReachedMoment, operationWindows } from "@/lib/league-moments";
 import { CapForceControl } from "@/app/admin/cap-force-control";
 import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import {
@@ -19,7 +19,7 @@ import {
   freeReleaseReasonValues,
   type FreeReleaseReason,
 } from "@/lib/free-release";
-import { teamOptionCutAdjustment } from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption, teamOptionCutAdjustment } from "@/lib/team-option-contract";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
 type Operation = "extension" | "cut" | "free_release" | "buyout" | "stretch" | "dpe_activate" | "dpe_reintegrate";
@@ -176,12 +176,6 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
               {confirmationLabel(operation, props.phase)}
             </label>
           )}
-          {preview.optionCutAuctionChoice && (
-            <label className="operation-check other-operation-check">
-              <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-              Il taglio avviene prima dell'inizio dell'asta
-            </label>
-          )}
         </div>
 
         <div className="auction-modal-summary cap-three-years">
@@ -200,7 +194,6 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
         {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         {preview.warnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
         <CapForceControl warnings={preview.capWarnings} checked={forceCap} onChange={setForceCap} />
-        {!preview.errors.length && !preview.warnings.length && !preview.capWarnings.length && <p className="validation success">Controlli regolamentari superati.</p>}
       </div>
 
       <div className="auction-modal-actions">
@@ -214,13 +207,14 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
 function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, props: AdminOperationContext): OperationChoice[] {
   const choices: OperationChoice[] = [];
   const slots = slotCounts(team);
+  const unresolvedTeamOption = isUnresolvedTeamOption(player, props.leagueMoment);
   if (player.state === "active" && player.isExtensionEligible && player.expiryYear === props.seasonEndYear && operationWindows.extensions(props.leagueMoment)) choices.push({ value: "extension", label: "Estensione contrattuale" });
-  if (player.state === "active") choices.push({ value: "cut", label: "Taglio" });
-  if (availableFreeReleaseReasons(props.leagueMoment, player).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
+  if (player.state === "active" && !unresolvedTeamOption) choices.push({ value: "cut", label: "Taglio" });
+  if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
   if (player.state === "active" && operationWindows.buyout(props.leagueMoment) && player.expiryYear && player.expiryYear > props.seasonEndYear) choices.push({ value: "buyout", label: "Buyout" });
   if (canApplyStretchProvision(player, props.seasonEndYear)) choices.push({ value: "stretch", label: "Stretch provision" });
-  if (player.state === "active" && player.slot !== "dpe" && slots.dpe < 1 && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
-  if (player.state === "active" && player.slot === "dpe" && operationWindows.dpeReintegration(props.leagueMoment)) choices.push({ value: "dpe_reintegrate", label: "Reintegro anticipato dalla DPE" });
+  if (player.state === "active" && !unresolvedTeamOption && player.slot !== "dpe" && slots.dpe < 1 && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
+  if (player.state === "active" && !unresolvedTeamOption && player.slot === "dpe" && operationWindows.dpeReintegration(props.leagueMoment)) choices.push({ value: "dpe_reintegrate", label: "Reintegro anticipato dalla DPE" });
   return choices;
 }
 
@@ -235,15 +229,9 @@ function operationPreview(
 ) {
   const spacesBefore: ThreeYearValues = [team.space, team.nextSpace, team.followingSpace];
   const charges = playerCharges(player, props);
-  const initialOptionCutAdjustment = operation === "cut" || operation === "buyout"
+  const optionCutAdjustment = operation === "cut" || operation === "buyout"
     ? teamOptionCutAdjustment(rosterEntryForPlayer(player), props.seasonEndYear, props.leagueMoment)
     : null;
-  const optionCutAuctionChoice = props.leagueMoment === "free_releases_start"
-    && initialOptionCutAdjustment?.adjusted === true
-    && initialOptionCutAdjustment.entry.teamOptionFinalYear === props.seasonEndYear;
-  const optionCutAdjustment = optionCutAuctionChoice && !confirmed
-    ? teamOptionCutAdjustment(rosterEntryForPlayer(player), props.seasonEndYear, "auction_completed")
-    : initialOptionCutAdjustment;
   const adjustedOptionCharges = optionCutAdjustment?.adjusted
     ? entryCharges(optionCutAdjustment.entry, props)
     : null;
@@ -313,18 +301,12 @@ function operationPreview(
     else {
       const availability = freeReleaseReasonAvailability(releaseReason, props.leagueMoment, player);
       if (!availability.available) errors.push(availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
-      if (
-        props.leagueMoment === "free_releases_start"
-        && releaseReason !== "one_credit_team_option"
-      ) {
-        warnings.push("Selezionando questa causa confermi che l’asta non è materialmente in corso.");
-      }
     }
   }
   if (operation === "extension") {
     spacesAfter.forEach((space, index) => {
       if (index > 0 && space < 0) capWarnings.push(`L'estensione porta il cap libero ${seasonNameAt(props.seasonName, index)} a ${space}.`);
-      if (index === 0 && props.phase === "offseason" && space < 0) capWarnings.push(`L'estensione porta il cap libero ${props.seasonName} a ${space}.`);
+      if (index === 0 && props.phase === "offseason" && !hasReachedMoment(props.leagueMoment, "auction_start") && space < 0 && space < spacesBefore[0]) capWarnings.push(`L'estensione porta il cap libero ${props.seasonName} a ${space}.`);
       if (index === 0 && props.phase === "regular_season" && (space < -100 || (spacesBefore[0] < -100 && space < spacesBefore[0]))) capWarnings.push(`L'estensione non rispetta il limite del cap durante la stagione (cap libero ${space}).`);
     });
   } else {
@@ -333,6 +315,7 @@ function operationPreview(
       after: spacesAfter,
       seasonNames: [0, 1, 2].map((index) => seasonNameAt(props.seasonName, index)),
       phase: props.phase,
+      currentMoment: props.leagueMoment,
       currentLimit: operation === "buyout" ? 1000 : undefined,
     });
     if (hasBlockingDpeCutCapViolation(operation === "cut" && player.slot === "dpe", calculatedCapWarnings)) {
@@ -361,7 +344,6 @@ function operationPreview(
     installment,
     buyoutTotalResidual,
     optionCutAdjustment,
-    optionCutAuctionChoice,
     optionGuaranteeChange,
     errors: [...new Set(errors)],
     warnings: [...new Set(warnings)],
