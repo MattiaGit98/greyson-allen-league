@@ -3,6 +3,7 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { requireActiveSeason } from "@/lib/active-season";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 
 export default async function TeamsPage({
   searchParams,
@@ -30,7 +31,7 @@ export default async function TeamsPage({
         qualifyingOfferRights={leagueState.qualifyingOfferRights}
         playerList={leagueState.playerList}
         playerListPublished={leagueState.playerListStatus === "published"}
-        inSeason={phase === "regular_season"}
+        inSeason={roleMinimumChecksApply(phase, leagueMomentFromSeason(activeSeason.season))}
         initialTeam={query.team?.toUpperCase()}
         showQualifyingOffers={phase === "offseason"}
         capSeasonName={capSeasonName}

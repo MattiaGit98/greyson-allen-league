@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roleMinimumRecoverySlotError, roleMinimumShortage, roleMinimumsWorsen } from "./role-minimums";
+import { roleMinimumChecksApply, roleMinimumRecoverySlotError, roleMinimumShortage, roleMinimumsWorsen } from "./role-minimums";
 
 describe("roleMinimumShortage", () => {
   it("counts only active non-DPE players during the regular season", () => {
@@ -23,6 +23,12 @@ describe("roleMinimumShortage", () => {
   it("stops applying role minimums from the end of free agency", () => {
     const entries = [{ name: "G", role: "G" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA", cost: 1, contract: "27" }];
     expect(roleMinimumShortage(entries, "regular_season", "free_agency_end").total).toBe(0);
+  });
+
+  it("applies role minimums only from the auction end through free-agency end", () => {
+    expect(roleMinimumChecksApply("offseason", "team_option_deadline")).toBe(false);
+    expect(roleMinimumChecksApply("regular_season", "auction_completed")).toBe(true);
+    expect(roleMinimumChecksApply("regular_season", "free_agency_end")).toBe(false);
   });
 
   it("reports when roster and two-way slots cannot cover every missing role", () => {

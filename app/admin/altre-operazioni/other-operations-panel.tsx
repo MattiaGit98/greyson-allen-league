@@ -5,7 +5,7 @@ import { applyDpeOperation } from "@/app/admin/dpe/actions";
 import { applyContractExtension } from "@/app/admin/estensioni/actions";
 import { applyRosterExitOperation, applyStretchProvision } from "@/app/admin/tagli-rilasci/actions";
 import type { AdminOperationContext, AdminRosterPlayer, AdminRosterTeam } from "@/lib/admin-operation-data";
-import type { RosterEntry } from "@/lib/league-types";
+import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
 import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
@@ -20,6 +20,7 @@ import {
   type FreeReleaseReason,
 } from "@/lib/free-release";
 import { isUnresolvedTeamOption, teamOptionCutAdjustment } from "@/lib/team-option-contract";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
 type Operation = "extension" | "cut" | "free_release" | "buyout" | "stretch" | "dpe_activate" | "dpe_reintegrate";
@@ -341,7 +342,7 @@ function operationPreview(
   if (slotsAfter.g_league > 3) errors.push("Sono superati i 3 slot G-League.");
   let roleMinimumMissing = 0;
   if (slotsAfter.dpe > 1) errors.push("Lo slot DPE è già occupato.");
-  if (props.phase === "regular_season" && !hasReachedMoment(props.leagueMoment, "free_agency_end") && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
+  if (roleMinimumChecksApply(props.phase as LeaguePhase, props.leagueMoment) && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
     for (const role of ["G", "A", "C"] as const) {
       const minimum = role === "C" ? 3 : 5;
       roleMinimumMissing += Math.max(0, minimum - rolesAfter[role]);

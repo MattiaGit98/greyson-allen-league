@@ -2,7 +2,8 @@ import Link from "next/link";
 import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
 import { loadCurrentHistoryImports } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
+import { leagueMomentFromSeason } from "@/lib/league-moments";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { buildPreAdvanceChecklist, type PreAdvanceChecklist } from "@/lib/pre-advance-alerts";
 import { requireActiveSeason } from "@/lib/active-season";
 import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
@@ -79,7 +80,7 @@ export default async function AdminDashboardPage() {
     ...preAdvanceChecklist,
     alerts: preAdvanceChecklist.alerts.filter((alert) => alert.tone === "blocker"),
   };
-  const roleMinimumAlerts = activeSeason.season.status === "regular_season" && !hasReachedMoment(leagueMoment, "free_agency_end")
+  const roleMinimumAlerts = roleMinimumChecksApply(activeSeason.season.status, leagueMoment)
     ? buildRoleMinimumAlerts(leagueState)
     : [];
 

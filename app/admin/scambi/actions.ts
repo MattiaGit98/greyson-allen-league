@@ -13,7 +13,7 @@ import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadli
 import { persistLeagueMovement } from "@/lib/league-movements";
 import { removeRolelessPlayersLeavingRosters } from "@/lib/roleless-player-list";
 import { countRosterRoles } from "@/lib/rules/roster";
-import { roleMinimumRecoverySlotError } from "@/lib/role-minimums";
+import { roleMinimumChecksApply, roleMinimumRecoverySlotError } from "@/lib/role-minimums";
 import {
   evaluateTrade,
   type TradeCut,
@@ -407,7 +407,7 @@ export async function registerTrade(formData: FormData) {
     tradeDeadlinePassed: tradeDeadlineHasPassed(moment),
     tradesOpen: operationWindows.trades(moment),
     enforceOffseasonCap: !hasReachedMoment(moment, "auction_start"),
-    enforceRoleMinimums: !hasReachedMoment(moment, "free_agency_end"),
+    enforceRoleMinimums: roleMinimumChecksApply(season.status, moment),
     tradableDraftYears,
     protectionCounterpartyDraftYears,
     teams: tradeTeams,

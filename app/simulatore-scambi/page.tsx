@@ -8,6 +8,7 @@ import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "
 import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 
 export default async function TradeSimulatorPage() {
   const [activeSeason, leagueState] = await Promise.all([
@@ -150,7 +151,7 @@ export default async function TradeSimulatorPage() {
         tradesOpen={operationWindows.trades(leagueMoment)}
         qualifyingOfferTransfersOpen={!hasReachedMoment(leagueMoment, "auction_completed")}
         enforceOffseasonCap={!hasReachedMoment(leagueMoment, "auction_start")}
-        enforceRoleMinimums={!hasReachedMoment(leagueMoment, "free_agency_end")}
+        enforceRoleMinimums={roleMinimumChecksApply(phase, leagueMoment)}
         tradableDraftYears={tradableDraftYears}
         protectionCounterpartyDraftYears={protectionCounterpartyDraftYears}
         existingClauseAgreements={existingClauseAgreements}

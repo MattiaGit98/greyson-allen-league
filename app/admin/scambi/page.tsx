@@ -10,6 +10,7 @@ import { fourthDraftVirtualPicks } from "@/lib/future-draft-picks";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
 import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { requireActiveSeason } from "@/lib/active-season";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 
 export default async function TradesPage({
   searchParams,
@@ -181,7 +182,7 @@ export default async function TradesPage({
         tradesOpen={operationWindows.trades(leagueMoment)}
         qualifyingOfferTransfersOpen={!hasReachedMoment(leagueMoment, "auction_completed")}
         enforceOffseasonCap={!hasReachedMoment(leagueMoment, "auction_start")}
-        enforceRoleMinimums={!hasReachedMoment(leagueMoment, "free_agency_end")}
+        enforceRoleMinimums={roleMinimumChecksApply(phase, leagueMoment)}
         tradableDraftYears={tradableDraftYears}
         protectionCounterpartyDraftYears={protectionCounterpartyDraftYears}
         existingClauseAgreements={existingClauseAgreements}

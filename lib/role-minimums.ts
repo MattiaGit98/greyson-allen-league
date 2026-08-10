@@ -5,7 +5,10 @@ import { countRosterRoles } from "./rules/roster";
 export type RoleMinimumShortage = { G: number; A: number; C: number; total: number };
 
 export function roleMinimumChecksApply(phase: LeaguePhase, moment?: LeagueMoment) {
-  return phase === "regular_season" && (!moment || !hasReachedMoment(moment, "free_agency_end"));
+  if (moment) {
+    return hasReachedMoment(moment, "auction_completed") && !hasReachedMoment(moment, "free_agency_end");
+  }
+  return phase === "regular_season";
 }
 
 export function roleMinimumShortage(entries: RosterEntry[], phase: LeaguePhase, moment?: LeagueMoment): RoleMinimumShortage {

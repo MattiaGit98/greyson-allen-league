@@ -5,9 +5,10 @@ import { CapForceControl } from "@/app/admin/cap-force-control";
 import { salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import type { LeaguePhase, PlayerListEntry, RosterEntry } from "@/lib/league-types";
-import { hasReachedMoment, type LeagueMoment } from "@/lib/league-moments";
+import { type LeagueMoment } from "@/lib/league-moments";
 import { countActiveRosterSlots, rosterSlotLimits } from "@/lib/roster-slot-limits";
 import { normalizeRosterCorrectionContract } from "@/lib/roster-corrections";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
 import { saveRosterCorrections } from "./actions";
 
@@ -331,13 +332,14 @@ function buildPreview({
       if (entry.role) counts[entry.role] += 1;
       return counts;
     }, { G: 0, A: 0, C: 0 });
-  const roleWarnings = phase === "regular_season" && !hasReachedMoment(leagueMoment, "free_agency_end")
+  const roleMinimumsApply = roleMinimumChecksApply(phase, leagueMoment);
+  const roleWarnings = roleMinimumsApply
     ? (["G", "A", "C"] as const).flatMap((role) => {
       const minimum = role === "C" ? 3 : 5;
       return roles[role] < minimum ? [`Minimo di ruolo ${role} non rispettato: ${roles[role]}/${minimum}.`] : [];
     })
     : [];
-  const roleMinimumMissing = (phase === "regular_season" && !hasReachedMoment(leagueMoment, "free_agency_end"))
+  const roleMinimumMissing = roleMinimumsApply
     ? Math.max(0, 5 - roles.G) + Math.max(0, 5 - roles.A) + Math.max(0, 3 - roles.C)
     : 0;
   const freeRoleRecoverySlots = Math.max(0, 15 - slots.regular) + Math.max(0, 2 - slots.two_way);
