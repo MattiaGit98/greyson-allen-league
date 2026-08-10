@@ -54,6 +54,12 @@ export function TeamAccordion({
   const allExpanded = teams.length > 0
     && openTeams.length === teams.length
     && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
+  const rosterOnlyExpanded = teams.length > 0
+    && openTeams.length === teams.length
+    && teams.every((team) => {
+      const sections = openSectionsByTeam[team.code] ?? [];
+      return sections.length === 1 && sections[0] === "roster";
+    });
 
   const changeSort = (key: SortKey) => {
     setSort((current) => current.key === key
@@ -70,6 +76,18 @@ export function TeamAccordion({
     setOpenTeams(teams.map((team) => team.code));
     setOpenSectionsByTeam(Object.fromEntries(
       teams.map((team) => [team.code, [...dataSectionKeys]]),
+    ));
+  };
+
+  const toggleRosterOnly = () => {
+    if (rosterOnlyExpanded) {
+      setOpenTeams([]);
+      setOpenSectionsByTeam({});
+      return;
+    }
+    setOpenTeams(teams.map((team) => team.code));
+    setOpenSectionsByTeam(Object.fromEntries(
+      teams.map((team) => [team.code, ["roster"]]),
     ));
   };
 
@@ -100,6 +118,10 @@ export function TeamAccordion({
   return (
     <>
       <div className="team-accordion-toolbar">
+        <button type="button" onClick={toggleRosterOnly}>
+          <span>{rosterOnlyExpanded ? "−" : "+"}</span>
+          {rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}
+        </button>
         <button type="button" onClick={toggleEverything}>
           <span>{allExpanded ? "−" : "+"}</span>
           {allExpanded ? "Minimizza tutto" : "Espandi tutto"}

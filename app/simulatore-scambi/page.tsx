@@ -143,11 +143,6 @@ export default async function TradeSimulatorPage() {
 
   return (
     <section className="section page-top workbook-page trade-simulator-page">
-      <header className="trade-simulator-heading">
-        <span>Strumento pubblico</span>
-        <h1>Simulatore scambi</h1>
-        <p>Compila una proposta: non verrà salvata né inviata alla lega.</p>
-      </header>
       <TradeBuilder
         mode="simulator"
         phase={phase}
