@@ -568,6 +568,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .trade-composer.player { grid-template-columns: minmax(0, 1fr) 112px auto; }
 .trade-composer.pick { grid-template-columns: minmax(0, 1.25fr) 132px minmax(0, 1fr) auto; }
 .trade-composer.cut { grid-template-columns: minmax(0, 1fr) auto; }
+.trade-composer.promotion { grid-template-columns: minmax(0, 1fr) 112px auto; }
 .trade-composer select { min-width: 0; width: 100%; height: 38px; padding: 0 8px; border: 1px solid #d2d6c8; border-radius: 8px; outline: 0; background: white; color: var(--ink); font: inherit; font-size: 10px; }
 .trade-composer select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.07); }
 .trade-composer select:disabled { background: #efeee8; color: var(--muted); }

@@ -126,7 +126,7 @@ export default async function TradesPage({
         })(),
         slot: entry.slot,
         cuttable: !isUnresolvedTeamOption(entry, leagueMoment),
-        promotionDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment)
+        promotionDestinations: entry.slot === "dpe"
           ? []
           : legalPromotionDestinations(
             { ...entry, slot: entry.slot as ManagedRosterSlot },

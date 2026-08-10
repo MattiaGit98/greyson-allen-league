@@ -349,7 +349,7 @@ export async function registerTrade(formData: FormData) {
     if (!source || source.entry.teamCode !== requested.teamCode || !participants.has(requested.teamCode)) {
       fail("Un giocatore indicato per la promozione contestuale non è più disponibile.");
     }
-    if (source.entry.slot === "dpe" || isUnresolvedTeamOption(source.entry, moment)) {
+    if (source.entry.slot === "dpe") {
       fail(`${source.entry.name}: questo giocatore non può essere promosso in questa fase.`);
     }
     const destinations = legalPromotionDestinations(

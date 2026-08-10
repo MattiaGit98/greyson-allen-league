@@ -969,7 +969,7 @@ function TradeTeamCard({
 
       <section className="trade-asset-section">
         <span className="trade-section-label">Scelte ricevute</span>
-        <div className="trade-composer cut">
+        <div className="trade-composer promotion">
           <select value={pickId} onChange={(event) => setPickId(event.target.value)}>
             <option value="">Seleziona scelta</option>
             {availablePicksByTeam.map(({ team: sourceTeam, picks }) => (
@@ -1136,7 +1136,7 @@ function slotLabel(slot: TradeSlot) {
 }
 
 function playerOptionLabel(player: Pick<RosterPlayer, "name" | "cost" | "slot" | "contract" | "role">) {
-  return `${player.name} · ${player.cost} · ${slotLabel(player.slot)} · ${player.contract} · Ruolo ${player.role ?? "—"}`;
+  return `${player.name} · ${player.cost} · ${slotLabel(player.slot)} · ${player.contract} · ${player.role ?? "—"}`;
 }
 
 export function tradeSimulationRecap({
