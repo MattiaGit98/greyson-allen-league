@@ -6,7 +6,7 @@ import { calculateCapSpace, contractCostForSeason, followingSeasonName } from "@
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
-import { fourthDraftVirtualPicks, isFourthDraftPick } from "@/lib/future-draft-picks";
+import { isFourthDraftPick } from "@/lib/future-draft-picks";
 import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState as SortState } from "@/lib/roster-display-sort";
 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
@@ -50,10 +50,7 @@ export function TeamAccordion({
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const highlightedYear = highlightedDraftYear(draftAssets, finalizedDraftPositionYears);
-  const displayedDraftAssets = [
-    ...draftAssets,
-    ...fourthDraftVirtualPicks(draftAssets, teams).map(({ id: _id, virtual: _virtual, ...asset }) => asset),
-  ];
+  const displayedDraftAssets = draftAssets;
   const allExpanded = teams.length > 0
     && openTeams.length === teams.length
     && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
@@ -193,7 +190,9 @@ function TeamDetails({
   const gLeague = active.filter((entry) => entry.slot === "g_league");
   const dpe = active.filter((entry) => entry.slot === "dpe");
   const cut = entries.filter((entry) => entry.state === "cut");
-  const sortedAssets = [...assets].sort(compareDraftAssets);
+  const sortedAssets = assets
+    .filter((asset) => !isFourthDraftPick(asset, allDraftAssets) || hasVisibleFourthDraftClause(asset))
+    .sort(compareDraftAssets);
   const eligibleAssetCount = sortedAssets.filter((asset) => !isFourthDraftPick(asset, allDraftAssets)).length;
   const officialRoles = new Map(playerList.map((player) => [normalizePlayerName(player.name), player.role]));
   const roles = active
@@ -276,7 +275,7 @@ function TeamDetails({
                   ? <i className={isHighlightedDraft ? "draft-position" : "draft-origin"}>#{numericalPosition}</i>
                   : <i className={`draft-origin ${isHighlightedDraft ? "draft-origin-next" : ""}`}>{asset.originOrOverall}</i>}
               </strong>
-              <span>{isNonTradableFuturePick ? "Non scambiabile · solo contropartita protezione" : draftCondition(asset.label)}</span>
+              <span>{isNonTradableFuturePick ? `Non scambiabile · ${draftCondition(asset.label)}` : draftCondition(asset.label)}</span>
             </div>
           )})}
           {!sortedAssets.length && <EmptyRow />}
@@ -435,6 +434,10 @@ function draftCondition(label: string) {
   const swapRight = label.match(/^Diritto di swap con ([A-Z]+)$/i);
   if (swapRight) return `Diritto di swap con ${swapRight[1]}`;
   return "—";
+}
+
+function hasVisibleFourthDraftClause(asset: DraftAsset) {
+  return Boolean(asset.clauseResolution) || draftCondition(asset.label) !== "—";
 }
 
 function numericValue(value: string | number) {

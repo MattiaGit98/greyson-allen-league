@@ -517,7 +517,7 @@ export function TradeBuilder({
                 <span>G-League<b>{result.slots.gLeague} / 3</b></span>
                 <span>DPE<b>{result.slots.dpe} / 1</b></span>
               </div>
-              <p className="manual-cut-check">Verifica manualmente che i giocatori acquisiti non compaiano tra i tagliati: {team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}.</p>
+              <p className="manual-cut-check">Verifica manualmente che i giocatori acquisiti non compaiano tra i tagliati:<br />{team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}</p>
             </article>
           );
         })}
@@ -554,7 +554,7 @@ export function TradeBuilder({
             {clausePicksByTeam.map(({ team: ownerTeam, picks }) => (
               <optgroup label={formatTeamName(ownerTeam.name)} key={ownerTeam.code}>
                 {picks.map((pick) => (
-                  <option value={pick.id} key={pick.id}>{pickOptionLabel(pick)} · dopo lo scambio: {teamName(postTradeOwner(pick.id), teams)}</option>
+                  <option value={pick.id} key={pick.id}>{pickOptionLabel(pick)}</option>
                 ))}
               </optgroup>
             ))}
@@ -569,7 +569,7 @@ export function TradeBuilder({
             {counterpartyPicksByTeam.map(({ team: ownerTeam, picks }) => (
               <optgroup label={formatTeamName(ownerTeam.name)} key={ownerTeam.code}>
                 {picks.map((pick) => (
-                  <option value={pick.id} key={pick.id}>{pickOptionLabel(pick)} · dopo lo scambio: {teamName(postTradeOwner(pick.id), teams)}</option>
+                  <option value={pick.id} key={pick.id}>{pickOptionLabel(pick)}</option>
                 ))}
               </optgroup>
             ))}

@@ -451,7 +451,7 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 function CutPlayerCheck({ names }: { names: string[] }) {
-  return <p className="manual-cut-check">Verifica manualmente che il giocatore acquisito non compaia tra i tagliati: {names.length ? names.join(" · ") : "nessun giocatore tagliato"}.</p>;
+  return <p className="manual-cut-check">Verifica manualmente che il giocatore acquisito non compaia tra i tagliati:<br />{names.length ? names.join(" · ") : "nessun giocatore tagliato"}</p>;
 }
 
 function formatTeamName(name: string) {
