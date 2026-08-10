@@ -1112,9 +1112,9 @@ function TradeTeamCard({
           {teamExistingClauses.map((agreement) => {
             const change = existingClauseChanges.find((item) => item.agreementId === agreement.agreementId);
             const removedAutomatically = automaticClauseRemovalIds.has(agreement.agreementId);
-            return (
-              <label className="trade-existing-clause-row" key={agreement.agreementId}>
-                <span>{agreement.label}</span>
+              return (
+                <label className="trade-existing-clause-row" key={agreement.agreementId}>
+                <span>{agreement.label}{removedAutomatically ? " · Rimossa automaticamente" : ""}</span>
                 <input
                   type="checkbox"
                   checked={Boolean(change)}
@@ -1122,7 +1122,6 @@ function TradeTeamCard({
                   aria-label={`Rimuovi ${agreement.label}`}
                   onChange={(event) => onToggleExistingClause(agreement, event.target.checked)}
                 />
-                <small>{removedAutomatically ? "Rimossa automaticamente" : "Rimuovi"}</small>
               </label>
             );
           })}
