@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
 import { buildMovementReversal, movementReversalCapErrors, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
+import { movementOperationLabel } from "@/lib/movement-display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const path = "/admin/movimenti";
@@ -17,7 +18,7 @@ export async function revertMovement(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) fail("Sessione scaduta.");
   const [response, seasonResponse] = await Promise.all([
-    supabase.from("league_movements").select("id,operation_type,before_state,after_state,season_name,undo_before_moment,reverted_at").eq("id", movementId).maybeSingle(),
+    supabase.from("league_movements").select("id,operation_type,summary,before_state,after_state,season_name,undo_before_moment,reverted_at").eq("id", movementId).maybeSingle(),
     supabase.from("seasons").select("name,status,team_options_resolved,trade_deadline_passed,timeline_moment").eq("is_active", true).maybeSingle(),
   ]);
   if (response.error || !response.data || response.data.reverted_at) fail(response.error?.message ?? "Movimento non disponibile.");
@@ -55,6 +56,7 @@ export async function revertMovement(formData: FormData) {
     requested_movement_id: movementId,
     expected_current_state: current,
     restored_state: restored,
+    requested_reversal_summary: `${movementOperationLabel(response.data.operation_type)} annullato: ${response.data.summary}`,
   });
   if (reverted.error) fail(reverted.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/storico", "/admin", path, "/admin/draft", "/admin/storico", "/admin/asta", "/admin/contratti"].forEach((route) => revalidatePath(route));

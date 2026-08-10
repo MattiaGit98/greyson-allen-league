@@ -44,6 +44,7 @@ export type ImportableMovement = {
   history_category: string | null;
   before_history: unknown[] | null;
   after_history: unknown[] | null;
+  reverts_movement_id?: string | null;
   created_at: string;
   reverted_at: string | null;
 };
@@ -245,6 +246,8 @@ function parseMovement(input: unknown): ImportableMovement {
   const historyCategory = movement?.history_category ?? null;
   const beforeHistory = movement?.before_history ?? null;
   const afterHistory = movement?.after_history ?? null;
+  const hasRevertsMovementId = Boolean(movement && Object.hasOwn(movement, "reverts_movement_id"));
+  const revertsMovementId = movement?.reverts_movement_id ?? null;
   if (
     !movement
     || typeof movement.id !== "string"
@@ -260,6 +263,7 @@ function parseMovement(input: unknown): ImportableMovement {
     || (afterHistory !== null && !Array.isArray(afterHistory))
     || (historyCategory === null && (beforeHistory !== null || afterHistory !== null))
     || (historyCategory !== null && (beforeHistory === null || afterHistory === null))
+    || (revertsMovementId !== null && (typeof revertsMovementId !== "string" || !uuidPattern.test(revertsMovementId)))
     || typeof movement.created_at !== "string"
     || !Number.isFinite(Date.parse(movement.created_at))
     || (movement.reverted_at !== null && (
@@ -277,6 +281,7 @@ function parseMovement(input: unknown): ImportableMovement {
     history_category: historyCategory,
     before_history: beforeHistory,
     after_history: afterHistory,
+    ...(hasRevertsMovementId ? { reverts_movement_id: revertsMovementId } : {}),
     created_at: movement.created_at,
     reverted_at: movement.reverted_at,
   };
@@ -289,7 +294,7 @@ async function fetchAllMovements(supabase: Supabase): Promise<ImportableMovement
     const from = page * pageSize;
     const response = await supabase
       .from("league_movements")
-      .select("id,operation_type,summary,before_state,after_state,history_category,before_history,after_history,created_at,reverted_at")
+      .select("id,operation_type,summary,before_state,after_state,history_category,before_history,after_history,reverts_movement_id,created_at,reverted_at")
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);
     if (response.error) throw new Error(`Registro movimenti non disponibile: ${response.error.message}`);

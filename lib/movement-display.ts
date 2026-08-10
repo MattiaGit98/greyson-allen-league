@@ -17,6 +17,7 @@ const operationLabels: Record<string, string> = {
   sign_and_trade: "Sign and trade",
   scelta_draft: "Scelta draft",
   ordine_draft_finale: "Ordine draft finale",
+  movimento_annullato: "Movimento annullato",
   rettifica_roster_contratto: "Rettifica dell'admin",
   rettifica_roster_rimozione: "Rettifica dell'admin",
   rettifica_roster_aggiunta: "Rettifica dell'admin",

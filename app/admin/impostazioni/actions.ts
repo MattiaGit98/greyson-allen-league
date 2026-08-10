@@ -24,27 +24,6 @@ import { contractDraftRows, loadPostAuctionContractDrafts } from "@/lib/post-auc
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 const seasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment";
 
-export async function changeLeaguePhase(formData: FormData) {
-  const requestedMoment = String(formData.get("timeline_moment") ?? "");
-  const seasonName = String(formData.get("season_name") ?? "");
-  if (!isLeagueMoment(requestedMoment)) redirect("/admin/impostazioni?error=momento-non-valido");
-  if (!/^\d{4}\/\d{2}$/.test(seasonName)) redirect("/admin/impostazioni?error=annata-non-valida");
-
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) redirect("/admin/impostazioni?error=supabase-non-configurato");
-  const { error } = await supabase.from("seasons").update({
-    name: seasonName,
-    status: macroPhaseForMoment(requestedMoment),
-    timeline_moment: requestedMoment,
-    team_options_resolved: teamOptionsAreResolved(requestedMoment),
-    trade_deadline_passed: tradeDeadlineHasPassed(requestedMoment),
-  }).eq("is_active", true);
-  if (error) redirect(`/admin/impostazioni?error=${encodeURIComponent(error.message)}`);
-
-  revalidateLeaguePages();
-  redirect("/admin/impostazioni?updated=1");
-}
-
 export async function advanceLeaguePhaseStep() {
   const supabase = await createSupabaseServerClient();
   if (!supabase) phaseError("Supabase non configurato.");

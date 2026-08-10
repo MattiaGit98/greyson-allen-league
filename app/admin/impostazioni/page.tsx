@@ -11,15 +11,10 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { buildLeagueTransitionPreview } from "@/lib/league-transition";
 import { phaseStepLabels } from "@/lib/phase-backups";
 import { requireActiveSeason } from "@/lib/active-season";
-import { ManualPhaseButton, PhaseAdvanceButton, RestorePhaseButton } from "./phase-advance-button";
+import { PhaseAdvanceButton, RestorePhaseButton } from "./phase-advance-button";
 import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
 
-const seasonOptions = Array.from({ length: 16 }, (_, index) => {
-  const start = 2024 + index;
-  return { value: `${start}/${String((start + 1) % 100).padStart(2, "0")}`, label: `${start}/${start + 1}` };
-});
-
-export default async function LeagueSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; updated?: string; advanced?: string; stepped?: string; restored?: string }> }) {
+export default async function LeagueSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; advanced?: string; stepped?: string; restored?: string }> }) {
   const [query, activeSeason, state, currentHistory] = await Promise.all([
     searchParams,
     requireActiveSeason(),
@@ -47,7 +42,6 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
 
   return (
     <section className="section page-top admin-settings">
-      {query.updated && <p className="notice success">Rettifica manuale salvata.</p>}
       {query.stepped && <p className="notice success">Passaggio completato: {phaseStepLabels[query.stepped] ?? query.stepped}.</p>}
       {query.advanced && <p className="notice success">Stagione conclusa. La lega è ora nell’offseason {query.advanced}.</p>}
       {query.restored && <p className="notice success">Situazione precedente ripristinata.</p>}
@@ -58,7 +52,6 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
       <div className="league-moment-topline">
         <div><span>Macro-fase</span><strong>{macroPhaseForMoment(currentMoment) === "offseason" ? "Offseason" : "Stagione"}</strong></div>
         <div><span>Annata</span><strong>{season.name}</strong></div>
-        <ManualPhaseButton currentMoment={currentMoment} seasonName={season.name} seasonOptions={seasonOptions} disabled={!configured} />
       </div>
 
       <section className="league-moment-board">

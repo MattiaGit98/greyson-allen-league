@@ -40,6 +40,7 @@ export function DraftPanel({
 }) {
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [destinations, setDestinations] = useState<Record<string, DraftDestinationSlot>>({});
+  const [immediateExits, setImmediateExits] = useState<Record<string, boolean>>({});
 
   return (
     <div className="draft-panel">
@@ -58,10 +59,14 @@ export function DraftPanel({
         <p className="notice draft-panel-notice">Nessun rookie disponibile nel listone.</p>
       )}
       <div className="draft-panel-table">
-        <div className="draft-panel-head"><span>Scelta</span><span>Proprietario</span><span>Prezzo</span><span>Giocatore</span><span>Slot</span><span></span></div>
+        <div className="draft-panel-head"><span>Scelta</span><span>Proprietario</span><span>Prezzo</span><span>Giocatore</span><span>Slot</span><span>Taglia/rilascia</span><span></span></div>
         {picks.map((pick, index) => {
           const selectedPlayer = selections[pick.id] ?? "";
-          const destination = destinations[pick.id] ?? "regular";
+          const immediateExit = immediateExits[pick.id] === true;
+          const requestedDestination = destinations[pick.id] ?? "regular";
+          const destination = immediateExit
+            ? pick.price === 1 ? "immediate_release" : "immediate_cut"
+            : requestedDestination;
           const slotErrors = pick.price === null ? [] : draftSlotAssignmentErrors({
             slot: destination,
             price: pick.price,
@@ -78,7 +83,8 @@ export function DraftPanel({
             <form action={assignDraftPlayer} className="draft-panel-row">
               <input type="hidden" name="pick_index" value={pick.stateIndex} />
               <input type="hidden" name="draft_year" value={pick.year} />
-              <input type="hidden" name="destination_slot" value={destination} />
+              <input type="hidden" name="destination_slot" value={requestedDestination} />
+              <input type="hidden" name="immediate_exit" value={String(immediateExit)} />
               <div className="draft-panel-pick">
                 {position !== null
                   ? <b>#{position}</b>
@@ -93,7 +99,10 @@ export function DraftPanel({
               <SearchableRookieSelect
                 players={players}
                 value={selectedPlayer}
-                onChange={(value) => setSelections((current) => ({ ...current, [pick.id]: value }))}
+                onChange={(value) => {
+                  setSelections((current) => ({ ...current, [pick.id]: value }));
+                  if (!value) setImmediateExits((current) => ({ ...current, [pick.id]: false }));
+                }}
                 disabled={!draftOpen || !players.length || pick.price === null}
                 placeholder={pick.price === null
                   ? "Posizione da definire"
@@ -101,13 +110,20 @@ export function DraftPanel({
               />
               <label className="draft-panel-slot-select">
                 <span>Slot</span>
-                <select value={destination} onChange={(event) => setDestinations((current) => ({ ...current, [pick.id]: event.target.value as DraftDestinationSlot }))} disabled={!draftOpen || pick.price === null}>
+                <select value={requestedDestination} onChange={(event) => setDestinations((current) => ({ ...current, [pick.id]: event.target.value as DraftDestinationSlot }))} disabled={!draftOpen || pick.price === null || immediateExit}>
                   <option value="regular">Roster ({pick.slots.regular}/{draftSlotLimits.regular})</option>
                   <option value="two_way">Two-way ({pick.slots.two_way}/{draftSlotLimits.two_way})</option>
                   <option value="g_league">G-League ({pick.slots.g_league}/{draftSlotLimits.g_league})</option>
-                  {pick.round === "1° giro" && <option value="immediate_cut">Taglio immediato</option>}
-                  {pick.round === "2° giro" && <option value="immediate_release">Rilascio immediato</option>}
                 </select>
+              </label>
+              <label className="draft-panel-immediate-exit">
+                <input
+                  type="checkbox"
+                  checked={immediateExit}
+                  disabled={!draftOpen || !selectedPlayer || pick.price === null}
+                  onChange={(event) => setImmediateExits((current) => ({ ...current, [pick.id]: event.target.checked }))}
+                />
+                <span>{pick.price === 1 ? "Rilascia" : "Taglia"}</span>
               </label>
               <div className="draft-panel-actions">
                 <DraftAssignButton enabled={canAssign} />

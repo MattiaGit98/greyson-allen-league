@@ -15,8 +15,9 @@ export async function assignDraftPlayer(formData: FormData) {
   const pickIndex = Number(formData.get("pick_index"));
   const requestedDraftYear = Number(formData.get("draft_year"));
   const playerName = String(formData.get("player_name") ?? "").trim();
-  const destinationSlot = String(formData.get("destination_slot") ?? "") as DraftDestinationSlot;
-  if (!Number.isInteger(pickIndex) || !Number.isInteger(requestedDraftYear) || !playerName || !["regular", "two_way", "g_league", "immediate_cut", "immediate_release"].includes(destinationSlot)) {
+  const requestedSlot = String(formData.get("destination_slot") ?? "") as DraftDestinationSlot;
+  const immediateExit = formData.get("immediate_exit") === "true";
+  if (!Number.isInteger(pickIndex) || !Number.isInteger(requestedDraftYear) || !playerName || !["regular", "two_way", "g_league"].includes(requestedSlot)) {
     fail("Scelta o giocatore non validi.");
   }
 
@@ -44,6 +45,10 @@ export async function assignDraftPlayer(formData: FormData) {
   if (!(state.finalizedDraftPositionYears ?? []).includes(requestedDraftYear)) {
     fail(`Completa prima l'ordine ufficiale del Draft ${requestedDraftYear}.`);
   }
+  const pick = state.draftAssets[pickIndex];
+  const destinationSlot: DraftDestinationSlot = immediateExit
+    ? Number(pick?.draftCost) === 1 ? "immediate_release" : "immediate_cut"
+    : requestedSlot;
 
   let assignment: ReturnType<typeof buildDraftAssignment>;
   try {

@@ -153,4 +153,20 @@ describe("assegnazione draft", () => {
     expect(content.kind).toBe("draft");
     if (content.kind === "draft") expect(content.rows[14]).toEqual({ pick: "15", team: "AAA", player: "Rookie Due" });
   });
+
+  it("determina taglio o rilascio immediato dal prezzo, non dal giro", () => {
+    const releaseInput = state();
+    releaseInput.draftAssets[0].draftCost = 1;
+    const released = buildDraftAssignment({
+      state: releaseInput, historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "immediate_release",
+    });
+    expect(released.state.rosterEntries).toHaveLength(0);
+
+    const cutInput = state();
+    cutInput.draftAssets[1].draftCost = 2;
+    const cut = buildDraftAssignment({
+      state: cutInput, historyEntries: [], draftYear: 2026, pickIndex: 1, requestedPlayerName: "Rookie Due", destinationSlot: "immediate_cut",
+    });
+    expect(cut.state.rosterEntries[0]).toMatchObject({ state: "cut", contract: "27", cost: 2 });
+  });
 });

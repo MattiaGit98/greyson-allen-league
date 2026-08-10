@@ -30,8 +30,8 @@ const actionGroups = [
     title: "Asta e draft",
     actions: [
       { href: "/admin/asta", title: "Pannello asta" },
-      { href: "/admin/posizioni-draft", title: "Posizioni draft" },
       { href: "/admin/draft", title: "Pannello draft" },
+      { href: "/admin/posizioni-draft", title: "Posizioni draft" },
     ],
   },
   {

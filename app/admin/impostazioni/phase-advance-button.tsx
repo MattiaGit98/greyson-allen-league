@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { leagueMomentLabels, leagueMoments, type LeagueMoment } from "@/lib/league-moments";
 import type { LeagueTransitionPreview } from "@/lib/league-transition";
-import { advanceLeaguePhaseStep, changeLeaguePhase, restoreLatestPhaseBackup } from "./actions";
+import { advanceLeaguePhaseStep, restoreLatestPhaseBackup } from "./actions";
 
 export function PhaseAdvanceButton({ currentLabel, nextLabel, preview }: { currentLabel: string; nextLabel: string; preview: LeagueTransitionPreview }) {
   const [open, setOpen] = useState(false);
@@ -46,57 +45,6 @@ export function PhaseAdvanceButton({ currentLabel, nextLabel, preview }: { curre
               </button>
             </div>
           </section>
-        </div>
-      )}
-    </>
-  );
-}
-
-export function ManualPhaseButton({ currentMoment, seasonName, seasonOptions, disabled }: { currentMoment: LeagueMoment; seasonName: string; seasonOptions: Array<{ value: string; label: string }>; disabled: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState("");
-
-  async function submitManualChange(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (pending) return;
-    const formData = new FormData(event.currentTarget);
-    setError("");
-    try {
-      await downloadImportableBackup();
-      startTransition(() => changeLeaguePhase(formData));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Backup non riuscito.");
-    }
-  }
-
-  return (
-    <>
-      <button className="button secondary manual-phase-button" type="button" onClick={() => setOpen(true)} disabled={disabled}>Modifica libera</button>
-      {open && (
-        <div className="auction-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) setOpen(false); }}>
-          <form onSubmit={submitManualChange} className="auction-modal manual-phase-modal" role="dialog" aria-modal="true" aria-label="Modifica libera di momento e annata">
-            <div className="auction-modal-header">
-              <div><span>Rettifica manuale</span><strong>Momento e annata</strong><small>Nessuna operazione automatica verrà eseguita</small></div>
-              <button type="button" onClick={() => setOpen(false)} disabled={pending} aria-label="Chiudi">×</button>
-            </div>
-            <div className="auction-modal-body">
-              <div className="phase-choice-group">
-                {leagueMoments.map((moment) => (
-                  <label className="phase-option" key={moment}>
-                    <input type="radio" name="timeline_moment" value={moment} defaultChecked={currentMoment === moment} />
-                    <strong>{leagueMomentLabels[moment]}</strong>
-                  </label>
-                ))}
-              </div>
-              <label className="phase-season-select"><span>Annata</span><select name="season_name" defaultValue={seasonName}>{seasonOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
-              {error && <p className="validation error">{error}</p>}
-            </div>
-            <div className="auction-modal-actions">
-              <button className="button secondary" type="button" onClick={() => setOpen(false)} disabled={pending}>Annulla</button>
-              <button className="button primary" type="submit" disabled={pending}>{pending ? "Backup e salvataggio…" : "Salva rettifica"}</button>
-            </div>
-          </form>
         </div>
       )}
     </>

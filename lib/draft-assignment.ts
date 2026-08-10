@@ -51,11 +51,11 @@ export function buildDraftAssignment({
     throw new Error("Assegna prima posizione e costo alla scelta.");
   }
   const price = Number(configuredCost);
-  if (destinationSlot === "immediate_cut" && pick.round !== "1° giro") {
-    throw new Error("Il taglio immediato è disponibile soltanto per il primo giro.");
+  if (destinationSlot === "immediate_cut" && price <= 1) {
+    throw new Error("Il taglio immediato è riservato alle scelte che costano più di 1 credito.");
   }
-  if (destinationSlot === "immediate_release" && pick.round !== "2° giro") {
-    throw new Error("Il rilascio immediato è disponibile soltanto per il secondo giro.");
+  if (destinationSlot === "immediate_release" && price !== 1) {
+    throw new Error("Il rilascio immediato è riservato alle scelte da 1 credito.");
   }
 
   const normalizedRequestedName = normalizePlayerName(requestedPlayerName);
