@@ -6,6 +6,7 @@ import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadli
 import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { nextDraftYear } from "@/lib/draft-positions";
+import { fourthDraftVirtualPicks } from "@/lib/future-draft-picks";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
 import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { requireActiveSeason } from "@/lib/active-season";
@@ -62,6 +63,7 @@ export default async function TradesPage({
     leagueState.draftAssets,
     leagueState.teams.map((team) => team.code),
   );
+  const virtualFourthDraftPicks = fourthDraftVirtualPicks(leagueState.draftAssets, leagueState.teams);
 
   const tradeTeams = leagueState.teams.map((team) => {
     const teamEntries = leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code);
@@ -94,6 +96,10 @@ export default async function TradesPage({
           countTeamOptions,
         }),
       })),
+      cutPlayerNames: teamEntries
+        .filter((entry) => entry.state === "cut")
+        .map((entry) => entry.name)
+        .sort((left, right) => left.localeCompare(right, "it")),
       qualifyingOffers: leagueState.qualifyingOfferRights
         .filter((right) => right.teamCode === team.code)
         .map((right) => ({
@@ -139,18 +145,21 @@ export default async function TradesPage({
           ),
       }))
       .sort((left, right) => left.name.localeCompare(right.name, "it")),
-    picks: leagueState.draftAssets
-      .map((pick, index) => ({ pick, index }))
+    picks: [
+      ...leagueState.draftAssets.map((pick, index) => ({ pick, id: tradePickId(pick.teamCode, index, pick), virtual: false })),
+      ...virtualFourthDraftPicks.map(({ id, virtual: _virtual, ...pick }) => ({ pick, id, virtual: true })),
+    ]
       .filter(({ pick }) => pick.teamCode === team.code)
       .filter(({ pick }) => protectionCounterpartyDraftYears.includes(pick.year))
-      .map(({ pick, index }) => ({
-        id: tradePickId(team.code, index, pick),
+      .map(({ pick, id, virtual }) => ({
+        id,
         label: pick.label,
         round: pick.round,
         year: pick.year,
         originOrOverall: pick.originOrOverall,
         hasExistingCondition: Boolean(pick.clauseResolution) || /protetta|swap|contropartita|c\.p\./i.test(pick.label),
         tradable: tradableDraftYears.includes(pick.year),
+        virtual,
       }))
       .sort((left, right) => (
         left.year - right.year

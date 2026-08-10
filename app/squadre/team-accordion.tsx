@@ -6,6 +6,7 @@ import { calculateCapSpace, contractCostForSeason, followingSeasonName } from "@
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
+import { fourthDraftVirtualPicks, isFourthDraftPick } from "@/lib/future-draft-picks";
 import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState as SortState } from "@/lib/roster-display-sort";
 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
@@ -49,6 +50,10 @@ export function TeamAccordion({
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const highlightedYear = highlightedDraftYear(draftAssets, finalizedDraftPositionYears);
+  const displayedDraftAssets = [
+    ...draftAssets,
+    ...fourthDraftVirtualPicks(draftAssets, teams).map(({ id: _id, virtual: _virtual, ...asset }) => asset),
+  ];
   const allExpanded = teams.length > 0
     && openTeams.length === teams.length
     && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
@@ -122,7 +127,8 @@ export function TeamAccordion({
             {expanded && (
               <TeamDetails
                 entries={rosterEntries.filter((entry) => entry.teamCode === team.code)}
-                assets={draftAssets.filter((asset) => asset.teamCode === team.code)}
+                assets={displayedDraftAssets.filter((asset) => asset.teamCode === team.code)}
+                allDraftAssets={draftAssets}
                 rights={qualifyingOfferRights.filter((right) => right.teamCode === team.code)}
                 playerList={playerList}
                 playerListPublished={playerListPublished}
@@ -149,6 +155,7 @@ export function TeamAccordion({
 function TeamDetails({
   entries,
   assets,
+  allDraftAssets,
   rights,
   playerList,
   playerListPublished,
@@ -165,6 +172,7 @@ function TeamDetails({
 }: {
   entries: RosterEntry[];
   assets: DraftAsset[];
+  allDraftAssets: DraftAsset[];
   rights: QualifyingOfferRight[];
   playerList: PlayerListEntry[];
   playerListPublished: boolean;
@@ -186,6 +194,7 @@ function TeamDetails({
   const dpe = active.filter((entry) => entry.slot === "dpe");
   const cut = entries.filter((entry) => entry.state === "cut");
   const sortedAssets = [...assets].sort(compareDraftAssets);
+  const eligibleAssetCount = sortedAssets.filter((asset) => !isFourthDraftPick(asset, allDraftAssets)).length;
   const officialRoles = new Map(playerList.map((player) => [normalizePlayerName(player.name), player.role]));
   const roles = active
     .filter((entry) => entry.slot !== "dpe")
@@ -251,14 +260,15 @@ function TeamDetails({
         <SimplePlayerTable entries={dpe} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} />
       </DataSection>
 
-      <DataSection label={`Scelte (${sortedAssets.length})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
+      <DataSection label={`Scelte (${eligibleAssetCount})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
         <div className="data-table draft-data-table">
           <div className="data-head"><span>Anno</span><span>Giro</span><span>SQ / POS</span><span>Clausola</span></div>
           {sortedAssets.map((asset, index) => {
             const numericalPosition = numericValue(asset.originOrOverall);
             const isHighlightedDraft = asset.year === highlightedDraftYear;
+            const isNonTradableFuturePick = isFourthDraftPick(asset, allDraftAssets);
             return (
-            <div className={`data-row draft-row ${isHighlightedDraft ? "next-draft-position" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
+            <div className={`data-row draft-row ${isHighlightedDraft ? "next-draft-position" : ""} ${isNonTradableFuturePick ? "future-draft-pick" : ""}`} key={`${asset.year}-${asset.round}-${index}`}>
               <span><i className="draft-year">{asset.year}</i></span>
               <span><i className={`draft-round ${asset.round === "1° giro" ? "first-round" : "second-round"}`}>{asset.round}</i></span>
               <strong>
@@ -266,7 +276,7 @@ function TeamDetails({
                   ? <i className={isHighlightedDraft ? "draft-position" : "draft-origin"}>#{numericalPosition}</i>
                   : <i className={`draft-origin ${isHighlightedDraft ? "draft-origin-next" : ""}`}>{asset.originOrOverall}</i>}
               </strong>
-              <span>{draftCondition(asset.label)}</span>
+              <span>{isNonTradableFuturePick ? "Non scambiabile · solo contropartita protezione" : draftCondition(asset.label)}</span>
             </div>
           )})}
           {!sortedAssets.length && <EmptyRow />}

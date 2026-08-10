@@ -20,6 +20,7 @@ type AuctionTeam = {
   name: string;
   spaces: [number, number, number];
   slots: { regular: number; two_way: number; g_league: number };
+  cutPlayerNames: string[];
   players: {
     name: string;
     role: "G" | "A" | "C" | null;
@@ -231,6 +232,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
           <Metric label="Slot" value={team && afterSlots ? `${team.slots[effectiveSlot]}/${slotLimit} → ${afterSlots[effectiveSlot]}/${slotLimit}` : "—"} />
           <Metric label="Acquisto" value={qualifyingOutcome ? auctionAcquisitionLabel(qualifyingOutcome === "qualifying_offer" || qualifyingOutcome === "restricted_free_agent" ? qualifyingOutcome : undefined) : "Da specificare"} />
         </div>
+        <CutPlayerCheck names={team?.cutPlayerNames ?? []} />
         {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
         {slotErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         {errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
@@ -446,6 +448,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function CutPlayerCheck({ names }: { names: string[] }) {
+  return <p className="manual-cut-check">Verifica manualmente che il giocatore acquisito non compaia tra i tagliati: {names.length ? names.join(" · ") : "nessun giocatore tagliato"}.</p>;
 }
 
 function formatTeamName(name: string) {

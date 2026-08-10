@@ -158,6 +158,23 @@ describe("applicazione di uno scambio", () => {
     expect(after.draftAssets[0].clauseResolution?.role).toBe("protected");
   });
 
+  it("elimina automaticamente una clausola se lo scambio riunisce le due scelte nello stesso team", () => {
+    const before = state();
+    before.draftAssets[0].label = "Diritto di swap con BBB";
+    before.draftAssets[1].label = "Subisce il diritto di swap con AAA";
+
+    const after = applyValidatedTrade(before, {
+      playerMoves: [],
+      pickMoves: [{ stateIndex: 1, toTeamCode: "AAA" }],
+      pickClauses: [],
+      existingClauseChanges: [],
+      qualifyingOfferMoves: [],
+      cuts: [],
+    });
+
+    expect(after.draftAssets.map((asset) => asset.label)).toEqual(["Scelta", "Scelta"]);
+  });
+
   it("riconosce anche gli accordi importati dal vecchio foglio come testo", () => {
     const before = state();
     before.draftAssets[0].label = "Protetta top 5, 1a 2027 BBB";

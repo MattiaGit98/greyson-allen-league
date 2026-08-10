@@ -46,8 +46,8 @@ const actionGroups = [
     title: "Modifiche e rettifiche",
     actions: [
       { href: "/admin/rettifiche-roster", title: "Rettifiche roster" },
-      { href: "/admin/squadre-proprietari", title: "Squadre e proprietari" },
       { href: "/admin/movimenti", title: "Annulla movimenti" },
+      { href: "/admin/squadre-proprietari", title: "Squadre e proprietari" },
     ],
   },
   {

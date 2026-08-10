@@ -46,6 +46,10 @@ export default async function AuctionAdminPage({
         two_way: active.filter((entry) => entry.slot === "two_way").length,
         g_league: active.filter((entry) => entry.slot === "g_league").length,
       },
+      cutPlayerNames: entries
+        .filter((entry) => entry.state === "cut")
+        .map((entry) => entry.name)
+        .sort((left, right) => left.localeCompare(right, "it")),
       players: active
         .filter((entry) => entry.slot !== "dpe")
         .map((entry) => ({

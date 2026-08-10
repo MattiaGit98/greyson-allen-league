@@ -48,6 +48,27 @@ describe("assegnazione draft", () => {
     expect(result.price).toBe(1);
   });
 
+  it("rende ordinaria la contropartita del quarto draft al completamento del draft corrente", () => {
+    const input = state();
+    input.draftAssets.push({
+      label: "Contropartita se la 1ª scelta 2026 AAA rientra in top 5",
+      round: "1° giro",
+      year: 2029,
+      originOrOverall: "AAA",
+      originTeamCode: "AAA",
+      teamCode: "AAA",
+    });
+    const first = buildDraftAssignment({
+      state: input, historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "regular",
+    });
+    const second = buildDraftAssignment({
+      state: first.state, historyEntries: first.historyEntries, draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Due", destinationSlot: "regular",
+    });
+
+    expect(second.draftCompleted).toBe(true);
+    expect(second.state.draftAssets.filter((pick) => pick.year === 2029 && !pick.isBonus)).toHaveLength(2);
+  });
+
   it("blocca le scelte ancora senza posizione numerica", () => {
     const input = state();
     input.draftAssets[0].originOrOverall = "AAA";

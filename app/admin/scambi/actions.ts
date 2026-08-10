@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { normalizePlayerName } from "@/lib/admin-alerts";
 import { capOverrideRequested, capOverrideSummary, requireCapOverride, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { nextDraftYear } from "@/lib/draft-positions";
+import { fourthDraftVirtualPicks, materializeFourthDraftPicks } from "@/lib/future-draft-picks";
 import { synchronizeUnassignedDraftOwners } from "@/lib/draft-history";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
@@ -86,6 +87,20 @@ export async function registerTrade(formData: FormData) {
     }
   }
   const state = provisionalSignAndTrade?.state ?? originalState;
+  const requestedFuturePickIds = payload.pickClauses.flatMap((clause) => [
+    clause.pickId,
+    ...(clause.counterpartyPickId ? [clause.counterpartyPickId] : []),
+  ]);
+  const requestedVirtualFourthPicks = fourthDraftVirtualPicks(state.draftAssets, state.teams)
+    .filter((pick) => requestedFuturePickIds.includes(pick.id));
+  const tradeState = {
+    ...state,
+    draftAssets: materializeFourthDraftPicks(
+      state.draftAssets,
+      state.teams,
+      requestedFuturePickIds,
+    ),
+  };
   const validTeamCodes = new Set(originalState.teams.map((team) => team.code));
   const participantCodes = payload.participantCodes.map((code) => code.toUpperCase());
   if (participantCodes.length < 2 || new Set(participantCodes).size !== participantCodes.length) {
@@ -115,14 +130,23 @@ export async function registerTrade(formData: FormData) {
       ? [[tradePlayerId(entry.teamCode, entry.name), { entry, stateIndex }] as const]
       : []
   )));
-  const picks = new Map(state.draftAssets.map((pick, stateIndex) => (
+  const picks = new Map(tradeState.draftAssets.map((pick, stateIndex) => (
     [tradePickId(pick.teamCode, stateIndex, pick), { pick, stateIndex }] as const
   )));
+  for (const virtualPick of requestedVirtualFourthPicks) {
+    const stateIndex = tradeState.draftAssets.findIndex((asset) => (
+      asset.year === virtualPick.year
+      && asset.round === virtualPick.round
+      && asset.originTeamCode === virtualPick.originTeamCode
+      && !asset.isBonus
+    ));
+    if (stateIndex >= 0) picks.set(virtualPick.id, { pick: tradeState.draftAssets[stateIndex]!, stateIndex });
+  }
   const qualifyingOffers = new Map(state.qualifyingOfferRights.map((right, stateIndex) => (
     [tradeQualifyingOfferId(right.teamCode, right.playerName), { right, stateIndex }] as const
   )));
   const existingAgreements = new Map(existingTradeClauseAgreements(
-    state.draftAssets,
+    tradeState.draftAssets,
     state.teams.map((team) => team.code),
   ).map((agreement) => [agreement.agreementId, agreement]));
   const requestedRemovedAgreementIds = new Set(payload.existingClauseChanges
@@ -185,7 +209,7 @@ export async function registerTrade(formData: FormData) {
       toTeamCode: requested.toTeamCode,
       year: source.pick.year,
       round: source.pick.round,
-      hasExistingCondition: hasDraftCondition(source.pick),
+      hasExistingCondition: hasDraftCondition(source.pick) && !conditionIsRemovedInThisTrade(source.stateIndex),
       clause: "none",
       counterpartyPickId: null,
       counterpartyYear: null,
@@ -194,6 +218,21 @@ export async function registerTrade(formData: FormData) {
     };
   });
 
+  const pickMoveById = new Map(pickMoves.map((move) => [move.id, move]));
+  const postTradePickOwner = (pickId: string, currentOwnerTeamCode: string) => (
+    pickMoveById.get(pickId)?.toTeamCode ?? currentOwnerTeamCode
+  );
+  for (const agreement of existingAgreements.values()) {
+    if (
+      postTradePickOwner(agreement.subjectPickId, agreement.subjectOwnerTeamCode)
+      === postTradePickOwner(agreement.counterpartyPickId, agreement.counterpartyOwnerTeamCode)
+    ) {
+      requestedRemovedAgreementIds.add(agreement.agreementId);
+      releasedClausePickIndexes.add(agreement.subjectIndex);
+      releasedClausePickIndexes.add(agreement.counterpartyIndex);
+    }
+  }
+
   const pickClauseChanges: ValidatedTradeChanges["pickClauses"] = [];
   const pickClauses: TradePickClauseAgreement[] = payload.pickClauses.map((requested) => {
     const subject = picks.get(requested.pickId);
@@ -201,9 +240,24 @@ export async function registerTrade(formData: FormData) {
     if (!subject || subject.pick.teamCode !== requested.pickOwnerTeamCode) fail("La scelta indicata per la clausola non è più disponibile.");
     if (!participants.has(subject.pick.teamCode) || !participants.has(requested.beneficiaryTeamCode)) fail("Clausola della scelta non valida.");
     if (requested.clause === "none") fail("Seleziona il tipo di clausola.");
-    if (requested.counterpartyPickId && !counterpart) fail("La contropartita della clausola non è più disponibile.");
-    if (counterpart && requested.counterpartyTeamCode !== counterpart.pick.teamCode) fail("Proprietario della contropartita non valido.");
-    if (counterpart && !participants.has(counterpart.pick.teamCode)) fail("La contropartita deve appartenere a una squadra coinvolta nello scambio.");
+    if (!counterpart) fail("Seleziona la scelta di contropartita della clausola.");
+    if (requested.counterpartyTeamCode !== counterpart.pick.teamCode) fail("Proprietario della contropartita non valido.");
+    if (!participants.has(counterpart.pick.teamCode)) fail("La contropartita deve appartenere a una squadra coinvolta nello scambio.");
+    const subjectMove = pickMoveById.get(requested.pickId);
+    const subjectPostTradeOwner = postTradePickOwner(requested.pickId, subject.pick.teamCode);
+    const counterpartyPostTradeOwner = postTradePickOwner(requested.counterpartyPickId!, counterpart.pick.teamCode);
+    if (requested.clause.startsWith("protected_top_")) {
+      if (!subjectMove) fail("Una protezione può essere inserita soltanto su una scelta ceduta nello stesso scambio.");
+      if (counterpartyPostTradeOwner !== subjectMove.fromTeamCode) fail("La contropartita della protezione deve appartenere, dopo lo scambio, alla squadra che cede la scelta protetta.");
+      if (!isLaterDraftPick(counterpart.pick.year, counterpart.pick.round, subject.pick.year, subject.pick.round)) {
+        fail("La contropartita della protezione deve manifestarsi dopo la scelta protetta.");
+      }
+    } else {
+      if (subjectPostTradeOwner === counterpartyPostTradeOwner) fail("Le due scelte di uno swap devono appartenere a proprietari diversi dopo lo scambio.");
+      if (subject.pick.year !== counterpart.pick.year || subject.pick.round !== counterpart.pick.round) {
+        fail("Le due scelte di uno swap devono appartenere allo stesso draft e giro.");
+      }
+    }
     pickClauseChanges.push({
       subjectIndex: subject.stateIndex,
       counterpartyIndex: counterpart?.stateIndex ?? null,
@@ -223,12 +277,16 @@ export async function registerTrade(formData: FormData) {
       counterpartyRound: counterpart?.pick.round ?? null,
       counterpartyHasExistingCondition: counterpart ? hasDraftCondition(counterpart.pick) && !conditionIsRemovedInThisTrade(counterpart.stateIndex) : false,
       counterpartyOwnerTeamCode: counterpart?.pick.teamCode ?? null,
+      postTradeOwnerTeamCode: subjectPostTradeOwner,
+      counterpartyPostTradeOwnerTeamCode: counterpartyPostTradeOwner,
+      subjectWasTraded: Boolean(subjectMove),
+      subjectTradeFromTeamCode: subjectMove?.fromTeamCode ?? null,
     };
   });
 
   const existingClauseChanges: ValidatedTradeChanges["existingClauseChanges"] = [];
-  const evaluatedExistingClauseChanges = payload.existingClauseChanges.map((requested) => {
-    const agreement = existingAgreements.get(requested.agreementId);
+  const evaluatedExistingClauseChanges = [...requestedRemovedAgreementIds].map((agreementId) => {
+    const agreement = existingAgreements.get(agreementId);
     if (!agreement) fail("La clausola da rimuovere non esiste più.");
     if (!participants.has(agreement.subjectOwnerTeamCode) || !participants.has(agreement.counterpartyOwnerTeamCode)) {
       fail("Per rimuovere una clausola devono partecipare entrambe le squadre interessate.");
@@ -246,8 +304,8 @@ export async function registerTrade(formData: FormData) {
       counterpartyYear: agreement.counterpartyYear,
       subjectRound: agreement.round,
       counterpartyRound: agreement.round,
-      action: requested.action,
-      clause: requested.clause,
+      action: "remove" as const,
+      clause: null,
     };
   });
 
@@ -366,7 +424,7 @@ export async function registerTrade(formData: FormData) {
   if (roleMinimumRestorations.length && (!roleMinimumConfirmed || !roleMinimumSlotConfirmed)) {
     fail("Conferma l'assegnazione successiva del free agent da 1 credito e la verifica dello slot necessario.");
   }
-  const nextState = applyValidatedTrade(state, {
+  const nextState = applyValidatedTrade(tradeState, {
     playerMoves: playerChanges,
     pickMoves: pickChanges,
     pickClauses: pickClauseChanges,
@@ -405,12 +463,12 @@ export async function registerTrade(formData: FormData) {
       return entry ? [`${entry.name}: ${entry.teamCode} → ${change.toTeamCode}; ${tradeSlotLabel(entry.slot)} → ${tradeSlotLabel(change.destinationSlot)}; ${entry.cost} crediti, contratto ${entry.contract}`] : [];
     }),
     ...pickChanges.flatMap((change) => {
-      const pick = state.draftAssets[change.stateIndex];
+      const pick = tradeState.draftAssets[change.stateIndex];
       return pick ? [`Scelta ${tradePickLabel(pick)}: ${pick.teamCode} → ${change.toTeamCode}`] : [];
     }),
     ...pickClauseChanges.flatMap((change) => {
-      const subject = state.draftAssets[change.subjectIndex];
-      const counterparty = change.counterpartyIndex === null ? null : state.draftAssets[change.counterpartyIndex];
+      const subject = tradeState.draftAssets[change.subjectIndex];
+      const counterparty = change.counterpartyIndex === null ? null : tradeState.draftAssets[change.counterpartyIndex];
       return subject ? [`Clausola su scelta ${tradePickLabel(subject)}: ${tradeClauseLabel(change.clause)}${counterparty ? `; contropartita ${tradePickLabel(counterparty)}` : ""}`] : [];
     }),
     ...evaluatedExistingClauseChanges.map((change) => (
@@ -483,6 +541,13 @@ export async function registerTrade(formData: FormData) {
       countTeamOptions,
     }));
   }
+}
+
+function isLaterDraftPick(counterpartyYear: number, counterpartyRound: string, subjectYear: number, subjectRound: string) {
+  if (counterpartyYear > subjectYear) return true;
+  return counterpartyYear === subjectYear
+    && subjectRound.trim().startsWith("1")
+    && counterpartyRound.trim().startsWith("2");
 }
 
 function tradePickLabel(pick: { year: number; round: string; originTeamCode?: string; originOrOverall: string | number }) {

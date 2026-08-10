@@ -8,6 +8,7 @@ import {
 } from "@/lib/league-types";
 import { createSupabaseServerClient } from "./supabase/server";
 import type { SavedDraftOrderAssignment } from "./draft-positions";
+import { countTradeEligibleDraftAssets } from "./future-draft-picks";
 
 export type EditableLeagueState = {
   teams: TeamSummary[];
@@ -60,7 +61,7 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
       players: rosterEntries.filter((entry) => entry.teamCode === team.code && entry.state === "active").length,
       cutPlayers: rosterEntries.filter((entry) => entry.teamCode === team.code && entry.state === "cut").length,
       qualifyingOffers: qualifyingOfferRights.filter((right) => right.teamCode === team.code).length,
-      draftAssets: draftAssets.filter((asset) => asset.teamCode === team.code).length,
+      draftAssets: countTradeEligibleDraftAssets(draftAssets, team.code),
     }))
     .sort((left, right) => left.name.localeCompare(right.name, "it"));
 

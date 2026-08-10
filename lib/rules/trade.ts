@@ -70,6 +70,10 @@ export type TradePickClauseAgreement = {
   counterpartyRound: string | null;
   counterpartyHasExistingCondition: boolean;
   counterpartyOwnerTeamCode?: string | null;
+  postTradeOwnerTeamCode?: string;
+  counterpartyPostTradeOwnerTeamCode?: string | null;
+  subjectWasTraded?: boolean;
+  subjectTradeFromTeamCode?: string | null;
 };
 
 export type TradeExistingClauseChange = {
@@ -293,10 +297,20 @@ export function evaluateTrade(input: {
         message: "La protezione richiede una scelta di contropartita.",
       });
     }
+    const subjectPostTradeOwner = agreement.postTradeOwnerTeamCode ?? agreement.pickOwnerTeamCode;
+    const counterpartyPostTradeOwner = agreement.counterpartyPostTradeOwnerTeamCode
+      ?? agreement.counterpartyOwnerTeamCode;
+    const protectionTeam = agreement.subjectTradeFromTeamCode ?? agreement.pickOwnerTeamCode;
+    if (agreement.clause.startsWith("protected_top_") && agreement.subjectWasTraded === false) {
+      errors.push({
+        code: "TRADE_PROTECTION_SUBJECT_NOT_TRADED",
+        message: "Una protezione può essere inserita soltanto su una scelta ceduta nello stesso scambio.",
+      });
+    }
     if (
       agreement.clause.startsWith("protected_top_")
-      && agreement.counterpartyOwnerTeamCode
-      && agreement.counterpartyOwnerTeamCode !== agreement.pickOwnerTeamCode
+      && counterpartyPostTradeOwner
+      && counterpartyPostTradeOwner !== protectionTeam
     ) {
       errors.push({
         code: "TRADE_PROTECTION_COUNTERPART_OWNER_INVALID",
@@ -305,8 +319,8 @@ export function evaluateTrade(input: {
     }
     if (
       agreement.clause === "swap"
-      && agreement.counterpartyOwnerTeamCode
-      && agreement.counterpartyOwnerTeamCode === agreement.pickOwnerTeamCode
+      && counterpartyPostTradeOwner
+      && counterpartyPostTradeOwner === subjectPostTradeOwner
     ) {
       errors.push({
         code: "TRADE_SWAP_COUNTERPART_OWNER_INVALID",
@@ -331,8 +345,7 @@ export function evaluateTrade(input: {
     }
     if (
       agreement.clause.startsWith("protected_top_")
-      && agreement.counterpartyYear !== null
-      && agreement.counterpartyYear < agreement.year
+      && !isPickAfter(agreement.counterpartyYear, agreement.counterpartyRound, agreement.year, agreement.round)
     ) {
       errors.push({
         code: "TRADE_PROTECTION_COUNTERPART_INVALID",
@@ -582,4 +595,17 @@ function slotKey(slot: TradeSlot): keyof SlotCounts {
   if (slot === "two_way") return "twoWay";
   if (slot === "g_league") return "gLeague";
   return slot;
+}
+
+function isPickAfter(
+  counterpartyYear: number | null,
+  counterpartyRound: string | null,
+  subjectYear: number,
+  subjectRound: string,
+) {
+  if (counterpartyYear === null || counterpartyRound === null) return false;
+  if (counterpartyYear > subjectYear) return true;
+  return counterpartyYear === subjectYear
+    && subjectRound.trim().startsWith("1")
+    && counterpartyRound.trim().startsWith("2");
 }

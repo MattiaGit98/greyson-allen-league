@@ -24,6 +24,7 @@ type TeamOption = {
   code: string;
   name: string;
   currentCost: number;
+  cutPlayerNames: string[];
   rosterPlayers: {
     name: string;
     role: "G" | "A" | "C" | null;
@@ -308,6 +309,7 @@ function FreeAgentDialog({
           <Metric label="Ruoli" value={`${formatRoles(roles)} → ${formatRoles(preview.calculated.rolesAfter)}`} />
           <Metric label="Contratto" value={contract} />
         </div>
+        <p className="manual-cut-check">Verifica manualmente che il giocatore acquisito non compaia tra i tagliati: {team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}.</p>
         {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
         {promotionPlayer && <p className="auction-context-cut"><span>Promozione contestuale</span><strong>{promotionPlayer.name} · {slotLabel(promotionPlayer.slot)} → {slotLabel(promotionDestination)}</strong></p>}
         {outsideDuplicate && <p className="validation error">Il giocatore è già nel listone: selezionalo dall’elenco.</p>}

@@ -188,6 +188,11 @@ export function applyValidatedTrade(
       }], state.teams.map((team) => team.code));
     }
   }
+  for (const agreement of existingTradeClauseAgreements(draftAssets, state.teams.map((team) => team.code))) {
+    if (agreement.subjectOwnerTeamCode === agreement.counterpartyOwnerTeamCode) {
+      draftAssets = clearDraftClause(draftAssets, agreement.subjectIndex, agreement.counterpartyIndex);
+    }
+  }
   draftAssets = applyDraftClauses(draftAssets, changes.pickClauses, state.teams.map((team) => team.code));
 
   const qualifyingMoveByIndex = new Map(changes.qualifyingOfferMoves.map((move) => [move.stateIndex, move]));

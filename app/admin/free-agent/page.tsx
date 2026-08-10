@@ -49,6 +49,10 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
       optionSeasonName: seasonName,
       countTeamOptions: true,
     }),
+    cutPlayerNames: leagueState.rosterEntries
+      .filter((entry) => entry.teamCode === team.code && entry.state === "cut")
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right, "it")),
     rosterPlayers: leagueState.rosterEntries
       .filter((entry) => entry.teamCode === team.code && entry.state === "active")
       .map((entry) => ({
