@@ -163,6 +163,15 @@ export async function modifyAuctionPlayer(formData: FormData) {
     } : item);
   } else if (kind === "price") {
     if (!Number.isInteger(newPrice) || newPrice < 1) fail("Il nuovo prezzo deve essere un intero di almeno 1 credito.");
+    if (entry.slot !== "dpe") {
+      const destinationErrors = auctionDestinationErrors({
+        slot: entry.slot as AuctionSlot,
+        price: newPrice,
+        rookie: player.rookie,
+        under23: player.under23,
+      });
+      if (destinationErrors.length) fail(destinationErrors.join(" "));
+    }
     const updateAuctionPrice = isPostAuctionContractAssignmentCandidate(entry, season.name);
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
       ...item,

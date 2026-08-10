@@ -275,6 +275,12 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
     ...(pendingDraftPicks > 0 ? [`Il Draft dell'annata non è completo: restano ${pendingDraftPicks} scelte.`] : []),
     ...(kind === "price" && (!Number.isInteger(newPrice) || newPrice < 1) ? ["Il prezzo deve essere un intero di almeno 1 credito."] : []),
     ...(kind === "price" && newPrice === roster.cost ? ["Il nuovo prezzo coincide con quello attuale."] : []),
+    ...(kind === "price" && roster.slot !== "dpe" ? auctionDestinationErrors({
+      slot: roster.slot,
+      price: newPrice,
+      rookie: row.rookie,
+      under23: row.under23,
+    }) : []),
     ...(kind === "slot" && newSlot === roster.slot ? ["Seleziona uno slot diverso da quello attuale."] : []),
     ...(kind === "slot" && roster.slot === "dpe" ? ["Il reintegro dalla DPE va registrato nel blocco Altre operazioni."] : []),
     ...(kind === "slot" && roster.auctionAcquisition && newSlot !== "regular" ? ["Un acquisto tramite Q.O. o come RFA deve restare nello slot roster."] : []),
