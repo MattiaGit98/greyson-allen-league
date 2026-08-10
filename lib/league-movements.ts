@@ -1,6 +1,10 @@
 import type { EditableLeagueState } from "./league-state";
+import type { LeaguePhase } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { changedSlotTeamCodes, findAllSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
+import { salaryCapWarningsForSpaces } from "./cap-override";
+import { entriesForDpeAdjustedCap } from "./dpe-rules";
+import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "./season-time";
 import type { createSupabaseServerClient } from "./supabase/server";
 
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
@@ -159,6 +163,41 @@ export function movementReversalSlotErrors(
 ) {
   const affectedTeams = changedSlotTeamCodes(current.rosterEntries, restored.rosterEntries);
   return findAllSlotOverflows(restored.rosterEntries, affectedTeams).map(slotOverflowMessage);
+}
+
+export function movementReversalCapErrors(
+  current: EditableLeagueState,
+  restored: EditableLeagueState,
+  input: {
+    seasonName: string;
+    phase: LeaguePhase;
+    teamOptionsResolved: boolean;
+    currentMoment: LeagueMoment;
+  },
+) {
+  const seasonNames = [0, 1, 2].map((distance) => followingSeasonName(input.seasonName, distance));
+  const countTeamOptions = shouldCountTeamOptions(input.phase, input.teamOptionsResolved);
+  const teamCodes = new Set([
+    ...current.rosterEntries.map((entry) => entry.teamCode),
+    ...restored.rosterEntries.map((entry) => entry.teamCode),
+  ]);
+  return [...teamCodes].flatMap((teamCode) => {
+    const spacesFor = (entries: EditableLeagueState["rosterEntries"]) => seasonNames.map((seasonName, distance) => (
+      calculateCapSpace({
+        entries: entriesForDpeAdjustedCap(entries.filter((entry) => entry.teamCode === teamCode), distance),
+        seasonName,
+        optionSeasonName: input.seasonName,
+        countTeamOptions,
+      })
+    ));
+    return salaryCapWarningsForSpaces({
+      before: spacesFor(current.rosterEntries),
+      after: spacesFor(restored.rosterEntries),
+      seasonNames,
+      phase: input.phase,
+      currentMoment: input.currentMoment,
+    }).map((warning) => `${teamCode}: ${warning}`);
+  });
 }
 
 function sortRosterEntriesByBlock(entries: EditableLeagueState["rosterEntries"]) {

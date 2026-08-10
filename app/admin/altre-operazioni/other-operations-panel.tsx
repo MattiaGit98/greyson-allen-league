@@ -10,7 +10,7 @@ import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/
 import { calculateCapSpace } from "@/lib/season-time";
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
 import { hasReachedMoment, operationWindows } from "@/lib/league-moments";
-import { CapForceControl } from "@/app/admin/cap-force-control";
+import { CapBlocker } from "@/app/admin/cap-force-control";
 import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import {
   availableFreeReleaseReasons,
@@ -108,7 +108,6 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
   const choices = useMemo(() => availableOperations(player, team, props), [player, team, props]);
   const [operation, setOperation] = useState<Operation>(choices[0]?.value ?? "cut");
   const [confirmed, setConfirmed] = useState(false);
-  const [forceCap, setForceCap] = useState(false);
   const [installments, setInstallments] = useState<2 | 3>(2);
   const [releaseReason, setReleaseReason] = useState<FreeReleaseReason | "">("");
   const preview = operationPreview(operation, player, team, props, installments, confirmed, releaseReason);
@@ -130,7 +129,6 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <input type="hidden" name="requirements_confirmed" value={String(confirmed)} />
       <input type="hidden" name="confirmed" value={String(confirmed)} />
       <input type="hidden" name="installments" value={installments} />
-      <input type="hidden" name="force_cap" value={String(forceCap)} />
 
       <div className="auction-modal-header">
         <div><span>Altre operazioni</span><strong>{player.name}</strong><small>{placementLabel(player)} · {player.contract} · {player.cost}</small></div>
@@ -140,12 +138,12 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <div className="auction-modal-body">
         <div className="auction-modal-fields single-column">
           <Field label="Operazione">
-            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setForceCap(false); setReleaseReason(""); }}>
+            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setReleaseReason(""); }}>
               {choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.label}</option>)}
             </select>
           </Field>
           {operation === "stretch" && (
-            <Field label="Numero di rate"><select value={installments} onChange={(event) => { setInstallments(Number(event.target.value) as 2 | 3); setForceCap(false); }}><option value={2}>2 rate</option><option value={3}>3 rate</option></select></Field>
+            <Field label="Numero di rate"><select value={installments} onChange={(event) => { setInstallments(Number(event.target.value) as 2 | 3); }}><option value={2}>2 rate</option><option value={3}>3 rate</option></select></Field>
           )}
           {operation === "free_release" && (
             <div className="release-reason-fieldset">
@@ -193,12 +191,12 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
         </div>
         {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         {preview.warnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
-        <CapForceControl warnings={preview.capWarnings} checked={forceCap} onChange={setForceCap} />
+        <CapBlocker warnings={preview.capWarnings} />
       </div>
 
       <div className="auction-modal-actions">
         <button className="button secondary" type="button" onClick={onClose}>Annulla</button>
-        <button className="button primary" type="submit" disabled={preview.errors.length > 0 || (preview.capWarnings.length > 0 && !forceCap)}>Registra operazione</button>
+        <button className="button primary" type="submit" disabled={preview.errors.length > 0 || preview.capWarnings.length > 0}>Registra operazione</button>
       </div>
     </form>
   );

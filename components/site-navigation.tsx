@@ -33,8 +33,8 @@ const adminLinks = [
   ["Importa dati", "/admin/importa-dati"],
   ["Avanzamento della lega", "/admin/impostazioni"],
   ["Pannello asta", "/admin/asta"],
-  ["Pannello draft", "/admin/draft"],
   ["Posizioni draft", "/admin/posizioni-draft"],
+  ["Pannello draft", "/admin/draft"],
 ];
 
 function isCurrent(pathname: string, href: string) {

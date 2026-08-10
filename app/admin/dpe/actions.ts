@@ -8,14 +8,13 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
-import { capOverrideRequested, capOverrideSummary, requireCapOverride, salaryCapWarningsForSpaces } from "@/lib/cap-override";
+import { requireCapCompliance, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 
 const path = "/admin/altre-operazioni";
 
 export async function applyDpeOperation(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
   const operation = String(formData.get("dpe_operation") ?? "");
@@ -68,11 +67,11 @@ export async function applyDpeOperation(formData: FormData) {
     phase: season.data.status,
     currentMoment: leagueMoment,
   });
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
   const nextState = { ...state, rosterEntries };
   const label = operation === "dpe_activate" ? "Esercizio DPE" : "Reintegro anticipato dalla DPE";
   const slotDetail = operation === "dpe_activate" ? "Roster → DPE" : "DPE → Roster";
-  const response = await persistLeagueMovement(supabase, state, nextState, operation, capOverrideSummary(`${playerName}: ${label.toLocaleLowerCase("it-IT")} per ${teamCode}; ${slotDetail}`, capWarnings, forceCap));
+  const response = await persistLeagueMovement(supabase, state, nextState, operation, `${playerName}: ${label.toLocaleLowerCase("it-IT")} per ${teamCode}; ${slotDetail}`);
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/impostazioni"]
     .forEach((route) => revalidatePath(route));

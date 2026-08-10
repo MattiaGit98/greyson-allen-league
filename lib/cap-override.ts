@@ -21,6 +21,13 @@ export function requireCapOverride(warnings: string[], forced: boolean, fail: (m
   }
 }
 
+/** Le rettifiche roster sono l'unico percorso amministrativo che può essere confermato oltre cap. */
+export function requireCapCompliance(warnings: string[], fail: (message: string) => never) {
+  if (warnings.length) {
+    fail(`${warnings.join(" ")} L'operazione non può essere registrata perché non rispetta il salary cap.`);
+  }
+}
+
 export function hasBlockingDpeCutCapViolation(isDpeCut: boolean, warnings: readonly string[]) {
   return isDpeCut && warnings.length > 0;
 }

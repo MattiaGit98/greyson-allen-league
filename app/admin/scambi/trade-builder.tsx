@@ -14,7 +14,7 @@ import {
   type TradeSlot,
 } from "@/lib/rules/trade";
 import { countRosterRoles } from "@/lib/rules/roster";
-import { CapForceControl } from "@/app/admin/cap-force-control";
+import { CapBlocker } from "@/app/admin/cap-force-control";
 import type { ExistingTradeClauseAgreement } from "@/lib/trade-state";
 import type { SignAndTradeRequest } from "@/lib/sign-and-trade";
 
@@ -172,7 +172,6 @@ export function TradeBuilder({
   const [cuts, setCuts] = useState<CutMove[]>([]);
   const [promotions, setPromotions] = useState<PromotionMove[]>([]);
   const [existingClauseChanges, setExistingClauseChanges] = useState<TradeExistingClauseChange[]>([]);
-  const [forceCap, setForceCap] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [roleMinimumSlotConfirmed, setRoleMinimumSlotConfirmed] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -282,7 +281,7 @@ export function TradeBuilder({
     });
   }, [existingClauseChanges, participantCodes, pickMoves]);
 
-  const simulationValid = evaluation.valid && (capWarnings.length === 0 || forceCap);
+  const simulationValid = evaluation.valid && capWarnings.length === 0;
   const simulationRecap = simulator && simulationValid
     ? withTradeImportPayload(tradeSimulationRecap({
       teams,
@@ -364,7 +363,6 @@ export function TradeBuilder({
   }
 
   function invalidateTradeConfirmations() {
-    setForceCap(false);
     setRoleMinimumConfirmed(false);
     setRoleMinimumSlotConfirmed(false);
   }
@@ -479,7 +477,6 @@ export function TradeBuilder({
       setPromotions(imported.promotions);
       setPickClauses(imported.pickClauses);
       setExistingClauseChanges(imported.existingClauseChanges);
-      setForceCap(false);
       setRoleMinimumConfirmed(false);
       setRoleMinimumSlotConfirmed(false);
       setImportText("");
@@ -511,7 +508,6 @@ export function TradeBuilder({
           promotions,
         })}
       />}
-      {!simulator && <input type="hidden" name="force_cap" value={String(forceCap)} />}
       {!simulator && <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />}
       {!simulator && <input type="hidden" name="role_minimum_slot_confirmed" value={String(roleMinimumSlotConfirmed)} />}
       {signAndTrade && (
@@ -653,7 +649,7 @@ export function TradeBuilder({
         ))}
       </div>
 
-      {!simulator && <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />}
+      {!simulator && <CapBlocker warnings={capWarnings} />}
 
       {!simulator && roleMinimumConfirmationRequired && (
         <section className="trade-role-restoration" aria-label="Ripristino obbligatorio dei ruoli">
@@ -676,7 +672,7 @@ export function TradeBuilder({
         <button
           className="button primary trade-submit"
           type="submit"
-          disabled={!evaluation.valid || (capWarnings.length > 0 && !forceCap) || (roleMinimumConfirmationRequired && (!roleMinimumConfirmed || !roleMinimumSlotConfirmed))}
+          disabled={!evaluation.valid || capWarnings.length > 0 || (roleMinimumConfirmationRequired && (!roleMinimumConfirmed || !roleMinimumSlotConfirmed))}
         >
           {evaluation.valid ? "Registra scambio" : "Operazione non disponibile"}
         </button>

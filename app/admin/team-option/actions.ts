@@ -7,14 +7,13 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, previousSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
-import { capOverrideRequested, capOverrideSummary, requireCapOverride } from "@/lib/cap-override";
+import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
 import { destinationAfterTeamOptionExercise, exercisePlayoffTeamOption, markExercisedTeamOption } from "@/lib/team-option-contract";
 
 type Decision = { playerName: string; decision: "exercise" | "decline"; destination: "regular" | "two_way" };
 const path = "/admin/team-option";
 
 export async function saveTeamOptionDecisions(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   let decisions: Decision[];
   try {
@@ -70,7 +69,7 @@ export async function saveTeamOptionDecisions(formData: FormData) {
     });
     if (space < 0) capWarnings.push(`Le decisioni porterebbero il cap ${targetSeason} oltre 1000 crediti (cap libero ${space}).`);
   }
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
   const nextState = { ...state, rosterEntries };
   let movementState = state;
   const movements: LeagueMovementDraft[] = decisions.map((decision) => {
@@ -92,7 +91,7 @@ export async function saveTeamOptionDecisions(formData: FormData) {
       before,
       after,
       operationType: "team_option",
-      summary: capOverrideSummary(detail, capWarnings, forceCap),
+      summary: capOverrideSummary(detail, capWarnings, false),
       seasonName: activeSeasonName,
       undoBeforeMoment: "team_option_deadline",
     };
@@ -104,7 +103,6 @@ export async function saveTeamOptionDecisions(formData: FormData) {
 }
 
 export async function exercisePlayoffTeamOptions(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   let playerNames: string[];
   try {
@@ -151,7 +149,7 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
     });
     return space < 0 ? [`L'esercizio anticipato porterebbe il cap ${targetSeason} oltre 1000 crediti (cap libero ${space}).`] : [];
   });
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
 
   const nextState = { ...state, rosterEntries };
   let movementState = state;
@@ -169,7 +167,7 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
       before,
       after,
       operationType: "team_option_playoff",
-      summary: capOverrideSummary(`${playerName}: T.O. esercitata anticipatamente da ${teamCode} per utilizzo nei playoff; promozione obbligatoria nel roster all'inizio dell'offseason`, capWarnings, forceCap),
+      summary: capOverrideSummary(`${playerName}: T.O. esercitata anticipatamente da ${teamCode} per utilizzo nei playoff; promozione obbligatoria nel roster all'inizio dell'offseason`, capWarnings, false),
       seasonName: activeSeasonName,
     };
   });

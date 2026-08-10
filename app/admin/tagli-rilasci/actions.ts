@@ -10,7 +10,7 @@ import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/sea
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
-import { capOverrideRequested, capOverrideSummary, hasBlockingDpeCutCapViolation, requireCapOverride, salaryCapWarningsForSpaces } from "@/lib/cap-override";
+import { capOverrideSummary, hasBlockingDpeCutCapViolation, requireCapCompliance, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import {
   freeReleaseReasonAvailability,
   freeReleaseReasonLabels,
@@ -20,7 +20,6 @@ import {
 import { isUnresolvedTeamOption, teamOptionCutAdjustment } from "@/lib/team-option-contract";
 
 export async function applyRosterExitOperation(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const returnPath = "/admin/altre-operazioni";
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
@@ -124,7 +123,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   if (hasBlockingDpeCutCapViolation(kind === "cut" && dpeExemption, capWarnings)) {
     operationError(returnPath, `Taglio dalla DPE non consentito: ${capWarnings.join(" ")}`);
   }
-  requireCapOverride(capWarnings, forceCap, (message) => operationError(returnPath, message));
+  requireCapCompliance(capWarnings, (message) => operationError(returnPath, message));
   const nextState = {
     ...state,
     rosterEntries,
@@ -141,14 +140,13 @@ export async function applyRosterExitOperation(formData: FormData) {
   const optionCutDetail = optionCutAdjustment?.adjusted && changedGuaranteeYear >= 0 && adjustedOptionCharges
     ? ` · garanzia ultimo anno ex T.O. ${charges[changedGuaranteeYear]} → ${adjustedOptionCharges[changedGuaranteeYear]}`
     : "";
-  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}${optionCutDetail}`, capWarnings, forceCap));
+  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}${optionCutDetail}`, capWarnings, false));
   if (response.error) operationError(returnPath, response.error.message);
   revalidateOperationPaths();
   redirect(`${returnPath}?updated=${encodeURIComponent(`${label}: ${playerName}.`)}`);
 }
 
 export async function applyStretchProvision(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const returnPath = "/admin/altre-operazioni";
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
@@ -184,10 +182,10 @@ export async function applyStretchProvision(formData: FormData) {
     phase: season.status,
     currentMoment: leagueMoment,
   });
-  requireCapOverride(capWarnings, forceCap, (message) => operationError(returnPath, message));
+  requireCapCompliance(capWarnings, (message) => operationError(returnPath, message));
 
   const nextState = { ...state, rosterEntries };
-  const response = await persistLeagueMovement(supabase, state, nextState, "stretch_provision", capOverrideSummary(`${playerName} (${teamCode}): stretch provision in ${installments} rate da ${stretch.installment} crediti; scadenza ${String(finalExpiry).slice(-2)}`, capWarnings, forceCap));
+  const response = await persistLeagueMovement(supabase, state, nextState, "stretch_provision", capOverrideSummary(`${playerName} (${teamCode}): stretch provision in ${installments} rate da ${stretch.installment} crediti; scadenza ${String(finalExpiry).slice(-2)}`, capWarnings, false));
   if (response.error) operationError(returnPath, response.error.message);
   revalidateOperationPaths();
   redirect(`${returnPath}?updated=${encodeURIComponent(`Stretch provision applicata a ${playerName}: ${installments} rate da ${stretch.installment}.`)}`);

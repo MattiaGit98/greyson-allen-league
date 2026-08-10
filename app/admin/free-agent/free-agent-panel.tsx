@@ -5,7 +5,7 @@ import { nbaTeams } from "@/data/nba-teams";
 import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
 import { countRosterRoles } from "@/lib/rules/roster";
 import { signFreeAgent } from "./actions";
-import { CapForceControl } from "@/app/admin/cap-force-control";
+import { CapBlocker } from "@/app/admin/cap-force-control";
 import { isCapIssueCode } from "@/lib/cap-override";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
@@ -169,7 +169,6 @@ function FreeAgentDialog({
   const [outsideName, setOutsideName] = useState("");
   const [outsideRole, setOutsideRole] = useState<"G" | "A" | "C" | "X" | "">("");
   const [outsideRealTeam, setOutsideRealTeam] = useState("");
-  const [forceCap, setForceCap] = useState(false);
   const [standingConfirmed, setStandingConfirmed] = useState(false);
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
   const cuttablePlayers = (team?.rosterPlayers ?? []).filter((item) => item.cuttable && item.name !== promotionPlayerName);
@@ -245,7 +244,6 @@ function FreeAgentDialog({
       <input type="hidden" name="cut_player_name" value={cutPlayerName} />
       <input type="hidden" name="promotion_player_name" value={promotionPlayerName} />
       <input type="hidden" name="promotion_destination" value={promotionPlayer ? promotionDestination : ""} />
-      <input type="hidden" name="force_cap" value={String(forceCap)} />
       <input type="hidden" name="standing_confirmed" value={String(standingConfirmed)} />
 
       <div className="auction-modal-header">
@@ -267,19 +265,19 @@ function FreeAgentDialog({
             </>
           )}
           <Field label="Squadra">
-            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setForceCap(false); setStandingConfirmed(false); }}>
+            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setStandingConfirmed(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
-          <Field label="Prezzo"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setForceCap(false); setStandingConfirmed(false); if (value > 10) { setDestination("regular"); } }} /></Field>
+          <Field label="Prezzo"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setStandingConfirmed(false); if (value > 10) { setDestination("regular"); } }} /></Field>
           <Field label="Slot">
-            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); setForceCap(false); }}>
+            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); }}>
               <option value="regular">Roster</option>
               <option value="two_way" disabled={price > 10}>Two-way</option>
             </select>
           </Field>
           <Field label="Giocatore da tagliare">
-            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); setForceCap(false); if (event.target.value === promotionPlayerName) setPromotionPlayerName(""); }}>
+            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); if (event.target.value === promotionPlayerName) setPromotionPlayerName(""); }}>
               <option value="">Nessun taglio</option>
               {cuttablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {item.cost} · {item.contract} · {slotLabel(item.slot)}</option>)}
             </select>
@@ -289,7 +287,6 @@ function FreeAgentDialog({
               const nextPlayer = promotablePlayers.find((item) => item.name === event.target.value);
               setPromotionPlayerName(event.target.value);
               setPromotionDestination(nextPlayer?.promotionDestinations[0] ?? "regular");
-              setForceCap(false);
               if (event.target.value === cutPlayerName) setCutPlayerName("");
             }}>
               <option value="">Nessuna promozione</option>
@@ -297,7 +294,7 @@ function FreeAgentDialog({
             </select>
           </Field>
           <Field label="Destinazione promozione">
-            <select value={promotionDestination} onChange={(event) => { setPromotionDestination(event.target.value as typeof promotionDestination); setForceCap(false); }} disabled={!promotionPlayer}>
+            <select value={promotionDestination} onChange={(event) => { setPromotionDestination(event.target.value as typeof promotionDestination); }} disabled={!promotionPlayer}>
               {availablePromotionDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
             </select>
           </Field>
@@ -327,7 +324,7 @@ function FreeAgentDialog({
           <p className="validation warning">Con Firma e scambia puoi proseguire, ma lo slot deve essere liberato nella situazione finale.</p>
         )}
         {otherWarnings.map((warning) => <p className="validation warning" key={warning.code}>{warning.message}</p>)}
-        <CapForceControl warnings={capWarnings.map((warning) => warning.message)} checked={forceCap} onChange={setForceCap} />
+        <CapBlocker warnings={capWarnings.map((warning) => warning.message)} />
       </div>
 
       <div className="auction-modal-actions">
@@ -340,7 +337,7 @@ function FreeAgentDialog({
         >
           Firma e scambia
         </button>
-        <button className="button primary" type="submit" disabled={!preview.valid || standingConfirmationMissing || outsideDuplicate || !team || (capWarnings.length > 0 && !forceCap)}>Registra firma</button>
+        <button className="button primary" type="submit" disabled={!preview.valid || standingConfirmationMissing || outsideDuplicate || !team || capWarnings.length > 0}>Registra firma</button>
       </div>
     </form>
   );

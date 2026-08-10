@@ -7,7 +7,7 @@ import { moveRosterSlot } from "@/app/admin/slot/actions";
 import { exercisePlayoffTeamOptions, saveTeamOptionDecisions } from "@/app/admin/team-option/actions";
 import type { AdminRosterPlayer, AdminRosterTeam } from "@/lib/admin-operation-data";
 import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
-import { CapForceControl } from "@/app/admin/cap-force-control";
+import { CapBlocker } from "@/app/admin/cap-force-control";
 import { salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { legalSlotDestinations, slotEligibilityErrors, slotMoveTimingErrors } from "@/lib/slot-eligibility";
 import { destinationAfterTeamOptionExercise } from "@/lib/team-option-contract";
@@ -113,7 +113,6 @@ export function TeamOptionForm(props: OperationProps) {
   const [teamCode, setTeamCode] = useState(props.teams[0]?.code ?? "");
   const [decisions, setDecisions] = useState<Record<string, "exercise" | "decline">>({});
   const [gLeagueDestinations, setGLeagueDestinations] = useState<Record<string, "two_way" | "regular">>({});
-  const [forceCap, setForceCap] = useState(false);
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
   const players = (team?.players ?? []).filter((player) => player.state === "active" && player.isTeamOption);
   const before = slotCounts(team);
@@ -156,7 +155,6 @@ export function TeamOptionForm(props: OperationProps) {
   ];
 
   function setDecision(playerId: string, decision: "exercise" | "decline", checked: boolean) {
-    setForceCap(false);
     setDecisions((current) => {
       if (!checked) {
         const next = { ...current };
@@ -176,9 +174,8 @@ export function TeamOptionForm(props: OperationProps) {
     <form action={saveTeamOptionDecisions} className="team-option-workspace">
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="decisions_json" value={JSON.stringify(serializedDecisions)} />
-      <input type="hidden" name="force_cap" value={String(forceCap)} />
       <div className="team-option-editor">
-        <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setForceCap(false); }} /></Field>
+        <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); }} /></Field>
         <div className="team-option-list">
           <div className="team-option-list-head"><span>Giocatore</span><span>Decisione</span><span>Destinazione</span></div>
           {players.map((player) => {
@@ -201,7 +198,7 @@ export function TeamOptionForm(props: OperationProps) {
                 </div>
                 <div className="team-option-destination">
                   {decision === "exercise" && player.slot === "g_league"
-                    ? <select value={gLeagueDestinations[player.id] ?? "two_way"} onChange={(event) => { setGLeagueDestinations((current) => ({ ...current, [player.id]: event.target.value as "two_way" | "regular" })); setForceCap(false); }}><option value="two_way">Two-way</option><option value="regular">Roster</option></select>
+                    ? <select value={gLeagueDestinations[player.id] ?? "two_way"} onChange={(event) => { setGLeagueDestinations((current) => ({ ...current, [player.id]: event.target.value as "two_way" | "regular" })); }}><option value="two_way">Two-way</option><option value="regular">Roster</option></select>
                     : decision === "exercise" && player.slot === "two_way"
                       ? <span>Roster ↑</span>
                       : decision === "exercise" ? <span>{slotLabel(player.slot)}</span> : <span>—</span>}
@@ -211,7 +208,7 @@ export function TeamOptionForm(props: OperationProps) {
           })}
           {!players.length && <p className="team-option-empty">Nessuna team option per questa squadra.</p>}
         </div>
-        <button className="button primary team-option-save" type="submit" disabled={Boolean(errors.length) || !selectedPlayers.length || (capWarnings.length > 0 && !forceCap)}>
+        <button className="button primary team-option-save" type="submit" disabled={Boolean(errors.length) || !selectedPlayers.length || capWarnings.length > 0}>
           Salva decisioni{selectedPlayers.length ? ` (${selectedPlayers.length})` : ""}
         </button>
       </div>
@@ -226,7 +223,7 @@ export function TeamOptionForm(props: OperationProps) {
           <Metric label="G-League" value={`${after.g_league}/3`} />
         </div>
         <Validation errors={errors} />
-        <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
+        <CapBlocker warnings={capWarnings} />
       </aside>
     </form>
   );
@@ -235,7 +232,6 @@ export function TeamOptionForm(props: OperationProps) {
 export function PlayoffTeamOptionForm(props: OperationProps) {
   const [teamCode, setTeamCode] = useState(props.teams[0]?.code ?? "");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [forceCap, setForceCap] = useState(false);
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
   const players = (team?.players ?? []).filter((player) => (
     player.state === "active" && player.slot === "g_league" && player.isTeamOption
@@ -260,13 +256,12 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
     <form action={exercisePlayoffTeamOptions} className="team-option-workspace playoff-team-option-workspace">
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="player_names_json" value={JSON.stringify(selectedPlayers.map((player) => player.name))} />
-      <input type="hidden" name="force_cap" value={String(forceCap)} />
       <div className="team-option-editor">
         <div className="team-option-mode playoff">
           <span>Esercizio anticipato</span>
           <strong>Utilizzo nei playoff</strong>
         </div>
-        <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setSelected({}); setForceCap(false); }} /></Field>
+        <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setSelected({}); }} /></Field>
         <div className="team-option-list">
           <div className="team-option-list-head"><span>Giocatore</span><span>Utilizzato nei playoff</span><span>Effetto</span></div>
           {players.map((player) => (
@@ -279,7 +274,6 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
                 <label className={selected[player.id] ? "selected exercise" : ""}>
                   <input type="checkbox" checked={selected[player.id] === true} onChange={(event) => {
                     setSelected((current) => ({ ...current, [player.id]: event.target.checked }));
-                    setForceCap(false);
                   }} />
                   Esercita T.O.
                 </label>
@@ -291,7 +285,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
           ))}
           {!players.length && <p className="team-option-empty">Nessuna T.O. in G-League per questa squadra.</p>}
         </div>
-        <button className="button primary team-option-save" type="submit" disabled={Boolean(errors.length) || !selectedPlayers.length || (capWarnings.length > 0 && !forceCap)}>
+        <button className="button primary team-option-save" type="submit" disabled={Boolean(errors.length) || !selectedPlayers.length || capWarnings.length > 0}>
           Registra esercizio anticipato{selectedPlayers.length ? ` (${selectedPlayers.length})` : ""}
         </button>
       </div>
@@ -305,7 +299,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
           <Metric label="Promozione" value={`${nextSeasonName} · inizio offseason`} />
         </div>
         <Validation errors={errors} />
-        <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
+        <CapBlocker warnings={capWarnings} />
       </aside>
     </form>
   );
@@ -445,7 +439,6 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
       return draft ? [[player.id, { contract: draft.contractKind, slot: draft.slot }]] : [];
     })),
   ));
-  const [forceCap, setForceCap] = useState(false);
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
   const players = (team?.players ?? []).filter((player) => {
     return isPostAuctionContractAssignmentCandidate(player, props.seasonName);
@@ -499,7 +492,6 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
   ));
 
   function setAssignment(player: AdminRosterPlayer, contract?: ContractKind) {
-    setForceCap(false);
     setAssignments((current) => {
       const next = { ...current };
       if (contract) next[player.id] = { contract, slot: current[player.id]?.slot ?? (player.slot === "dpe" ? "regular" : player.slot) };
@@ -509,7 +501,6 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
   }
   function setContractSlot(player: AdminRosterPlayer, slot: ContractSlot) {
     if (player.state === "cut" && slot !== "regular") return;
-    setForceCap(false);
     setAssignments((current) => ({
       ...current,
       [player.id]: {
@@ -531,10 +522,9 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
     <form action={assignPostAuctionContracts} className="contract-assignment-workspace">
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="assignments_json" value={JSON.stringify(serializedAssignments)} />
-      <input type="hidden" name="force_cap" value={String(forceCap)} />
       <div className="contract-assignment-editor">
         <div className="guided-operation-toolbar">
-          <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setForceCap(false); }} /></Field>
+          <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); }} /></Field>
         </div>
 
         <div className="contract-assignment-list">
@@ -577,7 +567,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
           })}
           {!players.length && <p className="team-option-empty">Nessun giocatore con contratto da assegnare.</p>}
         </div>
-        <button className="button primary guided-operation-save" type="submit" disabled={errors.length > 0 || (capWarnings.length > 0 && !forceCap)}>Salva bozza privata ({selectedAssignments.length})</button>
+        <button className="button primary guided-operation-save" type="submit" disabled={errors.length > 0 || capWarnings.length > 0}>Salva bozza privata ({selectedAssignments.length})</button>
       </div>
 
       <aside className="guided-operation-recap contract-assignment-recap">
@@ -589,7 +579,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
           ))}
         </div>
         <Validation errors={errors} />
-        <CapForceControl warnings={capWarnings} checked={forceCap} onChange={setForceCap} />
+        <CapBlocker warnings={capWarnings} />
       </aside>
     </form>
   );

@@ -12,7 +12,7 @@ import { countRosterRoles } from "@/lib/rules/roster";
 import { calculateCapSpace, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
-import { capOverrideRequested, capOverrideSummary, requireCapOverride } from "@/lib/cap-override";
+import { requireCapCompliance } from "@/lib/cap-override";
 import {
   applyStandardContractCut,
   isUnresolvedTeamOption,
@@ -22,7 +22,6 @@ import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-e
 const path = "/admin/free-agent";
 
 export async function signFreeAgent(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const standingConfirmed = formData.get("standing_confirmed") === "true";
   const playerSource = clean(formData.get("player_source"));
   const playerName = clean(formData.get("player_name"));
@@ -189,7 +188,7 @@ export async function signFreeAgent(formData: FormData) {
       ? [`La firma aumenterebbe il cap oltre quota 1100 (cap libero ${1000 - afterCost}).`]
       : []),
   ];
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
   const nextState = {
     ...state,
     rosterEntries,
@@ -200,7 +199,7 @@ export async function signFreeAgent(formData: FormData) {
     state,
     nextState,
     "firma_free_agent",
-    capOverrideSummary(`${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}` : ""}`, capWarnings, forceCap),
+    `${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}` : ""}`,
   );
   if (response.error) fail(response.error.message);
 

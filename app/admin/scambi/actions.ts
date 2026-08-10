@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { normalizePlayerName } from "@/lib/admin-alerts";
-import { capOverrideRequested, capOverrideSummary, requireCapOverride, salaryCapWarningsForSpaces } from "@/lib/cap-override";
+import { capOverrideSummary, requireCapCompliance, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { nextDraftYear } from "@/lib/draft-positions";
 import { fourthDraftVirtualPicks, materializeFourthDraftPicks } from "@/lib/future-draft-picks";
 import { synchronizeUnassignedDraftOwners } from "@/lib/draft-history";
@@ -40,7 +40,6 @@ import {
 const path = "/admin/scambi";
 
 export async function registerTrade(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const roleMinimumSlotConfirmed = formData.get("role_minimum_slot_confirmed") === "true";
   let payload: TradeTransactionPayload;
@@ -454,7 +453,7 @@ export async function registerTrade(formData: FormData) {
       .map((warning) => warning.message),
     ...[...actualCapWarningsByTeam.entries()].flatMap(([teamCode, warnings]) => warnings.map((warning) => `${teamCode}: ${warning}`)),
   ])];
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
   const operationType = provisionalSignAndTrade ? "sign_and_trade" : "scambio";
   const movementDetails = [
     ...(provisionalSignAndTrade ? [provisionalSignAndTrade.label] : []),
@@ -494,7 +493,7 @@ export async function registerTrade(formData: FormData) {
     ? `Sign and trade ${participantCodes.join(" ↔ ")}`
     : `Scambio ${participantCodes.join(" ↔ ")}`;
   const summary = `${heading}: ${movementDetails.join("; ")}`;
-  const movementSummary = capOverrideSummary(summary, capWarnings, forceCap);
+  const movementSummary = capOverrideSummary(summary, capWarnings, false);
   const synchronizedHistory = synchronizeUnassignedDraftOwners(
     history.competitions.Draft,
     nextState.draftAssets,

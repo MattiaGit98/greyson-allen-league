@@ -7,12 +7,11 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, previousSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
-import { capOverrideRequested, capOverrideSummary, requireCapOverride } from "@/lib/cap-override";
+import { requireCapCompliance } from "@/lib/cap-override";
 
 const defaultPath = "/admin/altre-operazioni";
 
 export async function applyContractExtension(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const path = defaultPath;
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
@@ -81,9 +80,9 @@ export async function applyContractExtension(formData: FormData) {
       capWarnings.push(`L'estensione non rispetta il limite del cap durante la stagione (cap libero ${space}).`);
     }
   }
-  requireCapOverride(capWarnings, forceCap, (message) => fail(path, message));
+  requireCapCompliance(capWarnings, (message) => fail(path, message));
   const nextState = { ...state, rosterEntries };
-  const response = await persistLeagueMovement(supabase, state, nextState, "estensione_contrattuale", capOverrideSummary(`${playerName}: estensione esercitata da ${teamCode}; costo ${entry.cost} → ${newCost} crediti; scadenza ${String(endYear + 1).slice(-2)}`, capWarnings, forceCap));
+  const response = await persistLeagueMovement(supabase, state, nextState, "estensione_contrattuale", `${playerName}: estensione esercitata da ${teamCode}; costo ${entry.cost} → ${newCost} crediti; scadenza ${String(endYear + 1).slice(-2)}`);
   if (response.error) fail(path, response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", "/admin/altre-operazioni", path].forEach((route) => revalidatePath(route));
   redirect(`${path}?updated=${encodeURIComponent(`Estensione registrata: ${playerName}.`)}`);

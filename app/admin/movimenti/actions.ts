@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
-import { buildMovementReversal, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
+import { buildMovementReversal, movementReversalCapErrors, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -41,6 +41,15 @@ export async function revertMovement(formData: FormData) {
   const slotErrors = movementReversalSlotErrors(current, restored);
   if (slotErrors.length) {
     fail(`${slotErrors.join(" ")} L'annullamento ricreerebbe un conflitto di slot.`);
+  }
+  const capErrors = movementReversalCapErrors(current, restored, {
+    seasonName: seasonResponse.data.name,
+    phase: seasonResponse.data.status,
+    teamOptionsResolved: seasonResponse.data.team_options_resolved,
+    currentMoment: leagueMomentFromSeason(seasonResponse.data),
+  });
+  if (capErrors.length) {
+    fail(`${capErrors.join(" ")} L'annullamento non può essere registrato perché non rispetta il salary cap.`);
   }
   const reverted = await supabase.rpc("revert_league_state_movement", {
     requested_movement_id: movementId,

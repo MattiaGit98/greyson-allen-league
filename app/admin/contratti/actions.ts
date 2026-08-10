@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PostAuctionContractKind } from "@/lib/auction-management";
-import { capOverrideRequested, requireCapOverride } from "@/lib/cap-override";
+import { requireCapCompliance } from "@/lib/cap-override";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import {
@@ -23,7 +23,6 @@ type Assignment = {
 const path = "/admin/contratti";
 
 export async function assignPostAuctionContracts(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const teamCode = clean(formData.get("team_code")).toUpperCase();
   let assignments: Assignment[];
   try {
@@ -80,7 +79,7 @@ export async function assignPostAuctionContracts(formData: FormData) {
     });
     return space < 0 ? [`I contratti porterebbero il cap ${targetSeason} oltre 1000 crediti (cap libero ${space}).`] : [];
   });
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
 
   const response = await supabase.rpc("replace_post_auction_contract_drafts", {
     requested_season_name: activeSeasonName,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildMovementReversal,
+  movementReversalCapErrors,
   movementReversalSlotErrors,
   movementUndoMetadataFromState,
   movementUndoWindowError,
@@ -130,6 +131,23 @@ describe("movement reversal", () => {
 
     expect(movementReversalSlotErrors(after, restored)).toEqual([
       "AAA: slot Roster oltre il limite (16/15).",
+    ]);
+  });
+
+  it("blocks a reversal that would increase an over-cap offseason roster", () => {
+    const current = state("AAA");
+    current.rosterEntries[0].cost = 999;
+    const restored = state("AAA");
+    restored.rosterEntries[0].cost = 1001;
+
+    expect(movementReversalCapErrors(current, restored, {
+      seasonName: "2026/27",
+      phase: "offseason",
+      teamOptionsResolved: false,
+      currentMoment: "offseason_start",
+    })).toEqual([
+      "AAA: Il cap libero 2026/27 sarebbe -1 (limite 1000).",
+      "AAA: Il cap libero 2027/28 sarebbe -1 (limite 1000).",
     ]);
   });
 });

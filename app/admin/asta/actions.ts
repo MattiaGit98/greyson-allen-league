@@ -17,7 +17,7 @@ import { persistLeagueMovement } from "@/lib/league-movements";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
-import { capOverrideRequested, capOverrideSummary, requireCapOverride } from "@/lib/cap-override";
+import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
 import { slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { applyStandardContractCut } from "@/lib/team-option-contract";
 
@@ -25,7 +25,6 @@ const auctionPath = "/admin/asta";
 type AuctionEditKind = "delete" | "cut" | "price" | "slot";
 
 export async function purchaseAuctionPlayer(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const playerName = cleanText(formData.get("player_name"));
   const teamCode = cleanText(formData.get("team_code")).toUpperCase();
   const price = Number(formData.get("price"));
@@ -103,7 +102,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   const capWarnings = afterSpace < 0 && price > 1
     ? [`Oltre quota 1000, in asta si può acquistare soltanto per 1 credito (cap libero ${afterSpace}).`]
     : [];
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
   const nextState: EditableLeagueState = {
     ...state,
     rosterEntries,
@@ -114,7 +113,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     state,
     nextState,
     "acquisto_asta",
-    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto ${rosterEntry.contract}; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}`, capWarnings, forceCap),
+    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto ${rosterEntry.contract}; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}`, capWarnings, false),
   );
 
   const suffix = cutPlayerName ? ` Taglio contestuale: ${cutPlayerName}.` : "";
@@ -128,7 +127,6 @@ function acquisitionSummary(outcome: QualifyingAuctionOutcome) {
 }
 
 export async function modifyAuctionPlayer(formData: FormData) {
-  const forceCap = capOverrideRequested(formData);
   const playerName = cleanText(formData.get("player_name"));
   const requestedTeamCode = cleanText(formData.get("team_code")).toUpperCase();
   const kind = cleanText(formData.get("edit_kind")) as AuctionEditKind;
@@ -266,7 +264,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
   if (kind === "cut" && entry.slot === "dpe" && capWarnings.length) {
     fail(`Il taglio dalla DPE non può violare il salary cap. ${capWarnings.join(" ")}`);
   }
-  requireCapOverride(capWarnings, forceCap, fail);
+  requireCapCompliance(capWarnings, fail);
 
   const detail = modificationDetail(kind, entry, newPrice, newSlot, exchangeEntry);
   await persistAuctionState(
@@ -274,7 +272,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
     state,
     { ...state, rosterEntries },
     "modifica_asta",
-    capOverrideSummary(`${playerName}: ${detail}`, capWarnings, forceCap),
+    capOverrideSummary(`${playerName}: ${detail}`, capWarnings, false),
   );
   const overflow = slotOverflow(rosterEntries, requestedTeamCode);
   success(`${playerName}: ${detail}.${overflow.length ? ` Attenzione: ${overflow.join("; ")}.` : ""}`);
