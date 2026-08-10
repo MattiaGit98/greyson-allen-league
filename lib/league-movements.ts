@@ -6,6 +6,11 @@ import { salaryCapWarningsForSpaces } from "./cap-override";
 import { entriesForDpeAdjustedCap } from "./dpe-rules";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "./season-time";
 import type { createSupabaseServerClient } from "./supabase/server";
+import {
+  removeRolelessPlayersByName,
+  removeRolelessPlayersLeavingRosters,
+  rolelessNamesLeavingRoster,
+} from "./roleless-player-list";
 
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 
@@ -25,8 +30,9 @@ export async function persistLeagueMovement(
   operationType: string,
   summary: string,
 ) {
-  const affectedTeams = changedSlotTeamCodes(before.rosterEntries, after.rosterEntries);
-  const slotErrors = findAllSlotOverflows(after.rosterEntries, affectedTeams).map(slotOverflowMessage);
+  const cleanedAfter = removeRolelessPlayersLeavingRosters(before, after);
+  const affectedTeams = changedSlotTeamCodes(before.rosterEntries, cleanedAfter.rosterEntries);
+  const slotErrors = findAllSlotOverflows(cleanedAfter.rosterEntries, affectedTeams).map(slotOverflowMessage);
   if (slotErrors.length) {
     return {
       data: null,
@@ -37,7 +43,7 @@ export async function persistLeagueMovement(
   }
   return supabase.rpc("apply_league_state_movement", {
     expected_before_state: before,
-    next_state: after,
+    next_state: cleanedAfter,
     movement_type: operationType,
     movement_summary: summary,
   });
@@ -52,8 +58,12 @@ export async function persistLeagueMovements(
   if (!movements.length) {
     return { data: null, error: { message: "Nessun movimento da registrare." } };
   }
-  const affectedTeams = changedSlotTeamCodes(before.rosterEntries, after.rosterEntries);
-  const slotErrors = findAllSlotOverflows(after.rosterEntries, affectedTeams).map(slotOverflowMessage);
+  const removedNames = new Set<string>();
+  movements.forEach((movement) => rolelessNamesLeavingRoster(movement.before, movement.after)
+    .forEach((name) => removedNames.add(name)));
+  const cleanedAfter = removeRolelessPlayersByName(after, removedNames);
+  const affectedTeams = changedSlotTeamCodes(before.rosterEntries, cleanedAfter.rosterEntries);
+  const slotErrors = findAllSlotOverflows(cleanedAfter.rosterEntries, affectedTeams).map(slotOverflowMessage);
   if (slotErrors.length) {
     return {
       data: null,
@@ -62,10 +72,20 @@ export async function persistLeagueMovements(
       },
     };
   }
+  let previousState = before;
+  const cleanedMovements = movements.map((movement) => {
+    const cleanedMovement = {
+      ...movement,
+      before: previousState,
+      after: removeRolelessPlayersByName(movement.after, removedNames),
+    };
+    previousState = cleanedMovement.after;
+    return cleanedMovement;
+  });
   return supabase.rpc("apply_league_state_movements", {
     expected_before_state: before,
-    next_state: after,
-    movement_rows: movements.map((movement) => ({
+    next_state: cleanedAfter,
+    movement_rows: cleanedMovements.map((movement) => ({
       before_state: movement.before,
       after_state: movement.after,
       operation_type: movement.operationType,

@@ -2,6 +2,7 @@ import type { EditableLeagueState } from "./league-state";
 import type { HistoryCompetitionEntry, HistoryDraftRow } from "./history-competitions";
 import { draftOverallPosition } from "./draft-rules";
 import { findTeamSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
+import { removeRolelessPlayersByName } from "./roleless-player-list";
 
 export type DraftRosterSlot = "regular" | "two_way" | "g_league";
 export type DraftDestinationSlot = DraftRosterSlot | "immediate_cut" | "immediate_release";
@@ -137,11 +138,14 @@ export function buildDraftAssignment({
       contractStartSeason: `${draftYear}/${String((draftYear + 1) % 100).padStart(2, "0")}`,
     },
   ] : state.rosterEntries;
-  const nextState: EditableLeagueState = {
+  const draftedState: EditableLeagueState = {
     ...state,
     rosterEntries: nextRosterEntries,
     draftAssets: nextDraftAssets,
   };
+  const nextState = destinationSlot === "immediate_cut" || destinationSlot === "immediate_release"
+    ? removeRolelessPlayersByName(draftedState, [player.name])
+    : draftedState;
   const finalSlotErrors = destinationSlot === "immediate_cut" || destinationSlot === "immediate_release"
     ? []
     : findTeamSlotOverflows(nextState.rosterEntries, pick.teamCode).map(slotOverflowMessage);

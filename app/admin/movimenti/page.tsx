@@ -7,6 +7,7 @@ import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { UndoMovementButton } from "./undo-movement-button";
+import { roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
 
 export default async function MovementAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; reverted?: string }> }) {
   const query = await searchParams;
@@ -19,7 +20,7 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
   const movements = (response.data ?? []).map((movement) => {
     let reversible = !movement.reverted_at;
     let reason = "";
-    let restored = null;
+    let restored: typeof current | null = null;
     if (reversible) {
       const snapshotMetadata = movementUndoMetadataFromState(movement.before_state);
       const windowError = movementUndoWindowError({
@@ -56,6 +57,18 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
           reversible = false;
           reason = `${capErrors.join(" ")} L'annullamento non rispetterebbe il salary cap.`;
         }
+        if (restored) {
+          const restoredState = restored;
+          const roleMinimumSlotErrors = [...new Set(restoredState.rosterEntries.map((entry) => entry.teamCode))]
+            .flatMap((teamCode) => {
+              const error = roleMinimumRecoverySlotErrorForEntries(restoredState.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, currentMoment);
+              return error ? [`${teamCode}: ${error}`] : [];
+            });
+          if (roleMinimumSlotErrors.length) {
+            reversible = false;
+            reason = `${roleMinimumSlotErrors.join(" ")} L'annullamento non lascerebbe slot sufficienti per ripristinare i ruoli.`;
+          }
+        }
       } catch (error) {
         reversible = false;
         reason = error instanceof Error ? error.message : "Non annullabile.";
@@ -68,7 +81,10 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
       seasonNames: capSeasonNames,
       countTeamOptions,
     }) : [];
-    return { ...movement, reversible, reason, preview };
+    const roleMinimumConfirmationRequired = restored
+      ? roleMinimumsWorsen(current.rosterEntries, restored.rosterEntries, season.status, currentMoment)
+      : false;
+    return { ...movement, reversible, reason, preview, roleMinimumConfirmationRequired };
   });
   return (
     <section className="section page-top admin-dashboard movement-admin-page">
@@ -78,7 +94,7 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
         {movements.map((movement) => (
           <article className={movement.reverted_at ? "reverted" : ""} key={movement.id}>
             <div><span>{movementOperationLabel(movement.operation_type)}</span><strong>{conciseMovementDetail(movement.operation_type, movement.summary)}</strong>{movement.reason && <small>{movement.reason}</small>}{movement.reverted_at && <small>Movimento già annullato</small>}</div>
-            <UndoMovementButton movementId={movement.id} summary={conciseMovementDetail(movement.operation_type, movement.summary)} preview={movement.preview} disabled={!movement.reversible} />
+            <UndoMovementButton movementId={movement.id} summary={conciseMovementDetail(movement.operation_type, movement.summary)} preview={movement.preview} roleMinimumConfirmationRequired={movement.roleMinimumConfirmationRequired} disabled={!movement.reversible} />
           </article>
         ))}
         {!movements.length && <p className="data-empty">Nessun movimento annullabile registrato.</p>}

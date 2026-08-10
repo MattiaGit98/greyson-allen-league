@@ -18,11 +18,14 @@ import {
   isUnresolvedTeamOption,
 } from "@/lib/team-option-contract";
 import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 
 const path = "/admin/free-agent";
 
 export async function signFreeAgent(formData: FormData) {
   const standingConfirmed = formData.get("standing_confirmed") === "true";
+  const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
+  const roleMinimumReplacement = formData.get("role_minimum_replacement") === "true";
   const playerSource = clean(formData.get("player_source"));
   const playerName = clean(formData.get("player_name"));
   const playerRole = clean(formData.get("player_role"));
@@ -133,7 +136,6 @@ export async function signFreeAgent(formData: FormData) {
     playerSelected: true,
     playerAlreadyOwned: Boolean(activePlayer),
     qualifyingOfferActive: Boolean(qualifyingOffer),
-    cutBySigningTeam: state.rosterEntries.some((entry) => normalizePlayerName(entry.name) === normalizedPlayerName && entry.teamCode === teamCode && entry.state === "cut"),
     roles: countRosterRoles(activeEntries.filter((entry) => entry.slot !== "dpe").map((entry) => ({
       role: roleByName.get(normalizePlayerName(entry.name)) ?? null,
       slot: entry.slot,
@@ -146,11 +148,20 @@ export async function signFreeAgent(formData: FormData) {
   });
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
 
+  const roleShortageBefore = roleMinimumShortage(teamEntries, seasonResponse.data.status, moment);
+  if (roleMinimumReplacement) {
+    if (playerSource !== "list" || price !== 1) fail("Il free agent per carenza di ruolo deve provenire dal listone e costare 1 credito.");
+    const playerRole = player.role === "X" ? null : player.role;
+    if (!playerRole || roleShortageBefore[playerRole] <= 0) {
+      fail("Il giocatore selezionato non copre una carenza di ruolo della squadra.");
+    }
+  }
+
   const endYear = seasonEndYear(seasonResponse.data.name);
   if (!endYear) fail("Annata non valida.");
   const contract = automaticFreeAgentContract(
     seasonResponse.data.name,
-    tradeDeadlineHasPassed(moment),
+    tradeDeadlineHasPassed(moment) || roleMinimumReplacement,
   );
   if (!contract) fail("Annata non valida.");
   const rosterEntry: RosterEntry = {
@@ -174,6 +185,16 @@ export async function signFreeAgent(formData: FormData) {
     }),
     rosterEntry,
   ];
+  const teamRosterAfter = rosterEntries.filter((entry) => entry.teamCode === teamCode);
+  const roleShortageAfter = roleMinimumShortage(teamRosterAfter, seasonResponse.data.status, moment);
+  if (roleMinimumReplacement && roleShortageAfter.total >= roleShortageBefore.total) {
+    fail("L'assegnazione per carenza di ruolo deve ridurre effettivamente la carenza della squadra.");
+  }
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, seasonResponse.data.status, moment);
+  if (roleMinimumSlotError) fail(roleMinimumSlotError);
+  if (roleMinimumShortage(teamRosterAfter, seasonResponse.data.status, moment).total > 0 && !roleMinimumConfirmed) {
+    fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");
+  }
   const afterCost = 1000 - calculateCapSpace({
     entries: rosterEntries.filter((entry) => entry.teamCode === teamCode && (entry.state !== "active" || entry.slot !== "dpe")),
     seasonName: seasonResponse.data.name,
@@ -199,7 +220,7 @@ export async function signFreeAgent(formData: FormData) {
     state,
     nextState,
     "firma_free_agent",
-    `${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}` : ""}`,
+    `${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${roleMinimumReplacement ? "; assegnazione per carenza di ruolo" : ""}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}` : ""}`,
   );
   if (response.error) fail(response.error.message);
 

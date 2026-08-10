@@ -10,7 +10,6 @@ const baseInput = {
   playerSelected: true,
   playerAlreadyOwned: false,
   qualifyingOfferActive: false,
-  cutBySigningTeam: false,
   roles: { G: 5, A: 5, C: 5 },
   playerRole: "G" as const,
   cutRole: null,

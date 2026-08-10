@@ -5,7 +5,7 @@ import { CapForceControl } from "@/app/admin/cap-force-control";
 import { salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import type { LeaguePhase, PlayerListEntry, RosterEntry } from "@/lib/league-types";
-import type { LeagueMoment } from "@/lib/league-moments";
+import { hasReachedMoment, type LeagueMoment } from "@/lib/league-moments";
 import { countActiveRosterSlots, rosterSlotLimits } from "@/lib/roster-slot-limits";
 import { normalizeRosterCorrectionContract } from "@/lib/roster-corrections";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
@@ -54,6 +54,7 @@ export function RosterCorrectionPanel({
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const [addition, setAddition] = useState<AdditionDraft>({ playerName: "", cost: "", contract: "", slot: "regular" });
   const [forceCap, setForceCap] = useState(false);
+  const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
   const teamEntries = entries.filter((entry) => entry.teamCode === team?.code);
   const seasonNames = [0, 1, 2].map((distance) => followingSeasonName(seasonName, distance));
@@ -79,6 +80,7 @@ export function RosterCorrectionPanel({
   const updateDraft = (sourceIndex: number, patch: Partial<Draft>) => {
     setDrafts((current) => ({ ...current, [sourceIndex]: { ...current[sourceIndex], ...patch } }));
     setForceCap(false);
+    setRoleMinimumConfirmed(false);
   };
 
   if (!team) return <p className="notice error">Non ci sono squadre disponibili.</p>;
@@ -89,6 +91,7 @@ export function RosterCorrectionPanel({
       <input type="hidden" name="corrections_json" value={JSON.stringify(preview.corrections)} />
       <input type="hidden" name="addition_json" value={JSON.stringify(preview.addition)} />
       <input type="hidden" name="force_cap" value={String(forceCap)} />
+      <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
 
       <div className="contract-format-legend" aria-label="Legenda formati contrattuali">
         <strong>Legenda</strong>
@@ -102,7 +105,7 @@ export function RosterCorrectionPanel({
 
       <label className="admin-team-select roster-correction-team-select">
         <span>Squadra</span>
-        <select value={team.code} onChange={(event) => { setTeamCode(event.target.value); setForceCap(false); }}>
+        <select value={team.code} onChange={(event) => { setTeamCode(event.target.value); setForceCap(false); setRoleMinimumConfirmed(false); }}>
           {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
         </select>
       </label>
@@ -179,7 +182,7 @@ export function RosterCorrectionPanel({
                 list="roster-correction-free-agents"
                 value={addition.playerName}
                 placeholder="Cerca nel listone…"
-                onChange={(event) => { setAddition((current) => ({ ...current, playerName: event.target.value })); setForceCap(false); }}
+                onChange={(event) => { setAddition((current) => ({ ...current, playerName: event.target.value })); setForceCap(false); setRoleMinimumConfirmed(false); }}
               />
               <datalist id="roster-correction-free-agents">
                 {freeAgents.map((player) => <option value={player.name} key={player.name}>{player.role} · {player.realTeam}</option>)}
@@ -188,15 +191,15 @@ export function RosterCorrectionPanel({
             <label><span>Ruolo</span><strong>{preview.additionPlayer?.role ?? "—"}</strong></label>
             <label>
               <span>Scadenza</span>
-              <input value={addition.contract} onChange={(event) => { setAddition((current) => ({ ...current, contract: event.target.value })); setForceCap(false); }} />
+              <input value={addition.contract} onChange={(event) => { setAddition((current) => ({ ...current, contract: event.target.value })); setForceCap(false); setRoleMinimumConfirmed(false); }} />
             </label>
             <label>
               <span>Costo</span>
-              <input type="number" min="0" step="1" value={addition.cost} onChange={(event) => { setAddition((current) => ({ ...current, cost: event.target.value })); setForceCap(false); }} />
+              <input type="number" min="0" step="1" value={addition.cost} onChange={(event) => { setAddition((current) => ({ ...current, cost: event.target.value })); setForceCap(false); setRoleMinimumConfirmed(false); }} />
             </label>
             <label>
               <span>Slot</span>
-              <select value={addition.slot} onChange={(event) => { setAddition((current) => ({ ...current, slot: event.target.value as RosterEntry["slot"] })); setForceCap(false); }}>
+              <select value={addition.slot} onChange={(event) => { setAddition((current) => ({ ...current, slot: event.target.value as RosterEntry["slot"] })); setForceCap(false); setRoleMinimumConfirmed(false); }}>
                 <option value="regular">Roster</option>
                 <option value="two_way">Two-way</option>
                 <option value="g_league">G-League</option>
@@ -221,6 +224,13 @@ export function RosterCorrectionPanel({
           </div>
           {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
           {preview.roleWarnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
+          {preview.roleMinimumSlotError && <p className="validation error">{preview.roleMinimumSlotError}</p>}
+          {preview.roleWarnings.length > 0 && !preview.roleMinimumSlotError && (
+            <label className="operation-check role-minimum-check">
+              <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
+              Confermo che assegnerò in seguito i free agent casuali da 1 credito necessari per ripristinare i ruoli.
+            </label>
+          )}
           <CapForceControl warnings={preview.capWarnings} checked={forceCap} onChange={setForceCap} />
         </section>
       </div>
@@ -228,7 +238,7 @@ export function RosterCorrectionPanel({
       <button
         className="button primary roster-correction-save"
         type="submit"
-        disabled={preview.errors.length > 0 || (preview.corrections.length === 0 && !preview.addition) || (preview.capWarnings.length > 0 && !forceCap)}
+        disabled={preview.errors.length > 0 || (preview.corrections.length === 0 && !preview.addition) || (preview.capWarnings.length > 0 && !forceCap) || preview.roleMinimumSlotError !== null || (preview.roleWarnings.length > 0 && !roleMinimumConfirmed)}
       >Salva rettifiche roster</button>
     </form>
   );
@@ -321,12 +331,19 @@ function buildPreview({
       if (entry.role) counts[entry.role] += 1;
       return counts;
     }, { G: 0, A: 0, C: 0 });
-  const roleWarnings = phase === "regular_season"
+  const roleWarnings = phase === "regular_season" && !hasReachedMoment(leagueMoment, "free_agency_end")
     ? (["G", "A", "C"] as const).flatMap((role) => {
       const minimum = role === "C" ? 3 : 5;
       return roles[role] < minimum ? [`Minimo di ruolo ${role} non rispettato: ${roles[role]}/${minimum}.`] : [];
     })
     : [];
+  const roleMinimumMissing = (phase === "regular_season" && !hasReachedMoment(leagueMoment, "free_agency_end"))
+    ? Math.max(0, 5 - roles.G) + Math.max(0, 5 - roles.A) + Math.max(0, 3 - roles.C)
+    : 0;
+  const freeRoleRecoverySlots = Math.max(0, 15 - slots.regular) + Math.max(0, 2 - slots.two_way);
+  const roleMinimumSlotError = roleMinimumMissing > freeRoleRecoverySlots
+    ? `Servono ${roleMinimumMissing} slot tra roster e Two-way per ripristinare i minimi di ruolo, ma ne restano ${freeRoleRecoverySlots}.`
+    : null;
   return {
     corrections,
     addition: validAddition,
@@ -339,6 +356,7 @@ function buildPreview({
     roles,
     errors: [...new Set(errors)],
     roleWarnings,
+    roleMinimumSlotError,
     removedCount: corrections.filter((correction) => correction.remove).length,
     changedCount: corrections.filter((correction) => !correction.remove).length,
   };

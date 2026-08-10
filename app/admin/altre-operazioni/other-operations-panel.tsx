@@ -108,9 +108,12 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
   const choices = useMemo(() => availableOperations(player, team, props), [player, team, props]);
   const [operation, setOperation] = useState<Operation>(choices[0]?.value ?? "cut");
   const [confirmed, setConfirmed] = useState(false);
+  const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [installments, setInstallments] = useState<2 | 3>(2);
   const [releaseReason, setReleaseReason] = useState<FreeReleaseReason | "">("");
-  const preview = operationPreview(operation, player, team, props, installments, confirmed, releaseReason);
+  const oneCreditTeamOptionRelease = operation === "free_release"
+    && freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player).available;
+  const preview = operationPreview(operation, player, team, props, installments, confirmed, roleMinimumConfirmed, releaseReason);
   const formAction = operation === "extension"
     ? applyContractExtension
     : operation === "stretch"
@@ -127,6 +130,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <input type="hidden" name="operation_kind" value={operation} />
       <input type="hidden" name="dpe_operation" value={operation} />
       <input type="hidden" name="requirements_confirmed" value={String(confirmed)} />
+      <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
       <input type="hidden" name="confirmed" value={String(confirmed)} />
       <input type="hidden" name="installments" value={installments} />
 
@@ -138,18 +142,18 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <div className="auction-modal-body">
         <div className="auction-modal-fields single-column">
           <Field label="Operazione">
-            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setReleaseReason(""); }}>
+            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setRoleMinimumConfirmed(false); setReleaseReason(""); }}>
               {choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.label}</option>)}
             </select>
           </Field>
           {operation === "stretch" && (
             <Field label="Numero di rate"><select value={installments} onChange={(event) => { setInstallments(Number(event.target.value) as 2 | 3); }}><option value={2}>2 rate</option><option value={3}>3 rate</option></select></Field>
           )}
-          {operation === "free_release" && (
+          {operation === "free_release" && !oneCreditTeamOptionRelease && (
             <div className="release-reason-fieldset">
               <span>Causa del rilascio</span>
               <div className="release-reason-list">
-                {freeReleaseReasonValues.map((reason) => {
+                {freeReleaseReasonValues.filter((reason) => reason !== "one_credit_team_option").map((reason) => {
                   const availability = freeReleaseReasonAvailability(reason, props.leagueMoment, player);
                   return (
                     <label className={availability.available ? "" : "disabled"} key={reason}>
@@ -168,10 +172,16 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
               </div>
             </div>
           )}
-          {requiresConfirmation(operation) && (
+          {requiresConfirmation(operation, props.phase) && (
             <label className="operation-check other-operation-check">
               <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
               {confirmationLabel(operation, props.phase)}
+            </label>
+          )}
+          {preview.roleMinimumMissing > 0 && !preview.roleMinimumSlotError && (
+            <label className="operation-check other-operation-check role-minimum-check">
+              <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
+              Confermo che assegnerò in seguito i free agent casuali da 1 credito necessari per ripristinare i ruoli.
             </label>
           )}
         </div>
@@ -223,6 +233,7 @@ function operationPreview(
   props: AdminOperationContext,
   installments: 2 | 3,
   confirmed: boolean,
+  roleMinimumConfirmed: boolean,
   releaseReason: FreeReleaseReason | "",
 ) {
   const spacesBefore: ThreeYearValues = [team.space, team.nextSpace, team.followingSpace];
@@ -293,12 +304,15 @@ function operationPreview(
   const errors: string[] = [];
   const warnings: string[] = [];
   const capWarnings: string[] = [];
-  if (requiresConfirmation(operation) && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
+  if (requiresConfirmation(operation, props.phase) && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
   if (operation === "free_release") {
-    if (!releaseReason) errors.push("Seleziona una e una sola causa di rilascio gratuito.");
-    else {
-      const availability = freeReleaseReasonAvailability(releaseReason, props.leagueMoment, player);
-      if (!availability.available) errors.push(availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
+    const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player).available;
+    if (!automaticOneCreditRelease) {
+      if (!releaseReason) errors.push("Seleziona una e una sola causa di rilascio gratuito.");
+      else {
+        const availability = freeReleaseReasonAvailability(releaseReason, props.leagueMoment, player);
+        if (!availability.available) errors.push(availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
+      }
     }
   }
   if (operation === "extension") {
@@ -325,20 +339,31 @@ function operationPreview(
   if (slotsAfter.regular > 15) errors.push("Sono superati i 15 slot roster.");
   if (slotsAfter.two_way > 2) errors.push("Sono superati i 2 slot Two-way.");
   if (slotsAfter.g_league > 3) errors.push("Sono superati i 3 slot G-League.");
+  let roleMinimumMissing = 0;
   if (slotsAfter.dpe > 1) errors.push("Lo slot DPE è già occupato.");
-  if (props.phase === "regular_season" && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
+  if (props.phase === "regular_season" && !hasReachedMoment(props.leagueMoment, "free_agency_end") && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
     for (const role of ["G", "A", "C"] as const) {
       const minimum = role === "C" ? 3 : 5;
+      roleMinimumMissing += Math.max(0, minimum - rolesAfter[role]);
       if (rolesAfter[role] < minimum) warnings.push(
         `Dopo l'operazione restano ${rolesAfter[role]}/${minimum} giocatori di ruolo ${role}: sarà necessaria l'assegnazione casuale prevista dall'Art. 2(c).`,
       );
     }
   }
+  const freeRoleRecoverySlots = Math.max(0, 15 - slotsAfter.regular) + Math.max(0, 2 - slotsAfter.two_way);
+  const roleMinimumSlotError = roleMinimumMissing > 0
+    && roleMinimumMissing > freeRoleRecoverySlots
+    ? `Servono ${roleMinimumMissing} slot tra roster e Two-way per ripristinare i minimi di ruolo, ma ne restano ${freeRoleRecoverySlots}.`
+    : null;
+  if (roleMinimumSlotError) errors.push(roleMinimumSlotError);
+  if (roleMinimumMissing > 0 && !roleMinimumSlotError && !roleMinimumConfirmed) errors.push("Conferma il ripristino obbligatorio dei minimi di ruolo.");
   return {
     spacesBefore,
     spacesAfter,
     slotsAfter,
     rolesAfter,
+    roleMinimumMissing,
+    roleMinimumSlotError,
     installment,
     buyoutTotalResidual,
     optionCutAdjustment,
@@ -387,13 +412,18 @@ function roleCounts(team: AdminRosterTeam) {
   return team.players.filter((player) => player.state === "active" && player.slot !== "dpe").reduce((counts, player) => { if (player.role) counts[player.role] += 1; return counts; }, { G: 0, A: 0, C: 0 });
 }
 
-function requiresConfirmation(operation: Operation) {
-  return operation === "extension" || operation === "buyout";
+function requiresConfirmation(operation: Operation, phase: string) {
+  return operation === "buyout"
+    || operation === "dpe_activate"
+    || operation === "dpe_reintegrate"
+    || (operation === "extension" && phase === "regular_season");
 }
 
 function confirmationLabel(operation: Operation, phase: string) {
   if (operation === "extension") return phase === "regular_season" ? "Ho verificato che la squadra occupi una delle prime sei posizioni della regular season" : "Sono verificati i requisiti originari dell'estensione";
   if (operation === "buyout") return "Il buyout è stato concordato con il giocatore";
+  if (operation === "dpe_activate") return "Ho verificato che NBC Sports riporti l'infortunio certo e che sia raggiunta la soglia regolamentare di assenze";
+  if (operation === "dpe_reintegrate") return "Ho verificato il ritorno in campo NBA e il rispetto dei dieci giorni dal rientro";
   return "Sono verificati i requisiti richiesti";
 }
 

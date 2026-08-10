@@ -11,7 +11,9 @@ import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction } from "@/lib/league-moments";
 import { persistLeagueMovement } from "@/lib/league-movements";
+import { removeRolelessPlayersLeavingRosters } from "@/lib/roleless-player-list";
 import { countRosterRoles } from "@/lib/rules/roster";
+import { roleMinimumRecoverySlotError } from "@/lib/role-minimums";
 import {
   evaluateTrade,
   type TradeCut,
@@ -41,7 +43,6 @@ const path = "/admin/scambi";
 
 export async function registerTrade(formData: FormData) {
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
-  const roleMinimumSlotConfirmed = formData.get("role_minimum_slot_confirmed") === "true";
   let payload: TradeTransactionPayload;
   try {
     payload = parsePayload(formData.get("trade_json"));
@@ -406,6 +407,7 @@ export async function registerTrade(formData: FormData) {
     tradeDeadlinePassed: tradeDeadlineHasPassed(moment),
     tradesOpen: operationWindows.trades(moment),
     enforceOffseasonCap: !hasReachedMoment(moment, "auction_start"),
+    enforceRoleMinimums: !hasReachedMoment(moment, "free_agency_end"),
     tradableDraftYears,
     protectionCounterpartyDraftYears,
     teams: tradeTeams,
@@ -420,10 +422,15 @@ export async function registerTrade(formData: FormData) {
   });
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
   const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
-  if (roleMinimumRestorations.length && (!roleMinimumConfirmed || !roleMinimumSlotConfirmed)) {
-    fail("Conferma l'assegnazione successiva del free agent da 1 credito e la verifica dello slot necessario.");
+  const roleMinimumSlotErrors = roleMinimumRestorations.flatMap((team) => {
+    const error = roleMinimumRecoverySlotError({ ...team.missingRoles, total: team.requiredRoleFreeAgents }, team.slots);
+    return error ? [`${team.code}: ${error}`] : [];
+  });
+  if (roleMinimumSlotErrors.length) fail(roleMinimumSlotErrors.join(" "));
+  if (roleMinimumRestorations.length && !roleMinimumConfirmed) {
+    fail("Conferma l'assegnazione successiva dei free agent casuali da 1 credito previsti dal regolamento.");
   }
-  const nextState = applyValidatedTrade(tradeState, {
+  const nextState = removeRolelessPlayersLeavingRosters(originalState, applyValidatedTrade(tradeState, {
     playerMoves: playerChanges,
     pickMoves: pickChanges,
     pickClauses: pickClauseChanges,
@@ -431,7 +438,7 @@ export async function registerTrade(formData: FormData) {
     qualifyingOfferMoves: qualifyingChanges,
     cuts: cutChanges,
     promotions: promotionChanges,
-  });
+  }));
   const actualCapWarningsByTeam = new Map(participantCodes.map((teamCode) => {
     const before = teamCapSpaces(state.rosterEntries, teamCode);
     const after = teamCapSpaces(nextState.rosterEntries, teamCode);

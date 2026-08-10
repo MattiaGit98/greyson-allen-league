@@ -18,6 +18,7 @@ import {
   type FreeReleaseReason,
 } from "@/lib/free-release";
 import { isUnresolvedTeamOption, teamOptionCutAdjustment } from "@/lib/team-option-contract";
+import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 
 export async function applyRosterExitOperation(formData: FormData) {
   const returnPath = "/admin/altre-operazioni";
@@ -25,6 +26,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   const playerName = String(formData.get("player_name") ?? "").trim();
   const kind = String(formData.get("operation_kind") ?? "") as ReleaseOperationKind;
   const confirmed = formData.get("confirmed") === "true";
+  const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const submittedReleaseReasons = formData.getAll("release_reason").map((value) => String(value));
   if (!teamCode || !playerName || !["cut", "free_release", "buyout"].includes(kind)) {
     operationError(returnPath, "Operazione non valida.");
@@ -47,12 +49,17 @@ export async function applyRosterExitOperation(formData: FormData) {
   if (kind === "buyout" && !operationWindows.buyout(leagueMoment)) operationError(returnPath, "La finestra dei buyout non è aperta.");
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
-    if (submittedReleaseReasons.length !== 1 || !isFreeReleaseReason(submittedReleaseReasons[0])) {
-      operationError(returnPath, "Seleziona una e una sola causa di rilascio gratuito.");
+    const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, entry);
+    if (oneCreditTeamOptionRelease.available) {
+      releaseReason = "one_credit_team_option";
+    } else {
+      if (submittedReleaseReasons.length !== 1 || !isFreeReleaseReason(submittedReleaseReasons[0])) {
+        operationError(returnPath, "Seleziona una e una sola causa di rilascio gratuito.");
+      }
+      releaseReason = submittedReleaseReasons[0];
+      const availability = freeReleaseReasonAvailability(releaseReason, leagueMoment, entry);
+      if (!availability.available) operationError(returnPath, availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
     }
-    releaseReason = submittedReleaseReasons[0];
-    const availability = freeReleaseReasonAvailability(releaseReason, leagueMoment, entry);
-    if (!availability.available) operationError(returnPath, availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
   }
 
   const charges = playerCharges(entry, season.name, season.status, season.team_options_resolved);
@@ -90,6 +97,13 @@ export async function applyRosterExitOperation(formData: FormData) {
       state: "cut" as const,
       slot: "regular" as const,
     } : item);
+  }
+
+  const teamRosterAfter = rosterEntries.filter((item) => item.teamCode === teamCode);
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, season.status, leagueMoment);
+  if (roleMinimumSlotError) operationError(returnPath, roleMinimumSlotError);
+  if (roleMinimumShortage(teamRosterAfter, season.status, leagueMoment).total > 0 && !roleMinimumConfirmed) {
+    operationError(returnPath, "Conferma il ripristino obbligatorio dei minimi di ruolo.");
   }
 
   const spacesBefore = teamCapSpaces(state.rosterEntries, teamCode, season.name, season.status, season.team_options_resolved);

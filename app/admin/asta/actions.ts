@@ -46,9 +46,6 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   if (state.rosterEntries.some((entry) => entry.name === playerName && entry.state === "active")) {
     fail("Il giocatore appartiene già a una squadra.");
   }
-  if (state.rosterEntries.some((entry) => entry.name === playerName && entry.teamCode === teamCode && entry.state === "cut")) {
-    fail("La squadra non può riacquistare un proprio giocatore tagliato finché il contratto pesa sul cap.");
-  }
   const qualifyingRight = state.qualifyingOfferRights.find((right) => right.playerName === playerName);
   const qualifyingErrors = qualifyingAuctionErrors({
     hasQualifyingRight: Boolean(qualifyingRight),
@@ -308,9 +305,19 @@ async function persistAuctionState(
     "/squadre",
     "/giocatori",
     "/movimenti",
+    "/asta",
     "/admin",
     "/admin/asta",
+    "/admin/listone",
     "/admin/contratti",
+    "/admin/free-agent",
+    "/admin/scambi",
+    "/admin/team-option",
+    "/admin/altre-operazioni",
+    "/admin/slot",
+    "/admin/rettifiche-roster",
+    "/admin/draft",
+    "/simulatore-scambi",
   ].forEach((path) => revalidatePath(path));
 }
 

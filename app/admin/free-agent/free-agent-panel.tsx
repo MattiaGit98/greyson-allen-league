@@ -7,6 +7,7 @@ import { countRosterRoles } from "@/lib/rules/roster";
 import { signFreeAgent } from "./actions";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { isCapIssueCode } from "@/lib/cap-override";
+import { roleMinimumRecoverySlotError } from "@/lib/role-minimums";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
 type PlayerOption = {
@@ -170,6 +171,8 @@ function FreeAgentDialog({
   const [outsideRole, setOutsideRole] = useState<"G" | "A" | "C" | "X" | "">("");
   const [outsideRealTeam, setOutsideRealTeam] = useState("");
   const [standingConfirmed, setStandingConfirmed] = useState(false);
+  const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
+  const [roleMinimumReplacement, setRoleMinimumReplacement] = useState(false);
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
   const cuttablePlayers = (team?.rosterPlayers ?? []).filter((item) => item.cuttable && item.name !== promotionPlayerName);
   const cutPlayer = cuttablePlayers.find((item) => item.name === cutPlayerName);
@@ -199,7 +202,6 @@ function FreeAgentDialog({
     playerSelected: outsideList ? Boolean(customReady) : Boolean(player),
     playerAlreadyOwned: Boolean(player?.rosterTeamCode),
     qualifyingOfferActive: Boolean(player?.qualifyingTeamCode),
-    cutBySigningTeam: Boolean(player?.cutTeamCodes.includes(teamCode)),
     roles,
     playerRole: selectedRole,
     cutRole: cutPlayer?.role ?? null,
@@ -207,12 +209,28 @@ function FreeAgentDialog({
     promotionSourceSlot: promotionPlayer?.slot === "dpe" ? null : promotionPlayer?.slot ?? null,
     promotionDestinationSlot: promotionPlayer ? promotionDestination : null,
   });
-  const contract = automaticFreeAgentContract(seasonName, tradeDeadlinePassed) ?? "—";
   const slotBefore = destination === "regular" ? slots.regular : slots.twoWay;
   const slotAfter = destination === "regular" ? preview.calculated.slotsAfter.regular : preview.calculated.slotsAfter.twoWay;
   const slotLimit = destination === "regular" ? 15 : 2;
   const capWarnings = preview.warnings.filter((warning) => isCapIssueCode(warning.code));
   const otherWarnings = preview.warnings.filter((warning) => !isCapIssueCode(warning.code));
+  const roleMinimumConfirmationRequired = otherWarnings.some((warning) => warning.code.startsWith("ROLE_"));
+  const roleMinimumShortage = {
+    G: Math.max(0, 5 - roles.G),
+    A: Math.max(0, 5 - roles.A),
+    C: Math.max(0, 3 - roles.C),
+  };
+  const roleMinimumReplacementAvailable = phase === "regular_season"
+    && Boolean(selectedRole)
+    && roleMinimumShortage[selectedRole as "G" | "A" | "C"] > 0;
+  const contract = automaticFreeAgentContract(seasonName, tradeDeadlinePassed || roleMinimumReplacement) ?? "—";
+  const roleMinimumSlotError = roleMinimumConfirmationRequired
+    ? roleMinimumRecoverySlotError({ ...roleMinimumShortage, total: roleMinimumShortage.G + roleMinimumShortage.A + roleMinimumShortage.C }, {
+      regular: preview.calculated.slotsAfter.regular,
+      twoWay: preview.calculated.slotsAfter.twoWay,
+    })
+    : null;
+  const roleMinimumConfirmationMissing = roleMinimumConfirmationRequired && !roleMinimumConfirmed;
   const signAndTradeErrors = preview.errors.filter((error) => !error.code.startsWith("SLOT_"));
   const temporarySlotErrors = preview.errors.filter((error) => error.code.startsWith("SLOT_"));
   const standingConfirmationRequired = tradeDeadlinePassed && price > 1;
@@ -245,6 +263,8 @@ function FreeAgentDialog({
       <input type="hidden" name="promotion_player_name" value={promotionPlayerName} />
       <input type="hidden" name="promotion_destination" value={promotionPlayer ? promotionDestination : ""} />
       <input type="hidden" name="standing_confirmed" value={String(standingConfirmed)} />
+      <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
+      <input type="hidden" name="role_minimum_replacement" value={String(roleMinimumReplacement)} />
 
       <div className="auction-modal-header">
         <div>
@@ -260,24 +280,24 @@ function FreeAgentDialog({
           {outsideList && (
             <>
               <Field label="Nome giocatore"><input type="text" maxLength={120} value={outsideName} onChange={(event) => setOutsideName(event.target.value)} /></Field>
-              <Field label="Ruolo"><select value={outsideRole} onChange={(event) => setOutsideRole(event.target.value as typeof outsideRole)}><option value="">Seleziona</option><option value="G">Guardia</option><option value="A">Ala</option><option value="C">Centro</option><option value="X">Senza ruolo Dunkest</option></select></Field>
+              <Field label="Ruolo"><select value={outsideRole} onChange={(event) => { setOutsideRole(event.target.value as typeof outsideRole); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}><option value="">Seleziona</option><option value="G">Guardia</option><option value="A">Ala</option><option value="C">Centro</option><option value="X">Senza ruolo Dunkest</option></select></Field>
               <Field label="Squadra NBA"><select value={outsideRealTeam} onChange={(event) => setOutsideRealTeam(event.target.value)}><option value="">Seleziona</option>{nbaTeams.map((item) => <option value={item.code} key={item.code}>{item.code} · {item.name}</option>)}</select></Field>
             </>
           )}
           <Field label="Squadra">
-            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setStandingConfirmed(false); }}>
+            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setStandingConfirmed(false); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
-          <Field label="Prezzo"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setStandingConfirmed(false); if (value > 10) { setDestination("regular"); } }} /></Field>
+          <Field label="Prezzo"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setStandingConfirmed(false); setRoleMinimumConfirmed(false); if (value !== 1) setRoleMinimumReplacement(false); if (value > 10) { setDestination("regular"); } }} /></Field>
           <Field label="Slot">
-            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); }}>
+            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); setRoleMinimumConfirmed(false); }}>
               <option value="regular">Roster</option>
               <option value="two_way" disabled={price > 10}>Two-way</option>
             </select>
           </Field>
           <Field label="Giocatore da tagliare">
-            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); if (event.target.value === promotionPlayerName) setPromotionPlayerName(""); }}>
+            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); setRoleMinimumConfirmed(false); if (event.target.value === promotionPlayerName) setPromotionPlayerName(""); }}>
               <option value="">Nessun taglio</option>
               {cuttablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {item.cost} · {item.contract} · {slotLabel(item.slot)}</option>)}
             </select>
@@ -287,6 +307,7 @@ function FreeAgentDialog({
               const nextPlayer = promotablePlayers.find((item) => item.name === event.target.value);
               setPromotionPlayerName(event.target.value);
               setPromotionDestination(nextPlayer?.promotionDestinations[0] ?? "regular");
+              setRoleMinimumConfirmed(false);
               if (event.target.value === cutPlayerName) setCutPlayerName("");
             }}>
               <option value="">Nessuna promozione</option>
@@ -294,7 +315,7 @@ function FreeAgentDialog({
             </select>
           </Field>
           <Field label="Destinazione promozione">
-            <select value={promotionDestination} onChange={(event) => { setPromotionDestination(event.target.value as typeof promotionDestination); }} disabled={!promotionPlayer}>
+            <select value={promotionDestination} onChange={(event) => { setPromotionDestination(event.target.value as typeof promotionDestination); setRoleMinimumConfirmed(false); }} disabled={!promotionPlayer}>
               {availablePromotionDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
             </select>
           </Field>
@@ -319,6 +340,19 @@ function FreeAgentDialog({
             Ho verificato che la squadra non occupi una delle ultime tre posizioni
           </label>
         )}
+        {roleMinimumReplacementAvailable && (
+          <label className="operation-check role-minimum-check">
+            <input type="checkbox" checked={roleMinimumReplacement} onChange={(event) => { setRoleMinimumReplacement(event.target.checked); setRoleMinimumConfirmed(false); }} />
+            Questo free agent è assegnato per coprire la carenza di ruolo: contratto annuale senza Q.O. (1 credito)
+          </label>
+        )}
+        {roleMinimumSlotError && <p className="validation error">{roleMinimumSlotError}</p>}
+        {roleMinimumConfirmationRequired && !roleMinimumSlotError && (
+          <label className="operation-check role-minimum-check">
+            <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
+            Confermo che assegnerò in seguito i free agent casuali da 1 credito necessari per ripristinare i ruoli.
+          </label>
+        )}
         {preview.errors.map((error) => <p className="validation error" key={error.code}>{error.message}</p>)}
         {signAndTradeOpen && temporarySlotErrors.length > 0 && signAndTradeErrors.length === 0 && (
           <p className="validation warning">Con Firma e scambia puoi proseguire, ma lo slot deve essere liberato nella situazione finale.</p>
@@ -337,7 +371,7 @@ function FreeAgentDialog({
         >
           Firma e scambia
         </button>
-        <button className="button primary" type="submit" disabled={!preview.valid || standingConfirmationMissing || outsideDuplicate || !team || capWarnings.length > 0}>Registra firma</button>
+        <button className="button primary" type="submit" disabled={!preview.valid || standingConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || capWarnings.length > 0}>Registra firma</button>
       </div>
     </form>
   );

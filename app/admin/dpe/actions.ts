@@ -11,6 +11,7 @@ import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { requireCapCompliance, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
+import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 
 const path = "/admin/altre-operazioni";
 
@@ -18,6 +19,8 @@ export async function applyDpeOperation(formData: FormData) {
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
   const operation = String(formData.get("dpe_operation") ?? "");
+  const confirmed = formData.get("requirements_confirmed") === "true";
+  const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   if (!teamCode || !playerName || !["dpe_activate", "dpe_reintegrate"].includes(operation)) fail("Operazione DPE non valida.");
 
   const supabase = await createSupabaseServerClient();
@@ -33,6 +36,9 @@ export async function applyDpeOperation(formData: FormData) {
   const leagueMoment = leagueMomentFromSeason(season.data);
   if (operation === "dpe_activate" && !operationWindows.dpeActivation(leagueMoment)) fail("La DPE è disponibile dall'inizio dell'offseason alla trade deadline, ma non durante l'asta.");
   if (operation === "dpe_reintegrate" && !operationWindows.dpeReintegration(leagueMoment)) fail("Il reintegro anticipato è disponibile dalla consegna dei contratti al termine della free agency.");
+  if (!confirmed) fail(operation === "dpe_activate"
+    ? "Conferma l'infortunio riportato da NBC Sports e la soglia regolamentare di assenze."
+    : "Conferma il ritorno in campo NBA e il rispetto dei dieci giorni dal rientro.");
 
   const state = await loadEditableLeagueState();
   const entryIndex = state.rosterEntries.findIndex((entry) => (
@@ -57,6 +63,12 @@ export async function applyDpeOperation(formData: FormData) {
   const rosterEntries: RosterEntry[] = state.rosterEntries.map((item, index) => index === entryIndex
     ? { ...item, slot: operation === "dpe_activate" ? "dpe" : "regular" }
     : item);
+  const teamRosterAfter = rosterEntries.filter((item) => item.teamCode === teamCode);
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, season.data.status, leagueMoment);
+  if (roleMinimumSlotError) fail(roleMinimumSlotError);
+  if (roleMinimumShortage(teamRosterAfter, season.data.status, leagueMoment).total > 0 && !roleMinimumConfirmed) {
+    fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");
+  }
   const seasonName = season.data.name;
   const beforeSpaces = capSpaces(state.rosterEntries, teamCode, seasonName, season.data.status, season.data.team_options_resolved);
   const spaces = capSpaces(rosterEntries, teamCode, seasonName, season.data.status, season.data.team_options_resolved);

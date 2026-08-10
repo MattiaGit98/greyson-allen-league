@@ -17,7 +17,6 @@ export async function applyContractExtension(formData: FormData) {
   const playerName = String(formData.get("player_name") ?? "").trim();
   const confirmed = formData.get("requirements_confirmed") === "true";
   if (!teamCode || !playerName) fail(path, "Seleziona un contratto da estendere.");
-  if (!confirmed) fail(path, "Conferma i requisiti regolamentari dell'estensione.");
   const supabase = await createSupabaseServerClient();
   if (!supabase) fail(path, "Supabase non configurato.");
   const { data: { user } } = await supabase.auth.getUser();
@@ -28,6 +27,9 @@ export async function applyContractExtension(formData: FormData) {
   const leagueMoment = leagueMomentFromSeason(season.data);
   const windowOpen = operationWindows.extensions(leagueMoment);
   if (!windowOpen) fail(path, "Le estensioni sono disponibili in offseason oppure durante la stagione dopo la deadline.");
+  if (season.data.status === "regular_season" && !confirmed) {
+    fail(path, "Conferma di aver verificato che la squadra occupi una delle prime sei posizioni della regular season.");
+  }
   const endYear = seasonEndYear(season.data.name);
   if (!endYear) fail(path, "Annata non valida.");
   const state = await loadEditableLeagueState();

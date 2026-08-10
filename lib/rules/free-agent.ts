@@ -19,7 +19,6 @@ export function evaluateFreeAgentSigning(input: {
   playerSelected: boolean;
   playerAlreadyOwned: boolean;
   qualifyingOfferActive: boolean;
-  cutBySigningTeam: boolean;
   roles: RoleCounts;
   playerRole: "G" | "A" | "C" | null;
   cutRole: "G" | "A" | "C" | null;
@@ -46,12 +45,6 @@ export function evaluateFreeAgentSigning(input: {
     errors.push({
       code: "QUALIFYING_OFFER_ACTIVE",
       message: "Il giocatore è coperto da una qualifying offer e non è un free agent.",
-    });
-  }
-  if (input.cutBySigningTeam) {
-    errors.push({
-      code: "CUT_PLAYER_REACQUISITION",
-      message: "La squadra non può riprendere un proprio giocatore tagliato finché pesa sul cap.",
     });
   }
   if (!Number.isInteger(input.price) || input.price < 1) {

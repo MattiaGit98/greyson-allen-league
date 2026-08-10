@@ -105,6 +105,7 @@ export function evaluateTrade(input: {
   phase: string;
   tradeDeadlinePassed?: boolean;
   tradesOpen?: boolean;
+  enforceRoleMinimums?: boolean;
   enforceOffseasonCap?: boolean;
   tradableDraftYears?: number[];
   protectionCounterpartyDraftYears?: number[];
@@ -507,7 +508,7 @@ export function evaluateTrade(input: {
     })));
 
     const minimums: Record<TradeRole, number> = { G: 5, A: 5, C: 3 };
-    const missingRoles = input.phase === "regular_season"
+    const missingRoles = (input.enforceRoleMinimums ?? input.phase === "regular_season")
       ? (Object.keys(minimums) as TradeRole[]).reduce((result, role) => ({
         ...result,
         [role]: Math.max(0, minimums[role] - roles[role]),

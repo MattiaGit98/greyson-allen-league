@@ -150,6 +150,7 @@ export default async function TradeSimulatorPage() {
         tradesOpen={operationWindows.trades(leagueMoment)}
         qualifyingOfferTransfersOpen={!hasReachedMoment(leagueMoment, "auction_completed")}
         enforceOffseasonCap={!hasReachedMoment(leagueMoment, "auction_start")}
+        enforceRoleMinimums={!hasReachedMoment(leagueMoment, "free_agency_end")}
         tradableDraftYears={tradableDraftYears}
         protectionCounterpartyDraftYears={protectionCounterpartyDraftYears}
         existingClauseAgreements={existingClauseAgreements}

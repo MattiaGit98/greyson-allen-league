@@ -88,6 +88,9 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     ...retainedEntries.filter((entry) => entry.state === "active").map((entry) => entry.name),
     ...qualifyingOfferRights.map((right) => right.playerName),
   ]);
+  const activeRosteredNames = new Set(retainedEntries
+    .filter((entry) => entry.state === "active")
+    .map((entry) => entry.name));
   const playerList = [...listNames]
     .sort((left, right) => {
       const leftOrder = existingOrder.get(left) ?? Number.MAX_SAFE_INTEGER;
@@ -98,6 +101,7 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
       const previous = existingPlayers.get(name);
       const role = roles.get(name) ?? previous?.role;
       if (!role) return [];
+      if (role === "X" && !activeRosteredNames.has(name)) return [];
       return [{
         name,
         role,

@@ -14,14 +14,17 @@ export function UndoMovementButton({
   movementId,
   summary,
   preview,
+  roleMinimumConfirmationRequired,
   disabled,
 }: {
   movementId: string;
   summary: string;
   preview: ReversalPreviewTeam[];
+  roleMinimumConfirmationRequired: boolean;
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   return (
     <>
       <button className="button secondary" type="button" disabled={disabled} onClick={() => setOpen(true)}>Annulla movimento</button>
@@ -46,10 +49,17 @@ export function UndoMovementButton({
               ))}
               {!preview.length && <p>Nessun roster o scelta di squadra verrebbe modificato.</p>}
             </div>
+            {roleMinimumConfirmationRequired && (
+              <label className="operation-check role-minimum-check movement-role-minimum-check">
+                <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
+                Confermo che assegnerò in seguito i free agent casuali da 1 credito necessari per ripristinare i ruoli.
+              </label>
+            )}
             <form action={revertMovement} className="movement-reversal-modal-actions">
               <input type="hidden" name="movement_id" value={movementId} />
+              <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
               <button className="button secondary" type="button" onClick={() => setOpen(false)}>Indietro</button>
-              <button className="button primary" type="submit">Conferma annullamento</button>
+              <button className="button primary" type="submit" disabled={roleMinimumConfirmationRequired && !roleMinimumConfirmed}>Conferma annullamento</button>
             </form>
           </section>
         </div>

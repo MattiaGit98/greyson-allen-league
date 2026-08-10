@@ -77,11 +77,6 @@ export function buildSignAndTradeProvisional(input: {
   const normalizedName = normalizePlayerName(player.name);
   const activePlayer = state.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedName && entry.state === "active");
   const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedName);
-  const cutBySigningTeam = state.rosterEntries.some((entry) => (
-    normalizePlayerName(entry.name) === normalizedName
-    && entry.teamCode === request.signerTeamCode
-    && entry.state === "cut"
-  ));
   const teamEntries = state.rosterEntries.filter((entry) => entry.teamCode === request.signerTeamCode);
   const activeEntries = teamEntries.filter((entry) => entry.state === "active");
   const rolesByName = new Map(state.playerList.map((item) => [
@@ -108,7 +103,6 @@ export function buildSignAndTradeProvisional(input: {
     playerSelected: true,
     playerAlreadyOwned: Boolean(activePlayer),
     qualifyingOfferActive: Boolean(qualifyingOffer),
-    cutBySigningTeam,
     roles: countRosterRoles(activeEntries.map((entry) => ({
       role: rolesByName.get(normalizePlayerName(entry.name)) ?? null,
       slot: entry.slot,

@@ -128,6 +128,7 @@ export function TradeBuilder({
   tradesOpen,
   qualifyingOfferTransfersOpen,
   enforceOffseasonCap,
+  enforceRoleMinimums,
   tradableDraftYears,
   protectionCounterpartyDraftYears,
   existingClauseAgreements,
@@ -141,6 +142,7 @@ export function TradeBuilder({
   tradesOpen: boolean;
   qualifyingOfferTransfersOpen: boolean;
   enforceOffseasonCap: boolean;
+  enforceRoleMinimums: boolean;
   tradableDraftYears: number[];
   protectionCounterpartyDraftYears: number[];
   existingClauseAgreements: ExistingTradeClauseAgreement[];
@@ -173,7 +175,6 @@ export function TradeBuilder({
   const [promotions, setPromotions] = useState<PromotionMove[]>([]);
   const [existingClauseChanges, setExistingClauseChanges] = useState<TradeExistingClauseChange[]>([]);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
-  const [roleMinimumSlotConfirmed, setRoleMinimumSlotConfirmed] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
@@ -248,9 +249,10 @@ export function TradeBuilder({
     existingClauseChanges: effectiveExistingClauseChanges,
     qualifyingOfferMoves,
     qualifyingOfferTransfersOpen,
+    enforceRoleMinimums,
     cuts,
     promotions,
-  }), [cuts, effectiveExistingClauseChanges, enforceOffseasonCap, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
+  }), [cuts, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
   const capWarnings = [...new Set([
     ...(signAndTrade?.capWarnings ?? []),
     ...evaluation.warnings
@@ -259,6 +261,13 @@ export function TradeBuilder({
   ])];
   const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
   const roleMinimumConfirmationRequired = roleMinimumRestorations.length > 0;
+  const roleMinimumSlotErrors = roleMinimumRestorations.flatMap((team) => {
+    const freeSlots = Math.max(0, 15 - team.slots.regular) + Math.max(0, 2 - team.slots.twoWay);
+    return freeSlots >= team.requiredRoleFreeAgents
+      ? []
+      : [`${formatTeamName(teams.find((item) => item.code === team.code)?.name ?? team.code)}: servono ${team.requiredRoleFreeAgents} slot tra roster e Two-way per i free agent obbligatori, ma ne restano ${freeSlots}.`];
+  });
+  const simulatorRoleMinimumSlotError = simulator && roleMinimumSlotErrors.length > 0;
 
   useEffect(() => {
     setPickClauses((current) => {
@@ -281,7 +290,10 @@ export function TradeBuilder({
     });
   }, [existingClauseChanges, participantCodes, pickMoves]);
 
-  const simulationValid = evaluation.valid && capWarnings.length === 0;
+  const simulationValid = evaluation.valid
+    && capWarnings.length === 0
+    && !simulatorRoleMinimumSlotError
+    && (!roleMinimumConfirmationRequired || roleMinimumConfirmed);
   const simulationRecap = simulator && simulationValid
     ? withTradeImportPayload(tradeSimulationRecap({
       teams,
@@ -364,7 +376,6 @@ export function TradeBuilder({
 
   function invalidateTradeConfirmations() {
     setRoleMinimumConfirmed(false);
-    setRoleMinimumSlotConfirmed(false);
   }
 
   function addPickClause({
@@ -465,6 +476,7 @@ export function TradeBuilder({
         existingClauseChanges: imported.existingClauseChanges,
         qualifyingOfferMoves: imported.qualifyingOfferMoves,
         qualifyingOfferTransfersOpen,
+        enforceRoleMinimums,
         cuts: imported.cuts,
         promotions: imported.promotions,
       });
@@ -478,7 +490,6 @@ export function TradeBuilder({
       setPickClauses(imported.pickClauses);
       setExistingClauseChanges(imported.existingClauseChanges);
       setRoleMinimumConfirmed(false);
-      setRoleMinimumSlotConfirmed(false);
       setImportText("");
       setImportError("");
       setImportOpen(false);
@@ -509,7 +520,6 @@ export function TradeBuilder({
         })}
       />}
       {!simulator && <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />}
-      {!simulator && <input type="hidden" name="role_minimum_slot_confirmed" value={String(roleMinimumSlotConfirmed)} />}
       {signAndTrade && (
         <section className="sign-trade-banner">
           <div>
@@ -642,6 +652,11 @@ export function TradeBuilder({
             Scambio non valido: {warning}
           </p>
         ))}
+        {roleMinimumSlotErrors.map((error) => (
+          <p className="validation error" key={`role-slot-${error}`}>
+            Scambio non valido: {error}
+          </p>
+        ))}
         {evaluation.warnings.filter((warning) => !simulator || !warning.code.includes("CAP")).map((warning, index) => (
           <p className="validation warning" key={`${warning.code}-${index}`}>
             {displayIssue(warning.message, teams)}
@@ -651,17 +666,13 @@ export function TradeBuilder({
 
       {!simulator && <CapBlocker warnings={capWarnings} />}
 
-      {!simulator && roleMinimumConfirmationRequired && (
+      {roleMinimumConfirmationRequired && roleMinimumSlotErrors.length === 0 && (
         <section className="trade-role-restoration" aria-label="Ripristino obbligatorio dei ruoli">
           <strong>Attenzione: dopo lo scambio va assegnato un free agent casuale da 1 credito</strong>
           <p>{roleMinimumRestorations.map((team) => `${formatTeamName(teams.find((item) => item.code === team.code)?.name ?? team.code)}: ${roleMinimumLabel(team.missingRoles)}`).join("; ")}. Il costo è già incluso nello spazio libero mostrato sopra.</p>
           <label>
             <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
-            Confermo che assegnerò il free agent previsto dal regolamento in un passaggio successivo.
-          </label>
-          <label>
-            <input type="checkbox" checked={roleMinimumSlotConfirmed} onChange={(event) => setRoleMinimumSlotConfirmed(event.target.checked)} />
-            Confermo che verificherò e, se necessario, libererò lo slot necessario per la firma.
+            Confermo che assegnerò in un passaggio successivo i free agent casuali da 1 credito previsti dal regolamento.
           </label>
         </section>
       )}
@@ -672,7 +683,7 @@ export function TradeBuilder({
         <button
           className="button primary trade-submit"
           type="submit"
-          disabled={!evaluation.valid || capWarnings.length > 0 || (roleMinimumConfirmationRequired && (!roleMinimumConfirmed || !roleMinimumSlotConfirmed))}
+          disabled={!evaluation.valid || capWarnings.length > 0 || roleMinimumSlotErrors.length > 0 || (roleMinimumConfirmationRequired && !roleMinimumConfirmed)}
         >
           {evaluation.valid ? "Registra scambio" : "Operazione non disponibile"}
         </button>

@@ -7,11 +7,13 @@ import { buildMovementReversal, movementReversalCapErrors, movementReversalSlotE
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
 import { movementOperationLabel } from "@/lib/movement-display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
 
 const path = "/admin/movimenti";
 
 export async function revertMovement(formData: FormData) {
   const movementId = String(formData.get("movement_id") ?? "").trim();
+  const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   if (!movementId) fail("Movimento non valido.");
   const supabase = await createSupabaseServerClient();
   if (!supabase) fail("Supabase non configurato.");
@@ -23,6 +25,7 @@ export async function revertMovement(formData: FormData) {
   ]);
   if (response.error || !response.data || response.data.reverted_at) fail(response.error?.message ?? "Movimento non disponibile.");
   if (seasonResponse.error || !seasonResponse.data) fail(seasonResponse.error?.message ?? "Nessuna stagione attiva.");
+  const season = seasonResponse.data;
   const snapshotMetadata = movementUndoMetadataFromState(response.data.before_state);
   const windowError = movementUndoWindowError({
     operationType: response.data.operation_type,
@@ -38,6 +41,15 @@ export async function revertMovement(formData: FormData) {
     restored = buildMovementReversal(current, normalizeState(response.data.before_state), normalizeState(response.data.after_state));
   } catch (error) {
     fail(error instanceof Error ? error.message : "Il movimento non può essere annullato.");
+  }
+  const roleMinimumSlotErrors = [...new Set(restored.rosterEntries.map((entry) => entry.teamCode))]
+    .flatMap((teamCode) => {
+      const error = roleMinimumRecoverySlotErrorForEntries(restored.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, leagueMomentFromSeason(season));
+      return error ? [`${teamCode}: ${error}`] : [];
+  });
+  if (roleMinimumSlotErrors.length) fail(roleMinimumSlotErrors.join(" "));
+  if (roleMinimumsWorsen(current.rosterEntries, restored.rosterEntries, season.status, leagueMomentFromSeason(season)) && !roleMinimumConfirmed) {
+    fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");
   }
   const slotErrors = movementReversalSlotErrors(current, restored);
   if (slotErrors.length) {

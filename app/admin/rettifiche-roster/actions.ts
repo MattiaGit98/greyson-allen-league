@@ -11,12 +11,14 @@ import type { RosterEntry } from "@/lib/league-types";
 import { applyRosterCorrections, type RosterAdditionInput, type RosterCorrectionInput } from "@/lib/roster-corrections";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
+import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 
 const path = "/admin/rettifiche-roster";
 
 export async function saveRosterCorrections(formData: FormData) {
   const teamCode = clean(formData.get("team_code")).toLocaleUpperCase("it-IT");
   const forceCap = capOverrideRequested(formData);
+  const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   let corrections: RosterCorrectionInput[];
   let addition: RosterAdditionInput | null;
   try {
@@ -42,6 +44,12 @@ export async function saveRosterCorrections(formData: FormData) {
     });
   } catch (error) {
     fail(error instanceof Error ? error.message : "Rettifiche non valide.");
+  }
+  const teamRosterAfter = applied.state.rosterEntries.filter((entry) => entry.teamCode === teamCode);
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, activeSeason.season.status, leagueMomentFromSeason(activeSeason.season));
+  if (roleMinimumSlotError) fail(roleMinimumSlotError);
+  if (roleMinimumShortage(teamRosterAfter, activeSeason.season.status, leagueMomentFromSeason(activeSeason.season)).total > 0 && !roleMinimumConfirmed) {
+    fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");
   }
 
   const seasonNames = [0, 1, 2].map((distance) => followingSeasonName(activeSeason.season.name, distance));
