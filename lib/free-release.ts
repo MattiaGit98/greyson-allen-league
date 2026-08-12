@@ -1,4 +1,4 @@
-import { hasReachedMoment, type LeagueMoment } from "./league-moments";
+import { hasReachedMoment, tradesAreSuspendedForAuction, type LeagueMoment } from "./league-moments";
 
 export const freeReleaseReasonValues = [
   "no_nba_roster",
@@ -31,17 +31,21 @@ export function freeReleaseReasonAvailability(
   player: FreeReleasePlayer,
 ): { available: boolean; unavailableReason?: string } {
   if (reason === "no_nba_roster") {
-    const available = hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "free_agency_end");
+    const available = hasReachedMoment(moment, "team_option_deadline")
+      && !hasReachedMoment(moment, "free_agency_end")
+      && !tradesAreSuspendedForAuction(moment);
     return available
       ? { available: true }
-      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. al Termine free agency." };
+      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. al Termine free agency, ma non durante l'asta." };
   }
 
   if (reason === "suspension_or_legal") {
-    const available = hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "trade_deadline");
+    const available = hasReachedMoment(moment, "team_option_deadline")
+      && !hasReachedMoment(moment, "trade_deadline")
+      && !tradesAreSuspendedForAuction(moment);
     return available
       ? { available: true }
-      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. alla Trade deadline." };
+      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. alla Trade deadline, ma non durante l'asta." };
   }
 
   if (reason === "under_half_games") {

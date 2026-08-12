@@ -26,7 +26,7 @@ function state(): EditableLeagueState {
         teamCode: "AAA", auctionPrice: 100, contractStartSeason: seasonName,
       },
       {
-        name: "Rookie", role: "A", cost: 5, contract: "T.O.", state: "active", slot: "g_league",
+        name: "Rookie", role: "A", cost: 5, contract: "PENDING", state: "active", slot: "g_league",
         teamCode: "AAA", auctionPrice: 5, contractStartSeason: seasonName,
       },
     ],

@@ -2,8 +2,7 @@ import Link from "next/link";
 import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
 import { loadCurrentHistoryImports } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { leagueMomentFromSeason } from "@/lib/league-moments";
-import { roleMinimumChecksApply } from "@/lib/role-minimums";
+import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { buildPreAdvanceChecklist, type PreAdvanceChecklist } from "@/lib/pre-advance-alerts";
 import { requireActiveSeason } from "@/lib/active-season";
 import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
@@ -76,11 +75,15 @@ export default async function AdminDashboardPage() {
     currentHistorySeason: currentHistory.season,
     contractDrafts,
   });
+  const blockingAlerts = preAdvanceChecklist.alerts.filter((alert) => (
+    alert.tone === "blocker" && alert.id !== "role-minimums"
+  ));
   const blockingChecklist = {
     ...preAdvanceChecklist,
-    alerts: preAdvanceChecklist.alerts.filter((alert) => alert.tone === "blocker"),
+    alerts: blockingAlerts,
+    blockerCount: blockingAlerts.length,
   };
-  const roleMinimumAlerts = roleMinimumChecksApply(activeSeason.season.status, leagueMoment)
+  const roleMinimumAlerts = hasReachedMoment(leagueMoment, "auction_start") && !hasReachedMoment(leagueMoment, "free_agency_end")
     ? buildRoleMinimumAlerts(leagueState)
     : [];
 
@@ -89,7 +92,7 @@ export default async function AdminDashboardPage() {
       {roleMinimumAlerts.length > 0 && (
         <section className="admin-role-minimum-alert" role="alert">
           <strong>Intervento richiesto: minimi di ruolo non rispettati</strong>
-          <p>Assegna casualmente un free agent da 1 credito per ogni carenza; il salvataggio dello scambio resta valido, ma l’operazione va completata manualmente.</p>
+          <p>Assegna casualmente un free agent da 1 credito per ogni carenza. Durante l’asta le altre operazioni restano consentite se rispettano gli altri vincoli; la situazione deve però essere regolare prima del Termine asta.</p>
           <ul>
             {roleMinimumAlerts.map((team) => (
               <li key={team.teamCode}><b>{team.teamName}</b>: {[

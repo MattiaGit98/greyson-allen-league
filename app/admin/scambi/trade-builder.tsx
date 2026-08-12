@@ -1224,26 +1224,28 @@ function TradeTeamCard({
               <option value={pick.id} key={pick.id}>{pickOptionLabel(pick)}</option>
             ))}
           </select>
-          <select
-            value={counterpartyPickId}
-            onChange={(event) => setCounterpartyPickId(event.target.value)}
-            disabled={!selectedClausePick}
-            aria-label="Scelta di contropartita"
-          >
-            <option value="">Seleziona contropartita</option>
-            {participants.map((ownerTeam) => {
-              const picks = clauseCounterpartyOptions
-                .filter(({ pick }) => postTradeOwner(pick.id) === ownerTeam.code)
-                .map(({ pick }) => pick);
-              if (!picks.length) return null;
-              return (
-                <optgroup label={formatTeamName(ownerTeam.name)} key={ownerTeam.code}>
-                  {picks.map((pick) => <option value={pick.id} key={pick.id}>{pickOptionLabel(pick)}</option>)}
-                </optgroup>
-              );
-            })}
-          </select>
-          <button type="button" onClick={addClause} disabled={!selectedClausePick || !selectedCounterparty || pickClause === "none"}>Aggiungi</button>
+          <div className="trade-clause-action">
+            <select
+              value={counterpartyPickId}
+              onChange={(event) => setCounterpartyPickId(event.target.value)}
+              disabled={!selectedClausePick}
+              aria-label="Scelta di contropartita"
+            >
+              <option value="">Seleziona contropartita</option>
+              {participants.map((ownerTeam) => {
+                const picks = clauseCounterpartyOptions
+                  .filter(({ pick }) => postTradeOwner(pick.id) === ownerTeam.code)
+                  .map(({ pick }) => pick);
+                if (!picks.length) return null;
+                return (
+                  <optgroup label={formatTeamName(ownerTeam.name)} key={ownerTeam.code}>
+                    {picks.map((pick) => <option value={pick.id} key={pick.id}>{pickOptionLabel(pick)}</option>)}
+                  </optgroup>
+                );
+              })}
+            </select>
+            <button type="button" onClick={addClause} disabled={!selectedClausePick || !selectedCounterparty || pickClause === "none"}>Aggiungi</button>
+          </div>
         </div>
         <AssetList
           items={teamClauseAgreements.map((agreement) => ({

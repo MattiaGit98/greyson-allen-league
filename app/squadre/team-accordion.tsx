@@ -426,6 +426,7 @@ function PlayerDataRow({
         value={entry.contract}
         auctionAcquisition={entry.auctionAcquisition}
         playoffTeamOptionPromotionSeason={entry.playoffTeamOptionPromotionSeason}
+        slot={entry.slot}
         pendingAuctionContract={pendingAuctionContract}
         teamOptionEligible={Boolean(player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15))}
       /></span>
@@ -490,9 +491,10 @@ function ContractDisplay({
   value,
   auctionAcquisition,
   playoffTeamOptionPromotionSeason,
+  slot,
   pendingAuctionContract,
   teamOptionEligible,
-}: Pick<RosterEntry, "auctionAcquisition" | "playoffTeamOptionPromotionSeason"> & {
+}: Pick<RosterEntry, "auctionAcquisition" | "playoffTeamOptionPromotionSeason" | "slot"> & {
   value: string;
   pendingAuctionContract: boolean;
   teamOptionEligible: boolean;
@@ -501,8 +503,8 @@ function ContractDisplay({
     const pendingMarkers = [
       ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
       ...(auctionAcquisition === "qualifying_offer" ? [{ label: "Q.O.", kind: "acquisition-qo" }] : []),
-      ...(teamOptionEligible && value !== "T.O." ? [{ label: "T.O. possibile", kind: "pending-option" }] : []),
-      ...(value === "T.O." ? [{ label: "T.O. da confermare", kind: "pending-option" }] : []),
+      ...(teamOptionEligible && (slot === "two_way" || slot === "g_league") ? [{ label: "T.O. obbligatoria", kind: "pending-option" }] : []),
+      ...(teamOptionEligible && slot !== "two_way" && slot !== "g_league" ? [{ label: "T.O. possibile", kind: "pending-option" }] : []),
     ];
     return <span className="contract-group">
       <i className="contract-value contract-pending">Da definire</i>

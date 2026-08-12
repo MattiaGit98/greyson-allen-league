@@ -1,6 +1,6 @@
 import { requireActiveSeason } from "@/lib/active-season";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
-import { buildMovementReversal, movementReversalCapErrors, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
+import { auctionAssignmentReversalDuringAuction, buildMovementReversal, movementReversalCapErrors, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
 import { conciseMovementDetail, movementOperationLabel } from "@/lib/movement-display";
 import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
@@ -42,22 +42,23 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
           normalizeState(movement.before_state),
           normalizeState(movement.after_state),
         );
-        const slotErrors = movementReversalSlotErrors(current, restored);
-        if (slotErrors.length) {
-          reversible = false;
-          reason = `${slotErrors.join(" ")} L'annullamento ricreerebbe un conflitto di slot.`;
-        }
-        const capErrors = movementReversalCapErrors(current, restored, {
-          seasonName: season.name,
-          phase: season.status,
-          teamOptionsResolved: season.team_options_resolved,
-          currentMoment,
-        });
-        if (capErrors.length) {
-          reversible = false;
-          reason = `${capErrors.join(" ")} L'annullamento non rispetterebbe il salary cap.`;
-        }
-        if (restored) {
+        const isAuctionAssignmentUndo = auctionAssignmentReversalDuringAuction(movement.operation_type, currentMoment);
+        if (!isAuctionAssignmentUndo) {
+          const slotErrors = movementReversalSlotErrors(current, restored);
+          if (slotErrors.length) {
+            reversible = false;
+            reason = `${slotErrors.join(" ")} L'annullamento ricreerebbe un conflitto di slot.`;
+          }
+          const capErrors = movementReversalCapErrors(current, restored, {
+            seasonName: season.name,
+            phase: season.status,
+            teamOptionsResolved: season.team_options_resolved,
+            currentMoment,
+          });
+          if (capErrors.length) {
+            reversible = false;
+            reason = `${capErrors.join(" ")} L'annullamento non rispetterebbe il salary cap.`;
+          }
           const restoredState = restored;
           const roleMinimumSlotErrors = [...new Set(restoredState.rosterEntries.map((entry) => entry.teamCode))]
             .flatMap((teamCode) => {
@@ -81,7 +82,7 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
       seasonNames: capSeasonNames,
       countTeamOptions,
     }) : [];
-    const roleMinimumConfirmationRequired = restored
+    const roleMinimumConfirmationRequired = restored && !auctionAssignmentReversalDuringAuction(movement.operation_type, currentMoment)
       ? roleMinimumsWorsen(current.rosterEntries, restored.rosterEntries, season.status, currentMoment)
       : false;
     return { ...movement, reversible, reason, preview, roleMinimumConfirmationRequired };

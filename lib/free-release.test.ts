@@ -19,6 +19,11 @@ describe("causali del rilascio gratuito", () => {
     expect(freeReleaseReasonAvailability("no_nba_roster", "free_agency_end", ordinary).available).toBe(false);
   });
 
+  it("chiude durante l'asta i rilasci per assenza dal roster NBA e per squalifica", () => {
+    expect(freeReleaseReasonAvailability("no_nba_roster", "auction_start", ordinary).available).toBe(false);
+    expect(freeReleaseReasonAvailability("suspension_or_legal", "auction_start", ordinary).available).toBe(false);
+  });
+
   it("limita la causale non garantita alle T.O. da 1 credito dalla relativa scadenza", () => {
     expect(freeReleaseReasonAvailability("one_credit_team_option", "offseason_start", { cost: 1, contract: "T.O." }).available).toBe(false);
     expect(freeReleaseReasonAvailability("one_credit_team_option", "team_option_deadline", { cost: 1, contract: "T.O." }).available).toBe(true);

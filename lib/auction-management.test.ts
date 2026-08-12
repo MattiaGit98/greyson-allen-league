@@ -11,16 +11,16 @@ import {
 } from "./auction-management";
 
 describe("pannello asta", () => {
-  it("assegna subito la team option agli slot speciali", () => {
+  it("lascia il contratto da assegnare in ogni slot dell'asta", () => {
     expect(auctionContractForSlot("regular")).toBe("PENDING");
-    expect(auctionContractForSlot("two_way")).toBe("T.O.");
-    expect(auctionContractForSlot("g_league")).toBe("T.O.");
+    expect(auctionContractForSlot("two_way")).toBe("PENDING");
+    expect(auctionContractForSlot("g_league")).toBe("PENDING");
     expect(auctionContractForSlot("regular", "qualifying_offer")).toBe("PENDING");
   });
 
-  it("consente di ripensare entro la consegna la T.O. assegnata subito in asta", () => {
+  it("include nella consegna contratti gli acquisti dell'asta ancora da definire", () => {
     expect(isPostAuctionContractAssignmentCandidate({
-      contract: "T.O.",
+      contract: "PENDING",
       auctionPrice: 5,
       contractStartSeason: "2026/27",
     }, "2026/27")).toBe(true);

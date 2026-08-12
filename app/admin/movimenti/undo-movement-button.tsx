@@ -16,18 +16,31 @@ export function UndoMovementButton({
   preview,
   roleMinimumConfirmationRequired,
   disabled,
+  triggerLabel = "Annulla movimento",
+  triggerClassName,
+  triggerAriaLabel,
+  requireExplicitConfirmation = false,
+  returnPath = "/admin/movimenti",
+  auctionAssignmentOnly = false,
 }: {
   movementId: string;
   summary: string;
   preview: ReversalPreviewTeam[];
   roleMinimumConfirmationRequired: boolean;
   disabled: boolean;
+  triggerLabel?: string;
+  triggerClassName?: string;
+  triggerAriaLabel?: string;
+  requireExplicitConfirmation?: boolean;
+  returnPath?: "/admin/movimenti" | "/admin/asta";
+  auctionAssignmentOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
+  const [explicitConfirmed, setExplicitConfirmed] = useState(false);
   return (
     <>
-      <button className="button secondary" type="button" disabled={disabled} onClick={() => setOpen(true)}>Annulla movimento</button>
+      <button className={triggerClassName ?? "button secondary"} type="button" disabled={disabled} aria-label={triggerAriaLabel} onClick={() => setOpen(true)}>{triggerLabel}</button>
       {open && (
         <div className="movement-reversal-modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
           <section className="movement-reversal-modal" role="dialog" aria-modal="true" aria-label="Conferma annullamento movimento" onMouseDown={(event) => event.stopPropagation()}>
@@ -55,11 +68,19 @@ export function UndoMovementButton({
                 Confermo che assegnerò in seguito i free agent casuali da 1 credito necessari per ripristinare i ruoli.
               </label>
             )}
+            {requireExplicitConfirmation && (
+              <label className="operation-check movement-role-minimum-check">
+                <input type="checkbox" checked={explicitConfirmed} onChange={(event) => setExplicitConfirmed(event.target.checked)} />
+                Confermo di voler annullare definitivamente questa assegnazione d’asta.
+              </label>
+            )}
             <form action={revertMovement} className="movement-reversal-modal-actions">
               <input type="hidden" name="movement_id" value={movementId} />
               <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
+              <input type="hidden" name="return_path" value={returnPath} />
+              <input type="hidden" name="auction_assignment_only" value={String(auctionAssignmentOnly)} />
               <button className="button secondary" type="button" onClick={() => setOpen(false)}>Indietro</button>
-              <button className="button primary" type="submit" disabled={roleMinimumConfirmationRequired && !roleMinimumConfirmed}>Conferma annullamento</button>
+              <button className="button primary" type="submit" disabled={(roleMinimumConfirmationRequired && !roleMinimumConfirmed) || (requireExplicitConfirmation && !explicitConfirmed)}>Conferma annullamento</button>
             </form>
           </section>
         </div>

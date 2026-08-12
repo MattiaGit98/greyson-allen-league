@@ -12,9 +12,8 @@ export const auctionSlotLimits: AuctionSlotCounts = {
   g_league: 3,
 };
 
-export function auctionContractForSlot(slot: AuctionSlot, acquisition?: AuctionAcquisitionKind) {
-  if (acquisition) return "PENDING";
-  return slot === "regular" ? "PENDING" : "T.O.";
+export function auctionContractForSlot(_slot: AuctionSlot, _acquisition?: AuctionAcquisitionKind) {
+  return "PENDING";
 }
 
 export function acquisitionKindForOutcome(outcome: QualifyingAuctionOutcome): AuctionAcquisitionKind | undefined {

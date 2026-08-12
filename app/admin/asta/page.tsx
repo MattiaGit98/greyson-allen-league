@@ -3,11 +3,16 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { requireActiveSeason } from "@/lib/active-season";
+import { buildMovementReversal } from "@/lib/league-movements";
+import { normalizeState } from "@/lib/league-state";
+import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
+import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
+import { conciseMovementDetail } from "@/lib/movement-display";
 
 export default async function AuctionAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; updated?: string }>;
+  searchParams: Promise<{ error?: string; updated?: string; reverted?: string }>;
 }) {
   const query = await searchParams;
   const [activeSeason, leagueState] = await Promise.all([
@@ -27,6 +32,20 @@ export default async function AuctionAdminPage({
     activeSeason.season.team_options_resolved,
   );
   const capSeasons = [seasonName, followingSeasonName(seasonName), followingSeasonName(seasonName, 2)];
+  const auctionMovements = await activeSeason.supabase
+    .from("league_movements")
+    .select("id,operation_type,summary,before_state,after_state,reverted_at")
+    .eq("operation_type", "acquisto_asta")
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (auctionMovements.error) throw new Error(`Registro movimenti non disponibile: ${auctionMovements.error.message}`);
+  const assignmentUndos = auctionAssignmentUndos({
+    movements: auctionMovements.data ?? [],
+    current: leagueState,
+    seasonName,
+    teamOptionsResolved: activeSeason.season.team_options_resolved,
+    seasonNames: capSeasons,
+  });
 
   const teams = leagueState.teams.map((team) => {
     const entries = leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code);
@@ -77,6 +96,12 @@ export default async function AuctionAdminPage({
         contract: roster.contract,
         slot: roster.slot,
         auctionAcquisition: roster.auctionAcquisition,
+        pendingAuctionContract: roster.auctionPrice !== undefined && roster.contractStartSeason === seasonName,
+        teamOptionFinalYear: roster.teamOptionFinalYear,
+        freeAgentSignedSeason: roster.freeAgentSignedSeason,
+        endedPreviousSeasonInGLeague: roster.endedPreviousSeasonInGLeague,
+        contractStartSeason: roster.contractStartSeason,
+        twoWayPromotionLocked: roster.twoWayPromotionLocked,
         charges: capSeasons.map((targetSeason) => 1000 - calculateCapSpace({
           entries: [roster],
           seasonName: targetSeason,
@@ -94,13 +119,107 @@ export default async function AuctionAdminPage({
   return (
     <section className="section page-top admin-dashboard auction-admin-page">
       {query.updated && <p className="notice success">{query.updated}</p>}
+      {query.reverted && <p className="notice success">Assegnazione d’asta annullata e situazione precedente ripristinata.</p>}
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
       {leagueState.playerListStatus !== "published" && <p className="notice">Pubblica il listone ufficiale per rendere operativo il pannello asta.</p>}
       {leagueState.playerListStatus === "published" && !auctionOpen && <p className="notice">Il pannello è operativo da Inizio asta fino a Termine asta.</p>}
       {auctionOpen && pendingDraftPicks > 0 && (
         <p className="notice error">Concludi prima il Draft {currentDraftYear}: restano {pendingDraftPicks} scelte da assegnare. Il pannello resta consultabile, ma tutte le operazioni sono bloccate.</p>
       )}
-      <AuctionPanel rows={rows} teams={teams} phase={auctionOpen ? "auction" : "closed"} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} />
+      <AuctionPanel rows={rows} teams={teams} phase={auctionOpen ? "auction" : "closed"} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} assignmentUndos={assignmentUndos} />
     </section>
   );
+}
+
+type AuctionMovement = {
+  id: string;
+  operation_type: string;
+  summary: string;
+  before_state: unknown;
+  after_state: unknown;
+  reverted_at: string | null;
+};
+
+type AssignmentUndo = {
+  movementId: string;
+  summary: string;
+  preview: { code: string; name: string; slots: { regular: number; two_way: number; g_league: number; dpe: number }; capSpaces: { seasonName: string; space: number }[] }[];
+  roleMinimumConfirmationRequired: boolean;
+  disabled: boolean;
+};
+
+function auctionAssignmentUndos({
+  movements,
+  current,
+  seasonName,
+  teamOptionsResolved,
+  seasonNames,
+}: {
+  movements: AuctionMovement[];
+  current: Awaited<ReturnType<typeof loadEditableLeagueState>>;
+  seasonName: string;
+  teamOptionsResolved: boolean;
+  seasonNames: string[];
+}) {
+  const result: Record<string, AssignmentUndo> = {};
+  for (const movement of movements) {
+    if (movement.reverted_at) continue;
+    const before = normalizeState(movement.before_state);
+    const after = normalizeState(movement.after_state);
+    const acquired = after.rosterEntries.find((entry) => (
+      entry.state === "active"
+      && entry.auctionPrice !== undefined
+      && entry.contractStartSeason === seasonName
+      && !before.rosterEntries.some((previous) => previous.state === "active" && previous.teamCode === entry.teamCode && previous.name === entry.name)
+    ));
+    if (!acquired || result[acquired.name]) continue;
+    let restored: typeof current | null = null;
+    let disabled = false;
+    try {
+      restored = buildMovementReversal(current, before, after);
+    } catch {
+      disabled = true;
+    }
+    result[acquired.name] = {
+      movementId: movement.id,
+      summary: conciseMovementDetail(movement.operation_type, movement.summary),
+      preview: restored ? movementPreview(current, restored, seasonName, seasonNames, teamOptionsResolved) : [],
+      roleMinimumConfirmationRequired: false,
+      disabled,
+    };
+  }
+  return result;
+}
+
+function movementPreview(
+  current: Awaited<ReturnType<typeof loadEditableLeagueState>>,
+  restored: Awaited<ReturnType<typeof loadEditableLeagueState>>,
+  seasonName: string,
+  seasonNames: string[],
+  teamOptionsResolved: boolean,
+) {
+  const countTeamOptions = shouldCountTeamOptions("auction", teamOptionsResolved);
+  return [...new Set([...current.teams, ...restored.teams].map((team) => team.code))].flatMap((teamCode) => {
+    if (auctionTeamSnapshot(current, teamCode) === auctionTeamSnapshot(restored, teamCode)) return [];
+    const team = restored.teams.find((item) => item.code === teamCode) ?? current.teams.find((item) => item.code === teamCode);
+    const entries = restored.rosterEntries.filter((entry) => entry.teamCode === teamCode);
+    return [{
+      code: teamCode,
+      name: team?.name ?? teamCode,
+      slots: countActiveRosterSlots(restored.rosterEntries, teamCode),
+      capSpaces: seasonNames.map((targetSeason, distance) => ({
+        seasonName: targetSeason,
+        space: calculateCapSpace({ entries: entriesForDpeAdjustedCap(entries, distance), seasonName: targetSeason, optionSeasonName: seasonName, countTeamOptions }),
+      })),
+    }];
+  });
+}
+
+function auctionTeamSnapshot(state: Awaited<ReturnType<typeof loadEditableLeagueState>>, teamCode: string) {
+  const normalized = <T,>(rows: T[]) => rows.map((row) => JSON.stringify(row)).sort();
+  return JSON.stringify({
+    roster: normalized(state.rosterEntries.filter((entry) => entry.teamCode === teamCode)),
+    picks: normalized(state.draftAssets.filter((pick) => pick.teamCode === teamCode)),
+    qualifyingOffers: normalized(state.qualifyingOfferRights.filter((right) => right.teamCode === teamCode)),
+  });
 }

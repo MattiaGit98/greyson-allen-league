@@ -105,7 +105,9 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
         nextSpace: capSpaceFor(nextSeasonName),
         followingSpace: capSpaceFor(followingSeason),
         players: entries.map((entry, index) => {
-          const listPlayer = playerDetails.get(entry.name.trim().toLocaleLowerCase("it-IT"));
+          const listPlayer = entry.state === "active"
+            ? playerDetails.get(entry.name.trim().toLocaleLowerCase("it-IT"))
+            : undefined;
           const expiry = entry.contract.match(/\d{2}/)?.[0];
           const fullExpiryYear = expiry
             ? Math.floor(currentSeasonEndYear / 100) * 100 + Number(expiry)

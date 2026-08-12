@@ -75,6 +75,17 @@ describe("movement reversal", () => {
     })).toMatch(/scelta ufficiale.*non può essere annullata/i);
   });
 
+  it("allows an auction assignment reversal only while the auction is open", () => {
+    const input = {
+      operationType: "acquisto_asta",
+      movementSeasonName: "2026/27",
+      undoBeforeMoment: null,
+      currentSeasonName: "2026/27",
+    } as const;
+    expect(movementUndoWindowError({ ...input, currentMoment: "auction_start" })).toBeNull();
+    expect(movementUndoWindowError({ ...input, currentMoment: "auction_completed" })).toMatch(/Termine asta/);
+  });
+
   it("recovers movement undo metadata preserved inside backup snapshots", () => {
     expect(movementUndoMetadataFromState({
       rosterEntries: [],

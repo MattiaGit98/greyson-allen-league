@@ -215,17 +215,22 @@ function FreeAgentDialog({
   const capWarnings = preview.warnings.filter((warning) => isCapIssueCode(warning.code));
   const otherWarnings = preview.warnings.filter((warning) => !isCapIssueCode(warning.code));
   const roleMinimumConfirmationRequired = otherWarnings.some((warning) => warning.code.startsWith("ROLE_"));
-  const roleMinimumShortage = {
+  const roleMinimumShortageBefore = {
     G: Math.max(0, 5 - roles.G),
     A: Math.max(0, 5 - roles.A),
     C: Math.max(0, 3 - roles.C),
   };
+  const roleMinimumShortageAfter = {
+    G: Math.max(0, 5 - preview.calculated.rolesAfter.G),
+    A: Math.max(0, 5 - preview.calculated.rolesAfter.A),
+    C: Math.max(0, 3 - preview.calculated.rolesAfter.C),
+  };
   const roleMinimumReplacementAvailable = phase === "regular_season"
     && Boolean(selectedRole)
-    && roleMinimumShortage[selectedRole as "G" | "A" | "C"] > 0;
+    && roleMinimumShortageBefore[selectedRole as "G" | "A" | "C"] > 0;
   const contract = automaticFreeAgentContract(seasonName, tradeDeadlinePassed || roleMinimumReplacement) ?? "—";
   const roleMinimumSlotError = roleMinimumConfirmationRequired
-    ? roleMinimumRecoverySlotError({ ...roleMinimumShortage, total: roleMinimumShortage.G + roleMinimumShortage.A + roleMinimumShortage.C }, {
+    ? roleMinimumRecoverySlotError({ ...roleMinimumShortageAfter, total: roleMinimumShortageAfter.G + roleMinimumShortageAfter.A + roleMinimumShortageAfter.C }, {
       regular: preview.calculated.slotsAfter.regular,
       twoWay: preview.calculated.slotsAfter.twoWay,
     })

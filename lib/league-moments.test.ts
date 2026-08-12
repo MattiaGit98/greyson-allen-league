@@ -35,6 +35,9 @@ describe("momenti della lega", () => {
     expect(operationWindows.auction("team_option_deadline")).toBe(false);
     expect(operationWindows.auction("auction_start")).toBe(true);
     expect(operationWindows.auction("auction_completed")).toBe(false);
+    expect(operationWindows.extensions("team_option_deadline")).toBe(true);
+    expect(operationWindows.extensions("auction_start")).toBe(false);
+    expect(operationWindows.extensions("trade_deadline")).toBe(true);
     expect(operationWindows.dpeActivation("auction_start")).toBe(false);
     expect(operationWindows.dpeActivation("auction_completed")).toBe(true);
     expect(operationWindows.dpeActivation("trade_deadline")).toBe(false);

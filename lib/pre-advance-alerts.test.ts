@@ -106,6 +106,7 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     expect(result.alerts.filter((alert) => alert.tone === "blocker").map((alert) => alert.id)).toEqual(expect.arrayContaining([
       "draft-not-completed",
       "auction-rosters-incomplete",
+      "role-minimums",
     ]));
     expect(result.alerts.map((alert) => alert.id)).not.toContain("qualifying-offers-unresolved");
   });

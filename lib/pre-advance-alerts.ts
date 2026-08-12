@@ -147,7 +147,7 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    addRoleMinimumAlert(add, state, "/admin/asta", "Controlla i ruoli prima di iniziare la stagione");
+    addRoleMinimumAlert(add, state, "/admin/asta", "Controlla i ruoli prima di iniziare la stagione", "blocker");
   }
 
   if (transition === "contract_delivery") {
@@ -568,12 +568,13 @@ function addRoleMinimumAlert(
   state: EditableLeagueState,
   href: string,
   actionLabel: string,
+  tone: PreAdvanceAlertTone = "warning",
 ) {
   const teams = buildRoleMinimumAlerts(state);
   if (!teams.length) return;
   add({
     id: "role-minimums",
-    tone: "warning",
+    tone,
     title: `${teams.length} squadre richiedono l’assegnazione regolamentare di un free agent`,
     message: "Non viene eseguita automaticamente: va assegnato casualmente un free agent fino al termine della stagione, a 1 credito e indipendentemente dal cap; se necessario va liberato uno slot. Ruolo X e DPE non contano.",
     items: teams.map((team) => `${team.teamCode}: ${[

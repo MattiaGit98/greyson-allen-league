@@ -1,6 +1,6 @@
 import type { EditableLeagueState } from "./league-state";
 import type { LeaguePhase } from "./league-types";
-import { hasReachedMoment, type LeagueMoment } from "./league-moments";
+import { hasReachedMoment, operationWindows, type LeagueMoment } from "./league-moments";
 import { changedSlotTeamCodes, findAllSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
 import { salaryCapWarningsForSpaces } from "./cap-override";
 import { entriesForDpeAdjustedCap } from "./dpe-rules";
@@ -114,6 +114,9 @@ export function movementUndoWindowError({
       ? "L'ordine definitivo del Draft non può essere annullato."
       : "Una scelta ufficiale del Draft non può essere annullata.";
   }
+  if (operationType === "acquisto_asta" && !operationWindows.auction(currentMoment)) {
+    return "Un'assegnazione d'asta non può più essere annullata dopo il Termine asta.";
+  }
   const isOrdinaryTeamOption = operationType === "team_option";
   if (!isOrdinaryTeamOption && undoBeforeMoment !== "team_option_deadline") return null;
   if (isOrdinaryTeamOption && !movementSeasonName) {
@@ -126,6 +129,10 @@ export function movementUndoWindowError({
     return "Le decisioni sulle team option non sono più annullabili dopo la scadenza per l'esercizio delle T.O.";
   }
   return null;
+}
+
+export function auctionAssignmentReversalDuringAuction(operationType: string, currentMoment: LeagueMoment) {
+  return operationType === "acquisto_asta" && operationWindows.auction(currentMoment);
 }
 
 export function movementUndoMetadataFromState(value: unknown) {

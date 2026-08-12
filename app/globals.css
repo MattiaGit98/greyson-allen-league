@@ -41,6 +41,12 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .page-top { padding-top: 70px; }
 .page-top > h1 { font-size: clamp(54px, 7vw, 88px); }
 .teams-page { padding-top: 42px; max-width: 1380px; margin: 0 auto; }
+.available-operations { margin: 0 0 18px; padding: 14px 16px; border: 1px solid #d2d6c8; border-radius: 15px; background: rgba(255,253,247,.78); box-shadow: 0 5px 15px rgba(24,63,52,.04); }
+.available-operations > strong { display: inline-block; padding: 5px 9px; border-radius: 99px; background: #e7edce; color: #315044; font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.available-operations ul { display: grid; gap: 4px; margin: 10px 0 0; padding-left: 17px; }
+.available-operations li { color: #315044; font-size: 11px; font-weight: 700; line-height: 1.3; }
+.available-operations li.is-urgent { color: #b04444; }
+.available-operations li.is-upcoming { color: #9a7610; }
 .team-accordion-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
 .team-accordion-toolbar button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 99px; background: var(--card); color: var(--green); font-size: 11px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 10px rgba(24,63,52,.04); }
 .team-accordion-toolbar button:hover { border-color: var(--green); }
@@ -576,6 +582,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .trade-composer.player { grid-template-columns: minmax(0, 1fr) 112px auto; }
 .trade-composer.simple, .trade-composer.cut { grid-template-columns: minmax(0, 1fr) auto; }
 .trade-composer.clause { grid-template-columns: minmax(0, 1.25fr) 132px minmax(0, 1fr) auto; }
+.trade-clause-action { display: contents; }
 .trade-composer.promotion { grid-template-columns: minmax(0, 1fr) 112px auto; }
 .trade-composer select { min-width: 0; width: 100%; height: 38px; padding: 0 8px; border: 1px solid #d2d6c8; border-radius: 8px; outline: 0; background: white; color: var(--ink); font: inherit; font-size: 10px; }
 .trade-composer select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.07); }
@@ -717,6 +724,10 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .area-switcher a { padding: 8px 9px; }
   .section-nav { justify-content: flex-start; top: 74px; padding: 0 3vw; }
   .team-accordion { gap: 0; }
+  .available-operations { display: block; margin-right: 8px; margin-left: 8px; padding: 13px; }
+  .available-operations > strong { margin-bottom: 0; }
+  .available-operations ul { gap: 5px; }
+  .available-operations li { font-size: 10px; }
   .team-accordion-toolbar { justify-content: stretch; margin-left: 8px; margin-right: 8px; }
   .team-accordion-toolbar button { flex: 1; min-width: 0; width: auto; justify-content: center; padding-right: 8px; padding-left: 8px; }
   .team-accordion-item, .team-accordion-item:hover, .team-accordion-item.open { border-right: 0; border-left: 0; border-radius: 0; box-shadow: none; transform: none; }
@@ -909,7 +920,9 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .sign-trade-banner a { justify-self: start; }
   .trade-composer.player > :first-child, .trade-composer.promotion > :first-child { grid-column: 1 / -1; }
   .trade-composer.clause > :first-child, .trade-composer.clause > :nth-child(2) { grid-row: 1; }
-  .trade-composer.clause > :nth-child(3), .trade-composer.clause > button { grid-row: 2; }
+  .trade-composer.clause > .trade-clause-action { display: flex; grid-column: 1 / -1; grid-row: 2; min-width: 0; gap: 6px; }
+  .trade-clause-action select { min-width: 0; flex: 1; }
+  .trade-clause-action button { width: auto; flex: 0 0 auto; }
   .trade-summary-grid { grid-template-columns: 1fr; }
   .trade-summary-card > div { grid-template-columns: repeat(2, 1fr); gap: 10px 5px; }
   .trade-clause-workspace .trade-asset-list { grid-template-columns: 1fr; }
@@ -961,7 +974,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .auction-search input { width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid #d2d6c8; border-radius: 10px; outline: 0; background: white; color: var(--ink); font: inherit; }
 .auction-search input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.08); }
 .auction-player-list { overflow: hidden; border: 1px solid var(--line); border-top: 2px solid var(--green); border-radius: 13px; background: rgba(255,255,255,.92); box-shadow: 0 5px 18px rgba(24,63,52,.04); }
-.auction-player-head, .auction-player-row { display: grid; grid-template-columns: 38px minmax(180px, 1.65fr) 54px minmax(80px, .6fr) 82px 92px; align-items: center; gap: 12px; min-height: 52px; padding: 8px 13px; border-bottom: 1px solid var(--line); }
+.auction-player-head, .auction-player-row { display: grid; grid-template-columns: 38px minmax(180px, 1.65fr) 54px minmax(80px, .6fr) 82px 92px 32px; align-items: center; gap: 12px; min-height: 52px; padding: 8px 13px; border-bottom: 1px solid var(--line); }
 .auction-player-head { min-height: 38px; background: #f0f1e9; color: #596158; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; text-align: center; }
 .auction-player-head > :nth-child(2), .auction-player-row > :nth-child(2) { text-align: left; }
 .auction-player-row { position: relative; font-size: 12px; text-align: center; }
@@ -972,6 +985,9 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .auction-player-subline > small { display: none; color: var(--muted); font-size: 9px; font-weight: 800; }
 .auction-player-subline .player-flag { font-style: normal; }
 .auction-row-action { min-height: 32px; padding: 0 13px; border: 1px solid var(--green); border-radius: 99px; background: transparent; color: var(--green); font-size: 10px; font-weight: 900; cursor: pointer; }
+.auction-row-undo { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid #c88c7c; border-radius: 50%; background: transparent; color: #9e4a38; font-size: 18px; line-height: 1; cursor: pointer; }
+.auction-row-undo:hover:not(:disabled) { background: #f6e6e1; }
+.auction-row-undo:disabled { border-color: #d9d8d1; color: #b6b6af; cursor: not-allowed; }
 .auction-row-action.bid { border-color: var(--green); background: var(--green); color: white; }
 .auction-row-action:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(24,63,52,.12); }
 .free-agent-panel-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
@@ -1030,16 +1046,18 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .auction-admin-page > .notice, .auction-search { margin-right: 8px; margin-left: 8px; }
   .auction-search { max-width: none; }
   .auction-player-list { border-right: 0; border-left: 0; border-radius: 0; }
-  .auction-player-head, .auction-player-row { grid-template-columns: minmax(0, 1fr) 36px 62px 72px; gap: 7px; padding: 8px; }
+  .auction-player-head, .auction-player-row { grid-template-columns: minmax(0, 1fr) 36px 62px 72px 30px; gap: 7px; padding: 8px; }
   .auction-player-head > :nth-child(1), .auction-player-row > :nth-child(1),
   .auction-player-head > :nth-child(4), .auction-player-row > :nth-child(4) { display: none; }
   .auction-player-head > :nth-child(2), .auction-player-row > :nth-child(2) { grid-column: 1; }
   .auction-player-head > :nth-child(3), .auction-player-row > :nth-child(3) { grid-column: 2; }
   .auction-player-head > :nth-child(5), .auction-player-row > :nth-child(5) { grid-column: 3; }
   .auction-player-head > :nth-child(6), .auction-player-row > :nth-child(6) { grid-column: 4; }
+  .auction-player-head > :nth-child(7), .auction-player-row > :nth-child(7) { grid-column: 5; }
   .auction-player-subline > small { display: inline; }
   .auction-player-row .player-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .auction-row-action { width: 100%; min-height: 30px; padding: 0 7px; font-size: 9px; }
+  .auction-row-undo { width: 28px; height: 28px; }
   .auction-modal-backdrop { align-items: end; padding: 0; }
   .auction-modal { width: 100%; max-height: 94vh; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 18px 18px 0 0; }
   .auction-modal-header { padding: 15px 12px; }

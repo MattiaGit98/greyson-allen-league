@@ -18,11 +18,12 @@ import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/sea
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
-import { slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { applyStandardContractCut } from "@/lib/team-option-contract";
+import { freeReleaseReasonAvailability } from "@/lib/free-release";
 
 const auctionPath = "/admin/asta";
-type AuctionEditKind = "delete" | "cut" | "price" | "slot";
+type AuctionEditKind = "cut" | "free_release" | "slot";
 
 export async function purchaseAuctionPlayer(formData: FormData) {
   const playerName = cleanText(formData.get("player_name"));
@@ -110,7 +111,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     state,
     nextState,
     "acquisto_asta",
-    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto ${rosterEntry.contract}; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}`, capWarnings, false),
+    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto da assegnare; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}`, capWarnings, false),
   );
 
   const suffix = cutPlayerName ? ` Taglio contestuale: ${cutPlayerName}.` : "";
@@ -127,10 +128,9 @@ export async function modifyAuctionPlayer(formData: FormData) {
   const playerName = cleanText(formData.get("player_name"));
   const requestedTeamCode = cleanText(formData.get("team_code")).toUpperCase();
   const kind = cleanText(formData.get("edit_kind")) as AuctionEditKind;
-  const newPrice = Number(formData.get("new_price"));
   const newSlot = cleanText(formData.get("new_slot")) as AuctionSlot;
   const exchangePlayerName = cleanText(formData.get("exchange_player_name"));
-  if (!playerName || !requestedTeamCode || !["delete", "cut", "price", "slot"].includes(kind)) fail("Modifica non valida.");
+  if (!playerName || !requestedTeamCode || !["cut", "free_release", "slot"].includes(kind)) fail("Operazione non valida.");
 
   const { supabase, season } = await auctionContext();
   const state = await loadEditableLeagueState();
@@ -148,31 +148,17 @@ export async function modifyAuctionPlayer(formData: FormData) {
 
   let rosterEntries: RosterEntry[];
   let exchangeEntry: RosterEntry | undefined;
-  if (kind === "delete") {
-    rosterEntries = state.rosterEntries.filter((_, index) => index !== entryIndex);
-  } else if (kind === "cut") {
+  if (kind === "cut") {
     const currentEndYear = seasonEndYear(season.name);
     if (currentEndYear === null) fail("Annata non valida.");
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
       ...applyStandardContractCut(item, currentEndYear, "auction_start"),
     } : item);
-  } else if (kind === "price") {
-    if (!Number.isInteger(newPrice) || newPrice < 1) fail("Il nuovo prezzo deve essere un intero di almeno 1 credito.");
-    if (entry.slot !== "dpe") {
-      const destinationErrors = auctionDestinationErrors({
-        slot: entry.slot as AuctionSlot,
-        price: newPrice,
-        rookie: player.rookie,
-        under23: player.under23,
-      });
-      if (destinationErrors.length) fail(destinationErrors.join(" "));
+  } else if (kind === "free_release") {
+    if (!freeReleaseReasonAvailability("one_credit_team_option", leagueMomentFromSeason(season), entry).available) {
+      fail("Questo giocatore non è idoneo al rilascio gratuito durante l'asta.");
     }
-    const updateAuctionPrice = isPostAuctionContractAssignmentCandidate(entry, season.name);
-    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
-      ...item,
-      cost: newPrice,
-      auctionPrice: updateAuctionPrice ? newPrice : item.auctionPrice,
-    } : item);
+    rosterEntries = state.rosterEntries.filter((_, index) => index !== entryIndex);
   } else {
     if (!["regular", "two_way", "g_league"].includes(newSlot)) fail("Slot non valido.");
     if (entry.slot === "dpe") fail("Il reintegro dalla DPE va registrato nel blocco Altre operazioni.");
@@ -187,6 +173,10 @@ export async function modifyAuctionPlayer(formData: FormData) {
       leagueMomentFromSeason(season),
     );
     if (timingErrors.length) fail(timingErrors.join(" "));
+    if (!isPostAuctionContractAssignmentCandidate(entry, season.name)) {
+      const eligibilityErrors = slotEligibilityErrors(entry, newSlot, season.name);
+      if (eligibilityErrors.length) fail(eligibilityErrors.join(" "));
+    }
     const destinationErrors = auctionDestinationErrors({
       slot: newSlot,
       price: entry.cost,
@@ -215,6 +205,10 @@ export async function modifyAuctionPlayer(formData: FormData) {
         leagueMomentFromSeason(season),
       );
       if (exchangeTimingErrors.length) fail(`${exchangeEntry.name}: ${exchangeTimingErrors.join(" ")}`);
+      if (!isPostAuctionContractAssignmentCandidate(exchangeEntry, season.name)) {
+        const eligibilityErrors = slotEligibilityErrors(exchangeEntry, entry.slot as ManagedRosterSlot, season.name);
+        if (eligibilityErrors.length) fail(`${exchangeEntry.name}: ${eligibilityErrors.join(" ")}`);
+      }
       const exchangePlayer = state.playerList.find((item) => item.name === exchangeEntry?.name);
       if (!exchangePlayer) fail("Il giocatore scelto per lo scambio non è presente nel listone.");
       const exchangeErrors = auctionDestinationErrors({
@@ -230,12 +224,16 @@ export async function modifyAuctionPlayer(formData: FormData) {
       if (index === entryIndex) return {
         ...item,
         slot: newSlot,
-        contract: newSlot === "regular" ? item.contract : "T.O.",
+        contract: isPostAuctionContractAssignmentCandidate(item, season.name)
+          ? "PENDING"
+          : newSlot === "regular" ? item.contract : "T.O.",
       };
       if (index === exchangeIndex && entry.slot !== "dpe") return {
         ...item,
         slot: entry.slot,
-        contract: entry.slot === "regular" ? item.contract : "T.O.",
+        contract: isPostAuctionContractAssignmentCandidate(item, season.name)
+          ? "PENDING"
+          : entry.slot === "regular" ? item.contract : "T.O.",
       };
       return item;
     });
@@ -252,9 +250,6 @@ export async function modifyAuctionPlayer(formData: FormData) {
   if (kind === "cut" && entry.slot === "dpe" && afterSpaces[0] < 0) {
     capWarnings.push("Il taglio dalla DPE farebbe superare il salary cap.");
   }
-  if (kind === "price" && newPrice > entry.cost && afterSpaces[0] < 0) {
-    capWarnings.push("L'aumento del prezzo farebbe superare il salary cap.");
-  }
   if (kind === "slot" && entry.slot === "dpe" && afterSpaces[0] < 0) {
     capWarnings.push("Lo spostamento dalla DPE farebbe superare il salary cap.");
   }
@@ -263,12 +258,19 @@ export async function modifyAuctionPlayer(formData: FormData) {
   }
   requireCapCompliance(capWarnings, fail);
 
-  const detail = modificationDetail(kind, entry, newPrice, newSlot, exchangeEntry);
+  const detail = modificationDetail(kind, entry, newSlot, exchangeEntry);
+  const nextState: EditableLeagueState = {
+    ...state,
+    rosterEntries,
+    qualifyingOfferRights: kind === "free_release"
+      ? state.qualifyingOfferRights.filter((right) => right.teamCode !== requestedTeamCode || right.playerName !== playerName)
+      : state.qualifyingOfferRights,
+  };
   await persistAuctionState(
     supabase,
     state,
-    { ...state, rosterEntries },
-    "modifica_asta",
+    nextState,
+    kind === "cut" ? "cut" : kind === "free_release" ? "free_release" : "spostamento_slot",
     capOverrideSummary(`${playerName}: ${detail}`, capWarnings, false),
   );
   const overflow = slotOverflow(rosterEntries, requestedTeamCode);
@@ -345,10 +347,9 @@ function slotOverflow(entries: RosterEntry[], teamCode: string) {
     .map((slot) => `${slotLabel(slot)} ${counts[slot]}/${limits[slot]}`);
 }
 
-function modificationDetail(kind: AuctionEditKind, entry: RosterEntry, newPrice: number, newSlot: AuctionSlot, exchangeEntry?: RosterEntry) {
-  if (kind === "delete") return `eliminato dal roster ${entry.teamCode}`;
+function modificationDetail(kind: AuctionEditKind, entry: RosterEntry, newSlot: AuctionSlot, exchangeEntry?: RosterEntry) {
   if (kind === "cut") return `tagliato da ${entry.teamCode}`;
-  if (kind === "price") return `prezzo modificato da ${entry.cost} a ${newPrice} per ${entry.teamCode}`;
+  if (kind === "free_release") return `rilasciato gratuitamente da ${entry.teamCode}`;
   const exchangeDetail = exchangeEntry ? `; ${exchangeEntry.name} spostato da ${slotLabel(newSlot)} a ${slotLabel(entry.slot)}` : "";
   return `spostato per ${entry.teamCode} da ${slotLabel(entry.slot)} a ${slotLabel(newSlot)}${exchangeDetail}`;
 }

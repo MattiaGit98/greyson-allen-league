@@ -12,7 +12,8 @@ import { requireCapCompliance } from "@/lib/cap-override";
 const defaultPath = "/admin/altre-operazioni";
 
 export async function applyContractExtension(formData: FormData) {
-  const path = defaultPath;
+  const requestedPath = String(formData.get("return_path") ?? "");
+  const path = requestedPath === "/admin/asta" ? requestedPath : defaultPath;
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
   const confirmed = formData.get("requirements_confirmed") === "true";
@@ -26,7 +27,7 @@ export async function applyContractExtension(formData: FormData) {
   const activeSeasonName = season.data.name;
   const leagueMoment = leagueMomentFromSeason(season.data);
   const windowOpen = operationWindows.extensions(leagueMoment);
-  if (!windowOpen) fail(path, "Le estensioni sono disponibili in offseason oppure durante la stagione dopo la deadline.");
+  if (!windowOpen) fail(path, "Le estensioni sono disponibili fino all'Inizio asta oppure durante la stagione dopo la deadline.");
   if (season.data.status === "regular_season" && !confirmed) {
     fail(path, "Conferma di aver verificato che la squadra occupi una delle prime sei posizioni della regular season.");
   }
