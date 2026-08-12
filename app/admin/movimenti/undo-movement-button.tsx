@@ -6,9 +6,15 @@ import { revertMovement } from "./actions";
 type ReversalPreviewTeam = {
   code: string;
   name: string;
-  slots: { regular: number; two_way: number; g_league: number; dpe: number };
-  capSpaces: { seasonName: string; space: number }[];
+  slotsBefore: SlotCounts;
+  slotsAfter: SlotCounts;
+  rolesBefore: RoleCounts;
+  rolesAfter: RoleCounts;
+  capSpaces: { seasonName: string; before: number; after: number }[];
 };
+
+type SlotCounts = { regular: number; two_way: number; g_league: number; dpe: number };
+type RoleCounts = { G: number; A: number; C: number };
 
 export function UndoMovementButton({
   movementId,
@@ -46,17 +52,22 @@ export function UndoMovementButton({
           <section className="movement-reversal-modal" role="dialog" aria-modal="true" aria-label="Conferma annullamento movimento" onMouseDown={(event) => event.stopPropagation()}>
             <div className="movement-reversal-modal-head">
               <div><span>Annullamento movimento</span><strong>{summary}</strong></div>
-              <button className="icon-button" type="button" aria-label="Chiudi" onClick={() => setOpen(false)}>×</button>
             </div>
-            <p>Situazione prevista dopo l’annullamento.</p>
             <div className="movement-reversal-preview-list">
               {preview.map((team) => (
                 <article key={team.code}>
-                  <strong>{team.name}</strong>
-                  <span className="movement-reversal-team-code">{team.code}</span>
-                  <div className="movement-reversal-metrics">
-                    <span>Cap libero<strong>{team.capSpaces.map(({ seasonName, space }) => `${seasonName}: ${space}`).join(" · ")}</strong></span>
-                    <span>Slot<strong>{team.slots.regular}/15 · {team.slots.two_way}/2 · {team.slots.g_league}/3 · {team.slots.dpe}/1</strong></span>
+                  <div className="movement-reversal-team-heading">
+                    <strong>{team.name}</strong>
+                    <span className="movement-reversal-team-code">{team.code}</span>
+                  </div>
+                  <div className="auction-modal-summary cap-three-years">
+                    {team.capSpaces.map(({ seasonName, before, after }) => (
+                      <Metric label={`Cap libero ${seasonName}`} value={`${before} → ${after}`} key={seasonName} />
+                    ))}
+                  </div>
+                  <div className="auction-modal-summary operation-comparison-summary">
+                    <Metric label="Ruoli" value={`${formatRoles(team.rolesBefore)} → ${formatRoles(team.rolesAfter)}`} />
+                    <Metric label="Slot" value={`${formatSlots(team.slotsBefore)} → ${formatSlots(team.slotsAfter)}`} />
                   </div>
                 </article>
               ))}
@@ -87,4 +98,16 @@ export function UndoMovementButton({
       )}
     </>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return <div><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function formatRoles(roles: RoleCounts) {
+  return `${roles.G}/5 G · ${roles.A}/5 A · ${roles.C}/3 C`;
+}
+
+function formatSlots(slots: SlotCounts) {
+  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`;
 }

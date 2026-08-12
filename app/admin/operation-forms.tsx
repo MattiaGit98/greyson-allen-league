@@ -48,6 +48,14 @@ function slotLabel(slot: Slot) {
   return "Roster";
 }
 
+function formatSlots(slots: Record<Slot, number>) {
+  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`;
+}
+
+function formatRoles(roles: Record<"G" | "A" | "C", number>) {
+  return `${roles.G} G · ${roles.A} A · ${roles.C} C`;
+}
+
 function slotCounts(team?: AdminRosterTeam) {
   return (team?.players ?? [])
     .filter((player) => player.state === "active")
@@ -67,23 +75,10 @@ function roleCounts(team?: AdminRosterTeam) {
 }
 
 
-function Field({ label, children, wide = false }: { label: string; children: ReactNode; wide?: boolean }) {
-  return (
-    <label className={wide ? "admin-operation-field wide" : "admin-operation-field"}>
-      <span>{label}</span>
-      {children}
-    </label>
-  );
-}
-
 function Metric({ label, value }: { label: string; value: ReactNode }) {
   return <div className="preview-metric"><span>{label}</span><strong>{value}</strong></div>;
 }
 
-
-function OperationSummary({ label, value }: { label: string; value: ReactNode }) {
-  return <div><span>{label}</span><strong>{value}</strong></div>;
-}
 
 function TeamSelect({ teams, value, onChange }: {
   teams: AdminRosterTeam[];
@@ -119,12 +114,17 @@ export function TeamOptionForm(props: OperationProps) {
   const after = { ...before };
   const selectedPlayers = players.filter((player) => decisions[player.id]);
   const exercisedPlayers = players.filter((player) => decisions[player.id] === "exercise");
+  const rolesBefore = roleCounts(team);
+  const rolesAfter = { ...rolesBefore };
   const destinationFor = (player: AdminRosterPlayer): Slot => {
     return destinationAfterTeamOptionExercise(player.slot, gLeagueDestinations[player.id] ?? "two_way");
   };
   players.forEach((player) => {
     const decision = decisions[player.id];
-    if (decision === "decline") after[player.slot] -= 1;
+    if (decision === "decline") {
+      after[player.slot] -= 1;
+      if (player.slot !== "dpe" && player.role) rolesAfter[player.role] -= 1;
+    }
     if (decision === "exercise") {
       const destination = destinationFor(player);
       if (destination !== player.slot) {
@@ -175,7 +175,10 @@ export function TeamOptionForm(props: OperationProps) {
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="decisions_json" value={JSON.stringify(serializedDecisions)} />
       <div className="team-option-editor">
-        <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); }} /></Field>
+        <label className="admin-team-select team-option-team-select">
+          <span>Squadra</span>
+          <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); }} />
+        </label>
         <div className="team-option-list">
           <div className="team-option-list-head"><span>Giocatore</span><span>Decisione</span><span>Destinazione</span></div>
           {players.map((player) => {
@@ -214,14 +217,17 @@ export function TeamOptionForm(props: OperationProps) {
       </div>
 
       <aside className="team-option-recap">
-        <div className="preview-metrics compact">
-          <Metric label={`Spazio ${props.seasonName}`} value={formatSpace(currentSpaceAfter)} />
-          <Metric label={`Spazio ${nextSeasonName}`} value={formatSpace(nextSpaceAfter)} />
-          <Metric label={`Spazio ${followingSeasonName}`} value={formatSpace(followingSpaceAfter)} />
-          <Metric label="Roster" value={`${after.regular}/15`} />
-          <Metric label="Two-way" value={`${after.two_way}/2`} />
-          <Metric label="G-League" value={`${after.g_league}/3`} />
-        </div>
+        {selectedPlayers.length > 0 && <>
+          <div className="auction-modal-summary cap-three-years">
+            <Metric label={`Cap libero ${props.seasonName}`} value={`${formatSpace(team?.spaceBeforeOptions ?? 0)} → ${formatSpace(currentSpaceAfter)}`} />
+            <Metric label={`Cap libero ${nextSeasonName}`} value={`${formatSpace(team?.nextSpace ?? 0)} → ${formatSpace(nextSpaceAfter)}`} />
+            <Metric label={`Cap libero ${followingSeasonName}`} value={`${formatSpace(team?.followingSpace ?? 0)} → ${formatSpace(followingSpaceAfter)}`} />
+          </div>
+          <div className="auction-modal-summary operation-comparison-summary">
+            <Metric label="Slot" value={`${formatSlots(before)} → ${formatSlots(after)}`} />
+            <Metric label="Ruoli" value={`${formatRoles(rolesBefore)} → ${formatRoles(rolesAfter)}`} />
+          </div>
+        </>}
         <Validation errors={errors} />
         <CapBlocker warnings={capWarnings} />
       </aside>
@@ -237,6 +243,8 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
     player.state === "active" && player.slot === "g_league" && player.isTeamOption
   ));
   const selectedPlayers = players.filter((player) => selected[player.id]);
+  const before = slotCounts(team);
+  const rolesBefore = roleCounts(team);
   const exercisedCost = selectedPlayers.reduce((total, player) => total + player.cost, 0);
   const nextSeasonName = seasonNameAt(props.seasonName, 1);
   const followingSeasonName = seasonNameAt(props.seasonName, 2);
@@ -261,7 +269,10 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
           <span>Esercizio anticipato</span>
           <strong>Utilizzo nei playoff</strong>
         </div>
-        <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setSelected({}); }} /></Field>
+        <label className="admin-team-select team-option-team-select">
+          <span>Squadra</span>
+          <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setSelected({}); }} />
+        </label>
         <div className="team-option-list">
           <div className="team-option-list-head"><span>Giocatore</span><span>Utilizzato nei playoff</span><span>Effetto</span></div>
           {players.map((player) => (
@@ -291,13 +302,18 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
       </div>
 
       <aside className="team-option-recap">
-        <div className="preview-metrics compact">
-          <Metric label={`Spazio ${props.seasonName}`} value={formatSpace(currentSpaceAfter)} />
-          <Metric label={`Spazio ${nextSeasonName}`} value={formatSpace(nextSpaceAfter)} />
-          <Metric label={`Spazio ${followingSeasonName}`} value={formatSpace(followingSpaceAfter)} />
-          <Metric label="Slot attuale" value="G-League" />
-          <Metric label="Promozione" value={`${nextSeasonName} · inizio offseason`} />
-        </div>
+        {selectedPlayers.length > 0 && <>
+          <div className="auction-modal-summary cap-three-years">
+            <Metric label={`Cap libero ${props.seasonName}`} value={`${formatSpace(team?.space ?? 0)} → ${formatSpace(currentSpaceAfter)}`} />
+            <Metric label={`Cap libero ${nextSeasonName}`} value={`${formatSpace(team?.nextSpace ?? 0)} → ${formatSpace(nextSpaceAfter)}`} />
+            <Metric label={`Cap libero ${followingSeasonName}`} value={`${formatSpace(team?.followingSpace ?? 0)} → ${formatSpace(followingSpaceAfter)}`} />
+          </div>
+          <div className="auction-modal-summary operation-comparison-summary">
+            <Metric label="Slot" value={`${formatSlots(before)} → ${formatSlots(before)}`} />
+            <Metric label="Ruoli" value={`${formatRoles(rolesBefore)} → ${formatRoles(rolesBefore)}`} />
+            <Metric label="Promozione" value={`${nextSeasonName} · inizio offseason`} />
+          </div>
+        </>}
         <Validation errors={errors} />
         <CapBlocker warnings={capWarnings} />
       </aside>
@@ -333,7 +349,7 @@ export function SlotMoveForm(props: OperationProps) {
     ...(after[destination] > slotLimits[destination] ? [`Lo slot ${slotLabel(destination)} è pieno.`] : []),
   ];
   const capWarnings = salaryCapWarningsForSpaces({ before: capSpaces, after: capSpaces, seasonNames: capSeasonNames, phase: props.phase, currentMoment: props.leagueMoment });
-  const roles = roleCounts(team);
+  const rolesBefore = roleCounts(team);
   const slotGroups: { slot: Exclude<Slot, "dpe">; label: string; limit: number }[] = [
     { slot: "regular", label: "Roster", limit: 15 },
     { slot: "two_way", label: "Two-way", limit: 2 },
@@ -361,16 +377,6 @@ export function SlotMoveForm(props: OperationProps) {
       </label>
 
       <div className="team-accordion-content admin-editor-content slot-management-content">
-        <div className="current-cap-highlight">
-          <span>Cap libero {capSeasonNames[0]}</span>
-          <strong>{formatSpace(capSpaces[0])}</strong>
-        </div>
-        <div className="team-summary-strip">
-          <OperationSummary label={`Cap libero ${capSeasonNames[1]}`} value={formatSpace(capSpaces[1])} />
-          <OperationSummary label={`Cap libero ${capSeasonNames[2]}`} value={formatSpace(capSpaces[2])} />
-          <OperationSummary label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} />
-        </div>
-
         {slotGroups.map((group) => {
           const groupPlayers = players.filter((item) => item.slot === group.slot);
           return (
@@ -412,15 +418,19 @@ export function SlotMoveForm(props: OperationProps) {
           </div>
         )}
 
-        <div className="slot-management-recap">
-          <div className="preview-metrics compact">
-            <Metric label="Da" value={player ? slotLabel(player.slot) : "-"} />
-            <Metric label="A" value={player ? slotLabel(destination) : "-"} />
-            <Metric label="Slot origine" value={player ? `${after[player.slot]}/${slotLimits[player.slot]}` : "-"} />
-            <Metric label="Slot destinazione" value={player ? `${after[destination]}/${slotLimits[destination]}` : "-"} />
+        {player && (
+          <div className="slot-management-recap">
+            <div className="auction-modal-summary cap-three-years">
+              {capSeasonNames.map((seasonName, index) => <Metric label={`Cap libero ${seasonName}`} value={`${formatSpace(capSpaces[index])} → ${formatSpace(capSpaces[index])}`} key={seasonName} />)}
+            </div>
+            <div className="auction-modal-summary operation-comparison-summary">
+              <Metric label="Slot" value={`${formatSlots(before)} → ${formatSlots(after)}`} />
+              <Metric label="Ruoli" value={`${formatRoles(rolesBefore)} → ${formatRoles(rolesBefore)}`} />
+              <Metric label="Spostamento" value={`${slotLabel(player.slot)} → ${slotLabel(destination)}`} />
+            </div>
+            <Validation errors={errors} warnings={capWarnings} />
           </div>
-          <Validation errors={errors} warnings={capWarnings} />
-        </div>
+        )}
       </div>
       <button className="button primary slot-management-save" type="submit" disabled={errors.length > 0}>Registra cambio slot</button>
     </form>
@@ -487,6 +497,8 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
   if (slotsAfterAssignments.regular > 15) errors.push("Gli spostamenti superano i 15 slot roster.");
   if (slotsAfterAssignments.two_way > 2) errors.push("Gli spostamenti superano i 2 slot Two-way.");
   if (slotsAfterAssignments.g_league > 3) errors.push("Gli spostamenti superano i 3 slot G-League.");
+  const slotsBeforeAssignments = slotCounts(team);
+  const rolesBeforeAssignments = roleCounts(team);
   const capWarnings = capSpacesAfter.flatMap((space, index) => (
     index > 0 && space < 0 ? [`I contratti portano il cap libero ${capSeasonNames[index]} a ${space}.`] : []
   ));
@@ -524,7 +536,10 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
       <input type="hidden" name="assignments_json" value={JSON.stringify(serializedAssignments)} />
       <div className="contract-assignment-editor">
         <div className="guided-operation-toolbar">
-          <Field label="Squadra"><TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); }} /></Field>
+          <label className="admin-team-select contract-assignment-team-select">
+            <span>Squadra</span>
+            <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); }} />
+          </label>
         </div>
 
         <div className="contract-assignment-list">
@@ -571,13 +586,17 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
       </div>
 
       <aside className="guided-operation-recap contract-assignment-recap">
-        <div className="preview-metrics compact">
-          <Metric label="Da assegnare" value={players.length - selectedAssignments.length} />
-          <Metric label="In bozza" value={selectedAssignments.length} />
+        {selectedAssignments.length > 0 && <>
+          <div className="auction-modal-summary cap-three-years">
           {capSeasonNames.map((seasonName, index) => (
             <Metric label={`Spazio ${seasonName}`} value={`${formatSpace(capSpacesBefore[index])} → ${formatSpace(capSpacesAfter[index])}`} key={seasonName} />
           ))}
-        </div>
+          </div>
+          <div className="auction-modal-summary operation-comparison-summary">
+            <Metric label="Slot" value={`${formatSlots(slotsBeforeAssignments)} → ${formatSlots(slotsAfterAssignments)}`} />
+            <Metric label="Ruoli" value={`${formatRoles(rolesBeforeAssignments)} → ${formatRoles(rolesBeforeAssignments)}`} />
+          </div>
+        </>}
         <Validation errors={errors} />
         <CapBlocker warnings={capWarnings} />
       </aside>

@@ -625,12 +625,12 @@ export function TradeBuilder({
                     <b>{formatSpace(future.spaceBefore)} → {formatSpace(future.spaceAfter)}</b>
                   </span>
                 ))}
-                <span>Ruoli<b>{result.roles.G} G · {result.roles.A} A · {result.roles.C} C</b></span>
+                <span className="trade-summary-roles">Ruoli<b>{result.rolesBefore.G} G · {result.rolesBefore.A} A · {result.rolesBefore.C} C → {result.roles.G} G · {result.roles.A} A · {result.roles.C} C</b></span>
                 {result.requiredRoleFreeAgents > 0 && <span className="role-restoration-cap">Ripristino<b>+{result.requiredRoleFreeAgents} FA · {result.requiredRoleFreeAgents} cr</b></span>}
-                <span>Roster<b>{result.slots.regular} / 15</b></span>
-                <span>Two-way<b>{result.slots.twoWay} / 2</b></span>
-                <span>G-League<b>{result.slots.gLeague} / 3</b></span>
-                <span>DPE<b>{result.slots.dpe} / 1</b></span>
+                <span>Roster<b>{result.slotsBefore.regular} / 15 → {result.slots.regular} / 15</b></span>
+                <span>Two-way<b>{result.slotsBefore.twoWay} / 2 → {result.slots.twoWay} / 2</b></span>
+                <span>G-League<b>{result.slotsBefore.gLeague} / 3 → {result.slots.gLeague} / 3</b></span>
+                <span>DPE<b>{result.slotsBefore.dpe} / 1 → {result.slots.dpe} / 1</b></span>
               </div>
               <p className="manual-cut-check">Verifica manualmente che i giocatori acquisiti non compaiano tra i tagliati:<br />{team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}</p>
             </article>

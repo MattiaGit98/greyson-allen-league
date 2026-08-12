@@ -47,8 +47,6 @@ export function DraftPanel({
       <div className="draft-panel-summary">
         <span>Draft <strong>{draftYear ?? "—"}</strong></span>
         <span>Completate <strong>{assignedCount}/{expectedCount || "—"}</strong></span>
-        <span>Scelte residue <strong>{picks.length}</strong></span>
-        <span>Rookie disponibili <strong>{players.length}</strong></span>
       </div>
 
       {draftYear !== null && !orderFinalized && (

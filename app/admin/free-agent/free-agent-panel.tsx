@@ -14,8 +14,6 @@ type PlayerOption = {
   name: string;
   role: "G" | "A" | "C" | "X";
   realTeam: string;
-  rookie: boolean;
-  under23: boolean;
   listOrder: number;
   rosterTeamCode: string | null;
   qualifyingTeamCode: string | null;
@@ -93,14 +91,12 @@ export function FreeAgentPanel({
           <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra NBA</span><span>Stato</span><span></span>
         </div>
         {freeAgents.map((player) => (
-          <article className={`auction-player-row ${player.rookie ? "is-rookie" : ""} ${player.under23 ? "is-under23" : ""}`} key={player.listOrder}>
+          <article className="auction-player-row" key={player.listOrder}>
             <span className="player-order">{player.listOrder}</span>
             <span className="player-identity">
               <strong className="player-name">{player.name}</strong>
               <span className="auction-player-subline">
                 {player.realTeam && <small>{player.realTeam}</small>}
-                {player.rookie && <i className="player-flag player-flag-rookie">Rookie</i>}
-                {player.under23 && <i className="player-flag player-flag-u23">U23</i>}
               </span>
             </span>
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>

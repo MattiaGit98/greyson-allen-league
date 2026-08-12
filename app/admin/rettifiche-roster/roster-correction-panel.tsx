@@ -208,20 +208,17 @@ export function RosterCorrectionPanel({
               </select>
             </label>
           </div>
-          <small>Sono inclusi anche i giocatori già tagliati; il vecchio taglio resta a roster come addebito.</small>
         </section>
 
         <section className="roster-correction-recap">
-          <header>
-            <span>Riepilogo prima del salvataggio</span>
-            <strong>{preview.changedCount} modifiche · {preview.removedCount} rimozioni · {preview.addition ? 1 : 0} aggiunte</strong>
-          </header>
-          <div className="roster-correction-metrics">
+          <div className="auction-modal-summary cap-three-years">
             {seasonNames.map((name, index) => (
               <Metric label={`Cap libero ${name}`} value={`${preview.spacesBefore[index]} → ${preview.spacesAfter[index]}`} key={name} />
             ))}
-            <Metric label="Ruoli" value={`${preview.roles.G}/5 G · ${preview.roles.A}/5 A · ${preview.roles.C}/3 C`} />
-            <Metric label="Slot" value={`${preview.slots.regular}/15 · ${preview.slots.two_way}/2 · ${preview.slots.g_league}/3 · ${preview.slots.dpe}/1`} />
+          </div>
+          <div className="auction-modal-summary operation-comparison-summary">
+            <Metric label="Ruoli" value={`${formatRoles(preview.rolesBefore)} → ${formatRoles(preview.roles)}`} />
+            <Metric label="Slot" value={`${formatSlots(preview.slotsBefore)} → ${formatSlots(preview.slots)}`} />
           </div>
           {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
           {preview.roleWarnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
@@ -322,16 +319,13 @@ function buildPreview({
   const spacesBefore = capSpaces(teamEntries, seasonNames, seasonName, countTeamOptions);
   const spacesAfter = capSpaces(projectedEntries, seasonNames, seasonName, countTeamOptions);
   const capWarnings = salaryCapWarningsForSpaces({ before: spacesBefore, after: spacesAfter, seasonNames, phase, currentMoment: leagueMoment });
+  const slotsBefore = countActiveRosterSlots(teamEntries, teamCode);
   const slots = countActiveRosterSlots(projectedEntries, teamCode);
   (Object.keys(rosterSlotLimits) as (keyof typeof rosterSlotLimits)[]).forEach((slot) => {
     if (slots[slot] > rosterSlotLimits[slot]) errors.push(`Slot ${slotLabel(slot)} oltre il limite: ${slots[slot]}/${rosterSlotLimits[slot]}.`);
   });
-  const roles = projectedEntries
-    .filter((entry) => entry.state === "active" && entry.slot !== "dpe")
-    .reduce((counts, entry) => {
-      if (entry.role) counts[entry.role] += 1;
-      return counts;
-    }, { G: 0, A: 0, C: 0 });
+  const rolesBefore = countRoles(teamEntries);
+  const roles = countRoles(projectedEntries);
   const roleMinimumsApply = roleMinimumChecksApply(phase, leagueMoment);
   const roleWarnings = roleMinimumsApply
     ? (["G", "A", "C"] as const).flatMap((role) => {
@@ -354,7 +348,9 @@ function buildPreview({
     spacesBefore,
     spacesAfter,
     capWarnings: [...new Set(capWarnings)],
+    slotsBefore,
     slots,
+    rolesBefore,
     roles,
     errors: [...new Set(errors)],
     roleWarnings,
@@ -362,6 +358,23 @@ function buildPreview({
     removedCount: corrections.filter((correction) => correction.remove).length,
     changedCount: corrections.filter((correction) => !correction.remove).length,
   };
+}
+
+function countRoles(entries: RosterEntry[]) {
+  return entries
+    .filter((entry) => entry.state === "active" && entry.slot !== "dpe")
+    .reduce((counts, entry) => {
+      if (entry.role) counts[entry.role] += 1;
+      return counts;
+    }, { G: 0, A: 0, C: 0 });
+}
+
+function formatRoles(roles: Record<"G" | "A" | "C", number>) {
+  return `${roles.G}/5 G · ${roles.A}/5 A · ${roles.C}/3 C`;
+}
+
+function formatSlots(slots: ReturnType<typeof countActiveRosterSlots>) {
+  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`;
 }
 
 function normalizeName(value: string) {

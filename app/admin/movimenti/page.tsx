@@ -121,14 +121,24 @@ function movementReversalPreview({
   return [...teamCodes].flatMap((teamCode) => {
     if (teamSnapshot(current, teamCode) === teamSnapshot(restored, teamCode)) return [];
     const entries = restored.rosterEntries.filter((entry) => entry.teamCode === teamCode);
+    const currentEntries = current.rosterEntries.filter((entry) => entry.teamCode === teamCode);
     const team = restored.teams.find((item) => item.code === teamCode) ?? current.teams.find((item) => item.code === teamCode);
     return [{
       code: teamCode,
       name: team?.name ?? teamCode,
-      slots: countActiveRosterSlots(restored.rosterEntries, teamCode),
+      slotsBefore: countActiveRosterSlots(current.rosterEntries, teamCode),
+      slotsAfter: countActiveRosterSlots(restored.rosterEntries, teamCode),
+      rolesBefore: countRoles(currentEntries),
+      rolesAfter: countRoles(entries),
       capSpaces: seasonNames.map((targetSeason, distance) => ({
         seasonName: targetSeason,
-        space: calculateCapSpace({
+        before: calculateCapSpace({
+          entries: entriesForDpeAdjustedCap(currentEntries, distance),
+          seasonName: targetSeason,
+          optionSeasonName: seasonName,
+          countTeamOptions,
+        }),
+        after: calculateCapSpace({
           entries: entriesForDpeAdjustedCap(entries, distance),
           seasonName: targetSeason,
           optionSeasonName: seasonName,
@@ -137,6 +147,15 @@ function movementReversalPreview({
       })),
     }];
   });
+}
+
+function countRoles(entries: Awaited<ReturnType<typeof loadEditableLeagueState>>["rosterEntries"]) {
+  return entries
+    .filter((entry) => entry.state === "active" && entry.slot !== "dpe")
+    .reduce((roles, entry) => {
+      if (entry.role) roles[entry.role] += 1;
+      return roles;
+    }, { G: 0, A: 0, C: 0 });
 }
 
 function teamSnapshot(state: Awaited<ReturnType<typeof loadEditableLeagueState>>, teamCode: string) {

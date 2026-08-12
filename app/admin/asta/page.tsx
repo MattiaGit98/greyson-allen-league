@@ -143,10 +143,13 @@ type AuctionMovement = {
 type AssignmentUndo = {
   movementId: string;
   summary: string;
-  preview: { code: string; name: string; slots: { regular: number; two_way: number; g_league: number; dpe: number }; capSpaces: { seasonName: string; space: number }[] }[];
+  preview: { code: string; name: string; slotsBefore: SlotCounts; slotsAfter: SlotCounts; rolesBefore: RoleCounts; rolesAfter: RoleCounts; capSpaces: { seasonName: string; before: number; after: number }[] }[];
   roleMinimumConfirmationRequired: boolean;
   disabled: boolean;
 };
+
+type SlotCounts = { regular: number; two_way: number; g_league: number; dpe: number };
+type RoleCounts = { G: number; A: number; C: number };
 
 function auctionAssignmentUndos({
   movements,
@@ -203,16 +206,30 @@ function movementPreview(
     if (auctionTeamSnapshot(current, teamCode) === auctionTeamSnapshot(restored, teamCode)) return [];
     const team = restored.teams.find((item) => item.code === teamCode) ?? current.teams.find((item) => item.code === teamCode);
     const entries = restored.rosterEntries.filter((entry) => entry.teamCode === teamCode);
+    const currentEntries = current.rosterEntries.filter((entry) => entry.teamCode === teamCode);
     return [{
       code: teamCode,
       name: team?.name ?? teamCode,
-      slots: countActiveRosterSlots(restored.rosterEntries, teamCode),
+      slotsBefore: countActiveRosterSlots(current.rosterEntries, teamCode),
+      slotsAfter: countActiveRosterSlots(restored.rosterEntries, teamCode),
+      rolesBefore: countRoles(currentEntries),
+      rolesAfter: countRoles(entries),
       capSpaces: seasonNames.map((targetSeason, distance) => ({
         seasonName: targetSeason,
-        space: calculateCapSpace({ entries: entriesForDpeAdjustedCap(entries, distance), seasonName: targetSeason, optionSeasonName: seasonName, countTeamOptions }),
+        before: calculateCapSpace({ entries: entriesForDpeAdjustedCap(currentEntries, distance), seasonName: targetSeason, optionSeasonName: seasonName, countTeamOptions }),
+        after: calculateCapSpace({ entries: entriesForDpeAdjustedCap(entries, distance), seasonName: targetSeason, optionSeasonName: seasonName, countTeamOptions }),
       })),
     }];
   });
+}
+
+function countRoles(entries: Awaited<ReturnType<typeof loadEditableLeagueState>>["rosterEntries"]) {
+  return entries
+    .filter((entry) => entry.state === "active" && entry.slot !== "dpe")
+    .reduce((roles, entry) => {
+      if (entry.role) roles[entry.role] += 1;
+      return roles;
+    }, { G: 0, A: 0, C: 0 });
 }
 
 function auctionTeamSnapshot(state: Awaited<ReturnType<typeof loadEditableLeagueState>>, teamCode: string) {

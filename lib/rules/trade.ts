@@ -472,6 +472,8 @@ export function evaluateTrade(input: {
   }
 
   const teamResults = input.teams.map((team) => {
+    const slotsBefore = { ...team.slots };
+    const rolesBefore = { ...team.roles };
     const slots = { ...team.slots };
     const roles = { ...team.roles };
     let costAfter = team.currentCost;
@@ -576,7 +578,9 @@ export function evaluateTrade(input: {
       costAfter: projectedCostAfter,
       spaceBefore: 1000 - team.currentCost,
       spaceAfter: 1000 - projectedCostAfter,
+      slotsBefore,
       slots,
+      rolesBefore,
       roles,
       missingRoles,
       requiredRoleFreeAgents,

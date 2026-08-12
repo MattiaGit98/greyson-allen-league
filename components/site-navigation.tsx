@@ -24,6 +24,7 @@ const adminLinks = [
   ["Assegnazione contratti", "/admin/contratti"],
   ["Spostamento slot", "/admin/slot"],
   ["Altre operazioni", "/admin/altre-operazioni"],
+  ["Rettifiche roster", "/admin/rettifiche-roster"],
   ["Squadre e proprietari", "/admin/squadre-proprietari"],
   ["Annulla movimenti", "/admin/movimenti"],
   ["Calendario", "/admin/calendario"],

@@ -73,7 +73,7 @@ export function AuctionPanel({
   assignmentUndos: Record<string, {
     movementId: string;
     summary: string;
-    preview: { code: string; name: string; slots: { regular: number; two_way: number; g_league: number; dpe: number }; capSpaces: { seasonName: string; space: number }[] }[];
+    preview: { code: string; name: string; slotsBefore: { regular: number; two_way: number; g_league: number; dpe: number }; slotsAfter: { regular: number; two_way: number; g_league: number; dpe: number }; rolesBefore: { G: number; A: number; C: number }; rolesAfter: { G: number; A: number; C: number }; capSpaces: { seasonName: string; before: number; after: number }[] }[];
     roleMinimumConfirmationRequired: boolean;
     disabled: boolean;
   }>;

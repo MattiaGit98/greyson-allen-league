@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, useTransition, type FormEvent } from "react";
 import { nbaTeams } from "@/data/nba-teams";
 import type { PlayerListEntry } from "@/lib/league-types";
+import { downloadImportableBackup } from "@/lib/download-importable-backup";
 import {
   confirmPlayerListImport,
   preparePlayerListImport,
@@ -38,6 +39,9 @@ export function PlayerListImport() {
 function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImportState["preview"]> }) {
   const [dismissed, setDismissed] = useState(false);
   const [editingSource, setEditingSource] = useState<string | null>(null);
+  const [backupPending, setBackupPending] = useState(false);
+  const [publishing, startPublishing] = useTransition();
+  const [backupError, setBackupError] = useState("");
   const [resolutions, setResolutions] = useState<Record<string, Resolution>>(() => Object.fromEntries(
     preview.mismatches.map((mismatch) => [mismatch.sourceName, {
       sourceName: mismatch.sourceName,
@@ -53,9 +57,25 @@ function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImpo
   ));
   const editingMismatch = preview.mismatches.find((mismatch) => mismatch.sourceName === editingSource);
 
+  async function publish(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (incomplete || backupPending || publishing) return;
+    const formData = new FormData(event.currentTarget);
+    setBackupError("");
+    setBackupPending(true);
+    try {
+      await downloadImportableBackup();
+      startPublishing(() => confirmPlayerListImport(formData));
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backup non riuscito.");
+    } finally {
+      setBackupPending(false);
+    }
+  }
+
   return (
     <div className="auction-modal-backdrop list-reconciliation-backdrop" role="presentation">
-      <form action={confirmPlayerListImport} className="auction-modal list-reconciliation-modal" role="dialog" aria-modal="true" aria-label="Verifica nomi del listone">
+      <form onSubmit={publish} className="auction-modal list-reconciliation-modal" role="dialog" aria-modal="true" aria-label="Verifica nomi del listone">
         <input type="hidden" name="imported_players_json" value={JSON.stringify(preview.players)} />
         <input type="hidden" name="resolutions_json" value={JSON.stringify(serialized)} />
         <div className="auction-modal-header">
@@ -85,9 +105,10 @@ function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImpo
           ) : null}
         </div>
         <div className="auction-modal-actions">
-          <button className="button secondary" type="button" onClick={() => setDismissed(true)}>Annulla importazione</button>
-          <button className="button primary" type="submit" disabled={incomplete}>Conferma e pubblica</button>
+          <button className="button secondary" type="button" onClick={() => setDismissed(true)} disabled={backupPending || publishing}>Annulla importazione</button>
+          <button className="button primary" type="submit" disabled={incomplete || backupPending || publishing}>{backupPending || publishing ? "Backup e pubblicazione in corso…" : "Conferma e pubblica"}</button>
         </div>
+        {backupError && <p className="validation error">Backup non riuscito: {backupError}</p>}
       </form>
 
       {editingMismatch && (

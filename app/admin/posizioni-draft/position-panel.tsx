@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { finalizeDraftPositions, saveDraftPositionDraft } from "./actions";
+import { downloadImportableBackup } from "@/lib/download-importable-backup";
 
 type TeamOption = { code: string; name: string };
 type DraftRound = "1° giro" | "2° giro";
@@ -26,6 +27,10 @@ export function DraftPositionPanel({
 }) {
   const [assignments, setAssignments] = useState(() => renumberAssignments(initialAssignments));
   const [reviewingFinalSave, setReviewingFinalSave] = useState(false);
+  const [backupPending, setBackupPending] = useState(false);
+  const [finalizing, startFinalizing] = useTransition();
+  const [backupError, setBackupError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
   const finalErrors = useMemo(
     () => validateAssignments(assignments, teams),
     [assignments, teams],
@@ -74,12 +79,27 @@ export function DraftPositionPanel({
     setReviewingFinalSave(false);
   }
 
+  async function finalize() {
+    if (!formRef.current || backupPending || finalizing || !finalChecksPassed) return;
+    setBackupError("");
+    setBackupPending(true);
+    try {
+      await downloadImportableBackup();
+      const formData = new FormData(formRef.current);
+      startFinalizing(() => finalizeDraftPositions(formData));
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backup non riuscito.");
+    } finally {
+      setBackupPending(false);
+    }
+  }
+
   if (draftYear === null) {
     return <p className="notice draft-panel-notice">Nessuna scelta disponibile per il prossimo draft.</p>;
   }
 
   return (
-    <form action={saveDraftPositionDraft} className={`draft-position-panel ${finalized ? "finalized" : ""}`}>
+    <form ref={formRef} action={saveDraftPositionDraft} className={`draft-position-panel ${finalized ? "finalized" : ""}`}>
       <input type="hidden" name="draft_year" value={draftYear} />
       <input type="hidden" name="positions_json" value={JSON.stringify(assignments)} />
       <div className="draft-position-year">
@@ -142,9 +162,10 @@ export function DraftPositionPanel({
               </ul>
             </div>
             <div className="auction-modal-actions">
-              <button className="button secondary" type="button" onClick={() => setReviewingFinalSave(false)}>Torna al tabellone</button>
-              <button className="button primary" type="submit" formAction={finalizeDraftPositions}>Conferma ordine definitivo</button>
+              <button className="button secondary" type="button" onClick={() => setReviewingFinalSave(false)} disabled={backupPending || finalizing}>Torna al tabellone</button>
+              <button className="button primary" type="button" onClick={finalize} disabled={backupPending || finalizing}>{backupPending || finalizing ? "Backup e salvataggio in corso…" : "Conferma ordine definitivo"}</button>
             </div>
+            {backupError && <p className="validation error">Backup non riuscito: {backupError}</p>}
           </section>
         </div>
       )}

@@ -39,8 +39,6 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
   const selectedPlayer = team?.players.find((player) => player.id === selectedPlayerId) ?? null;
-  const roles = roleCounts(team);
-
   return (
     <>
       <label className="admin-team-select other-operations-team-select">
@@ -52,13 +50,6 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
 
       {team && (
         <div className="team-accordion-content other-operations-content">
-          <div className="current-cap-highlight"><span>Cap libero {props.seasonName}</span><strong>{team.space}</strong></div>
-          <div className="team-summary-strip">
-            <Summary label={`Cap libero ${seasonNameAt(props.seasonName, 1)}`} value={team.nextSpace} />
-            <Summary label={`Cap libero ${seasonNameAt(props.seasonName, 2)}`} value={team.followingSpace} />
-            <Summary label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} />
-          </div>
-
           {groups.map((group) => {
             const rows = team.players
               .filter((player) => placementOf(player) === group.key)
@@ -191,8 +182,8 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           {preview.spacesAfter.map((space, index) => <Metric label={`Cap libero ${seasonNameAt(props.seasonName, index)}`} value={`${preview.spacesBefore[index]} → ${space}`} key={index} />)}
         </div>
         <div className="auction-modal-summary other-operation-summary">
-          <Metric label="Slot" value={formatSlots(preview.slotsAfter)} />
-          <Metric label="Ruoli" value={`${preview.rolesAfter.G} G · ${preview.rolesAfter.A} A · ${preview.rolesAfter.C} C`} />
+          <Metric label="Slot" value={`${formatSlots(preview.slotsBefore)} → ${formatSlots(preview.slotsAfter)}`} />
+          <Metric label="Ruoli" value={`${formatRoles(preview.rolesBefore)} → ${formatRoles(preview.rolesAfter)}`} />
           {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${Math.ceil(player.cost * 1.25)}`} />}
           {operation === "buyout" && <Metric label="Nuovo contratto" value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
           {preview.optionGuaranteeChange && (
@@ -285,8 +276,10 @@ function operationPreview(
     spacesAfter = [spacesBefore[0] - player.currentCapCost, spacesBefore[1], spacesBefore[2]];
   }
 
-  const slotsAfter = slotCounts(team);
-  const rolesAfter = roleCounts(team);
+  const slotsBefore = slotCounts(team);
+  const rolesBefore = roleCounts(team);
+  const slotsAfter = { ...slotsBefore };
+  const rolesAfter = { ...rolesBefore };
   if (["cut", "free_release", "buyout"].includes(operation) && player.state === "active") {
     slotsAfter[player.slot] -= 1;
     if (player.slot !== "dpe" && player.role) rolesAfter[player.role] -= 1;
@@ -361,7 +354,9 @@ function operationPreview(
   return {
     spacesBefore,
     spacesAfter,
+    slotsBefore,
     slotsAfter,
+    rolesBefore,
     rolesAfter,
     roleMinimumMissing,
     roleMinimumSlotError,
@@ -432,8 +427,8 @@ function placementOf(player: AdminRosterPlayer): Slot | "cut" { return player.st
 function placementLabel(player: AdminRosterPlayer) { return player.state === "cut" ? "Tagliato" : slotLabel(player.slot); }
 function slotLabel(slot: Slot) { return slot === "regular" ? "Roster" : slot === "two_way" ? "Two-way" : slot === "g_league" ? "G-League" : "DPE"; }
 function formatSlots(slots: Record<Slot, number>) { return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`; }
+function formatRoles(roles: Record<"G" | "A" | "C", number>) { return `${roles.G} G · ${roles.A} A · ${roles.C} C`; }
 function seasonNameAt(name: string, distance: number) { const start = Number(name.slice(0, 4)) + distance; return `${start}/${String((start + 1) % 100).padStart(2, "0")}`; }
 function formatTeamName(name: string) { return name.toLocaleLowerCase("it-IT").replace(/(^|[\s'-])\p{L}/gu, (letter) => letter.toLocaleUpperCase("it-IT")); }
-function Summary({ label, value }: { label: string; value: React.ReactNode }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="auction-field"><span>{label}</span>{children}</label>; }
 function Metric({ label, value }: { label: string; value: React.ReactNode }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
