@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const publicLinks = [
+  ["Home", "/"],
   ["Squadre", "/squadre"],
   ["Giocatori", "/giocatori"],
   ["Movimenti", "/movimenti"],
@@ -12,7 +14,6 @@ const publicLinks = [
   ["Simulatore scambi", "/simulatore-scambi"],
   ["Storico", "/storico"],
   ["Regolamento", "/regolamento"],
-  ["Asta live", "/asta"],
 ];
 
 const adminLinks = [
@@ -38,37 +39,83 @@ const adminLinks = [
 ];
 
 function isCurrent(pathname: string, href: string) {
-  if (href === "/admin") return pathname === "/admin";
+  if (href === "/" || href === "/admin") return pathname === href;
   return pathname.startsWith(href);
 }
 
-export function SiteNavigation({ seasonName, phaseName, auctionOpen }: { seasonName: string; phaseName: string; auctionOpen: boolean }) {
+export function SiteNavigation({ seasonName, phaseName }: { seasonName: string; phaseName: string }) {
   const pathname = usePathname();
+  const [publicMenuOpen, setPublicMenuOpen] = useState(false);
+  const initializedPublicMenu = useRef(false);
   const isAdmin = pathname.startsWith("/admin");
   const isLogin = pathname.startsWith("/login");
-  const links = isAdmin ? adminLinks : publicLinks.filter(([, href]) => href !== "/asta" || auctionOpen);
+  const links = isAdmin ? adminLinks : publicLinks;
   const currentAdminLabel = adminLinks.find(([, href]) => isCurrent(pathname, href))?.[0] ?? "Amministrazione";
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 850px)").matches) {
+      setPublicMenuOpen(false);
+      return;
+    }
+    if (!isAdmin && !isLogin && !initializedPublicMenu.current) {
+      initializedPublicMenu.current = true;
+      setPublicMenuOpen(true);
+    }
+  }, [isAdmin, isLogin, pathname]);
+
+  function openLeagueHomeOnDesktop() {
+    if (!window.matchMedia("(max-width: 850px)").matches) setPublicMenuOpen(true);
+  }
 
   return (
     <>
       <header className="site-header">
-        <Link className="brand" href="/squadre" aria-label="Greyson Allen League, squadre">
+        <div className="site-header-start">
+          {!isLogin && !isAdmin && (
+            <button
+              className="public-menu-toggle"
+              type="button"
+              aria-label={publicMenuOpen ? "Chiudi menu" : "Apri menu"}
+              aria-expanded={publicMenuOpen}
+              aria-controls="public-navigation"
+              onClick={() => setPublicMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          )}
+          <Link className="brand" href="/" aria-label="Greyson Allen League, home" onClick={openLeagueHomeOnDesktop}>
           <span className="brand-copy">
             <strong>Greyson Allen League</strong>
             <small>{seasonName} · {phaseName}</small>
           </span>
         </Link>
+        </div>
         <nav className="area-switcher" aria-label="Selezione area">
-          <Link className={!isAdmin && !isLogin ? "active" : ""} href="/squadre">Area lega</Link>
+          <Link className={!isAdmin && !isLogin ? "active" : ""} href="/" onClick={openLeagueHomeOnDesktop}>Area lega</Link>
           <Link className={isAdmin ? "active" : ""} href="/admin">Amministrazione</Link>
         </nav>
       </header>
       {!isLogin && !isAdmin && (
-        <nav className="section-nav" aria-label="Navigazione area lega">
-          {links.map(([label, href]) => (
-            <Link className={isCurrent(pathname, href) ? "active" : ""} href={href} key={href}>{label}</Link>
-          ))}
-        </nav>
+        <>
+          <button
+            type="button"
+            className={`public-navigation-backdrop${publicMenuOpen ? " is-open" : ""}`}
+            aria-label="Chiudi menu"
+            tabIndex={publicMenuOpen ? 0 : -1}
+            onClick={() => setPublicMenuOpen(false)}
+          />
+          <nav id="public-navigation" className={`public-navigation${publicMenuOpen ? " is-open" : ""}`} aria-label="Navigazione area lega">
+            <header>
+              <strong>Menu</strong>
+              <button type="button" aria-label="Chiudi menu" onClick={() => setPublicMenuOpen(false)}>×</button>
+            </header>
+            {links.map(([label, href]) => (
+              <Link className={isCurrent(pathname, href) ? "active" : ""} href={href} key={href}>{label}</Link>
+            ))}
+          </nav>
+        </>
       )}
       {!isLogin && isAdmin && pathname !== "/admin" && (
         <nav className="section-nav admin dashboard-return" aria-label="Ritorno alla dashboard">

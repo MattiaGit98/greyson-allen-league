@@ -9,6 +9,7 @@ import {
 import { createSupabaseServerClient } from "./supabase/server";
 import type { SavedDraftOrderAssignment } from "./draft-positions";
 import { countTradeEligibleDraftAssets } from "./future-draft-picks";
+import { competitionNames, type CompetitionName } from "./competitions";
 
 export type EditableLeagueState = {
   teams: TeamSummary[];
@@ -17,6 +18,10 @@ export type EditableLeagueState = {
   qualifyingOfferRights: QualifyingOfferRight[];
   playerList: PlayerListEntry[];
   playerListStatus: "offseason" | "published";
+  publicNotice?: string;
+  calendarHomepageEventKeys?: string[];
+  homepageHonoursTable?: string;
+  homepageCompetition?: CompetitionName | null;
   draftOrders?: SavedDraftOrderAssignment[];
   finalizedDraftPositionYears?: number[];
 };
@@ -72,6 +77,14 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
     qualifyingOfferRights,
     playerList: Array.isArray(input.playerList) ? input.playerList : fallback.playerList,
     playerListStatus: input.playerListStatus === "published" ? "published" : "offseason",
+    publicNotice: typeof input.publicNotice === "string" ? input.publicNotice.slice(0, 2000).trim() : "",
+    calendarHomepageEventKeys: Array.isArray(input.calendarHomepageEventKeys)
+      ? input.calendarHomepageEventKeys.filter((key): key is string => typeof key === "string" && key.length <= 1100 && !key.includes("\u0000"))
+      : [],
+    homepageHonoursTable: typeof input.homepageHonoursTable === "string" ? input.homepageHonoursTable.slice(0, 120) : "",
+    homepageCompetition: typeof input.homepageCompetition === "string" && (competitionNames as readonly string[]).includes(input.homepageCompetition)
+      ? input.homepageCompetition as CompetitionName
+      : null,
     draftOrders: Array.isArray(input.draftOrders)
       ? input.draftOrders.filter((row): row is SavedDraftOrderAssignment => (
         Boolean(row)
@@ -97,6 +110,10 @@ export function emptyLeagueState(): EditableLeagueState {
     qualifyingOfferRights: [],
     playerList: [],
     playerListStatus: "offseason",
+    publicNotice: "",
+    calendarHomepageEventKeys: [],
+    homepageHonoursTable: "",
+    homepageCompetition: null,
     draftOrders: [],
     finalizedDraftPositionYears: [],
   };

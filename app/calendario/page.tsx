@@ -1,4 +1,5 @@
 import { requireActiveSeason } from "@/lib/active-season";
+import { formatCalendarDate } from "@/lib/calendar-homepage";
 
 export default async function CalendarPage() {
   const activeSeason = await requireActiveSeason();
@@ -8,7 +9,10 @@ export default async function CalendarPage() {
     .eq("season_id", activeSeason.season.id)
     .order("sort_order");
   if (response.error) throw new Error(`Calendario non disponibile: ${response.error.message}`);
-  const calendarEvents = response.data ?? [];
+  const calendarEvents = (response.data ?? []).map((event) => ({
+    ...event,
+    date_text: event.date_text ? formatCalendarDate(event.date_text) : event.date_text,
+  }));
 
   return (
     <section className="section calendar-page">

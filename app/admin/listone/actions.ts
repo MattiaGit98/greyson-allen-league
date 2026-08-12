@@ -72,7 +72,6 @@ export async function savePlayerList(
 
     [
       "/giocatori",
-      "/asta",
       "/admin",
       "/admin/listone",
       "/admin/asta",
@@ -339,7 +338,7 @@ function isYes(value: ExcelJS.CellValue) {
 }
 
 function revalidatePlayerListPaths() {
-  ["/giocatori", "/asta", "/admin", "/admin/listone", "/admin/asta", "/admin/free-agent", "/admin/draft"]
+  ["/giocatori", "/admin", "/admin/listone", "/admin/asta", "/admin/free-agent", "/admin/draft"]
     .forEach((path) => revalidatePath(path));
 }
 

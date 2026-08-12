@@ -54,6 +54,11 @@ export function macroPhaseForMoment(moment: LeagueMoment): "offseason" | "regula
   return hasReachedMoment(moment, "auction_completed") ? "regular_season" : "offseason";
 }
 
+export function publicPhaseLabel(moment: LeagueMoment) {
+  if (hasReachedMoment(moment, "free_agency_end")) return "Postseason";
+  return macroPhaseForMoment(moment) === "offseason" ? "Offseason" : "Regular season";
+}
+
 export function teamOptionsAreResolved(moment: LeagueMoment) {
   return hasReachedMoment(moment, "team_option_deadline");
 }

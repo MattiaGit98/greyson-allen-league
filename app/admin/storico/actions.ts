@@ -41,6 +41,7 @@ export async function saveHistoryCompetition(
   if (error) return { error: error.message };
 
   revalidatePath("/storico");
+  revalidatePath("/");
   revalidatePath("/admin/storico");
   return { message: "Storico salvato." };
 }

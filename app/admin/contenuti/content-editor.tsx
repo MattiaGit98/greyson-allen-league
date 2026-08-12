@@ -18,18 +18,22 @@ import {
   type RankingContent,
 } from "@/lib/competitions";
 import { saveCompetitionContent, type ContentSaveState } from "./actions";
+import { HomepageFeatureToggle } from "@/components/home-feature-toggle";
 
 const initialState: ContentSaveState = {};
 
 export function ContentEditor({
   competitions,
   teams,
+  homepageCompetition,
 }: {
   competitions: CompetitionContentMap;
   teams: CompetitionTeam[];
+  homepageCompetition: CompetitionName | null;
 }) {
   const [selectedName, setSelectedName] = useState<CompetitionName>(competitionNames[0]);
   const [drafts, setDrafts] = useState<CompetitionContentMap>(competitions);
+  const [selectedHomepageCompetition, setSelectedHomepageCompetition] = useState<CompetitionName | null>(homepageCompetition);
 
   function updateContent(content: CompetitionContent) {
     setDrafts((current) => ({ ...current, [selectedName]: content }));
@@ -44,6 +48,7 @@ export function ContentEditor({
             {competitionNames.map((name) => <option value={name} key={name}>{name}</option>)}
           </select>
         </label>
+        <HomepageFeatureToggle kind="competition" value={selectedName} selected={selectedHomepageCompetition === selectedName} onSelectionChange={(value) => setSelectedHomepageCompetition(value as CompetitionName | null)} />
       </div>
       <CompetitionForm
         name={selectedName}

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { SiteNavigation } from "@/components/site-navigation";
+import { LivePageRefresh } from "@/components/live-page-refresh";
 import { displayedSeasonName } from "@/lib/season-time";
-import { leagueMomentFromSeason, macroPhaseForMoment, operationWindows } from "@/lib/league-moments";
+import { leagueMomentFromSeason, publicPhaseLabel } from "@/lib/league-moments";
 import { loadActiveSeason } from "@/lib/active-season";
 import "./globals.css";
 
@@ -14,13 +15,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const { season } = await loadActiveSeason();
   const seasonName = season ? displayedSeasonName(season.name) : "—";
   const leagueMoment = season ? leagueMomentFromSeason(season) : null;
-  const phaseName = leagueMoment ? (macroPhaseForMoment(leagueMoment) === "offseason" ? "Offseason" : "Stagione") : "Stato non disponibile";
-  const auctionOpen = leagueMoment ? operationWindows.auction(leagueMoment) : false;
+  const phaseName = leagueMoment ? publicPhaseLabel(leagueMoment) : "Stato non disponibile";
   return (
     <html lang="it">
       <body>
-        <SiteNavigation seasonName={seasonName} phaseName={phaseName} auctionOpen={auctionOpen} />
+        <SiteNavigation seasonName={seasonName} phaseName={phaseName} />
         <main>{children}</main>
+        <LivePageRefresh />
       </body>
     </html>
   );

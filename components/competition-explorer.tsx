@@ -34,12 +34,12 @@ export function CompetitionExplorer({
         onChange={(value) => setSelectedName(value as CompetitionName)}
         options={[...competitionNames]}
       />
-      <CompetitionView content={content} teams={teams} />
+      <CompetitionContentView content={content} teams={teams} />
     </>
   );
 }
 
-function CompetitionView({ content, teams }: { content: CompetitionContent; teams: CompetitionTeam[] }) {
+export function CompetitionContentView({ content, teams }: { content: CompetitionContent; teams: CompetitionTeam[] }) {
   if (content.kind === "bracket") {
     return <BracketView stages={publicBracketStages(content, teams)} />;
   }

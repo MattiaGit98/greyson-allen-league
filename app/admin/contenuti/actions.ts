@@ -47,6 +47,7 @@ export async function saveCompetitionContent(
   if (error) return { error: error.message };
 
   revalidatePath("/competizioni");
+  revalidatePath("/");
   revalidatePath("/admin/contenuti");
   return { message: "Modifiche salvate." };
 }

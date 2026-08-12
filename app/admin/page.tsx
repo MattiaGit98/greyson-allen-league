@@ -51,6 +51,12 @@ const actionGroups = [
     ],
   },
   {
+    title: "Avvisi",
+    actions: [
+      { href: "/admin/avvisi", title: "Avvisi" },
+    ],
+  },
+  {
     title: "Backup e ripristino",
     actions: [
       { href: "/admin/backup", title: "Backup" },

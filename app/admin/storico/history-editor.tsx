@@ -20,13 +20,15 @@ import {
   type HistoryWinningRosterContent,
 } from "@/lib/history-competitions";
 import { saveHistoryCompetition, type HistorySaveState } from "./actions";
+import { HomepageFeatureToggle } from "@/components/home-feature-toggle";
 
 const initialState: HistorySaveState = {};
 const createSeasonValue = "__create_new_season__";
 
-export function HistoryEditor({ competitions }: { competitions: HistoryCompetitionMap }) {
+export function HistoryEditor({ competitions, homepageHonoursTable }: { competitions: HistoryCompetitionMap; homepageHonoursTable: string }) {
   const [category, setCategory] = useState<HistoryCompetitionName>(manuallyEditableHistoryNames[0]);
   const [drafts, setDrafts] = useState<HistoryCompetitionMap>(competitions);
+  const [selectedHomepageHonoursTable, setSelectedHomepageHonoursTable] = useState(homepageHonoursTable);
   return (
     <>
       <div className="content-editor-selectors single">
@@ -36,6 +38,8 @@ export function HistoryEditor({ competitions }: { competitions: HistoryCompetiti
         category={category}
         entries={drafts[category]}
         onChange={(entries) => setDrafts((value) => ({ ...value, [category]: entries }))}
+        homepageHonoursTable={selectedHomepageHonoursTable}
+        onHomepageHonoursTableChange={(value) => setSelectedHomepageHonoursTable(value ?? "")}
         key={category}
       />
     </>
@@ -46,10 +50,14 @@ function HistoryCategoryForm({
   category,
   entries,
   onChange,
+  homepageHonoursTable,
+  onHomepageHonoursTableChange,
 }: {
   category: HistoryCompetitionName;
   entries: HistoryCompetitionEntry[];
   onChange: (entries: HistoryCompetitionEntry[]) => void;
+  homepageHonoursTable: string;
+  onHomepageHonoursTableChange: (value: string | null) => void;
 }) {
   const aggregate = aggregateHistoryNames.has(category);
   const [state, action, pending] = useActionState(saveHistoryCompetition, initialState);
@@ -89,7 +97,7 @@ function HistoryCategoryForm({
       <input type="hidden" name="category" value={category} />
       <input type="hidden" name="entries_json" value={JSON.stringify(entries)} />
       {aggregate ? (
-        <HistoryAggregateEditor category={category} entries={entries} onChange={onChange} />
+        <HistoryAggregateEditor category={category} entries={entries} onChange={onChange} homepageHonoursTable={homepageHonoursTable} onHomepageHonoursTableChange={onHomepageHonoursTableChange} />
       ) : (
         <>
           <div className="history-admin-toolbar history-season-toolbar">
@@ -179,7 +187,7 @@ function HistoryWinningRosterEditor({ content, onChange }: { content: HistoryWin
   );
 }
 
-function HistoryAggregateEditor({ category, entries, onChange }: { category: HistoryCompetitionName; entries: HistoryCompetitionEntry[]; onChange: (entries: HistoryCompetitionEntry[]) => void }) {
+function HistoryAggregateEditor({ category, entries, onChange, homepageHonoursTable, onHomepageHonoursTableChange }: { category: HistoryCompetitionName; entries: HistoryCompetitionEntry[]; onChange: (entries: HistoryCompetitionEntry[]) => void; homepageHonoursTable: string; onHomepageHonoursTableChange: (value: string | null) => void }) {
   function updateEntry(index: number, entry: HistoryCompetitionEntry) {
     onChange(entries.map((value, entryIndex) => entryIndex === index ? entry : value));
   }
@@ -187,7 +195,7 @@ function HistoryAggregateEditor({ category, entries, onChange }: { category: His
     <>
       <div className="history-aggregate-stack">{entries.map((entry, index) => (
         <section className="history-aggregate-card" key={index}>
-          <div className="history-aggregate-head"><input value={entry.season} onChange={(event) => updateEntry(index, { ...entry, season: event.target.value })} /><button type="button" onClick={() => onChange(entries.filter((_, entryIndex) => entryIndex !== index))}>×</button></div>
+          <div className="history-aggregate-head"><input value={entry.season} onChange={(event) => updateEntry(index, { ...entry, season: event.target.value })} />{category === "Albo d'oro" && <HomepageFeatureToggle kind="honours" value={entry.season} selected={homepageHonoursTable === entry.season} onSelectionChange={onHomepageHonoursTableChange} />}<button type="button" onClick={() => onChange(entries.filter((_, entryIndex) => entryIndex !== index))}>×</button></div>
           {entry.content.kind === "honours" && <HonoursRows content={entry.content} onChange={(content) => updateEntry(index, { ...entry, content })} />}
           {entry.content.kind === "title_counts" && <TitleCountRows content={entry.content} onChange={(content) => updateEntry(index, { ...entry, content })} />}
         </section>

@@ -307,7 +307,6 @@ async function persistAuctionState(
     "/squadre",
     "/giocatori",
     "/movimenti",
-    "/asta",
     "/admin",
     "/admin/asta",
     "/admin/listone",

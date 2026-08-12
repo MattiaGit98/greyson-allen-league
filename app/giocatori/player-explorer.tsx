@@ -24,10 +24,16 @@ export function PlayerExplorer({ rows }: { rows: Row[] }) {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("all");
   const [status, setStatus] = useState("all");
+  const [rookiesOnly, setRookiesOnly] = useState(false);
+  const [under23Only, setUnder23Only] = useState(false);
   const filtered = useMemo(() => rows.filter((row) => {
     const matchesQuery = row.name.toLowerCase().includes(query.toLowerCase());
-    return matchesQuery && (role === "all" || row.role === role) && (status === "all" || statusOf(row) === status);
-  }), [query, role, rows, status]);
+    return matchesQuery
+      && (role === "all" || row.role === role)
+      && (status === "all" || statusOf(row) === status)
+      && (!rookiesOnly || row.rookie)
+      && (!under23Only || row.under23);
+  }), [query, role, rookiesOnly, rows, status, under23Only]);
 
   return (
     <>
@@ -35,6 +41,11 @@ export function PlayerExplorer({ rows }: { rows: Row[] }) {
         <label className="search-field"><span>Cerca</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" /></label>
         <label><span>Ruolo</span><select value={role} onChange={(event) => setRole(event.target.value)}><option value="all">Tutti</option><option>G</option><option>A</option><option>C</option><option>X</option></select></label>
         <label><span>Stato</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Tutti</option><option value="fa">FA</option><option value="qo">Q.O.</option><option value="roster">A roster</option></select></label>
+        <fieldset className="player-category-filter">
+          <legend>Categoria</legend>
+          <label><input type="checkbox" checked={rookiesOnly} onChange={(event) => setRookiesOnly(event.target.checked)} /> Rookie</label>
+          <label><input type="checkbox" checked={under23Only} onChange={(event) => setUnder23Only(event.target.checked)} /> U23</label>
+        </fieldset>
       </div>
 
       <div className="player-list">
@@ -60,7 +71,7 @@ export function PlayerExplorer({ rows }: { rows: Row[] }) {
             <PlayerStatus row={row} />
           </article>
         ))}
-        {!filtered.length && <div className="data-empty">Listone non ancora pubblicato</div>}
+        {!filtered.length && <div className="data-empty">{rows.length ? "Nessun giocatore corrisponde ai filtri" : "Listone non ancora pubblicato"}</div>}
       </div>
     </>
   );

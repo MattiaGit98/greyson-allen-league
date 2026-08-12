@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { isHomepageCalendarDate } from "@/lib/calendar-homepage";
 import { saveCalendar, type CalendarSaveState } from "./actions";
 
-type CalendarRow = { key: string; event: string; date: string };
+type CalendarRow = { key: string; event: string; date: string; showOnHomepage: boolean };
 const initialState: CalendarSaveState = {};
 
 export function CalendarEditor({ initialRows }: { initialRows: CalendarRow[] }) {
@@ -17,7 +18,13 @@ export function CalendarEditor({ initialRows }: { initialRows: CalendarRow[] }) 
   }
 
   function addRow() {
-    setRows((current) => [...current, { key: crypto.randomUUID(), event: "", date: "" }]);
+    setRows((current) => [...current, { key: crypto.randomUUID(), event: "", date: "", showOnHomepage: false }]);
+  }
+
+  function setHomepageVisibility(key: string, showOnHomepage: boolean) {
+    setRows((current) => current.map((row) => (
+      row.key === key ? { ...row, showOnHomepage, date: showOnHomepage && !isHomepageCalendarDate(row.date) ? "" : row.date } : row
+    )));
   }
 
   function moveRow(index: number, direction: -1 | 1) {
@@ -35,11 +42,11 @@ export function CalendarEditor({ initialRows }: { initialRows: CalendarRow[] }) 
       <input
         type="hidden"
         name="calendar_json"
-        value={JSON.stringify(rows.map(({ event, date }) => ({ event, date })))}
+        value={JSON.stringify(rows.map(({ event, date, showOnHomepage }) => ({ event, date, showOnHomepage })))}
       />
       <div className="calendar-editor-table">
         <div className="calendar-editor-head">
-          <span>Evento</span><span>Data</span><span>Ordine</span><span></span>
+          <span>Evento</span><span>Data</span><span>Home</span><span>Ordine</span><span></span>
         </div>
         {rows.map((row, index) => (
           <div className="calendar-editor-row" key={row.key}>
@@ -49,7 +56,11 @@ export function CalendarEditor({ initialRows }: { initialRows: CalendarRow[] }) 
             </label>
             <label>
               <span>Data</span>
-              <input value={row.date} onChange={(event) => updateRow(row.key, "date", event.target.value)} placeholder="Scrivi la data" />
+              <input type={row.showOnHomepage ? "date" : "text"} value={row.date} onChange={(event) => updateRow(row.key, "date", event.target.value)} placeholder={row.showOnHomepage ? undefined : "Scrivi la data"} />
+            </label>
+            <label className="calendar-home-toggle">
+              <span>Mostra in homepage</span>
+              <input type="checkbox" checked={row.showOnHomepage} onChange={(event) => setHomepageVisibility(row.key, event.target.checked)} />
             </label>
             <div className="calendar-row-order">
               <button type="button" onClick={() => moveRow(index, -1)} disabled={index === 0} aria-label="Sposta in alto">↑</button>

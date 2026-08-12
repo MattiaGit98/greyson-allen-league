@@ -64,6 +64,14 @@ export async function advanceLeaguePhaseStep() {
       trade_deadline_passed: false,
     }).eq("id", season.id);
     if (momentUpdate.error) phaseError(momentUpdate.error.message);
+    const calendarReset = await supabase
+      .from("calendar_events")
+      .update({ date_text: "" })
+      .eq("season_id", season.id);
+    if (calendarReset.error) {
+      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
+      phaseError(calendarReset.error.message);
+    }
     revalidateLeaguePages();
     redirect(`/admin/impostazioni?advanced=${encodeURIComponent(result.nextSeasonName ?? "")}`);
   }
@@ -173,6 +181,14 @@ async function performLeagueSeasonAdvance(
       qualifyingOfferRights: advance.qualifyingOfferRights,
       playerList: advance.playerList,
       playerListStatus: "offseason" as const,
+      calendarHomepageEventKeys: [...new Set((state.calendarHomepageEventKeys ?? []).flatMap((key) => {
+        try {
+          const value = JSON.parse(key);
+          return Array.isArray(value) && typeof value[0] === "string" ? [JSON.stringify([value[0], ""])] : [];
+        } catch {
+          return [];
+        }
+      }))],
     };
     const response = await supabase.rpc("advance_league_and_archive_competitions", {
       state_payload: nextState,
@@ -189,9 +205,9 @@ async function performLeagueSeasonAdvance(
 
 function revalidateLeaguePages() {
   [
-    "/", "/squadre", "/giocatori", "/competizioni", "/storico", "/admin", "/admin/impostazioni",
+    "/", "/squadre", "/giocatori", "/calendario", "/competizioni", "/storico", "/admin", "/admin/impostazioni",
     "/admin/team-option", "/admin/asta", "/admin/contratti", "/admin/free-agent", "/admin/scambi",
-    "/admin/draft", "/admin/altre-operazioni", "/admin/storico", "/admin/contenuti",
+    "/admin/draft", "/admin/altre-operazioni", "/admin/storico", "/admin/contenuti", "/admin/calendario",
   ].forEach((route) => revalidatePath(route));
 }
 
