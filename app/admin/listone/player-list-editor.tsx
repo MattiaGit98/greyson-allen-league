@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import type { PlayerListEntry } from "@/lib/league-types";
+import { nbaTeams } from "@/data/nba-teams";
 import { savePlayerList, type PlayerListSaveState } from "./actions";
 
 type EditablePlayer = PlayerListEntry & { rowId: string };
@@ -19,7 +20,6 @@ export function PlayerListEditor({
     ...player,
     rowId: `saved-${index}`,
   })));
-  const [status, setStatus] = useState(initialStatus);
   const [query, setQuery] = useState("");
   const [saveState, saveAction, pending] = useActionState(savePlayerList, initialSaveState);
   const provisionalList = initialStatus === "offseason";
@@ -51,23 +51,15 @@ export function PlayerListEditor({
     setQuery("");
   }
 
-  function moveRow(rowId: string, distance: -1 | 1) {
-    setRows((current) => {
-      const index = current.findIndex((row) => row.rowId === rowId);
-      const destination = index + distance;
-      if (index < 0 || destination < 0 || destination >= current.length) return current;
-      const next = [...current];
-      [next[index], next[destination]] = [next[destination], next[index]];
-      return next;
-    });
-  }
-
   const payload = rows.map(({ rowId: _rowId, ...player }) => player);
+  const newPlayerNames = rows.filter((row) => row.rowId.startsWith("new-")).map((row) => row.name.trim());
+  const hasIncompleteNewPlayer = rows.some((row) => row.rowId.startsWith("new-") && (!row.name.trim() || !row.realTeam));
 
   return (
     <form action={saveAction} className="player-list-editor">
       <input type="hidden" name="players_json" value={JSON.stringify(payload)} />
-      <input type="hidden" name="list_status" value={status} />
+      <input type="hidden" name="new_player_names_json" value={JSON.stringify(newPlayerNames)} />
+      <input type="hidden" name="list_status" value={initialStatus} />
 
       <div className="player-list-editor-toolbar">
         <label className="player-list-editor-search">
@@ -83,23 +75,16 @@ export function PlayerListEditor({
             )}
           </div>
         </label>
-        <label className="player-list-status-field">
-          <span>Tipo di listone</span>
-          <select value={status} disabled={provisionalList} onChange={(event) => setStatus(event.target.value as typeof status)}>
-            <option value="offseason">Provvisorio offseason</option>
-            <option value="published">Ufficiale pubblicato</option>
-          </select>
-        </label>
         {!provisionalList && <button className="button secondary" type="button" onClick={addRow}>Aggiungi giocatore</button>}
       </div>
 
-      {provisionalList && <p className="notice">Listone provvisorio: è modificabile soltanto il ruolo.</p>}
+      {provisionalList && <p className="notice">Listone provvisorio: non è modificabile fino alla pubblicazione del listone ufficiale.</p>}
       {saveState.message && <p className="notice success">{saveState.message}</p>}
       {saveState.error && <p className="notice error">Salvataggio non riuscito: {saveState.error}</p>}
 
       <div className="player-list-edit-table">
         <div className="player-list-edit-head">
-          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra reale</span><span>Rookie</span><span>U23</span><span></span>
+          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra NBA</span><span>Rookie</span><span>U23</span><span></span>
         </div>
         {visibleRows.map((row) => {
           const absoluteIndex = rows.findIndex((item) => item.rowId === row.rowId);
@@ -110,16 +95,20 @@ export function PlayerListEditor({
               {isNew
                 ? <input className="player-list-edit-name" aria-label={`Nome riga ${absoluteIndex + 1}`} value={row.name} onChange={(event) => updateRow(row.rowId, { name: event.target.value })} autoFocus />
                 : <strong className="player-list-edit-name" title={row.name}>{row.name}</strong>}
-              <select aria-label={`Ruolo di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.role} onChange={(event) => updateRow(row.rowId, { role: event.target.value as PlayerListEntry["role"] })}>
+              <select aria-label={`Ruolo di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.role} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { role: event.target.value as PlayerListEntry["role"] })}>
                 <option value="G">G</option><option value="A">A</option><option value="C">C</option><option value="X">X</option>
               </select>
-              <input aria-label={`Squadra reale di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.realTeam} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { realTeam: event.target.value })} />
+              {isNew ? (
+                <select aria-label={`Squadra NBA di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.realTeam} required onChange={(event) => updateRow(row.rowId, { realTeam: event.target.value })}>
+                  <option value="">Seleziona</option>
+                  <option value="FA">Nessuna squadra NBA</option>
+                  {nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}
+                </select>
+              ) : <input aria-label={`Squadra NBA di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.realTeam} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { realTeam: event.target.value })} />}
               <label className="compact-check"><input type="checkbox" checked={row.rookie} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { rookie: event.target.checked })} /><span>R</span></label>
               <label className="compact-check"><input type="checkbox" checked={row.under23} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { under23: event.target.checked })} /><span>U23</span></label>
               <div className="player-list-edit-actions">
                 {!provisionalList && <>
-                  <button type="button" onClick={() => moveRow(row.rowId, -1)} disabled={absoluteIndex === 0} aria-label={`Sposta ${row.name} su`}>↑</button>
-                  <button type="button" onClick={() => moveRow(row.rowId, 1)} disabled={absoluteIndex === rows.length - 1} aria-label={`Sposta ${row.name} giù`}>↓</button>
                   <button className="danger" type="button" onClick={() => setRows((current) => current.filter((item) => item.rowId !== row.rowId))}>Rimuovi</button>
                 </>}
               </div>
@@ -131,7 +120,7 @@ export function PlayerListEditor({
 
       <div className="player-list-editor-footer">
         <span>{rows.length} giocatori</span>
-        <button className="button primary" type="submit" disabled={pending}>{pending ? "Salvataggio…" : "Salva listone"}</button>
+        {!provisionalList && <button className="button primary" type="submit" disabled={pending || hasIncompleteNewPlayer}>{pending ? "Salvataggio…" : "Salva listone"}</button>}
       </div>
     </form>
   );

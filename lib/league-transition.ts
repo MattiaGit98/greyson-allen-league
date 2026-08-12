@@ -108,7 +108,7 @@ export function buildLeagueTransitionPreview(input: {
       preview.automaticActions.push(`${advance.promotedSecondYearTwoWayPlayers.length} giocatori al secondo anno nei Two-way saranno promossi negli slot roster.`);
       preview.automaticActions.push(`${advance.promotedPlayoffTeamOptionPlayers.length} T.O. esercitate per utilizzo nei playoff saranno promosse negli slot roster.`);
       preview.automaticActions.push(`${advance.reintegratedDpePlayers.length} giocatori in DPE saranno reintegrati negli slot roster.`);
-      preview.automaticActions.push(`Il listone sarà ricreato con ${advance.playerList.length} giocatori sotto contratto o con Q.O.`);
+      preview.automaticActions.push(`Il listone attuale diventerà provvisorio: manterrà ${advance.playerList.length} giocatori, ma le squadre NBA saranno azzerate.`);
       preview.automaticActions.push("Classifiche e tabelloni correnti saranno importati nello storico.");
       preview.automaticActions.push(`L’annata passerà automaticamente a ${advance.nextSeasonName}.`);
     } catch (error) {

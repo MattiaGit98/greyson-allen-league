@@ -92,10 +92,7 @@ export function SiteNavigation({ seasonName, phaseName }: { seasonName: string; 
           </span>
         </Link>
         </div>
-        <nav className="area-switcher" aria-label="Selezione area">
-          <Link className={!isAdmin && !isLogin ? "active" : ""} href="/" onClick={openLeagueHomeOnDesktop}>Area lega</Link>
-          <Link className={isAdmin ? "active" : ""} href="/admin">Amministrazione</Link>
-        </nav>
+        <Link className="admin-shortcut" href="/admin" aria-label="Apri amministrazione" title="Amministrazione">⚙</Link>
       </header>
       {!isLogin && !isAdmin && (
         <>

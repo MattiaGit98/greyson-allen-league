@@ -143,7 +143,7 @@ function MatchChoiceDialog({ mismatch, players, initial, onCancel, onSave }: {
           ) : (
             <div className="match-new-player-fields">
               <label><span>Nome da aggiungere</span><input value={targetName} onChange={(event) => setTargetName(event.target.value)} maxLength={120} /></label>
-              <label><span>Squadra reale</span><select value={realTeam} onChange={(event) => setRealTeam(event.target.value)}><option value="">Seleziona</option><option value="FA">Nessuna squadra NBA</option>{nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}</select></label>
+              <label><span>Squadra NBA</span><select value={realTeam} onChange={(event) => setRealTeam(event.target.value)}><option value="">Seleziona</option><option value="FA">Nessuna squadra NBA</option>{nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}</select></label>
               <p className="validation warning">Il giocatore verrà aggiunto in fondo al listone con ruolo X.</p>
             </div>
           )}

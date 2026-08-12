@@ -2,7 +2,8 @@ import Link from "next/link";
 import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
 import { loadCurrentHistoryImports } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason, leagueMomentLabels } from "@/lib/league-moments";
+import { normalizePhaseDates, phaseDateForTransition } from "@/lib/phase-calendar";
 import { buildPreAdvanceChecklist, type PreAdvanceChecklist } from "@/lib/pre-advance-alerts";
 import { requireActiveSeason } from "@/lib/active-season";
 import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
@@ -92,9 +93,15 @@ export default async function AdminDashboardPage() {
   const roleMinimumAlerts = hasReachedMoment(leagueMoment, "auction_start") && !hasReachedMoment(leagueMoment, "free_agency_end")
     ? buildRoleMinimumAlerts(leagueState)
     : [];
+  const nextPhaseDate = phaseDateForTransition(normalizePhaseDates(activeSeason.season.phase_dates), preAdvanceChecklist.transition);
+  const dateParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date()).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
+  const today = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
 
   return (
     <section className="section page-top admin-dashboard">
+      {!nextPhaseDate && <p className="notice">Manca la data di {preAdvanceChecklist.transition === "auction_completed" ? "Asta" : leagueMomentLabels[preAdvanceChecklist.transition]}: inseriscila nell’avanzamento della lega.</p>}
+      {nextPhaseDate && nextPhaseDate < today && <p className="notice error">La data di {preAdvanceChecklist.transition === "auction_completed" ? "Asta" : leagueMomentLabels[preAdvanceChecklist.transition]} è trascorsa e la lega non è stata ancora avanzata.</p>}
       {roleMinimumAlerts.length > 0 && (
         <section className="admin-role-minimum-alert" role="alert">
           <strong>Intervento richiesto: minimi di ruolo non rispettati</strong>

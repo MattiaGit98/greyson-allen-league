@@ -82,34 +82,27 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
   ));
 
   const qualifyingOfferRights = uniqueRights(generatedRights);
-  const existingOrder = new Map(input.playerList.map((player, index) => [player.name, index]));
-  const existingPlayers = new Map(input.playerList.map((player) => [player.name, player]));
-  const listNames = new Set([
+  const existingPlayers = new Map(input.playerList.map((player) => [normalizePlayerName(player.name), player]));
+  const rosterOrQualifyingNames = [
     ...retainedEntries.filter((entry) => entry.state === "active").map((entry) => entry.name),
     ...qualifyingOfferRights.map((right) => right.playerName),
-  ]);
-  const activeRosteredNames = new Set(retainedEntries
-    .filter((entry) => entry.state === "active")
-    .map((entry) => entry.name));
-  const playerList = [...listNames]
-    .sort((left, right) => {
-      const leftOrder = existingOrder.get(left) ?? Number.MAX_SAFE_INTEGER;
-      const rightOrder = existingOrder.get(right) ?? Number.MAX_SAFE_INTEGER;
-      return leftOrder - rightOrder || left.localeCompare(right, "it");
-    })
-    .flatMap((name): PlayerListEntry[] => {
-      const previous = existingPlayers.get(name);
-      const role = roles.get(name) ?? previous?.role;
-      if (!role) return [];
-      if (role === "X" && !activeRosteredNames.has(name)) return [];
-      return [{
-        name,
-        role,
-        realTeam: "",
-        rookie: previous?.rookie ?? false,
-        under23: previous?.under23 ?? false,
-      }];
+  ];
+  const playerList = input.playerList.map((player) => ({ ...player, realTeam: "" }));
+  const knownNames = new Set(playerList.map((player) => normalizePlayerName(player.name)));
+  for (const name of rosterOrQualifyingNames) {
+    const normalizedName = normalizePlayerName(name);
+    if (knownNames.has(normalizedName)) continue;
+    const role = roles.get(name) ?? existingPlayers.get(normalizedName)?.role;
+    if (!role) continue;
+    playerList.push({
+      name,
+      role,
+      realTeam: "",
+      rookie: existingPlayers.get(normalizedName)?.rookie ?? false,
+      under23: existingPlayers.get(normalizedName)?.under23 ?? false,
     });
+    knownNames.add(normalizedName);
+  }
 
   return {
     nextSeasonName,
@@ -136,4 +129,8 @@ function uniqueRights(rights: QualifyingOfferRight[]) {
   const unique = new Map<string, QualifyingOfferRight>();
   rights.forEach((right) => unique.set(right.playerName, right));
   return [...unique.values()];
+}
+
+function normalizePlayerName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
 }

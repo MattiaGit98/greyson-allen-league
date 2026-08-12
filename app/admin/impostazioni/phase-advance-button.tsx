@@ -4,13 +4,13 @@ import { useState, useTransition, type FormEvent } from "react";
 import type { LeagueTransitionPreview } from "@/lib/league-transition";
 import { advanceLeaguePhaseStep, restoreLatestPhaseBackup } from "./actions";
 
-export function PhaseAdvanceButton({ currentLabel, nextLabel, preview }: { currentLabel: string; nextLabel: string; preview: LeagueTransitionPreview }) {
+export function PhaseAdvanceButton({ currentLabel, nextLabel, preview, missingPhaseDate = false }: { currentLabel: string; nextLabel: string; preview: LeagueTransitionPreview; missingPhaseDate?: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
   async function advance() {
-    if (pending || preview.errors.length) return;
+    if (pending || preview.errors.length || missingPhaseDate) return;
     setError("");
     try {
       await downloadImportableBackup();
@@ -22,7 +22,7 @@ export function PhaseAdvanceButton({ currentLabel, nextLabel, preview }: { curre
 
   return (
     <>
-      <button className="button primary" type="button" onClick={() => setOpen(true)}>Esegui il prossimo passaggio</button>
+      <button className="button primary" type="button" onClick={() => setOpen(true)} disabled={missingPhaseDate}>Esegui il prossimo passaggio</button>
       {open && (
         <div className="auction-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) setOpen(false); }}>
           <section className="auction-modal phase-confirm-modal" role="dialog" aria-modal="true" aria-label={`Passaggio a ${nextLabel}`}>
@@ -40,7 +40,7 @@ export function PhaseAdvanceButton({ currentLabel, nextLabel, preview }: { curre
             </div>
             <div className="auction-modal-actions">
               <button className="button secondary" type="button" onClick={() => setOpen(false)} disabled={pending}>Annulla</button>
-              <button className="button primary" type="button" onClick={advance} disabled={pending || preview.errors.length > 0}>
+              <button className="button primary" type="button" onClick={advance} disabled={pending || preview.errors.length > 0 || missingPhaseDate}>
                 {pending ? "Backup e passaggio in corso…" : "Conferma e scarica backup"}
               </button>
             </div>

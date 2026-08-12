@@ -13,6 +13,7 @@ export type PhaseSeasonSnapshot = {
   team_options_resolved: boolean;
   trade_deadline_passed: boolean;
   timeline_moment?: string | null;
+  phase_dates?: unknown;
 };
 
 export async function savePhaseBackup(

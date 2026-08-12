@@ -121,10 +121,22 @@ describe("avanzamento della lega", () => {
     expect(cutResult.expiredContracts).toBe(1);
   });
 
-  it("ricostruisce il listone senza squadra NBA e senza vecchi free agent", () => {
-    expect(result.playerList.map((player) => player.name)).toEqual(["Ex T.O.", "Scadenza Q.O.", "Contratto lungo"]);
+  it("conserva il listone provvisorio e i vecchi free agent, svuotando la squadra NBA", () => {
+    expect(result.playerList.map((player) => player.name)).toEqual(rosterEntries.map((entry) => entry.name));
     expect(result.playerList.every((player) => player.realTeam === "")).toBe(true);
-    expect(result.playerList.some((player) => player.name === "Vecchia Q.O.")).toBe(false);
+    expect(result.playerList.some((player) => player.name === "Scadenza semplice")).toBe(true);
+    expect(result.playerList.some((player) => player.name === "Tagliato")).toBe(true);
+  });
+
+  it("aggiunge in fondo al listone solo i giocatori di roster o Q.O. che mancavano", () => {
+    const listAdvance = calculateLeagueAdvance({
+      seasonName: "2026/27",
+      rosterEntries: [{ name: "Nuovo sotto contratto", cost: 4, contract: "28", role: "G", state: "active", slot: "regular", teamCode: "AAA" }],
+      qualifyingOfferRights: [],
+      playerList: [{ name: "Già nel listone", role: "A", realTeam: "BOS", rookie: false, under23: false }],
+    });
+    expect(listAdvance.playerList.map((player) => player.name)).toEqual(["Già nel listone", "Nuovo sotto contratto"]);
+    expect(listAdvance.playerList.every((player) => player.realTeam === "")).toBe(true);
   });
 
   it("reintegra negli slot roster le DPE ancora sotto contratto", () => {

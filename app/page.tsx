@@ -8,7 +8,8 @@ import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-
 import { hasReachedMoment, leagueMomentFromSeason, publicPhaseLabel, type LeagueMoment } from "@/lib/league-moments";
 import { conciseMovementDetail, movementOperationLabel } from "@/lib/movement-display";
 import { buildPreAdvanceChecklist } from "@/lib/pre-advance-alerts";
-import { formatHomepageCalendarDate, nextHomepageCalendarEvent } from "@/lib/calendar-homepage";
+import { formatHomepageCalendarDate } from "@/lib/calendar-homepage";
+import { nextPhaseDate, normalizePhaseDates } from "@/lib/phase-calendar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadCompetitionState } from "@/lib/competition-store";
@@ -28,23 +29,21 @@ export default async function HomePage() {
     loadEditableLeagueState(),
     createSupabaseServerClient(),
   ]);
-  const [movementResponse, calendarResponse] = await Promise.all([
+  const [movementResponse] = await Promise.all([
     supabase
       ? supabase.from("league_movement_feed").select("id,operation_type,summary,created_at,reverted").order("created_at", { ascending: false }).limit(12)
       : null,
-    activeSeason.supabase.from("calendar_events").select("event_text,date_text,sort_order").eq("season_id", activeSeason.season.id).order("sort_order"),
   ]);
   if (movementResponse?.error) throw new Error(`Movimenti recenti non disponibili: ${movementResponse.error.message}`);
-  if (calendarResponse.error) throw new Error(`Calendario non disponibile: ${calendarResponse.error.message}`);
   const movements = (movementResponse?.data ?? []).filter((movement) => !movement.reverted).slice(0, 5);
   const moment = leagueMomentFromSeason(activeSeason.season);
   const macroPhase = publicPhaseLabel(moment);
   const [historyState, competitionState] = await Promise.all([loadHistoryCompetitionState(), loadCompetitionState()]);
   const alerts = homeLeagueAlerts({ moment, seasonName: activeSeason.season.name, state });
-  const nextCalendarEvent = nextHomepageCalendarEvent(
-    (calendarResponse.data ?? []).map((event) => ({ event: event.event_text, date: event.date_text, sortOrder: event.sort_order })),
-    state.calendarHomepageEventKeys ?? [],
-  );
+  const todayParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date()).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
+  const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+  const nextCalendarEvent = nextPhaseDate(normalizePhaseDates(activeSeason.season.phase_dates), moment, today);
   const quickLinks: { href: string; label: string }[] = [];
   const draftYear = Number(activeSeason.season.name.slice(0, 4));
   const selectedHonours = moment === "offseason_start"
@@ -78,7 +77,7 @@ export default async function HomePage() {
         </section>
       )}
       {nextCalendarEvent && (
-        <section className="home-next-calendar-event" aria-label="Prossimo appuntamento">
+        <section className={`home-next-calendar-event${nextCalendarEvent.date < today ? " is-overdue" : ""}`} aria-label="Prossimo appuntamento">
           <span>Prossimo appuntamento</span>
           <strong>{nextCalendarEvent.event}</strong>
           <time dateTime={nextCalendarEvent.date}>{formatHomepageCalendarDate(nextCalendarEvent.date)}</time>

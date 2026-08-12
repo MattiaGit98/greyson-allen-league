@@ -39,7 +39,7 @@ export async function GET() {
     { header: "Ordine", key: "order", width: 11 },
     { header: "Nome", key: "name", width: 34 },
     { header: "Ruolo", key: "role", width: 13 },
-    { header: "Squadra reale", key: "realTeam", width: 20 },
+    { header: "Squadra NBA", key: "realTeam", width: 20 },
     { header: "Rookie", key: "rookie", width: 13 },
     { header: "U23", key: "under23", width: 13 },
   ];

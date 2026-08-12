@@ -103,7 +103,7 @@ export function AuctionPanel({
 
       <div className="auction-player-list">
         <div className="auction-player-head">
-          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra reale</span><span>Stato</span><span></span><span></span>
+          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra NBA</span><span>Stato</span><span></span><span></span>
         </div>
         {filtered.map((row) => {
           const assignmentUndo = assignmentUndos[row.name];
@@ -491,7 +491,7 @@ function AuctionStatus({ row }: { row: AuctionRow }) {
 
 function ModalHeader({ row, label, onClose }: { row: AuctionRow; label: string; onClose: () => void }) {
   return <div className="auction-modal-header">
-    <div><span>{label}</span><strong>{row.name}</strong><small>{row.role} · {row.realTeam || "Squadra reale non indicata"}</small></div>
+    <div><span>{label}</span><strong>{row.name}</strong><small>{row.role} · {row.realTeam || "Squadra NBA non indicata"}</small></div>
     <button type="button" onClick={onClose} aria-label="Chiudi">×</button>
   </div>;
 }

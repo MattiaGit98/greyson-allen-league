@@ -15,7 +15,10 @@ export default async function PlayersPage() {
   });
   return (
     <section className="section players-page">
-      <PlayerExplorer rows={rows} />
+      {leagueState.playerListStatus !== "published" && (
+        <p className="player-list-provisional-notice">Listone ufficiale per la prossima stagione non ancora pubblicato.</p>
+      )}
+      <PlayerExplorer rows={rows} showRealTeam={leagueState.playerListStatus === "published"} />
     </section>
   );
 }

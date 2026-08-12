@@ -35,6 +35,7 @@ export async function savePlayerList(
 ): Promise<PlayerListSaveState> {
   try {
     const players = parsePlayers(formData.get("players_json"));
+    const newPlayerNames = parseNewPlayerNames(formData.get("new_player_names_json"));
     const status = formData.get("list_status") === "published" ? "published" : "offseason";
     const supabase = await createSupabaseServerClient();
     if (!supabase) return { error: "Supabase non configurato." };
@@ -49,12 +50,22 @@ export async function savePlayerList(
           const previous = current.playerList[index];
           return !previous
             || player.name !== previous.name
+            || player.role !== previous.role
             || player.realTeam !== previous.realTeam
             || player.rookie !== previous.rookie
             || player.under23 !== previous.under23;
         });
       if (invalidProvisionalEdit) {
-        return { error: "Nel listone provvisorio puoi modificare soltanto il ruolo. Per pubblicare il nuovo listone usa l’importazione Excel." };
+        return { error: "Il listone provvisorio non è modificabile. Per pubblicare il nuovo listone usa l’importazione Excel." };
+      }
+    }
+    const playersByName = new Map(players.map((player) => [normalizePlayerName(player.name), player]));
+    for (const name of newPlayerNames) {
+      const player = playersByName.get(normalizePlayerName(name));
+      if (!player) return { error: "La riga del nuovo giocatore non è valida." };
+      const realTeam = player.realTeam.trim().toUpperCase();
+      if (!realTeam || (realTeam !== "FA" && !nbaTeamCodes.has(realTeam))) {
+        return { error: `Indica una squadra NBA valida per ${player.name}.` };
       }
     }
     const rolesByName = new Map(players.map((player) => [normalizePlayerName(player.name), player.role]));
@@ -205,6 +216,14 @@ export async function confirmPlayerListImport(formData: FormData) {
     const message = error instanceof Error ? error.message : "Conferma non valida.";
     redirect(`/admin/listone?error=${encodeURIComponent(message)}`);
   }
+}
+
+function parseNewPlayerNames(value: FormDataEntryValue | null) {
+  const parsed = JSON.parse(String(value ?? "[]")) as unknown;
+  if (!Array.isArray(parsed) || parsed.some((item) => typeof item !== "string")) {
+    throw new Error("Nuove righe del listone non valide.");
+  }
+  return parsed.map((item) => item.trim()).filter(Boolean);
 }
 
 function parsePlayers(value: FormDataEntryValue | null): PlayerListEntry[] {

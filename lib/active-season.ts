@@ -4,7 +4,7 @@ import { isLeagueMoment } from "@/lib/league-moments";
 import { seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const activeSeasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment";
+export const activeSeasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment,phase_dates";
 
 export type ActiveSeason = {
   id: string;
@@ -13,6 +13,7 @@ export type ActiveSeason = {
   team_options_resolved: boolean;
   trade_deadline_passed: boolean;
   timeline_moment: string | null;
+  phase_dates: unknown;
 };
 
 export const loadActiveSeason = cache(async function loadActiveSeason() {

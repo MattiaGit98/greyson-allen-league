@@ -90,7 +90,7 @@ export function FreeAgentPanel({
 
       <div className="auction-player-list free-agent-player-list">
         <div className="auction-player-head">
-          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra reale</span><span>Stato</span><span></span>
+          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra NBA</span><span>Stato</span><span></span>
         </div>
         {freeAgents.map((player) => (
           <article className={`auction-player-row ${player.rookie ? "is-rookie" : ""} ${player.under23 ? "is-under23" : ""}`} key={player.listOrder}>
@@ -275,7 +275,7 @@ function FreeAgentDialog({
         <div>
           <span>Firma free agent</span>
           <strong>{(player?.name ?? outsideName.trim()) || "Giocatore fuori listone"}</strong>
-          <small>{player ? `${player.role} · ${player.realTeam || "Squadra reale non indicata"}` : "Inserimento contestuale nel listone"}</small>
+          <small>{player ? `${player.role} · ${player.realTeam || "Squadra NBA non indicata"}` : "Inserimento contestuale nel listone"}</small>
         </div>
         <button type="button" onClick={onClose} aria-label="Chiudi">×</button>
       </div>

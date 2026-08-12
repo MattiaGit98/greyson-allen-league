@@ -19,7 +19,6 @@ export type EditableLeagueState = {
   playerList: PlayerListEntry[];
   playerListStatus: "offseason" | "published";
   publicNotice?: string;
-  calendarHomepageEventKeys?: string[];
   homepageHonoursTable?: string;
   homepageCompetition?: CompetitionName | null;
   draftOrders?: SavedDraftOrderAssignment[];
@@ -78,9 +77,6 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
     playerList: Array.isArray(input.playerList) ? input.playerList : fallback.playerList,
     playerListStatus: input.playerListStatus === "published" ? "published" : "offseason",
     publicNotice: typeof input.publicNotice === "string" ? input.publicNotice.slice(0, 2000).trim() : "",
-    calendarHomepageEventKeys: Array.isArray(input.calendarHomepageEventKeys)
-      ? input.calendarHomepageEventKeys.filter((key): key is string => typeof key === "string" && key.length <= 1100 && !key.includes("\u0000"))
-      : [],
     homepageHonoursTable: typeof input.homepageHonoursTable === "string" ? input.homepageHonoursTable.slice(0, 120) : "",
     homepageCompetition: typeof input.homepageCompetition === "string" && (competitionNames as readonly string[]).includes(input.homepageCompetition)
       ? input.homepageCompetition as CompetitionName
@@ -111,7 +107,6 @@ export function emptyLeagueState(): EditableLeagueState {
     playerList: [],
     playerListStatus: "offseason",
     publicNotice: "",
-    calendarHomepageEventKeys: [],
     homepageHonoursTable: "",
     homepageCompetition: null,
     draftOrders: [],
