@@ -31,7 +31,7 @@ export function CalendarEditor({ initialRows }: { initialRows: CalendarRow[] }) 
   }
 
   return (
-    <form action={action} className="calendar-editor-form">
+    <form action={action} className="calendar-editor-form competition-calendar-editor">
       <input
         type="hidden"
         name="calendar_json"

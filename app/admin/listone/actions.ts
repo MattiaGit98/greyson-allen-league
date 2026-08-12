@@ -6,6 +6,8 @@ import ExcelJS from "exceljs";
 import type { PlayerListEntry } from "@/lib/league-types";
 import { nbaTeamCodes } from "@/data/nba-teams";
 import { normalizePlayerName } from "@/lib/admin-alerts";
+import { requireActiveSeason } from "@/lib/active-season";
+import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { suggestPlayerName } from "@/lib/player-name-matching";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -43,6 +45,11 @@ export async function savePlayerList(
     if (!user) return { error: "Sessione scaduta." };
 
     const current = await loadEditableLeagueState();
+    const activeSeason = await requireActiveSeason();
+    if (hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "contract_delivery")
+      && eligibilityChanged(players, current.playerList)) {
+      return { error: "Dopo la consegna dei contratti le indicazioni Rookie e U23 non sono più modificabili." };
+    }
     if (current.playerListStatus === "offseason") {
       const invalidProvisionalEdit = status !== "offseason"
         || players.length !== current.playerList.length
@@ -116,6 +123,11 @@ export async function preparePlayerListImport(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sessione scaduta.");
     const current = await loadEditableLeagueState();
+    const activeSeason = await requireActiveSeason();
+    if (hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "contract_delivery")
+      && eligibilityChanged(players, current.playerList)) {
+      throw new Error("Dopo la consegna dei contratti le indicazioni Rookie e U23 non sono più modificabili.");
+    }
     const references = referencedPlayerNames(current);
     const importedNames = new Set(players.map((player) => player.name));
     const mismatches = [...references.entries()]
@@ -147,6 +159,11 @@ export async function confirmPlayerListImport(formData: FormData) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sessione scaduta.");
     const current = await loadEditableLeagueState();
+    const activeSeason = await requireActiveSeason();
+    if (hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "contract_delivery")
+      && eligibilityChanged(importedPlayers, current.playerList)) {
+      throw new Error("Dopo la consegna dei contratti le indicazioni Rookie e U23 non sono più modificabili.");
+    }
     const references = referencedPlayerNames(current);
     const importedExact = new Map(importedPlayers.map((player) => [player.name, player]));
     const requiredSources = [...references.keys()].filter((sourceName) => !importedExact.has(sourceName));
@@ -248,6 +265,9 @@ function validatePlayers(parsed: unknown): PlayerListEntry[] {
     const normalized = normalizePlayerName(name);
     if (names.has(normalized)) throw new Error(`Il giocatore ${name} compare più di una volta.`);
     names.add(normalized);
+    if (item.rookie === true && item.under23 === true) {
+      throw new Error(`${name} non può essere contemporaneamente Rookie e U23.`);
+    }
     return {
       name,
       role: item.role,
@@ -255,6 +275,16 @@ function validatePlayers(parsed: unknown): PlayerListEntry[] {
       rookie: item.rookie === true,
       under23: item.under23 === true,
     };
+  });
+}
+
+function eligibilityChanged(players: PlayerListEntry[], currentPlayers: PlayerListEntry[]) {
+  const currentByName = new Map(currentPlayers.map((player) => [normalizePlayerName(player.name), player]));
+  return players.some((player) => {
+    const current = currentByName.get(normalizePlayerName(player.name));
+    return current
+      ? player.rookie !== current.rookie || player.under23 !== current.under23
+      : player.rookie || player.under23;
   });
 }
 

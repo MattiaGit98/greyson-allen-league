@@ -952,6 +952,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .player-list-head > :nth-child(3), .player-row > :nth-child(3) { grid-area: role; }
   .player-list-head > :nth-child(4), .player-row > :nth-child(4) { grid-area: nba; }
   .player-list-head > :nth-child(5), .player-row > :nth-child(5) { grid-area: status; }
+  .player-list-head > *, .player-row > * { min-width: 0; overflow: hidden; }
   .player-row.has-real-team {
     grid-template-areas:
       "order player role status"
@@ -961,6 +962,8 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .player-list-head > :nth-child(n+3), .player-row > :nth-child(n+3) { white-space: nowrap; }
   .player-list-head { grid-template-areas: "order player role status"; }
   .player-list-head > :nth-child(4) { display: none; }
+  .player-row > .real-team { display: none; }
+  .player-row.has-real-team { grid-template-areas: "order player role status"; }
   .player-list.without-real-team .player-list-head > :nth-child(4) { display: block; grid-area: status; }
   .player-list.without-real-team .player-row > :nth-child(4) { grid-area: status; }
   .player-identity { min-width: 0; display: grid; gap: 4px; }
@@ -968,7 +971,9 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .player-flags { min-width: 0; overflow: hidden; }
   .real-team { font-size: 9px; }
   .player-status-highlight { min-height: 27px; gap: 4px; padding: 4px 6px; }
-  .player-status-highlight small { padding-left: 4px; }
+  .player-status { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player-status-highlight { min-width: 0; justify-content: center; }
+  .player-status-highlight small { min-width: 0; overflow: hidden; padding-left: 4px; text-overflow: ellipsis; }
   .calendar-list { width: 100%; overflow: hidden; }
   .calendar-list-head, .calendar-row { min-width: 0; grid-template-columns: minmax(0, 1fr) 92px; gap: 8px; padding-left: 9px; padding-right: 9px; }
   .calendar-editor-form { margin-top: 18px; }
@@ -982,6 +987,15 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .calendar-row-order { grid-column: 1 / 3; justify-content: flex-start; }
   .calendar-row-remove { grid-column: 3; grid-row: 1 / 3; justify-self: center; }
   .calendar-add-row, .calendar-save, .calendar-editor-form > .notice { margin-right: 8px; margin-left: 8px; }
+  .competition-calendar-editor .calendar-editor-head { display: none; }
+  .competition-calendar-editor .calendar-editor-row { grid-template-columns: minmax(0, 1fr) 30px; gap: 10px; padding: 11px 9px; }
+  .competition-calendar-editor .calendar-editor-row label { display: grid; gap: 4px; }
+  .competition-calendar-editor .calendar-editor-row label > span { display: block; color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+  .competition-calendar-editor .calendar-editor-row label:first-child { grid-column: 1; grid-row: 1; }
+  .competition-calendar-editor .calendar-editor-row label:nth-child(2) { grid-column: 1; grid-row: 2; }
+  .competition-calendar-editor .calendar-editor-row input { min-height: 36px; padding: 0 9px; border-color: #deddd5; background: rgba(255,255,255,.72); }
+  .competition-calendar-editor .calendar-row-order { grid-column: 1; grid-row: 3; }
+  .competition-calendar-editor .calendar-row-remove { grid-column: 2; grid-row: 1 / 3; align-self: center; }
   .history-selectors { grid-template-columns: 1fr; }
   .calendar-admin-section { margin-right: 8px; margin-left: 8px; }
   .phase-date-editor .calendar-editor-head, .phase-date-editor .calendar-editor-row { grid-template-columns: minmax(0, 1fr) 92px; }
@@ -1360,8 +1374,10 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .player-list-edit-row input:focus, .player-list-edit-row select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.07); }
 .player-list-edit-row strong.player-list-edit-name { min-width: 0; overflow: hidden; padding: 0 5px; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .player-list-edit-order { color: var(--muted); font-size: 9px; font-weight: 900; text-align: center; }
-.compact-check { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 900; }
+.compact-check { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 900; white-space: nowrap; }
 .compact-check input { accent-color: var(--green); }
+.compact-check:has(input:checked) { color: var(--green); }
+.compact-check:has(input:disabled) { opacity: .55; }
 .player-list-edit-actions { display: flex; justify-content: flex-end; gap: 4px; }
 .player-list-edit-actions button { min-width: 30px; min-height: 30px; padding: 0 7px; border: 1px solid #d2d6c8; border-radius: 7px; background: #faf9f4; color: var(--green); font-size: 9px; font-weight: 900; cursor: pointer; }
 .player-list-edit-actions button.danger { color: #8d432f; }
@@ -1416,14 +1432,15 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .player-list-editor-toolbar { grid-template-columns: 1fr; padding: 14px 8px; }
   .player-list-editor > .notice { margin-right: 8px; margin-left: 8px; }
   .player-list-edit-head { display: none; }
-  .player-list-edit-row { grid-template-columns: 28px minmax(0, 1fr) 48px; gap: 7px; padding: 10px 8px; }
-  .player-list-edit-order { grid-column: 1; grid-row: 1 / 3; }
-  .player-list-edit-row > .player-list-edit-name { grid-column: 2; grid-row: 1; }
-  .player-list-edit-row > select { grid-column: 3; grid-row: 1; }
-  .player-list-edit-row > input:nth-child(4) { grid-column: 2 / 4; grid-row: 2; }
-  .player-list-edit-row > .compact-check:nth-child(5) { grid-column: 2; grid-row: 3; justify-content: flex-start; }
-  .player-list-edit-row > .compact-check:nth-child(6) { grid-column: 3; grid-row: 3; }
-  .player-list-edit-actions { grid-column: 2 / 4; grid-row: 4; }
+  .player-list-edit-row { grid-template-columns: minmax(0, 1fr) 76px 70px; gap: 7px; padding: 10px 8px; }
+  .player-list-edit-order { display: none; }
+  .player-list-edit-row > .player-list-edit-name { grid-column: 1 / -1; grid-row: 1; min-height: 37px; display: flex; align-items: center; }
+  .player-list-edit-row > :nth-child(3) { grid-column: 1; grid-row: 2; }
+  .player-list-edit-row > :nth-child(4) { grid-column: 1 / 3; grid-row: 3; }
+  .player-list-edit-row > .compact-check:nth-child(5) { grid-column: 2; grid-row: 2; }
+  .player-list-edit-row > .compact-check:nth-child(6) { grid-column: 3; grid-row: 2; }
+  .player-list-edit-actions { grid-column: 3; grid-row: 3; }
+  .player-list-edit-row:has(.player-list-edit-actions:empty) > :nth-child(4) { grid-column: 1 / -1; }
   .contract-assignment-editor { padding-right: 8px; padding-left: 8px; }
   .contract-assignment-row { grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; padding: 11px 8px; }
   .contract-assignment-row > .guided-operation-player { grid-column: 1; grid-row: 1; }

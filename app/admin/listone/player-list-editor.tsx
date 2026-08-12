@@ -12,9 +12,11 @@ const initialSaveState: PlayerListSaveState = {};
 export function PlayerListEditor({
   initialPlayers,
   initialStatus,
+  eligibilityEditable,
 }: {
   initialPlayers: PlayerListEntry[];
   initialStatus: "offseason" | "published";
+  eligibilityEditable: boolean;
 }) {
   const [rows, setRows] = useState<EditablePlayer[]>(() => initialPlayers.map((player, index) => ({
     ...player,
@@ -23,6 +25,7 @@ export function PlayerListEditor({
   const [query, setQuery] = useState("");
   const [saveState, saveAction, pending] = useActionState(savePlayerList, initialSaveState);
   const provisionalList = initialStatus === "offseason";
+  const eligibilityDisabled = provisionalList || !eligibilityEditable;
   useEffect(() => {
     if (!saveState.savedRevision) return;
     setRows((current) => current.map((row, index) => (
@@ -105,8 +108,30 @@ export function PlayerListEditor({
                   {nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}
                 </select>
               ) : <input aria-label={`Squadra NBA di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.realTeam} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { realTeam: event.target.value })} />}
-              <label className="compact-check"><input type="checkbox" checked={row.rookie} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { rookie: event.target.checked })} /><span>R</span></label>
-              <label className="compact-check"><input type="checkbox" checked={row.under23} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { under23: event.target.checked })} /><span>U23</span></label>
+              <label className="compact-check" title="Rookie e U23 sono alternative">
+                <input
+                  type="checkbox"
+                  checked={row.rookie}
+                  disabled={eligibilityDisabled}
+                  onChange={(event) => updateRow(row.rowId, {
+                    rookie: event.target.checked,
+                    under23: event.target.checked ? false : row.under23,
+                  })}
+                />
+                <span>Rookie</span>
+              </label>
+              <label className="compact-check" title="Rookie e U23 sono alternative">
+                <input
+                  type="checkbox"
+                  checked={row.under23}
+                  disabled={eligibilityDisabled}
+                  onChange={(event) => updateRow(row.rowId, {
+                    under23: event.target.checked,
+                    rookie: event.target.checked ? false : row.rookie,
+                  })}
+                />
+                <span>U23</span>
+              </label>
               <div className="player-list-edit-actions">
                 {!provisionalList && <>
                   <button className="danger" type="button" onClick={() => setRows((current) => current.filter((item) => item.rowId !== row.rowId))}>Rimuovi</button>

@@ -1,10 +1,16 @@
 import { loadEditableLeagueState } from "@/lib/league-state";
+import { requireActiveSeason } from "@/lib/active-season";
+import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { PlayerListEditor } from "./player-list-editor";
 import { PlayerListImport } from "./list-import-reconciliation";
 
 export default async function PlayerListAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; imported?: string; aligned?: string }> }) {
   const query = await searchParams;
-  const state = await loadEditableLeagueState();
+  const [state, activeSeason] = await Promise.all([
+    loadEditableLeagueState(),
+    requireActiveSeason(),
+  ]);
+  const eligibilityEditable = !hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "contract_delivery");
 
   return (
     <section className="section page-top admin-settings player-list-admin-page">
@@ -17,6 +23,7 @@ export default async function PlayerListAdminPage({ searchParams }: { searchPara
       <PlayerListEditor
         initialPlayers={state.playerList}
         initialStatus={state.playerListStatus}
+        eligibilityEditable={eligibilityEditable}
       />
     </section>
   );
