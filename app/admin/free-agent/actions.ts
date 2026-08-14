@@ -23,7 +23,8 @@ import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/l
 const path = "/admin/free-agent";
 
 export async function signFreeAgent(formData: FormData) {
-  const standingConfirmed = formData.get("standing_confirmed") === "true";
+  const notBuyoutConfirmed = formData.get("not_buyout_confirmed") === "true";
+  const buyoutTopSixConfirmed = formData.get("buyout_top_six_confirmed") === "true";
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const roleMinimumReplacement = formData.get("role_minimum_replacement") === "true";
   const playerSource = clean(formData.get("player_source"));
@@ -56,8 +57,8 @@ export async function signFreeAgent(formData: FormData) {
   if (seasonResponse.error || !seasonResponse.data) fail(seasonResponse.error?.message ?? "Nessuna stagione attiva.");
   const moment = leagueMomentFromSeason(seasonResponse.data);
   if (!operationWindows.freeAgency(moment)) fail("La free agency non è aperta in questo momento della lega.");
-  if (tradeDeadlineHasPassed(moment) && price > 1 && !standingConfirmed) {
-    fail("Conferma di aver verificato manualmente che la squadra non sia nelle ultime tre posizioni.");
+  if (tradeDeadlineHasPassed(moment) && (notBuyoutConfirmed === buyoutTopSixConfirmed)) {
+    fail("Dopo la trade deadline conferma che il giocatore non abbia ricevuto un buyout stagionale oppure che la squadra sia nelle prime sei.");
   }
 
   const state = await loadEditableLeagueState();
