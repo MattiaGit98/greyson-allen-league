@@ -4,6 +4,7 @@ import {
   macroPhaseForMoment,
   nextLeagueTransition,
   operationWindows,
+  publicPhaseLabel,
 } from "./league-moments";
 
 describe("momenti della lega", () => {
@@ -52,5 +53,10 @@ describe("momenti della lega", () => {
 
   it("propone la fine stagione come ultimo passaggio non persistito", () => {
     expect(nextLeagueTransition("free_agency_end")).toBe("season_end");
+  });
+
+  it("passa pubblicamente alla postseason alla relativa data, senza creare una nuova fase", () => {
+    expect(publicPhaseLabel("free_agency_end", "2027-05-20", "2027-05-19")).toBe("Regular season");
+    expect(publicPhaseLabel("free_agency_end", "2027-05-20", "2027-05-20")).toBe("Postseason");
   });
 });

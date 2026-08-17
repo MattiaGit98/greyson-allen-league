@@ -137,7 +137,7 @@ export function RosterCorrectionPanel({
                   return (
                     <div className={`roster-correction-row ${draft.remove ? "removed" : ""}`} key={entry.sourceIndex}>
                       <strong>{entry.name}</strong>
-                      <span><i className={`mini-role mini-role-${entry.role?.toLowerCase() ?? "none"}`}>{entry.role ?? "—"}</i></span>
+                      <span><i className={`mini-role mini-role-${entry.role?.toLowerCase() ?? "none"}`}>{entry.role ?? "X"}</i></span>
                       <input
                         className={invalidContract ? "invalid" : ""}
                         value={draft.contract}
@@ -189,7 +189,7 @@ export function RosterCorrectionPanel({
                 {freeAgents.map((player) => <option value={player.name} key={player.name}>{player.role} · {player.realTeam}</option>)}
               </datalist>
             </label>
-            <label><span>Ruolo</span><strong>{preview.additionPlayer?.role ?? "—"}</strong></label>
+            <label><span>Ruolo</span><strong>{preview.additionPlayer?.role ?? "X"}</strong></label>
             <label>
               <span>Scadenza</span>
               <input value={addition.contract} onChange={(event) => { setAddition((current) => ({ ...current, contract: event.target.value })); setForceCap(false); setRoleMinimumConfirmed(false); }} />

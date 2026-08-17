@@ -26,6 +26,11 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
     const cutTeamCodes = leagueState.rosterEntries
       .filter((entry) => entry.name === player.name && entry.state === "cut")
       .map((entry) => entry.teamCode);
+    const buyoutApplied = leagueState.rosterEntries.some((entry) => (
+      normalizePlayerName(entry.name) === normalizePlayerName(player.name)
+      && entry.state === "cut"
+      && entry.buyoutApplied === true
+    ));
 
     return {
       name: player.name,
@@ -37,6 +42,7 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
       rosterTeamCode: activeEntry?.teamCode ?? null,
       qualifyingTeamCode: activeEntry ? null : qualifyingOffer?.teamCode ?? null,
       cutTeamCodes,
+      buyoutApplied,
     };
   });
 

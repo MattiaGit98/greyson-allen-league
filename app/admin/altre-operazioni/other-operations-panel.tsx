@@ -64,7 +64,7 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
                     return (
                       <div className="other-operations-row" key={player.id}>
                         <strong>{player.name}</strong>
-                        <span>{group.key === "cut" ? player.stretchProvisionApplied || player.buyoutApplied ? "X" : "—" : player.role ?? "—"}</span>
+                        <span>{group.key === "cut" ? player.stretchProvisionApplied || player.buyoutApplied ? "X" : "—" : player.role ?? "X"}</span>
                         <span>{player.contract}</span>
                         <span>{player.cost}</span>
                         <button type="button" disabled={!choices.length} onClick={() => setSelectedPlayerId(player.id)}>Operazioni</button>

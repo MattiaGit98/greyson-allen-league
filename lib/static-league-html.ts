@@ -93,7 +93,7 @@ function renderTeams(input: StaticLeagueHtmlInput) {
 function renderRosterGroup(title: string, entries: RosterEntry[], cutPlayers = false) {
   return `<h3>${e(title)}</h3>${table(["Giocatore", cutPlayers ? "Stretch" : "Ruolo", "Scadenza", "Costo"], entries.map((entry) => [
     entry.name,
-    cutPlayers ? (entry.stretchProvisionApplied || entry.buyoutApplied ? "X" : "—") : entry.role ?? "—",
+    cutPlayers ? (entry.stretchProvisionApplied || entry.buyoutApplied ? "X" : "—") : entry.role ?? "X",
     `${entry.contract || "—"}${entry.auctionAcquisition === "qualifying_offer" ? " · ACQ. Q.O." : entry.auctionAcquisition === "restricted_free_agent" ? " · RFA" : ""}`,
     entry.cost,
   ]))}`;

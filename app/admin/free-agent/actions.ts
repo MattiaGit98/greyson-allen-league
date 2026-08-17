@@ -23,7 +23,6 @@ import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/l
 const path = "/admin/free-agent";
 
 export async function signFreeAgent(formData: FormData) {
-  const notBuyoutConfirmed = formData.get("not_buyout_confirmed") === "true";
   const buyoutTopSixConfirmed = formData.get("buyout_top_six_confirmed") === "true";
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const roleMinimumReplacement = formData.get("role_minimum_replacement") === "true";
@@ -57,10 +56,6 @@ export async function signFreeAgent(formData: FormData) {
   if (seasonResponse.error || !seasonResponse.data) fail(seasonResponse.error?.message ?? "Nessuna stagione attiva.");
   const moment = leagueMomentFromSeason(seasonResponse.data);
   if (!operationWindows.freeAgency(moment)) fail("La free agency non è aperta in questo momento della lega.");
-  if (tradeDeadlineHasPassed(moment) && (notBuyoutConfirmed === buyoutTopSixConfirmed)) {
-    fail("Dopo la trade deadline conferma che il giocatore non abbia ricevuto un buyout stagionale oppure che la squadra sia nelle prime sei.");
-  }
-
   const state = await loadEditableLeagueState();
   if (state.playerListStatus !== "published") fail("Il listone ufficiale non è ancora pubblicato.");
   if (!state.teams.some((team) => team.code === teamCode)) fail("Squadra non valida.");
@@ -79,6 +74,14 @@ export async function signFreeAgent(formData: FormData) {
       rookie: false,
       under23: false,
     };
+  }
+  const buyoutFreeAgent = playerSource === "list" && state.rosterEntries.some((entry) => (
+    normalizePlayerName(entry.name) === normalizedPlayerName
+    && entry.state === "cut"
+    && entry.buyoutApplied === true
+  ));
+  if (buyoutFreeAgent && !buyoutTopSixConfirmed) {
+    fail("Conferma di aver verificato che la squadra occupi una delle prime sei posizioni della regular season per firmare questo free agent soggetto a buyout.");
   }
   const activePlayer = state.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedPlayerName && entry.state === "active");
   const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedPlayerName);
@@ -182,6 +185,12 @@ export async function signFreeAgent(formData: FormData) {
     ...state.rosterEntries.map((entry, index) => {
       if (index === cutIndex) return applyStandardContractCut(entry, endYear, moment);
       if (index === promotionIndex) return { ...entry, slot: promotionDestination };
+      if (playerSource === "list"
+        && normalizePlayerName(entry.name) === normalizedPlayerName
+        && entry.state === "cut"
+        && entry.buyoutApplied === true) {
+        return { ...entry, buyoutApplied: false };
+      }
       return entry;
     }),
     rosterEntry,

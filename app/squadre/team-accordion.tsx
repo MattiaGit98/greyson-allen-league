@@ -421,7 +421,7 @@ function PlayerDataRow({
       <strong>{entry.name}</strong>
       <span>{cutPlayer
         ? isStretchUnavailable(entry) ? <i className="stretch-status applied">X</i> : "—"
-        : entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "—"}</span>
+        : entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "X"}</span>
       <span><ContractDisplay
         value={entry.contract}
         auctionAcquisition={entry.auctionAcquisition}

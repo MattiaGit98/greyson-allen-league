@@ -1,6 +1,6 @@
 import { leagueMomentLabels, type LeagueMoment, type LeagueTransition } from "./league-moments";
 
-export type LeagueCalendarEventKey = LeagueTransition | "regular_season_start";
+export type LeagueCalendarEventKey = LeagueTransition | "regular_season_start" | "postseason_start";
 export type PhaseDateMap = Partial<Record<LeagueCalendarEventKey, string>>;
 
 export const datedLeagueTransitions: LeagueCalendarEventKey[] = [
@@ -12,6 +12,7 @@ export const datedLeagueTransitions: LeagueCalendarEventKey[] = [
   "trade_deadline",
   "buyout_end",
   "free_agency_end",
+  "postseason_start",
   "season_end",
 ];
 
@@ -42,7 +43,9 @@ export function generatedLeagueCalendar(dates: PhaseDateMap) {
   const rows: Array<{ key: string; event: string; date: string }> = [];
   datedLeagueTransitions.forEach((transition) => {
     if (transition === "auction_completed") return;
-    const date = transition === "regular_season_start" ? dates[transition] ?? "" : phaseDateForTransition(dates, transition) ?? "";
+    const date = transition === "regular_season_start" || transition === "postseason_start"
+      ? dates[transition] ?? ""
+      : phaseDateForTransition(dates, transition) ?? "";
     rows.push({
       key: transition,
       event: calendarEventLabel(transition),
@@ -61,8 +64,18 @@ export function nextPhaseDate(dates: PhaseDateMap, moment: LeagueMoment, today?:
     const date = phaseDateForTransition(dates, "trade_deadline");
     return date ? { transition: "trade_deadline" as const, event: calendarEventLabel("trade_deadline"), date } : null;
   }
+  if (moment === "free_agency_end") {
+    const postseasonStart = dates.postseason_start;
+    if (postseasonStart && (!today || postseasonStart >= today)) {
+      return { transition: "postseason_start" as const, event: calendarEventLabel("postseason_start"), date: postseasonStart };
+    }
+    const date = phaseDateForTransition(dates, "season_end");
+    return date ? { transition: "season_end" as const, event: calendarEventLabel("season_end"), date } : null;
+  }
   const transitions = datedLeagueTransitions.slice(datedLeagueTransitions.indexOf(moment as LeagueTransition) + 1);
-  const next = transitions.find((transition): transition is LeagueTransition => transition !== "regular_season_start");
+  const next = transitions.find((transition): transition is LeagueTransition => (
+    transition !== "regular_season_start" && transition !== "postseason_start"
+  ));
   if (!next) return null;
   const date = phaseDateForTransition(dates, next);
   return date ? { transition: next, event: calendarEventLabel(next), date } : null;
@@ -71,5 +84,6 @@ export function nextPhaseDate(dates: PhaseDateMap, moment: LeagueMoment, today?:
 export function calendarEventLabel(event: LeagueCalendarEventKey) {
   if (event === "auction_start" || event === "auction_completed") return "Asta";
   if (event === "regular_season_start") return "Inizio campionato";
+  if (event === "postseason_start") return "Inizio postseason";
   return leagueMomentLabels[event];
 }

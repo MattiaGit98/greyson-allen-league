@@ -1323,7 +1323,7 @@ function slotLabel(slot: TradeSlot) {
 }
 
 function playerOptionLabel(player: Pick<RosterPlayer, "name" | "cost" | "slot" | "contract" | "role">) {
-  return `${player.name} · ${player.cost} · ${slotLabel(player.slot)} · ${player.contract} · ${player.role ?? "—"}`;
+  return `${player.name} · ${player.cost} · ${slotLabel(player.slot)} · ${player.contract} · ${player.role ?? "X"}`;
 }
 
 export function tradeSimulationRecap({

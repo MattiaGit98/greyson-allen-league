@@ -187,7 +187,7 @@ export function TeamOptionForm(props: OperationProps) {
               <div className="team-option-row" key={player.id}>
                 <div className="team-option-player">
                   <strong>{player.name}</strong>
-                  <span>{player.role ?? "—"} · {slotLabel(player.slot)} · {player.cost}</span>
+                  <span>{player.role ?? "X"} · {slotLabel(player.slot)} · {player.cost}</span>
                 </div>
                 <div className="team-option-decisions">
                   <label className={decision === "exercise" ? "selected exercise" : ""}>
@@ -279,7 +279,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
             <div className="team-option-row" key={player.id}>
               <div className="team-option-player">
                 <strong>{player.name}</strong>
-                <span>{player.role ?? "—"} · G-League · {player.cost}</span>
+                <span>{player.role ?? "X"} · G-League · {player.cost}</span>
               </div>
               <div className="team-option-decisions">
                 <label className={selected[player.id] ? "selected exercise" : ""}>
@@ -395,7 +395,7 @@ export function SlotMoveForm(props: OperationProps) {
                   return (
                     <div className={`slot-management-row ${selected ? "selected" : ""}`} key={item.id}>
                       <strong>{item.name}</strong>
-                      <i className={`mini-role mini-role-${item.role?.toLowerCase() ?? "none"}`}>{item.role ?? "-"}</i>
+                      <i className={`mini-role mini-role-${item.role?.toLowerCase() ?? "none"}`}>{item.role ?? "X"}</i>
                       <span>{item.contract}</span>
                       <b>{item.cost}</b>
                       <select value={rowDestination} disabled={legalDestinations.length === 1} onChange={(event) => chooseDestination(item, event.target.value as Exclude<Slot, "dpe">)} aria-label={`Nuovo slot di ${item.name}`}>
@@ -553,7 +553,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
             const allowedContracts = allowedPostAuctionContracts(player.auctionAcquisition);
             return (
               <div className={`contract-assignment-row ${assignment ? "selected" : ""}`} key={player.id}>
-                <div className="guided-operation-player"><strong>{player.name}</strong><span>{player.role ?? "—"} · {player.state === "cut" ? "Tagliato" : slotLabel(player.slot)}{player.auctionAcquisition ? ` · ${auctionAcquisitionLabel(player.auctionAcquisition)}` : ""}</span></div>
+                <div className="guided-operation-player"><strong>{player.name}</strong><span>{player.role ?? "X"} · {player.state === "cut" ? "Tagliato" : slotLabel(player.slot)}{player.auctionAcquisition ? ` · ${auctionAcquisitionLabel(player.auctionAcquisition)}` : ""}</span></div>
                 <strong className="contract-auction-price">{auctionPrice}</strong>
                 <div className="contract-choice-list">
                   {contractChoices.map((choice) => {

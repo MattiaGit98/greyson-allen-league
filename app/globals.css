@@ -76,7 +76,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .home-page { max-width: 1180px; margin: 0 auto; padding-top: 58px; }
 .home-hero { margin-bottom: 30px; }
 .home-hero .eyebrow { margin-bottom: 10px; }
-.home-hero h1 { margin-bottom: 8px; color: var(--green); font-size: clamp(35px, 4.5vw, 58px); line-height: 1; letter-spacing: -.055em; }
+.home-hero h1 { margin-bottom: 8px; color: var(--green); font-size: clamp(30px, 3.6vw, 48px); line-height: 1; letter-spacing: -.055em; }
 .home-hero > p:last-child { margin: 0; color: var(--muted); font-size: 15px; font-weight: 700; }
 .home-public-notice { margin: 0 0 18px; padding: 15px 17px; border: 1px solid #c3d0b7; border-left: 4px solid var(--green); border-radius: 13px; background: rgba(245,250,239,.88); color: #315044; box-shadow: 0 5px 15px rgba(24,63,52,.04); }
 .home-public-notice p { margin: 0; white-space: pre-wrap; font-size: 12px; font-weight: 700; line-height: 1.5; }
@@ -85,14 +85,20 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .home-league-alert.attention { border-color: #e0cda3; background: rgba(255,248,224,.86); color: #755b13; }
 .home-league-alert strong { display: block; font-size: 11px; font-weight: 900; }
 .home-league-alert ul { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 17px; font-size: 10px; font-weight: 800; line-height: 1.35; }
-.home-next-calendar-event { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 14px; margin: 0 0 18px; padding: 13px 16px; border: 1px solid #bdcdb4; border-radius: 13px; background: var(--green); color: white; box-shadow: 0 6px 16px rgba(24,63,52,.13); }
+.home-teams-link { display: flex; justify-content: flex-end; margin: -4px 0 10px; }
+.home-teams-link a { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 10px; font-weight: 900; }
+.home-teams-link a span { font-size: 13px; line-height: 1; }
+.home-next-calendar-event { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 16px; margin: 0 0 22px; padding: 17px 19px; border: 2px solid #bdcdb4; border-radius: 15px; background: linear-gradient(110deg, #183f34, #245947); color: white; box-shadow: 0 10px 24px rgba(24,63,52,.18); }
 .home-next-calendar-event span { color: var(--lime); font-size: 8px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
-.home-next-calendar-event strong { min-width: 0; font-size: 12px; }
-.home-next-calendar-event time { color: #e2edcd; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.home-next-calendar-event strong { min-width: 0; font-size: 15px; }
+.home-next-calendar-date { display: grid; justify-items: end; gap: 3px; min-width: 0; padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,.1); }
+.home-next-calendar-event time { color: #f1f7df; font-size: 11px; font-weight: 900; white-space: nowrap; }
+.home-next-calendar-date small { color: #c7f36b; font-size: 8px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
 .home-next-calendar-event a { color: var(--lime); font-size: 10px; font-weight: 900; white-space: nowrap; }
 .home-next-calendar-event.is-overdue { border-color: #b4564b; background: #9b3f37; }
 .home-next-calendar-event.is-overdue span, .home-next-calendar-event.is-overdue a { color: #ffe7c7; }
 .home-next-calendar-event.is-overdue time { color: #ffe6db; }
+.home-next-calendar-event.is-overdue .home-next-calendar-date small { color: #ffe7c7; }
 .home-season-feature { overflow: hidden; margin: 0 0 18px; border: 1px solid var(--line); border-top: 2px solid var(--green); border-radius: 15px; background: rgba(255,255,255,.84); box-shadow: 0 5px 15px rgba(24,63,52,.04); }
 .home-season-feature > header { display: flex; align-items: end; justify-content: space-between; gap: 14px; padding: 17px 18px; border-bottom: 1px solid var(--line); background: #f5f5ed; }
 .home-season-feature header span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
@@ -281,6 +287,8 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .player-status-highlight { min-height: 30px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid #a9c9d8; border-radius: 9px; background: #dceaf2; color: #275f78; }
 .player-status-highlight strong { font-size: 11px; }
 .player-status-highlight small { padding-left: 7px; border-left: 1px solid #a9c9d8; font-size: 9px; font-weight: 900; letter-spacing: .05em; }
+.player-status-buyout { border-color: #dfbd9e; background: #fff0e5; color: #8b4a2d; }
+.player-status-buyout small { border-left-color: #dfbd9e; }
 .movement-list, .calendar-list { overflow: hidden; border: 1px solid var(--line); border-top: 2px solid var(--green); border-radius: 12px; background: rgba(255,255,255,.9); box-shadow: 0 4px 14px rgba(24,63,52,.035); }
 .movement-list-head, .calendar-list-head { min-height: 38px; display: grid; align-items: center; gap: 14px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: #f0f1e9; color: #596158; font-size: 9px; font-weight: 900; text-align: left; text-transform: uppercase; letter-spacing: .08em; }
 .movement-list-head { grid-template-columns: 132px minmax(110px, .72fr) minmax(0, 2fr); }
@@ -872,9 +880,10 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .home-page > .home-hero { margin-right: 10px; margin-left: 10px; }
   .home-public-notice { margin-right: 8px; margin-left: 8px; }
   .home-league-alerts { margin-right: 8px; margin-left: 8px; }
-  .home-next-calendar-event { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 9px; margin-right: 8px; margin-left: 8px; }
+  .home-teams-link { margin-right: 8px; margin-left: 8px; }
+  .home-next-calendar-event { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 9px; margin-right: 8px; margin-left: 8px; padding: 15px 13px; }
   .home-next-calendar-event span { grid-column: 1 / -1; }
-  .home-next-calendar-event strong { font-size: 11px; }
+  .home-next-calendar-event strong { font-size: 13px; }
   .home-next-calendar-event a { grid-column: 1 / -1; margin-top: 3px; }
   .home-season-feature { margin-right: 8px; margin-left: 8px; border-right: 0; border-left: 0; border-radius: 0; }
   .home-season-feature > header { padding-right: 10px; padding-left: 10px; }
@@ -886,7 +895,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .home-draft-board > div:first-child > :nth-child(3) { display: none; }
   .home-competition-feature > .bracket-frame { padding: 10px 0; }
   .content-editor-selectors.single:has(.homepage-feature-toggle) { grid-template-columns: 1fr; }
-  .home-hero h1 { font-size: clamp(34px, 12vw, 50px); }
+  .home-hero h1 { font-size: clamp(28px, 8vw, 38px); }
   .home-grid { grid-template-columns: 1fr; gap: 12px; }
   .home-side-column { display: none; }
   .home-recent-movements, .home-quick-links { margin-right: 8px; margin-left: 8px; }
@@ -1956,7 +1965,8 @@ input[type="reset"]:disabled {
   .live-update-notice button { margin-left: auto; }
 
   .home-next-calendar-event { grid-template-columns: 1fr; }
-  .home-next-calendar-event span, .home-next-calendar-event strong, .home-next-calendar-event time, .home-next-calendar-event a { grid-column: 1; }
+  .home-next-calendar-event span, .home-next-calendar-event strong, .home-next-calendar-event .home-next-calendar-date, .home-next-calendar-event a { grid-column: 1; }
+  .home-next-calendar-date { justify-items: start; width: max-content; }
   .home-next-calendar-event time { white-space: normal; }
 
   .home-season-feature > header,

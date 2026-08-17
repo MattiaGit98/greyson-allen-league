@@ -23,6 +23,7 @@ describe("calendario delle fasi", () => {
       { key: "trade_deadline", event: "Trade deadline", date: "2027-02-12" },
       { key: "buyout_end", event: "Termine buyout", date: "" },
       { key: "free_agency_end", event: "Termine free agency", date: "" },
+      { key: "postseason_start", event: "Inizio postseason", date: "" },
       { key: "season_end", event: "Fine stagione", date: "" },
     ]);
   });
@@ -30,5 +31,11 @@ describe("calendario delle fasi", () => {
   it("dopo l'inizio del campionato passa automaticamente alla trade deadline", () => {
     expect(nextPhaseDate(dates, "contract_delivery", "2026-10-15")).toMatchObject({ event: "Inizio campionato" });
     expect(nextPhaseDate(dates, "contract_delivery", "2026-10-16")).toMatchObject({ event: "Trade deadline" });
+  });
+
+  it("dopo l'inizio postseason passa automaticamente alla fine stagione", () => {
+    const postseasonDates = normalizePhaseDates({ ...dates, postseason_start: "2027-05-20", season_end: "2027-06-01" });
+    expect(nextPhaseDate(postseasonDates, "free_agency_end", "2027-05-20")).toMatchObject({ event: "Inizio postseason" });
+    expect(nextPhaseDate(postseasonDates, "free_agency_end", "2027-05-21")).toMatchObject({ event: "Fine stagione" });
   });
 });

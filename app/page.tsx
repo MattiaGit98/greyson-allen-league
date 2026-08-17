@@ -37,13 +37,14 @@ export default async function HomePage() {
   if (movementResponse?.error) throw new Error(`Movimenti recenti non disponibili: ${movementResponse.error.message}`);
   const movements = (movementResponse?.data ?? []).filter((movement) => !movement.reverted).slice(0, 5);
   const moment = leagueMomentFromSeason(activeSeason.season);
-  const macroPhase = publicPhaseLabel(moment);
   const [historyState, competitionState] = await Promise.all([loadHistoryCompetitionState(), loadCompetitionState()]);
   const alerts = homeLeagueAlerts({ moment, seasonName: activeSeason.season.name, state });
   const todayParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
     .formatToParts(new Date()).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
   const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
-  const nextCalendarEvent = nextPhaseDate(normalizePhaseDates(activeSeason.season.phase_dates), moment, today);
+  const phaseDates = normalizePhaseDates(activeSeason.season.phase_dates);
+  const macroPhase = publicPhaseLabel(moment, phaseDates.postseason_start, today);
+  const nextCalendarEvent = nextPhaseDate(phaseDates, moment, today);
   const quickLinks: { href: string; label: string }[] = [];
   const draftYear = Number(activeSeason.season.name.slice(0, 4));
   const selectedHonours = moment === "offseason_start"
@@ -76,11 +77,17 @@ export default async function HomePage() {
           ))}
         </section>
       )}
+      <nav className="home-teams-link" aria-label="Accesso alle squadre">
+        <Link href="/squadre">Squadre <span>→</span></Link>
+      </nav>
       {nextCalendarEvent && (
         <section className={`home-next-calendar-event${nextCalendarEvent.date < today ? " is-overdue" : ""}`} aria-label="Prossimo appuntamento">
           <span>Prossimo appuntamento</span>
           <strong>{nextCalendarEvent.event}</strong>
-          <time dateTime={nextCalendarEvent.date}>{formatHomepageCalendarDate(nextCalendarEvent.date)}</time>
+          <div className="home-next-calendar-date">
+            <time dateTime={nextCalendarEvent.date}>{formatHomepageCalendarDate(nextCalendarEvent.date)}</time>
+            <small>{calendarCountdown(nextCalendarEvent.date, today)}</small>
+          </div>
           <Link href="/calendario">Mostra tutte le date →</Link>
         </section>
       )}
@@ -174,4 +181,14 @@ function homeLeagueAlerts({
 function formatMovementDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "—" : movementDateFormatter.format(date);
+}
+
+function calendarCountdown(date: string, today: string) {
+  const parseDay = (value: string) => Date.parse(`${value}T00:00:00Z`);
+  const difference = Math.round((parseDay(date) - parseDay(today)) / 86_400_000);
+  if (difference === 0) return "Oggi";
+  if (difference === 1) return "Tra 1 giorno";
+  if (difference > 1) return `Tra ${difference} giorni`;
+  if (difference === -1) return "Scaduta da 1 giorno";
+  return `Scaduta da ${Math.abs(difference)} giorni`;
 }

@@ -18,6 +18,7 @@ type PlayerOption = {
   rosterTeamCode: string | null;
   qualifyingTeamCode: string | null;
   cutTeamCodes: string[];
+  buyoutApplied: boolean;
 };
 type TeamOption = {
   code: string;
@@ -101,7 +102,7 @@ export function FreeAgentPanel({
             </span>
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>
             <strong className="real-team">{player.realTeam || "—"}</strong>
-            <span className="player-status player-status-highlight"><strong>FA</strong></span>
+            <span className={`player-status player-status-highlight${player.buyoutApplied ? " player-status-buyout" : ""}`}><strong>FA</strong>{player.buyoutApplied && <small>Buyout</small>}</span>
             <button className="auction-row-action bid" type="button" disabled={!listPublished} onClick={() => setSelectedName(player.name)}>Firma</button>
           </article>
         ))}
@@ -166,7 +167,6 @@ function FreeAgentDialog({
   const [outsideName, setOutsideName] = useState("");
   const [outsideRole, setOutsideRole] = useState<"G" | "A" | "C" | "X" | "">("");
   const [outsideRealTeam, setOutsideRealTeam] = useState("");
-  const [notBuyoutConfirmed, setNotBuyoutConfirmed] = useState(false);
   const [buyoutTopSixConfirmed, setBuyoutTopSixConfirmed] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [roleMinimumReplacement, setRoleMinimumReplacement] = useState(false);
@@ -235,7 +235,7 @@ function FreeAgentDialog({
   const roleMinimumConfirmationMissing = roleMinimumConfirmationRequired && !roleMinimumConfirmed;
   const signAndTradeErrors = preview.errors.filter((error) => !error.code.startsWith("SLOT_"));
   const temporarySlotErrors = preview.errors.filter((error) => error.code.startsWith("SLOT_"));
-  const buyoutEligibilityConfirmationMissing = tradeDeadlinePassed && !notBuyoutConfirmed && !buyoutTopSixConfirmed;
+  const buyoutEligibilityConfirmationMissing = Boolean(player?.buyoutApplied) && !buyoutTopSixConfirmed;
 
   function openSignAndTrade() {
     const params = new URLSearchParams({
@@ -263,7 +263,6 @@ function FreeAgentDialog({
       <input type="hidden" name="cut_player_name" value={cutPlayerName} />
       <input type="hidden" name="promotion_player_name" value={promotionPlayerName} />
       <input type="hidden" name="promotion_destination" value={promotionPlayer ? promotionDestination : ""} />
-      <input type="hidden" name="not_buyout_confirmed" value={String(notBuyoutConfirmed)} />
       <input type="hidden" name="buyout_top_six_confirmed" value={String(buyoutTopSixConfirmed)} />
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
       <input type="hidden" name="role_minimum_replacement" value={String(roleMinimumReplacement)} />
@@ -281,13 +280,13 @@ function FreeAgentDialog({
         <div className={`auction-modal-fields ${outsideList ? "free-agent-outside-fields" : ""}`}>
           {outsideList && (
             <>
-              <Field label="Nome giocatore"><input type="text" maxLength={120} value={outsideName} onChange={(event) => { setOutsideName(event.target.value); setNotBuyoutConfirmed(false); setBuyoutTopSixConfirmed(false); }} /></Field>
+              <Field label="Nome giocatore"><input type="text" maxLength={120} value={outsideName} onChange={(event) => { setOutsideName(event.target.value); setBuyoutTopSixConfirmed(false); }} /></Field>
               <Field label="Ruolo"><select value={outsideRole} onChange={(event) => { setOutsideRole(event.target.value as typeof outsideRole); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}><option value="">Seleziona</option><option value="G">Guardia</option><option value="A">Ala</option><option value="C">Centro</option><option value="X">Senza ruolo Dunkest</option></select></Field>
               <Field label="Squadra NBA"><select value={outsideRealTeam} onChange={(event) => setOutsideRealTeam(event.target.value)}><option value="">Seleziona</option>{nbaTeams.map((item) => <option value={item.code} key={item.code}>{item.code} · {item.name}</option>)}</select></Field>
             </>
           )}
           <Field label="Squadra">
-            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setNotBuyoutConfirmed(false); setBuyoutTopSixConfirmed(false); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
+            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setBuyoutTopSixConfirmed(false); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
@@ -333,23 +332,11 @@ function FreeAgentDialog({
         {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
         {promotionPlayer && <p className="auction-context-cut"><span>Promozione contestuale</span><strong>{promotionPlayer.name} · {slotLabel(promotionPlayer.slot)} → {slotLabel(promotionDestination)}</strong></p>}
         {outsideDuplicate && <p className="validation error">Il giocatore è già nel listone: selezionalo dall’elenco.</p>}
-        {tradeDeadlinePassed && (
-          <>
+        {player?.buyoutApplied && (
           <label className="operation-check free-agent-standing-check">
-            <input type="checkbox" checked={notBuyoutConfirmed} onChange={(event) => {
-              setNotBuyoutConfirmed(event.target.checked);
-              if (event.target.checked) setBuyoutTopSixConfirmed(false);
-            }} />
-            Ho verificato che al giocatore non sia stato applicato un buyout nella stagione in corso
-          </label>
-          <label className="operation-check free-agent-standing-check">
-            <input type="checkbox" checked={buyoutTopSixConfirmed} disabled={notBuyoutConfirmed} onChange={(event) => {
-              setBuyoutTopSixConfirmed(event.target.checked);
-              if (event.target.checked) setNotBuyoutConfirmed(false);
-            }} />
+            <input type="checkbox" checked={buyoutTopSixConfirmed} onChange={(event) => setBuyoutTopSixConfirmed(event.target.checked)} />
             Ho verificato che la squadra occupi una delle prime sei posizioni della regular season
           </label>
-          </>
         )}
         {roleMinimumReplacementAvailable && (
           <label className="operation-check role-minimum-check">
