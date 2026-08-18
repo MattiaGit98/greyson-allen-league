@@ -317,6 +317,17 @@ export function TradeBuilder({
       existingClauseChanges: effectiveExistingClauseChanges,
     }))
     : "";
+  const validationErrors = [
+    ...evaluation.errors.map((error) => displayIssue(error.message, teams)),
+    ...(simulator ? capWarnings.map((warning) => `Scambio non valido: ${warning}`) : []),
+    ...roleMinimumSlotErrors.map((error) => `Scambio non valido: ${error}`),
+  ];
+  const validationWarnings = [
+    ...(signAndTrade?.warnings ?? []),
+    ...evaluation.warnings
+      .filter((warning) => !simulator || !warning.code.includes("CAP"))
+      .map((warning) => displayIssue(warning.message, teams)),
+  ];
 
   function changeParticipant(previousCode: string, nextCode: string) {
     if (previousCode === signAndTrade?.signerTeamCode) return;
@@ -638,31 +649,7 @@ export function TradeBuilder({
         })}
       </div>
 
-      <div className="trade-validation">
-        {signAndTrade?.warnings.map((warning) => (
-          <p className="validation warning" key={warning}>{warning}</p>
-        ))}
-        {evaluation.errors.map((error, index) => (
-          <p className="validation error" key={`${error.code}-${index}`}>
-            {displayIssue(error.message, teams)}
-          </p>
-        ))}
-        {simulator && capWarnings.map((warning, index) => (
-          <p className="validation error" key={`simulator-cap-${index}`}>
-            Scambio non valido: {warning}
-          </p>
-        ))}
-        {roleMinimumSlotErrors.map((error) => (
-          <p className="validation error" key={`role-slot-${error}`}>
-            Scambio non valido: {error}
-          </p>
-        ))}
-        {evaluation.warnings.filter((warning) => !simulator || !warning.code.includes("CAP")).map((warning, index) => (
-          <p className="validation warning" key={`${warning.code}-${index}`}>
-            {displayIssue(warning.message, teams)}
-          </p>
-        ))}
-      </div>
+      {!simulator && <TradeValidation errors={validationErrors} warnings={validationWarnings} />}
 
       {!simulator && <CapBlocker warnings={capWarnings} />}
 
@@ -678,7 +665,7 @@ export function TradeBuilder({
       )}
 
       {simulator ? (
-        <TradeSimulationStatus valid={simulationValid} recap={simulationRecap} />
+        <TradeSimulationStatus valid={simulationValid} recap={simulationRecap} errors={validationErrors} warnings={validationWarnings} />
       ) : (
         <button
           className="button primary trade-submit"
@@ -698,7 +685,16 @@ function roleMinimumLabel(missing: { G: number; A: number; C: number }) {
     .join(" · ");
 }
 
-function TradeSimulationStatus({ valid, recap }: { valid: boolean; recap: string }) {
+function TradeValidation({ errors, warnings }: { errors: string[]; warnings: string[] }) {
+  return (
+    <div className="trade-validation">
+      {warnings.map((warning, index) => <p className="validation warning" key={`warning-${index}`}>{warning}</p>)}
+      {errors.map((error, index) => <p className="validation error" key={`error-${index}`}>{error}</p>)}
+    </div>
+  );
+}
+
+function TradeSimulationStatus({ valid, recap, errors, warnings }: { valid: boolean; recap: string; errors: string[]; warnings: string[] }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
 
   async function copyRecap() {
@@ -713,9 +709,15 @@ function TradeSimulationStatus({ valid, recap }: { valid: boolean; recap: string
   }
 
   return (
-    <aside className={`trade-simulation-status ${valid ? "is-valid" : "is-invalid"}`} role="status" aria-live="polite">
+    <section className={`trade-simulation-status ${valid ? "is-valid" : "is-invalid"}`} aria-live="polite">
       <strong>{valid ? "Scambio valido" : "Scambio non ancora valido"}</strong>
-      <span>{valid ? "Tutti i controlli sono superati." : "Completa o correggi la proposta seguendo gli avvisi qui sopra."}</span>
+      {valid && <span>Tutti i controlli sono superati.</span>}
+      {(errors.length > 0 || warnings.length > 0) && (
+        <div className="trade-simulation-validation">
+          {errors.map((error, index) => <p className="validation error" key={`simulation-error-${index}`}>{error}</p>)}
+          {warnings.map((warning, index) => <p className="validation warning" key={`simulation-warning-${index}`}>{warning}</p>)}
+        </div>
+      )}
       {recap && (
         <>
           <label>
@@ -730,7 +732,7 @@ function TradeSimulationStatus({ valid, recap }: { valid: boolean; recap: string
           {copyState === "error" && <small className="trade-simulation-copy-status error">Copia non disponibile: seleziona il testo manualmente.</small>}
         </>
       )}
-    </aside>
+    </section>
   );
 }
 

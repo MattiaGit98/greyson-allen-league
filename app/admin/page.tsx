@@ -90,7 +90,7 @@ export default async function AdminDashboardPage() {
     alerts: blockingAlerts,
     blockerCount: blockingAlerts.length,
   };
-  const roleMinimumAlerts = hasReachedMoment(leagueMoment, "auction_start") && !hasReachedMoment(leagueMoment, "free_agency_end")
+  const roleMinimumAlerts = hasReachedMoment(leagueMoment, "auction_completed") && !hasReachedMoment(leagueMoment, "free_agency_end")
     ? buildRoleMinimumAlerts(leagueState)
     : [];
   const nextPhaseDate = phaseDateForTransition(normalizePhaseDates(activeSeason.season.phase_dates), preAdvanceChecklist.transition);

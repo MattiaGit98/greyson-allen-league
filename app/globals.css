@@ -76,9 +76,8 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .home-page { max-width: 1180px; margin: 0 auto; padding-top: 58px; }
 .home-hero { margin-bottom: 30px; }
 .home-hero .eyebrow { margin-bottom: 10px; }
-.home-season-line { display: flex; align-items: baseline; gap: 12px; }
+.home-season-line { display: block; }
 .home-hero h1 { margin: 0; color: var(--green); font-size: clamp(26px, 3vw, 38px); line-height: 1; letter-spacing: -.055em; }
-.home-season-line p { margin: 0; color: var(--muted); font-size: 13px; font-weight: 800; }
 .home-public-notice { margin: 0 0 18px; padding: 15px 17px; border: 1px solid #c3d0b7; border-left: 4px solid var(--green); border-radius: 13px; background: rgba(245,250,239,.88); color: #315044; box-shadow: 0 5px 15px rgba(24,63,52,.04); }
 .home-public-notice p { margin: 0; white-space: pre-wrap; font-size: 12px; font-weight: 700; line-height: 1.5; }
 .home-league-alerts { display: grid; gap: 8px; margin: 0 0 18px; }
@@ -348,18 +347,24 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .history-selectors { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .history-selectors.single { grid-template-columns: 1fr; }
 .history-selectors .view-selector { width: 100%; }
+.public-content-with-index { display: grid; grid-template-columns: minmax(0, 1fr) 235px; align-items: start; gap: 24px; }
+.public-content-main { min-width: 0; }
+.public-content-mobile-selector { display: none; }
+.public-content-index { position: sticky; top: 142px; display: grid; gap: 2px; max-height: calc(100vh - 150px); overflow-y: auto; padding: 10px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,253,247,.9); box-shadow: 0 7px 20px rgba(24,63,52,.045); }
+.public-content-index > span { display: block; padding: 7px 9px 10px; color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.public-content-index > .public-content-index-subtitle { margin-top: 7px; padding-top: 14px; border-top: 1px solid var(--line); }
+.public-content-index button { width: 100%; display: block; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 10px; font-weight: 800; text-align: left; cursor: pointer; }
+.public-content-index button:hover, .public-content-index button.active { background: #e7eadf; color: var(--green); }
 .standings-card { width: min(100%, 560px); overflow: hidden; margin: 0 auto; border: 1px solid var(--line); border-top: 2px solid var(--green); border-radius: 14px; background: rgba(255,255,255,.9); box-shadow: 0 5px 16px rgba(24,63,52,.045); }
 .standings-card:has(.standings-head.cup) { width: 100%; }
 .standings-head, .standings-row { display: grid; grid-template-columns: 64px minmax(220px, 1fr); align-items: center; gap: 12px; min-height: 48px; padding: 8px 15px; border-bottom: 1px solid var(--line); }
-.standings-head.cup, .standings-row.cup { grid-template-columns: 54px minmax(180px, 1.25fr) 55px 65px minmax(230px, 1fr) minmax(230px, 1fr); }
+.standings-head.cup, .standings-row.cup { grid-template-columns: 54px minmax(180px, 1.25fr) 55px 65px; }
 .standings-head { min-height: 38px; background: #f0f1e9; color: #596158; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .standings-row { font-size: 12px; transition: background .15s; }
 .standings-row:last-child { border-bottom: 0; }
 .standings-row:hover { background: #fbfaf5; }
 .standing-position { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #e8eee9; color: var(--green); font-size: 11px; }
 .to-be-defined { color: #949990; font-weight: 600; }
-.week-values { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-.week-values i { min-height: 26px; display: grid; place-items: center; border-radius: 6px; background: #f0f1e9; color: #747a72; font-style: normal; font-size: 9px; font-weight: 800; }
 .bracket-frame { overflow-x: auto; padding: 4px; }
 .bracket-grid { display: grid; gap: 16px; min-width: max-content; }
 .bracket-stage { min-height: 580px; display: flex; flex-direction: column; }
@@ -427,6 +432,11 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .cup-round-inputs label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 .cup-round-inputs select, .cup-round-inputs input { min-width: 0; width: 100%; height: 35px; padding: 0 7px; border: 1px solid #d2d6c8; border-radius: 7px; outline: 0; background: white; color: var(--ink); font: inherit; font-size: 10px; }
 .cup-round-inputs select:focus, .cup-round-inputs input:focus { border-color: var(--green); box-shadow: 0 0 0 2px rgba(24,63,52,.07); }
+@media (min-width: 851px) {
+  .cup-admin-head > :first-child, .cup-admin-row > :first-child { position: sticky; left: 0; z-index: 2; box-shadow: 7px 0 10px -10px rgba(24,63,52,.48); }
+  .cup-admin-head > :first-child { z-index: 3; background: #f0f1e9; }
+  .cup-admin-row > :first-child { background: rgba(255,255,255,.98); }
+}
 .bracket-admin-stages { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(310px, 1fr); gap: 12px; overflow-x: auto; padding: 2px 2px 12px; }
 .bracket-admin-stage { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,253,247,.88); }
 .bracket-admin-stage-head { display: grid; grid-template-columns: minmax(0, 1fr) 75px 104px; align-items: end; gap: 7px; padding: 12px; background: var(--green); }
@@ -770,27 +780,24 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .trade-simulator-heading > span { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .trade-simulator-heading h1 { margin: 5px 0; color: var(--green); font-size: 25px; }
 .trade-simulator-heading p { margin: 0; color: var(--muted); }
-.trade-simulator-builder { padding-bottom: 260px; }
+.trade-simulator-builder { padding-bottom: 0; }
 .trade-simulation-status {
-  position: fixed;
-  z-index: 20;
-  right: max(14px, calc((100vw - 1180px) / 2));
-  bottom: 14px;
-  left: max(14px, calc((100vw - 1180px) / 2));
   display: grid;
   gap: 5px;
+  margin-top: 14px;
   padding: 13px 16px;
   border: 1px solid #bdc6b5;
   border-radius: 14px;
   background: rgba(249, 250, 246, .97);
-  box-shadow: 0 10px 28px rgba(32, 45, 35, .18);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 5px 15px rgba(32, 45, 35, .08);
 }
 .trade-simulation-status.is-valid { border-color: #6da975; background: rgba(239, 248, 238, .98); }
 .trade-simulation-status.is-invalid { border-color: #c99b89; background: rgba(255, 246, 242, .98); }
 .trade-simulation-status > strong { color: var(--green); }
 .trade-simulation-status.is-invalid > strong { color: #9c4c34; }
 .trade-simulation-status > span { color: var(--muted); font-size: 13px; }
+.trade-simulation-validation { display: grid; gap: 6px; margin-top: 4px; }
+.trade-simulation-validation .validation { margin: 0; }
 .trade-simulation-status label { display: grid; gap: 5px; margin-top: 4px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .trade-simulation-status textarea { min-height: 84px; resize: vertical; border: 1px solid #cbd0c3; border-radius: 8px; padding: 8px; background: #fff; color: var(--ink); font: 12px/1.45 var(--font-mono, monospace); letter-spacing: normal; text-transform: none; }
 .trade-simulation-copy-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
@@ -852,6 +859,10 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 
 @media (max-width: 850px) {
   .section { padding-top: 32px; padding-left: 0; padding-right: 0; }
+  .public-content-with-index { display: block; }
+  .public-content-index { display: none; }
+  .public-content-mobile-selector { display: block; margin: 0 8px 18px; }
+  .history-selectors.public-content-mobile-selector { display: grid; }
   .players-page > .filter-bar,
   .players-page > .player-list-provisional-notice,
   .workbook-page > .view-selector, .workbook-page > .history-selectors,
@@ -893,8 +904,6 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .home-competition-feature > .bracket-frame { padding: 10px 0; }
   .content-editor-selectors.single:has(.homepage-feature-toggle) { grid-template-columns: 1fr; }
   .home-hero h1 { font-size: clamp(24px, 7vw, 31px); }
-  .home-season-line { gap: 9px; }
-  .home-season-line p { font-size: 11px; }
   .home-grid { grid-template-columns: 1fr; gap: 12px; }
   .home-recent-movements { margin-right: 8px; margin-left: 8px; }
   .home-recent-movements { border-right: 0; border-left: 0; border-radius: 0; }
@@ -1010,11 +1019,6 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .standings-card { width: 100%; overflow: hidden; }
   .standings-head, .standings-row { grid-template-columns: 46px minmax(0, 1fr); gap: 7px; padding-left: 8px; padding-right: 8px; }
   .standings-head.cup, .standings-row.cup { min-width: 0; grid-template-columns: 34px minmax(0, 1fr) 30px 42px; }
-  .standings-head.cup > span:nth-child(n+5) { display: none; }
-  .standings-row.cup .week-values { grid-column: 1 / -1; grid-template-columns: 62px repeat(5, 1fr); align-items: center; }
-  .standings-row.cup .week-values::before { color: var(--muted); font-size: 9px; font-style: normal; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
-  .standings-row.cup .week-values:first-of-type::before { content: "Vittorie"; }
-  .standings-row.cup .week-values:last-of-type::before { content: "Punteggi"; }
   .bracket-stage { min-height: 520px; }
   .history-table-card { width: 100%; overflow: hidden; }
   .history-table-head, .history-table-row { min-width: 0; gap: 7px; padding-left: 9px; padding-right: 9px; }
@@ -2036,6 +2040,4 @@ input[type="reset"]:disabled {
   .public-navigation.is-open ~ main .standings-card { overflow-x: auto; }
   .public-navigation.is-open ~ main .history-columns-3 .history-table-head,
   .public-navigation.is-open ~ main .history-columns-3 .history-table-row { min-width: 570px; }
-  .public-navigation.is-open ~ main .standings-head.cup,
-  .public-navigation.is-open ~ main .standings-row.cup { min-width: 860px; }
 }

@@ -27,15 +27,27 @@ export function CompetitionExplorer({
   const content = competitions[selectedName];
 
   return (
-    <>
-      <Selector
-        label="Competizione"
-        value={selectedName}
-        onChange={(value) => setSelectedName(value as CompetitionName)}
-        options={[...competitionNames]}
-      />
-      <CompetitionContentView content={content} teams={teams} />
-    </>
+    <div className="public-content-with-index competition-explorer">
+      <div className="public-content-main">
+        <div className="public-content-mobile-selector">
+          <Selector
+            label="Competizione"
+            value={selectedName}
+            onChange={(value) => setSelectedName(value as CompetitionName)}
+            options={[...competitionNames]}
+          />
+        </div>
+        <CompetitionContentView content={content} teams={teams} />
+      </div>
+      <nav className="public-content-index" aria-label="Seleziona competizione">
+        <span>Competizioni</span>
+        {competitionNames.map((name) => (
+          <button className={name === selectedName ? "active" : ""} type="button" onClick={() => setSelectedName(name)} key={name}>
+            {name}
+          </button>
+        ))}
+      </nav>
+    </div>
   );
 }
 
@@ -70,24 +82,18 @@ function CupStandings({ content, teams }: { content: CupGroupContent; teams: Com
   return (
     <div className="standings-card">
       <div className="standings-head cup">
-        <span>Pos.</span><span>Squadra</span><span>V</span><span>Totale</span><span>Giornate vinte</span><span>Punteggi</span>
+        <span>Pos.</span><span>Squadra</span><span>V</span><span>Totale</span>
       </div>
-      {rows.map(({ team, result, totals }, index) => (
+      {rows.map(({ team, totals }, index) => (
         <article className="standings-row cup" key={team.code}>
           <strong className="standing-position">{index + 1}</strong>
           <strong>{team.name}</strong>
           <strong>{totals.wins}</strong>
           <strong>{formatCompetitionNumber(totals.score)}</strong>
-          <WeekValues values={result.wins} />
-          <WeekValues values={result.scores} />
         </article>
       ))}
     </div>
   );
-}
-
-function WeekValues({ values }: { values: Array<string | number | null> }) {
-  return <span className="week-values">{values.map((value, index) => <i key={index}>{value === "" || value === null ? "—" : value}</i>)}</span>;
 }
 
 function publicBracketStages(content: BracketContent, teams: CompetitionTeam[]): BracketStage[] {

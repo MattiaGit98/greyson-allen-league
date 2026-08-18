@@ -34,34 +34,54 @@ export function HistoryExplorer({ competitions }: { competitions: HistoryCompeti
   }
 
   return (
-    <>
-      <div className={`history-selectors ${isAggregate || !entries.length ? "single" : ""}`}>
-        <Selector
-          label="Visualizza"
-          value={selectedName}
-          onChange={changeSection}
-          options={publicHistoryMenuOptions}
-        />
-        {!isAggregate && entries.length > 0 && (
-          <label className="view-selector">
-            <span>{selectedName === "Draft" ? "Draft" : "Stagione"}</span>
-            <select
-              value={activeEntry?.season ?? ""}
-              onChange={(event) => setSelectedSeason(event.target.value)}
-            >
-              {entries.map((entry) => (
-                <option value={entry.season} key={entry.season}>{entry.season}</option>
-              ))}
-            </select>
-          </label>
-        )}
+    <div className="public-content-with-index history-explorer">
+      <div className="public-content-main">
+        <div className={`history-selectors public-content-mobile-selector ${isAggregate || !entries.length ? "single" : ""}`}>
+          <Selector
+            label="Visualizza"
+            value={selectedName}
+            onChange={changeSection}
+            options={publicHistoryMenuOptions}
+          />
+          {!isAggregate && entries.length > 0 && (
+            <label className="view-selector">
+              <span>{selectedName === "Draft" ? "Draft" : "Stagione"}</span>
+              <select
+                value={activeEntry?.season ?? ""}
+                onChange={(event) => setSelectedSeason(event.target.value)}
+              >
+                {entries.map((entry) => (
+                  <option value={entry.season} key={entry.season}>{entry.season}</option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+        {isAggregate
+          ? <StructuredAggregateHistory entries={entries} />
+          : activeEntry
+            ? <StructuredHistoryContent category={selectedName} entry={activeEntry} />
+            : <div className="history-empty">Nessun dato registrato</div>}
       </div>
-      {isAggregate
-        ? <StructuredAggregateHistory entries={entries} />
-        : activeEntry
-          ? <StructuredHistoryContent category={selectedName} entry={activeEntry} />
-          : <div className="history-empty">Nessun dato registrato</div>}
-    </>
+      <nav className="public-content-index" aria-label="Seleziona contenuto storico">
+        <span>Storico</span>
+        {publicHistoryMenuOptions.map((name) => (
+          <button className={name === selectedName ? "active" : ""} type="button" onClick={() => changeSection(name)} key={name}>
+            {name}
+          </button>
+        ))}
+        {!isAggregate && entries.length > 0 && (
+          <>
+            <span className="public-content-index-subtitle">{selectedName === "Draft" ? "Draft" : "Stagione"}</span>
+            {entries.map((entry) => (
+              <button className={entry.season === activeEntry?.season ? "active" : ""} type="button" onClick={() => setSelectedSeason(entry.season)} key={entry.season}>
+                {entry.season}
+              </button>
+            ))}
+          </>
+        )}
+      </nav>
+    </div>
   );
 }
 

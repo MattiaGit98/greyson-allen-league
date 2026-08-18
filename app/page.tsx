@@ -7,9 +7,9 @@ import { availableOperationsAt } from "@/lib/available-operations";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, publicPhaseLabel, type LeagueMoment } from "@/lib/league-moments";
 import { conciseMovementDetail, movementOperationLabel } from "@/lib/movement-display";
-import { buildPreAdvanceChecklist } from "@/lib/pre-advance-alerts";
 import { formatHomepageCalendarDate } from "@/lib/calendar-homepage";
 import { nextPhaseDate, normalizePhaseDates } from "@/lib/phase-calendar";
+import { displayedSeasonName } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadCompetitionState } from "@/lib/competition-store";
@@ -44,10 +44,7 @@ export default async function HomePage() {
   const phaseDates = normalizePhaseDates(activeSeason.season.phase_dates);
   const alerts = homeLeagueAlerts({
     moment,
-    seasonName: activeSeason.season.name,
     state,
-    today,
-    seasonEndDate: phaseDates.season_end,
   });
   const macroPhase = publicPhaseLabel(moment, phaseDates.postseason_start, today);
   const nextCalendarEvent = nextPhaseDate(phaseDates, moment, today);
@@ -69,8 +66,7 @@ export default async function HomePage() {
       <header className="home-hero">
         <p className="eyebrow">Greyson Allen League</p>
         <div className="home-season-line">
-          <h1>{activeSeason.season.name}</h1>
-          <p>{macroPhase}</p>
+          <h1>{displayedSeasonName(activeSeason.season.name)} · {macroPhase}</h1>
         </div>
       </header>
       {state.publicNotice && <section className="home-public-notice" aria-label="Avviso della lega"><p>{state.publicNotice}</p></section>}
@@ -140,16 +136,10 @@ type HomeLeagueAlert = {
 
 function homeLeagueAlerts({
   moment,
-  seasonName,
   state,
-  today,
-  seasonEndDate,
 }: {
   moment: LeagueMoment;
-  seasonName: string;
   state: EditableLeagueState;
-  today: string;
-  seasonEndDate?: string;
 }): HomeLeagueAlert[] {
   const alerts: HomeLeagueAlert[] = [];
 
@@ -168,27 +158,7 @@ function homeLeagueAlerts({
     }
   }
 
-  if (moment === "free_agency_end" && isWithinTenDaysOf(seasonEndDate, today)) {
-    const overflowAlert = buildPreAdvanceChecklist({ currentMoment: moment, seasonName, state })
-      .alerts.find((alert) => alert.id === "blocked-offseason-roster-moves");
-    if (overflowAlert) {
-      alerts.push({
-        id: "season-end-overflow",
-        title: "Tagli necessari prima della fine della stagione",
-        items: overflowAlert.items,
-        tone: "attention",
-      });
-    }
-  }
-
   return alerts;
-}
-
-function isWithinTenDaysOf(date: string | undefined, today: string) {
-  if (!date) return false;
-  const dateUtc = Date.parse(`${date}T00:00:00Z`);
-  const todayUtc = Date.parse(`${today}T00:00:00Z`);
-  return Number.isFinite(dateUtc) && Number.isFinite(todayUtc) && (dateUtc - todayUtc) / 86_400_000 <= 10;
 }
 
 function formatMovementDate(value: string) {
