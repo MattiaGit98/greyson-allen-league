@@ -85,9 +85,11 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .home-league-alert.attention { border-color: #e0cda3; background: rgba(255,248,224,.86); color: #755b13; }
 .home-league-alert strong { display: block; font-size: 11px; font-weight: 900; }
 .home-league-alert ul { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 17px; font-size: 10px; font-weight: 800; line-height: 1.35; }
-.home-teams-link { display: flex; justify-content: flex-end; margin: -4px 0 10px; }
-.home-teams-link a { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 10px; font-weight: 900; }
-.home-teams-link a span { font-size: 13px; line-height: 1; }
+.home-teams-link { margin: 0 0 12px; }
+.home-teams-link a { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 16px; border: 1px solid #b9cdb4; border-radius: 13px; background: #f1f7e9; color: var(--green); box-shadow: 0 5px 14px rgba(24,63,52,.05); transition: background .15s, transform .15s; }
+.home-teams-link a:hover { background: #e7f1db; transform: translateY(-1px); }
+.home-teams-link strong { font-size: 12px; font-weight: 900; letter-spacing: .01em; }
+.home-teams-link a span { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: var(--green); color: var(--lime); font-size: 15px; line-height: 1; }
 .home-next-calendar-event { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 16px; margin: 0 0 22px; padding: 17px 19px; border: 2px solid #bdcdb4; border-radius: 15px; background: linear-gradient(110deg, #183f34, #245947); color: white; box-shadow: 0 10px 24px rgba(24,63,52,.18); }
 .home-next-calendar-event span { color: var(--lime); font-size: 8px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
 .home-next-calendar-event strong { min-width: 0; font-size: 15px; }
@@ -138,12 +140,6 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .home-movement strong { margin-bottom: 3px; color: var(--green); font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
 .home-movement span { overflow: hidden; color: var(--ink); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .home-empty { margin: 0; padding: 34px 18px; color: var(--muted); font-size: 11px; text-align: center; }
-.home-side-column { display: none; }
-.home-quick-links { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,253,247,.78); }
-.home-quick-links a { display: flex; align-items: center; justify-content: space-between; min-height: 45px; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--green); font-size: 11px; font-weight: 800; }
-.home-quick-links a:last-child { border-bottom: 0; }
-.home-quick-links a:hover { background: #f0f2ea; }
-.home-quick-links span { color: var(--orange); font-size: 15px; }
 .public-notices-page { max-width: 820px; margin: 0 auto; }
 .public-notice-editor { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,253,247,.84); box-shadow: 0 5px 15px rgba(24,63,52,.04); }
 .public-notice-editor > summary { padding: 15px 17px; background: #e7edce; color: #315044; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
@@ -854,7 +850,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .team-identity-card > .button { justify-self: start; border: 0; }
 
 @media (max-width: 850px) {
-  .section { padding-left: 0; padding-right: 0; }
+  .section { padding-top: 32px; padding-left: 0; padding-right: 0; }
   .players-page > .filter-bar,
   .players-page > .player-list-provisional-notice,
   .workbook-page > .view-selector, .workbook-page > .history-selectors,
@@ -897,8 +893,7 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .content-editor-selectors.single:has(.homepage-feature-toggle) { grid-template-columns: 1fr; }
   .home-hero h1 { font-size: clamp(28px, 8vw, 38px); }
   .home-grid { grid-template-columns: 1fr; gap: 12px; }
-  .home-side-column { display: none; }
-  .home-recent-movements, .home-quick-links { margin-right: 8px; margin-left: 8px; }
+  .home-recent-movements { margin-right: 8px; margin-left: 8px; }
   .home-recent-movements { border-right: 0; border-left: 0; border-radius: 0; }
   .home-recent-movements > header { padding-right: 10px; padding-left: 10px; }
   .home-movement { grid-template-columns: 90px minmax(0, 1fr); gap: 8px; padding-right: 10px; padding-left: 10px; }
@@ -982,10 +977,10 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
   .player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .player-flags { min-width: 0; overflow: hidden; }
   .real-team { font-size: 9px; }
-  .player-status-highlight { min-height: 27px; gap: 4px; padding: 4px 6px; }
-  .player-status { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .player-status-highlight { min-width: 0; justify-content: center; }
-  .player-status-highlight small { min-width: 0; overflow: hidden; padding-left: 4px; text-overflow: ellipsis; }
+  .player-list .player-row > .player-status { width: 100%; max-width: none; min-width: 0; overflow: visible; text-overflow: clip; white-space: normal; }
+  .player-list .player-status-highlight { min-height: 27px; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 5px; }
+  .player-list .player-status-highlight small { min-width: 0; max-width: 100%; overflow: visible; padding-top: 2px; padding-left: 0; border-top: 1px solid #a9c9d8; border-left: 0; font-size: 8px; line-height: 1; text-overflow: clip; white-space: nowrap; }
+  .player-list .player-status-buyout small { border-top-color: #dfbd9e; }
   .calendar-list { width: 100%; overflow: hidden; }
   .calendar-list-head, .calendar-row { min-width: 0; grid-template-columns: minmax(0, 1fr) 92px; gap: 8px; padding-left: 9px; padding-right: 9px; }
   .calendar-editor-form { margin-top: 18px; }

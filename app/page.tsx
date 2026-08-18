@@ -38,14 +38,19 @@ export default async function HomePage() {
   const movements = (movementResponse?.data ?? []).filter((movement) => !movement.reverted).slice(0, 5);
   const moment = leagueMomentFromSeason(activeSeason.season);
   const [historyState, competitionState] = await Promise.all([loadHistoryCompetitionState(), loadCompetitionState()]);
-  const alerts = homeLeagueAlerts({ moment, seasonName: activeSeason.season.name, state });
   const todayParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
     .formatToParts(new Date()).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
   const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
   const phaseDates = normalizePhaseDates(activeSeason.season.phase_dates);
+  const alerts = homeLeagueAlerts({
+    moment,
+    seasonName: activeSeason.season.name,
+    state,
+    today,
+    seasonEndDate: phaseDates.season_end,
+  });
   const macroPhase = publicPhaseLabel(moment, phaseDates.postseason_start, today);
   const nextCalendarEvent = nextPhaseDate(phaseDates, moment, today);
-  const quickLinks: { href: string; label: string }[] = [];
   const draftYear = Number(activeSeason.season.name.slice(0, 4));
   const selectedHonours = moment === "offseason_start"
     ? historyState.competitions["Albo d'oro"].find((entry) => entry.season === state.homepageHonoursTable && entry.content.kind === "honours")
@@ -78,7 +83,7 @@ export default async function HomePage() {
         </section>
       )}
       <nav className="home-teams-link" aria-label="Accesso alle squadre">
-        <Link href="/squadre">Squadre <span>→</span></Link>
+        <Link href="/squadre"><strong>Vai alle squadre</strong><span>→</span></Link>
       </nav>
       {nextCalendarEvent && (
         <section className={`home-next-calendar-event${nextCalendarEvent.date < today ? " is-overdue" : ""}`} aria-label="Prossimo appuntamento">
@@ -114,11 +119,6 @@ export default async function HomePage() {
             ) : <p className="home-empty">Nessun movimento registrato.</p>}
           </section>
         </div>
-        <aside className="home-side-column">
-          <nav className="home-quick-links" aria-label="Accessi rapidi">
-            {quickLinks.map((link) => <Link href={link.href} key={link.href}>{link.label} <span>→</span></Link>)}
-          </nav>
-        </aside>
       </div>
       <div className="home-seasonal-content">
         {selectedHonours?.content.kind === "honours" && <HomeHonoursFeature title={selectedHonours.season} rows={selectedHonours.content.rows} />}
@@ -140,10 +140,14 @@ function homeLeagueAlerts({
   moment,
   seasonName,
   state,
+  today,
+  seasonEndDate,
 }: {
   moment: LeagueMoment;
   seasonName: string;
   state: EditableLeagueState;
+  today: string;
+  seasonEndDate?: string;
 }): HomeLeagueAlert[] {
   const alerts: HomeLeagueAlert[] = [];
 
@@ -162,7 +166,7 @@ function homeLeagueAlerts({
     }
   }
 
-  if (moment === "free_agency_end") {
+  if (moment === "free_agency_end" && isWithinTenDaysOf(seasonEndDate, today)) {
     const overflowAlert = buildPreAdvanceChecklist({ currentMoment: moment, seasonName, state })
       .alerts.find((alert) => alert.id === "blocked-offseason-roster-moves");
     if (overflowAlert) {
@@ -176,6 +180,13 @@ function homeLeagueAlerts({
   }
 
   return alerts;
+}
+
+function isWithinTenDaysOf(date: string | undefined, today: string) {
+  if (!date) return false;
+  const dateUtc = Date.parse(`${date}T00:00:00Z`);
+  const todayUtc = Date.parse(`${today}T00:00:00Z`);
+  return Number.isFinite(dateUtc) && Number.isFinite(todayUtc) && (dateUtc - todayUtc) / 86_400_000 <= 10;
 }
 
 function formatMovementDate(value: string) {

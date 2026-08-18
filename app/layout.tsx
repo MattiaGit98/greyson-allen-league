@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteNavigation } from "@/components/site-navigation";
 import { LivePageRefresh } from "@/components/live-page-refresh";
+import { RouteScrollReset } from "@/components/route-scroll-reset";
 import { displayedSeasonName } from "@/lib/season-time";
 import { leagueMomentFromSeason, publicPhaseLabel } from "@/lib/league-moments";
 import { loadActiveSeason } from "@/lib/active-season";
@@ -25,6 +26,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body>
         <SiteNavigation seasonName={seasonName} phaseName={phaseName} />
         <main>{children}</main>
+        <RouteScrollReset />
         <LivePageRefresh />
       </body>
     </html>
