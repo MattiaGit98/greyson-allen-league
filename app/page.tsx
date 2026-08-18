@@ -68,8 +68,10 @@ export default async function HomePage() {
     <section className="section home-page">
       <header className="home-hero">
         <p className="eyebrow">Greyson Allen League</p>
-        <h1>{activeSeason.season.name}</h1>
-        <p>{macroPhase}</p>
+        <div className="home-season-line">
+          <h1>{activeSeason.season.name}</h1>
+          <p>{macroPhase}</p>
+        </div>
       </header>
       {state.publicNotice && <section className="home-public-notice" aria-label="Avviso della lega"><p>{state.publicNotice}</p></section>}
       {alerts.length > 0 && (
