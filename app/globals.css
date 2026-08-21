@@ -61,6 +61,8 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .section { padding: 90px 7vw; }
 .live-update-notice { position: fixed; z-index: 80; right: 20px; bottom: 20px; display: flex; align-items: center; gap: 10px; max-width: min(420px, calc(100vw - 32px)); padding: 10px 12px; border: 1px solid #ccd9bb; border-radius: 12px; background: #f6faee; color: #315044; box-shadow: 0 12px 30px rgba(24,63,52,.16); font-size: 11px; font-weight: 700; }
 .live-update-notice button { border: 0; border-radius: 8px; background: var(--green); color: white; padding: 7px 9px; font: inherit; font-weight: 900; cursor: pointer; white-space: nowrap; }
+form[data-live-submitting="true"] { opacity: .72; pointer-events: none; cursor: progress; }
+form[data-live-submitting="true"] button, form[data-live-submitting="true"] input, form[data-live-submitting="true"] select, form[data-live-submitting="true"] textarea { cursor: progress; }
 .page-top { padding-top: 70px; }
 .page-top > h1 { font-size: clamp(54px, 7vw, 88px); }
 .teams-page { padding-top: 42px; max-width: 1380px; margin: 0 auto; }
