@@ -78,7 +78,6 @@ export function TeamAccordion({
     const active = entries.filter((entry) => entry.state === "active");
     return [team.code, {
       currentCap: capSpaces[0],
-      futureCaps: [capSpaces[1], capSpaces[2]] as [number, number],
       rosterSpace: 15 - active.filter((entry) => entry.slot === "regular").length,
       twoWaySpace: 2 - active.filter((entry) => entry.slot === "two_way").length,
     }];
@@ -111,6 +110,9 @@ export function TeamAccordion({
   const highlightedPlayer = playerMatches[0]?.playerName;
   const highlightedTeam = playerMatches[0]?.teamCode;
   const highlightedSection = playerMatches[0]?.section;
+  const explorerTargetCodes = useMemo(() => (
+    normalizedQuery ? (highlightedTeam ? [highlightedTeam] : []) : displayedTeams.map((team) => team.code)
+  ), [displayedTeams, highlightedTeam, normalizedQuery]);
 
   useEffect(() => {
     if (!highlightedTeam || !highlightedSection) return;
@@ -122,6 +124,15 @@ export function TeamAccordion({
     const frame = window.requestAnimationFrame(() => teamRefs.current.get(highlightedTeam)?.scrollIntoView({ behavior: "smooth", block: "start" }));
     return () => window.cancelAnimationFrame(frame);
   }, [highlightedPlayer, highlightedSection, highlightedTeam]);
+
+  useEffect(() => {
+    if (!explorerOpen || !hasPlayerFilter || !explorerTargetCodes.length) return;
+    setOpenTeams((current) => [...new Set([...current, ...explorerTargetCodes])]);
+    setOpenSectionsByTeam((current) => ({
+      ...current,
+      ...Object.fromEntries(explorerTargetCodes.map((code) => [code, sectionsToExpand])),
+    }));
+  }, [explorerOpen, explorerTargetCodes, hasPlayerFilter, sectionsToExpand]);
   const allExpanded = teams.length > 0
     && openTeams.length === teams.length
     && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
@@ -201,13 +212,21 @@ export function TeamAccordion({
       ? sectionsToExpand.filter((item) => item !== section)
       : [...sectionsToExpand, section];
     setSectionsToExpand(next);
-    setOpenSectionsByTeam((current) => ({ ...current, ...Object.fromEntries(openTeams.map((code) => [code, next])) }));
+    setOpenTeams((current) => [...new Set([...current, ...explorerTargetCodes])]);
+    setOpenSectionsByTeam((current) => ({
+      ...current,
+      ...Object.fromEntries(explorerTargetCodes.map((code) => [code, next])),
+    }));
   };
 
-  const applyPreferredSections = () => {
-    const visibleCodes = displayedTeams.map((team) => team.code);
-    setOpenTeams(visibleCodes);
-    setOpenSectionsByTeam(Object.fromEntries(visibleCodes.map((code) => [code, sectionsToExpand])));
+  const resetExplorer = () => {
+    setPlayerQuery("");
+    setTeamSort("name");
+    setPlayerFilter({ roles: [], slots: [] });
+    setSectionsToExpand(["roster"]);
+    setOpenSectionsByTeam((current) => Object.fromEntries(
+      Object.keys(current).map((teamCode) => [teamCode, ["roster"]]),
+    ));
   };
 
   return (
@@ -233,9 +252,14 @@ export function TeamAccordion({
               {playerQuery && <small>{highlightedPlayer ? `Primo risultato: ${highlightedPlayer}` : "Nessun giocatore trovato"}</small>}
             </label>
             <fieldset className="team-explorer-fieldset">
-              <legend>Filtra giocatori</legend>
+              <legend>Filtra per ruolo</legend>
               <div className="team-explorer-checks">
                 {playerRoles.map((role) => <label key={role}><input type="checkbox" checked={playerFilter.roles.includes(role)} onChange={() => togglePlayerFilter("roles", role)} /> {role}</label>)}
+              </div>
+            </fieldset>
+            <fieldset className="team-explorer-fieldset">
+              <legend>Filtra per slot</legend>
+              <div className="team-explorer-checks">
                 {playerSlots.map((slot) => <label key={slot}><input type="checkbox" checked={playerFilter.slots.includes(slot)} onChange={() => togglePlayerFilter("slots", slot)} /> {slotLabel(slot)}</label>)}
               </div>
             </fieldset>
@@ -254,8 +278,8 @@ export function TeamAccordion({
               <div className="team-explorer-checks">
                 {dataSectionKeys.map((section) => <label key={section}><input type="checkbox" checked={sectionsToExpand.includes(section)} onChange={() => togglePreferredSection(section)} /> {sectionLabels[section]}</label>)}
               </div>
-              <button className="button secondary" type="button" disabled={!sectionsToExpand.length} onClick={applyPreferredSections}>Apri nelle squadre visibili</button>
             </fieldset>
+            <button className="team-explorer-reset" type="button" onClick={resetExplorer}>Azzera filtri</button>
           </div>
         )}
       </section>
@@ -293,11 +317,7 @@ export function TeamAccordion({
                 <strong>{team.name}</strong>
                 <small>{team.owner}</small>
               </span>
-              <CapCurrent value={metrics.currentCap} seasonName={capSeasonName} />
-              <span className="team-future-caps" aria-label="Cap libero delle prossime stagioni">
-                <small><span>{shortSeasonName(followingSeasonName(capSeasonName))}</span><b>{metrics.futureCaps[0]}</b></small>
-                <small><span>{shortSeasonName(followingSeasonName(capSeasonName, 2))}</span><b>{metrics.futureCaps[1]}</b></small>
-              </span>
+              <CapCurrent value={metrics.currentCap} />
               <i aria-hidden="true">{expanded ? "−" : "+"}</i>
             </button>
             {expanded && (
@@ -358,15 +378,10 @@ function slotLabel(slot: PlayerFilter["slots"][number]) {
   return slot === "regular" ? "Roster" : slot === "two_way" ? "Two-way" : slot === "g_league" ? "G-League" : "DPE";
 }
 
-function shortSeasonName(seasonName: string) {
-  const match = seasonName.match(/^(\d{4})\/(\d{2})$/);
-  return match ? `${match[1].slice(-2)}/${match[2]}` : seasonName;
-}
-
-function CapCurrent({ value, seasonName }: { value: number; seasonName: string }) {
+function CapCurrent({ value }: { value: number }) {
   const tone = value < 0 ? "negative" : value > 0 ? "positive" : "neutral";
   return <span className={`team-current-cap ${tone}`}>
-    <small>Cap libero {shortSeasonName(seasonName)}</small>
+    <small>Cap libero</small>
     <strong>{value}</strong>
   </span>;
 }
