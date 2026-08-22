@@ -74,7 +74,7 @@ export function TeamAccordion({
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const [explorerDialog, setExplorerDialog] = useState<ExplorerDialog>(null);
-  const [mobileExplorerOpen, setMobileExplorerOpen] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const [playerQuery, setPlayerQuery] = useState("");
   const [playerMatchIndex, setPlayerMatchIndex] = useState(0);
   const [teamSort, setTeamSort] = useState<TeamSort>("name");
@@ -298,10 +298,10 @@ export function TeamAccordion({
     setPlayerMatchIndex((current) => (current + direction + playerMatches.length) % playerMatches.length);
   };
 
-  const toggleMobileExplorer = () => {
-    const opening = !mobileExplorerOpen;
-    setMobileExplorerOpen(opening);
-    if (!opening) return;
+  const toggleExplorer = () => {
+    const opening = !explorerOpen;
+    setExplorerOpen(opening);
+    if (!opening || !window.matchMedia("(max-width: 850px)").matches) return;
     window.requestAnimationFrame(() => {
       const explorer = explorerRef.current;
       if (!explorer) return;
@@ -313,7 +313,7 @@ export function TeamAccordion({
 
   return (
     <>
-      <div className={`team-accordion-mobile-toolbar ${mobileExplorerOpen ? "is-explorer-open" : ""}`} ref={mobileToolbarRef}>
+      <div className={`team-accordion-mobile-toolbar ${explorerOpen ? "is-explorer-open" : ""}`} ref={mobileToolbarRef}>
         <button type="button" onClick={toggleRosterOnly} aria-label={rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}>
           <span>{rosterOnlyExpanded ? "−" : "+"}</span>
           Roster
@@ -322,13 +322,13 @@ export function TeamAccordion({
           <span>{allExpanded ? "−" : "+"}</span>
           Tutto
         </button>
-        <button type="button" onClick={toggleMobileExplorer} aria-expanded={mobileExplorerOpen}>
-          <span>{mobileExplorerOpen ? "−" : "+"}</span>
+        <button type="button" onClick={toggleExplorer} aria-expanded={explorerOpen}>
+          <span>{explorerOpen ? "−" : "+"}</span>
           Ricerca
         </button>
       </div>
-      <div className={`team-explorer-sticky ${mobileExplorerOpen ? "is-mobile-explorer-open" : ""}`} ref={explorerRef}>
-        <section className={`team-explorer ${mobileExplorerOpen ? "is-mobile-open" : "is-mobile-closed"}`}>
+      <div className={`team-explorer-sticky ${explorerOpen ? "is-explorer-open" : ""}`} ref={explorerRef}>
+        <section className={`team-explorer ${explorerOpen ? "is-explorer-open" : "is-explorer-closed"}`}>
           <div className="team-explorer-bar">
             <label className="team-player-search">
               <span className="team-player-search-control">
@@ -358,7 +358,7 @@ export function TeamAccordion({
             <button className="team-explorer-reset" type="button" onClick={resetExplorer}><span className="team-explorer-label-desktop">Azzera filtri</span><span className="team-explorer-label-mobile">Azzera</span></button>
           </div>
         </section>
-        <div className="team-accordion-toolbar" ref={toolbarRef}>
+        <div className={`team-accordion-toolbar ${explorerOpen ? "is-explorer-open" : ""}`} ref={toolbarRef}>
         <button type="button" onClick={toggleRosterOnly} aria-label={rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}>
           <span>{rosterOnlyExpanded ? "−" : "+"}</span>
           <span className="team-toolbar-desktop-label">{rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}</span>
@@ -369,8 +369,8 @@ export function TeamAccordion({
           <span className="team-toolbar-desktop-label">{allExpanded ? "Minimizza tutto" : "Espandi tutto"}</span>
           <span className="team-toolbar-mobile-label">Tutto</span>
         </button>
-        <button className="team-toolbar-mobile-action" type="button" onClick={() => setMobileExplorerOpen((current) => !current)} aria-expanded={mobileExplorerOpen}>
-          <span>{mobileExplorerOpen ? "−" : "+"}</span>
+        <button className="team-toolbar-explorer-action" type="button" onClick={toggleExplorer} aria-expanded={explorerOpen}>
+          <span>{explorerOpen ? "−" : "+"}</span>
           <span>Ricerca</span>
         </button>
         </div>
@@ -417,7 +417,7 @@ export function TeamAccordion({
           </section>
         </div>
       )}
-      <div className={`team-accordion ${mobileExplorerOpen ? "mobile-explorer-open" : ""}`} ref={accordionRef}>
+      <div className={`team-accordion ${explorerOpen ? "explorer-open" : ""}`} ref={accordionRef}>
       {displayedTeams.map((team, index) => {
         const expanded = openTeams.includes(team.code);
         const metrics = teamMetrics.get(team.code)!;
