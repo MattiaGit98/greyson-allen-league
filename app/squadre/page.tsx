@@ -1,6 +1,6 @@
 import { TeamAccordion } from "./team-accordion";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
@@ -34,10 +34,11 @@ export default async function TeamsPage({
         playerListPublished={leagueState.playerListStatus === "published"}
         inSeason={roleMinimumChecksApply(phase, leagueMoment)}
         initialTeam={query.team?.toUpperCase()}
-        showQualifyingOffers={phase === "offseason"}
+        showQualifyingOffers={!hasReachedMoment(leagueMoment, "auction_completed")}
         capSeasonName={capSeasonName}
         countTeamOptions={countTeamOptions}
         pendingAuctionContracts={pendingAuctionContracts}
+        capScaleMaximum={hasReachedMoment(leagueMoment, "auction_completed") ? 1100 : 1000}
       />
     </section>
   );

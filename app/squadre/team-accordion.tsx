@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DraftAsset, PlayerListEntry, QualifyingOfferRight, RosterEntry, TeamSummary } from "@/lib/league-types";
 import { calculateCapSpace, contractCostForSeason, followingSeasonName } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
@@ -41,6 +41,7 @@ export function TeamAccordion({
   capSeasonName,
   countTeamOptions,
   pendingAuctionContracts,
+  capScaleMaximum,
 }: {
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
@@ -55,6 +56,7 @@ export function TeamAccordion({
   capSeasonName: string;
   countTeamOptions: boolean;
   pendingAuctionContracts: boolean;
+  capScaleMaximum: number;
 }) {
   const [openTeams, setOpenTeams] = useState<string[]>(
     initialTeam && teams.some((team) => team.code === initialTeam) ? [initialTeam] : [],
@@ -69,6 +71,8 @@ export function TeamAccordion({
   const [playerFilter, setPlayerFilter] = useState<PlayerFilter>({ roles: [], slots: [] });
   const [sectionsToExpand, setSectionsToExpand] = useState<DataSectionKey[]>(["roster"]);
   const teamRefs = useRef(new Map<string, HTMLElement>());
+  const explorerRef = useRef<HTMLDivElement>(null);
+  const accordionRef = useRef<HTMLDivElement>(null);
   const highlightedYear = highlightedDraftYear(draftAssets, finalizedDraftPositionYears);
   const displayedDraftAssets = draftAssets;
   const normalizedQuery = normalizePlayerName(playerQuery);
@@ -83,6 +87,10 @@ export function TeamAccordion({
     }];
   })), [capSeasonName, countTeamOptions, rosterEntries, teams]);
   const hasPlayerFilter = playerFilter.roles.length > 0 || playerFilter.slots.length > 0;
+  const capScaleMinimum = useMemo(() => {
+    const capValues = [...teamMetrics.values()].map((metrics) => metrics.currentCap);
+    return capValues.length ? 1000 - Math.max(...capValues) : 0;
+  }, [teamMetrics]);
   const displayedTeams = useMemo(() => teams
     .filter((team) => normalizedQuery || !hasPlayerFilter || rosterEntries.some((entry) => (
       entry.teamCode === team.code && entry.state === "active" && matchesPlayerFilter(entry, playerFilter)
@@ -133,6 +141,17 @@ export function TeamAccordion({
       ...Object.fromEntries(explorerTargetCodes.map((code) => [code, sectionsToExpand])),
     }));
   }, [explorerOpen, explorerTargetCodes, hasPlayerFilter, sectionsToExpand]);
+
+  useEffect(() => {
+    const explorer = explorerRef.current;
+    const accordion = accordionRef.current;
+    if (!explorer || !accordion) return;
+    const updateHeight = () => accordion.style.setProperty("--team-explorer-height", `${explorer.offsetHeight}px`);
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(explorer);
+    return () => observer.disconnect();
+  }, []);
   const allExpanded = teams.length > 0
     && openTeams.length === teams.length
     && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
@@ -231,7 +250,8 @@ export function TeamAccordion({
 
   return (
     <>
-      <section className={`team-explorer ${explorerOpen ? "open" : ""}`}>
+      <div className="team-explorer-sticky" ref={explorerRef}>
+        <section className={`team-explorer ${explorerOpen ? "open" : ""}`}>
         <button className="team-explorer-toggle" type="button" aria-expanded={explorerOpen} onClick={() => {
           if (explorerOpen) {
             setPlayerQuery("");
@@ -282,8 +302,8 @@ export function TeamAccordion({
             <button className="team-explorer-reset" type="button" onClick={resetExplorer}>Azzera filtri</button>
           </div>
         )}
-      </section>
-      <div className="team-accordion-toolbar">
+        </section>
+        <div className="team-accordion-toolbar">
         <button type="button" onClick={toggleRosterOnly}>
           <span>{rosterOnlyExpanded ? "−" : "+"}</span>
           {rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}
@@ -292,11 +312,16 @@ export function TeamAccordion({
           <span>{allExpanded ? "−" : "+"}</span>
           {allExpanded ? "Minimizza tutto" : "Espandi tutto"}
         </button>
+        </div>
       </div>
-      <div className="team-accordion">
+      <div className="team-accordion" ref={accordionRef}>
       {displayedTeams.map((team, index) => {
         const expanded = openTeams.includes(team.code);
         const metrics = teamMetrics.get(team.code)!;
+        const capUsage = 1000 - metrics.currentCap;
+        const capScale = capScaleMaximum <= capScaleMinimum
+          ? (capUsage >= capScaleMaximum ? 1 : 0)
+          : Math.max(0, Math.min(1, (capUsage - capScaleMinimum) / (capScaleMaximum - capScaleMinimum)));
         return (
           <article
             className={`team-accordion-item ${expanded ? "open" : ""} ${team.code === highlightedTeam ? "player-search-team" : ""}`}
@@ -317,7 +342,7 @@ export function TeamAccordion({
                 <strong>{team.name}</strong>
                 <small>{team.owner}</small>
               </span>
-              <CapCurrent value={metrics.currentCap} />
+              <CapCurrent value={metrics.currentCap} scale={capScale} />
               <i aria-hidden="true">{expanded ? "−" : "+"}</i>
             </button>
             {expanded && (
@@ -378,9 +403,9 @@ function slotLabel(slot: PlayerFilter["slots"][number]) {
   return slot === "regular" ? "Roster" : slot === "two_way" ? "Two-way" : slot === "g_league" ? "G-League" : "DPE";
 }
 
-function CapCurrent({ value }: { value: number }) {
-  const tone = value < 0 ? "negative" : value > 0 ? "positive" : "neutral";
-  return <span className={`team-current-cap ${tone}`}>
+function CapCurrent({ value, scale }: { value: number; scale: number }) {
+  const hue = Math.round(132 - (126 * scale));
+  return <span className="team-current-cap" style={{ "--cap-hue": hue } as CSSProperties}>
     <small>Cap libero</small>
     <strong>{value}</strong>
   </span>;
@@ -454,9 +479,9 @@ function TeamDetails({
   return (
     <div className="team-accordion-content">
       <div className="team-summary-strip">
+        <SummaryValue label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} kind="roles" />
         <SummaryValue label={`Cap libero ${capSeasons[1]}`} value={`${capSpaces[1]}`} />
         <SummaryValue label={`Cap libero ${capSeasons[2]}`} value={`${capSpaces[2]}`} />
-        <SummaryValue label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} kind="roles" />
       </div>
 
       {inSeason && playerListPublished && roleMinimumMissing && (
@@ -517,15 +542,17 @@ function TeamDetails({
         <SimplePlayerTable entries={cut} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} cutPlayers playerFilter={playerFilter} highlightedPlayer={highlightedPlayer} />
       </DataSection>
 
-      <DataSection label={`Qualifying offer (${showQualifyingOffers ? rights.length : 0})`} expanded={openSections.includes("qualifying_offer")} onToggle={() => toggleSection("qualifying_offer")}>
-        <div className="data-table qo-data-table">
-          <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
-          {showQualifyingOffers && rights.map((right) => (
-            <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><span className="credit-value">{right.qualifyingAmount}</span></div>
-          ))}
-          {(!showQualifyingOffers || !rights.length) && <EmptyRow />}
-        </div>
-      </DataSection>
+      {showQualifyingOffers && (
+        <DataSection label={`Qualifying offer (${rights.length})`} expanded={openSections.includes("qualifying_offer")} onToggle={() => toggleSection("qualifying_offer")}>
+          <div className="data-table qo-data-table">
+            <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
+            {rights.map((right) => (
+              <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><span className="credit-value">{right.qualifyingAmount}</span></div>
+            ))}
+            {!rights.length && <EmptyRow />}
+          </div>
+        </DataSection>
+      )}
     </div>
   );
 }
