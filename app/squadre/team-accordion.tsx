@@ -12,11 +12,19 @@ import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
 type DataSectionKey = (typeof dataSectionKeys)[number];
 type OpenSectionsByTeam = Record<string, DataSectionKey[]>;
-type TeamSort = "name" | "cap_desc" | "cap_asc" | "roster_space" | "two_way_space";
-type PlayerFilter = { roles: Array<"G" | "A" | "C" | "X">; slots: Array<"regular" | "two_way" | "g_league" | "dpe"> };
+type TeamSort = "name" | "cap_desc" | "roster_space";
+type ContractFilter =
+  | "current_expiry"
+  | "next_expiry"
+  | "following_expiry"
+  | "team_option"
+  | "qualifying_offer"
+  | "extension"
+  | "pending";
+type PlayerFilter = { roles: Array<"G" | "A" | "C" | "X">; contracts: ContractFilter[] };
+type ExplorerDialog = "filter" | "view" | null;
 
 const playerRoles = ["G", "A", "C", "X"] as const;
-const playerSlots = ["regular", "two_way", "g_league", "dpe"] as const;
 const sectionLabels: Record<DataSectionKey, string> = {
   roster: "Roster",
   two_way: "Two-way",
@@ -65,13 +73,22 @@ export function TeamAccordion({
     initialTeam && teams.some((team) => team.code === initialTeam) ? { [initialTeam]: ["roster"] } : {}
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
-  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerDialog, setExplorerDialog] = useState<ExplorerDialog>(null);
+  const [mobileExplorerOpen, setMobileExplorerOpen] = useState(false);
   const [playerQuery, setPlayerQuery] = useState("");
+  const [playerMatchIndex, setPlayerMatchIndex] = useState(0);
   const [teamSort, setTeamSort] = useState<TeamSort>("name");
-  const [playerFilter, setPlayerFilter] = useState<PlayerFilter>({ roles: [], slots: [] });
+  const [playerFilter, setPlayerFilter] = useState<PlayerFilter>({ roles: [], contracts: [] });
   const [sectionsToExpand, setSectionsToExpand] = useState<DataSectionKey[]>(["roster"]);
+  const [filterDraft, setFilterDraft] = useState<PlayerFilter>({ roles: [], contracts: [] });
+  const [viewDraft, setViewDraft] = useState<{ teamSort: TeamSort; sections: DataSectionKey[] }>({
+    teamSort: "name",
+    sections: ["roster"],
+  });
   const teamRefs = useRef(new Map<string, HTMLElement>());
   const explorerRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const mobileToolbarRef = useRef<HTMLDivElement>(null);
   const accordionRef = useRef<HTMLDivElement>(null);
   const highlightedYear = highlightedDraftYear(draftAssets, finalizedDraftPositionYears);
   const displayedDraftAssets = draftAssets;
@@ -83,28 +100,28 @@ export function TeamAccordion({
     return [team.code, {
       currentCap: capSpaces[0],
       rosterSpace: 15 - active.filter((entry) => entry.slot === "regular").length,
-      twoWaySpace: 2 - active.filter((entry) => entry.slot === "two_way").length,
     }];
   })), [capSeasonName, countTeamOptions, rosterEntries, teams]);
-  const hasPlayerFilter = playerFilter.roles.length > 0 || playerFilter.slots.length > 0;
+  const hasPlayerFilter = playerFilter.roles.length > 0 || playerFilter.contracts.length > 0;
+  const availableContractOptions = useMemo(() => contractFilterOptions(capSeasonName).filter((option) => rosterEntries.some((entry) => (
+    entry.state === "active" && matchesContractFilter(entry, option.value, capSeasonName)
+  ))), [capSeasonName, rosterEntries]);
   const capScaleMinimum = useMemo(() => {
     const capValues = [...teamMetrics.values()].map((metrics) => metrics.currentCap);
     return capValues.length ? 1000 - Math.max(...capValues) : 0;
   }, [teamMetrics]);
   const displayedTeams = useMemo(() => teams
     .filter((team) => normalizedQuery || !hasPlayerFilter || rosterEntries.some((entry) => (
-      entry.teamCode === team.code && entry.state === "active" && matchesPlayerFilter(entry, playerFilter)
+      entry.teamCode === team.code && entry.state === "active" && matchesPlayerFilter(entry, playerFilter, capSeasonName)
     )))
     .slice()
     .sort((left, right) => {
       const leftMetrics = teamMetrics.get(left.code)!;
       const rightMetrics = teamMetrics.get(right.code)!;
       if (teamSort === "cap_desc") return rightMetrics.currentCap - leftMetrics.currentCap || left.name.localeCompare(right.name, "it");
-      if (teamSort === "cap_asc") return leftMetrics.currentCap - rightMetrics.currentCap || left.name.localeCompare(right.name, "it");
       if (teamSort === "roster_space") return rightMetrics.rosterSpace - leftMetrics.rosterSpace || left.name.localeCompare(right.name, "it");
-      if (teamSort === "two_way_space") return rightMetrics.twoWaySpace - leftMetrics.twoWaySpace || left.name.localeCompare(right.name, "it");
       return left.name.localeCompare(right.name, "it");
-    }), [hasPlayerFilter, normalizedQuery, playerFilter, rosterEntries, teamMetrics, teamSort, teams]);
+    }), [capSeasonName, hasPlayerFilter, normalizedQuery, playerFilter, rosterEntries, teamMetrics, teamSort, teams]);
   const playerMatches = useMemo(() => {
     if (!normalizedQuery) return [];
     return displayedTeams.flatMap((team) => rosterEntries
@@ -115,13 +132,11 @@ export function TeamAccordion({
         section: slotSectionFor(entry.slot),
       })));
   }, [displayedTeams, normalizedQuery, rosterEntries]);
-  const highlightedPlayer = playerMatches[0]?.playerName;
-  const highlightedTeam = playerMatches[0]?.teamCode;
-  const highlightedSection = playerMatches[0]?.section;
-  const explorerTargetCodes = useMemo(() => (
-    normalizedQuery ? (highlightedTeam ? [highlightedTeam] : []) : displayedTeams.map((team) => team.code)
-  ), [displayedTeams, highlightedTeam, normalizedQuery]);
-
+  const currentPlayerMatchIndex = playerMatches.length ? Math.min(playerMatchIndex, playerMatches.length - 1) : 0;
+  const currentPlayerMatch = playerMatches[currentPlayerMatchIndex];
+  const highlightedPlayer = currentPlayerMatch?.playerName;
+  const highlightedTeam = currentPlayerMatch?.teamCode;
+  const highlightedSection = currentPlayerMatch?.section;
   useEffect(() => {
     if (!highlightedTeam || !highlightedSection) return;
     setOpenTeams((current) => current.includes(highlightedTeam) ? current : [...current, highlightedTeam]);
@@ -134,22 +149,40 @@ export function TeamAccordion({
   }, [highlightedPlayer, highlightedSection, highlightedTeam]);
 
   useEffect(() => {
-    if (!explorerOpen || !hasPlayerFilter || !explorerTargetCodes.length) return;
-    setOpenTeams((current) => [...new Set([...current, ...explorerTargetCodes])]);
-    setOpenSectionsByTeam((current) => ({
-      ...current,
-      ...Object.fromEntries(explorerTargetCodes.map((code) => [code, sectionsToExpand])),
-    }));
-  }, [explorerOpen, explorerTargetCodes, hasPlayerFilter, sectionsToExpand]);
+    if (!normalizedQuery) return;
+    setOpenTeams(teams.map((team) => team.code));
+    setOpenSectionsByTeam(Object.fromEntries(
+      teams.map((team) => [team.code, [...dataSectionKeys]]),
+    ));
+  }, [normalizedQuery, teams]);
+
+  useEffect(() => {
+    const availableFilters = new Set(availableContractOptions.map((option) => option.value));
+    const removeUnavailableFilters = (current: PlayerFilter) => {
+      const contracts = current.contracts.filter((contract) => availableFilters.has(contract));
+      return contracts.length === current.contracts.length ? current : { ...current, contracts };
+    };
+    setPlayerFilter(removeUnavailableFilters);
+    setFilterDraft(removeUnavailableFilters);
+  }, [availableContractOptions]);
 
   useEffect(() => {
     const explorer = explorerRef.current;
+    const toolbar = toolbarRef.current;
+    const mobileToolbar = mobileToolbarRef.current;
     const accordion = accordionRef.current;
-    if (!explorer || !accordion) return;
-    const updateHeight = () => accordion.style.setProperty("--team-explorer-height", `${explorer.offsetHeight}px`);
+    if (!explorer || !toolbar || !mobileToolbar || !accordion) return;
+    const updateHeight = () => {
+      accordion.style.setProperty("--team-explorer-height", `${explorer.offsetHeight}px`);
+      accordion.style.setProperty("--team-toolbar-height", `${toolbar.offsetHeight}px`);
+      accordion.style.setProperty("--team-mobile-toolbar-height", `${mobileToolbar.offsetHeight}px`);
+      explorer.style.setProperty("--team-mobile-toolbar-height", `${mobileToolbar.offsetHeight}px`);
+    };
     updateHeight();
     const observer = new ResizeObserver(updateHeight);
     observer.observe(explorer);
+    observer.observe(toolbar);
+    observer.observe(mobileToolbar);
     return () => observer.disconnect();
   }, []);
   const allExpanded = teams.length > 0
@@ -216,8 +249,8 @@ export function TeamAccordion({
     });
   };
 
-  const togglePlayerFilter = (kind: keyof PlayerFilter, value: string) => {
-    setPlayerFilter((current) => {
+  const toggleDraftPlayerFilter = (kind: keyof PlayerFilter, value: string) => {
+    setFilterDraft((current) => {
       const values = current[kind] as string[];
       return {
         ...current,
@@ -226,95 +259,165 @@ export function TeamAccordion({
     });
   };
 
-  const togglePreferredSection = (section: DataSectionKey) => {
-    const next = sectionsToExpand.includes(section)
-      ? sectionsToExpand.filter((item) => item !== section)
-      : [...sectionsToExpand, section];
-    setSectionsToExpand(next);
-    setOpenTeams((current) => [...new Set([...current, ...explorerTargetCodes])]);
+  const toggleDraftSection = (section: DataSectionKey) => {
+    setViewDraft((current) => ({
+      ...current,
+      sections: current.sections.includes(section)
+        ? current.sections.filter((item) => item !== section)
+        : [...current.sections, section],
+    }));
+  };
+
+  const applyFilter = () => {
+    setPlayerFilter(filterDraft);
+    setExplorerDialog(null);
+  };
+
+  const applyView = () => {
+    setTeamSort(viewDraft.teamSort);
+    setSectionsToExpand(viewDraft.sections);
+    const visibleTeamCodes = displayedTeams.map((team) => team.code);
+    setOpenTeams((current) => [...new Set([...current, ...visibleTeamCodes])]);
     setOpenSectionsByTeam((current) => ({
       ...current,
-      ...Object.fromEntries(explorerTargetCodes.map((code) => [code, next])),
+      ...Object.fromEntries(visibleTeamCodes.map((code) => [code, viewDraft.sections])),
     }));
+    setExplorerDialog(null);
   };
 
   const resetExplorer = () => {
     setPlayerQuery("");
-    setTeamSort("name");
-    setPlayerFilter({ roles: [], slots: [] });
-    setSectionsToExpand(["roster"]);
-    setOpenSectionsByTeam((current) => Object.fromEntries(
-      Object.keys(current).map((teamCode) => [teamCode, ["roster"]]),
-    ));
+    setPlayerMatchIndex(0);
+    setPlayerFilter({ roles: [], contracts: [] });
+    setFilterDraft({ roles: [], contracts: [] });
+    setExplorerDialog(null);
+  };
+
+  const movePlayerMatch = (direction: -1 | 1) => {
+    if (!playerMatches.length) return;
+    setPlayerMatchIndex((current) => (current + direction + playerMatches.length) % playerMatches.length);
+  };
+
+  const toggleMobileExplorer = () => {
+    const opening = !mobileExplorerOpen;
+    setMobileExplorerOpen(opening);
+    if (!opening) return;
+    window.requestAnimationFrame(() => {
+      const explorer = explorerRef.current;
+      if (!explorer) return;
+      const toolbarHeight = mobileToolbarRef.current?.offsetHeight ?? 0;
+      const destination = explorer.getBoundingClientRect().top + window.scrollY - 74 - toolbarHeight;
+      window.scrollTo({ top: Math.max(0, destination), behavior: "smooth" });
+    });
   };
 
   return (
     <>
-      <div className="team-explorer-sticky" ref={explorerRef}>
-        <section className={`team-explorer ${explorerOpen ? "open" : ""}`}>
-        <button className="team-explorer-toggle" type="button" aria-expanded={explorerOpen} onClick={() => {
-          if (explorerOpen) {
-            setPlayerQuery("");
-            setPlayerFilter({ roles: [], slots: [] });
-            setTeamSort("name");
-          }
-          setExplorerOpen(!explorerOpen);
-        }}>
-          <span>Ricerca e visualizzazione</span>
-          <i aria-hidden="true">{explorerOpen ? "−" : "+"}</i>
-        </button>
-        {explorerOpen && (
-          <div className="team-explorer-controls">
-            <label className="team-player-search">
-              <span>Cerca giocatore</span>
-              <input value={playerQuery} onChange={(event) => setPlayerQuery(event.target.value)} placeholder="Scrivi un nome…" autoFocus />
-              {playerQuery && <button type="button" onClick={() => setPlayerQuery("")} aria-label="Cancella ricerca">×</button>}
-              {playerQuery && <small>{highlightedPlayer ? `Primo risultato: ${highlightedPlayer}` : "Nessun giocatore trovato"}</small>}
-            </label>
-            <fieldset className="team-explorer-fieldset">
-              <legend>Filtra per ruolo</legend>
-              <div className="team-explorer-checks">
-                {playerRoles.map((role) => <label key={role}><input type="checkbox" checked={playerFilter.roles.includes(role)} onChange={() => togglePlayerFilter("roles", role)} /> {role}</label>)}
-              </div>
-            </fieldset>
-            <fieldset className="team-explorer-fieldset">
-              <legend>Filtra per slot</legend>
-              <div className="team-explorer-checks">
-                {playerSlots.map((slot) => <label key={slot}><input type="checkbox" checked={playerFilter.slots.includes(slot)} onChange={() => togglePlayerFilter("slots", slot)} /> {slotLabel(slot)}</label>)}
-              </div>
-            </fieldset>
-            <label className="team-explorer-select">
-              <span>Ordina squadre</span>
-              <select value={teamSort} onChange={(event) => setTeamSort(event.target.value as TeamSort)}>
-                <option value="name">Alfabetico</option>
-                <option value="cap_desc">Cap libero: maggiore prima</option>
-                <option value="cap_asc">Cap libero: minore prima</option>
-                <option value="roster_space">Spazio roster: maggiore prima</option>
-                <option value="two_way_space">Spazio Two-way: maggiore prima</option>
-              </select>
-            </label>
-            <fieldset className="team-explorer-fieldset team-explorer-sections">
-              <legend>Menu da aprire</legend>
-              <div className="team-explorer-checks">
-                {dataSectionKeys.map((section) => <label key={section}><input type="checkbox" checked={sectionsToExpand.includes(section)} onChange={() => togglePreferredSection(section)} /> {sectionLabels[section]}</label>)}
-              </div>
-            </fieldset>
-            <button className="team-explorer-reset" type="button" onClick={resetExplorer}>Azzera filtri</button>
-          </div>
-        )}
-        </section>
-        <div className="team-accordion-toolbar">
-        <button type="button" onClick={toggleRosterOnly}>
+      <div className={`team-accordion-mobile-toolbar ${mobileExplorerOpen ? "is-explorer-open" : ""}`} ref={mobileToolbarRef}>
+        <button type="button" onClick={toggleRosterOnly} aria-label={rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}>
           <span>{rosterOnlyExpanded ? "−" : "+"}</span>
-          {rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}
+          Roster
         </button>
-        <button type="button" onClick={toggleEverything}>
+        <button type="button" onClick={toggleEverything} aria-label={allExpanded ? "Minimizza tutto" : "Espandi tutto"}>
           <span>{allExpanded ? "−" : "+"}</span>
-          {allExpanded ? "Minimizza tutto" : "Espandi tutto"}
+          Tutto
+        </button>
+        <button type="button" onClick={toggleMobileExplorer} aria-expanded={mobileExplorerOpen}>
+          <span>{mobileExplorerOpen ? "−" : "+"}</span>
+          Ricerca
+        </button>
+      </div>
+      <div className={`team-explorer-sticky ${mobileExplorerOpen ? "is-mobile-explorer-open" : ""}`} ref={explorerRef}>
+        <section className={`team-explorer ${mobileExplorerOpen ? "is-mobile-open" : "is-mobile-closed"}`}>
+          <div className="team-explorer-bar">
+            <label className="team-player-search">
+              <span className="team-player-search-control">
+                <input value={playerQuery} onChange={(event) => {
+                  setPlayerQuery(event.target.value);
+                  setPlayerMatchIndex(0);
+                }} placeholder="Cerca giocatore..." aria-label="Cerca giocatore" />
+                {playerQuery && <>
+                  <small aria-live="polite">{playerMatches.length ? `${currentPlayerMatchIndex + 1}/${playerMatches.length}` : "0 risultati"}</small>
+                  <button className="team-player-search-nav" type="button" onClick={() => movePlayerMatch(-1)} disabled={!playerMatches.length} aria-label="Risultato precedente">‹</button>
+                  <button className="team-player-search-nav" type="button" onClick={() => movePlayerMatch(1)} disabled={!playerMatches.length} aria-label="Risultato successivo">›</button>
+                  <button className="team-player-search-clear" type="button" onClick={() => {
+                    setPlayerQuery("");
+                    setPlayerMatchIndex(0);
+                  }} aria-label="Cancella ricerca">×</button>
+                </>}
+              </span>
+            </label>
+            <button className={`team-explorer-action ${hasPlayerFilter ? "is-active" : ""}`} type="button" onClick={() => {
+              setFilterDraft(playerFilter);
+              setExplorerDialog("filter");
+            }}><span className="team-explorer-label-desktop">Filtra giocatori</span><span className="team-explorer-label-mobile">Filtra</span></button>
+            <button className={`team-explorer-action ${teamSort !== "name" || sectionsToExpand.length !== 1 || !sectionsToExpand.includes("roster") ? "is-active" : ""}`} type="button" onClick={() => {
+              setViewDraft({ teamSort, sections: sectionsToExpand });
+              setExplorerDialog("view");
+            }}><span className="team-explorer-label-desktop">Ordine e visualizzazione</span><span className="team-explorer-label-mobile">Ordine / vista</span></button>
+            <button className="team-explorer-reset" type="button" onClick={resetExplorer}><span className="team-explorer-label-desktop">Azzera filtri</span><span className="team-explorer-label-mobile">Azzera</span></button>
+          </div>
+        </section>
+        <div className="team-accordion-toolbar" ref={toolbarRef}>
+        <button type="button" onClick={toggleRosterOnly} aria-label={rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}>
+          <span>{rosterOnlyExpanded ? "−" : "+"}</span>
+          <span className="team-toolbar-desktop-label">{rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}</span>
+          <span className="team-toolbar-mobile-label">Roster</span>
+        </button>
+        <button type="button" onClick={toggleEverything} aria-label={allExpanded ? "Minimizza tutto" : "Espandi tutto"}>
+          <span>{allExpanded ? "−" : "+"}</span>
+          <span className="team-toolbar-desktop-label">{allExpanded ? "Minimizza tutto" : "Espandi tutto"}</span>
+          <span className="team-toolbar-mobile-label">Tutto</span>
+        </button>
+        <button className="team-toolbar-mobile-action" type="button" onClick={() => setMobileExplorerOpen((current) => !current)} aria-expanded={mobileExplorerOpen}>
+          <span>{mobileExplorerOpen ? "−" : "+"}</span>
+          <span>Ricerca</span>
         </button>
         </div>
       </div>
-      <div className="team-accordion" ref={accordionRef}>
+      {explorerDialog && (
+        <div className="team-explorer-dialog-backdrop" role="presentation" onMouseDown={() => setExplorerDialog(null)}>
+          <section className="team-explorer-dialog" role="dialog" aria-modal="true" aria-labelledby={`team-explorer-${explorerDialog}-title`} onMouseDown={(event) => event.stopPropagation()}>
+            {explorerDialog === "filter" ? <>
+              <header><span>Ricerca e visualizzazione</span><strong id="team-explorer-filter-title">Filtra giocatori</strong></header>
+              <div className="team-explorer-dialog-body">
+                <fieldset className="team-explorer-fieldset">
+                  <legend>Ruolo</legend>
+                  <div className="team-explorer-checks">
+                    {playerRoles.map((role) => <label key={role}><input type="checkbox" checked={filterDraft.roles.includes(role)} onChange={() => toggleDraftPlayerFilter("roles", role)} /> {role}</label>)}
+                  </div>
+                </fieldset>
+                <fieldset className="team-explorer-fieldset">
+                  <legend>Contratto</legend>
+                  <div className="team-explorer-checks">
+                    {availableContractOptions.map((option) => <label key={option.value}><input type="checkbox" checked={filterDraft.contracts.includes(option.value)} onChange={() => toggleDraftPlayerFilter("contracts", option.value)} /> {option.label}</label>)}
+                  </div>
+                </fieldset>
+              </div>
+              <footer><button className="button secondary" type="button" onClick={() => setExplorerDialog(null)}>Annulla</button><button className="button primary" type="button" onClick={applyFilter}>Applica filtro</button></footer>
+            </> : <>
+              <header><span>Ricerca e visualizzazione</span><strong id="team-explorer-view-title">Ordine e visualizzazione</strong></header>
+              <div className="team-explorer-dialog-body">
+                <fieldset className="team-explorer-fieldset team-explorer-order-options">
+                  <legend>Ordina squadre</legend>
+                  {(["name", "cap_desc", "roster_space"] as TeamSort[]).map((option) => <label key={option}>
+                    <input type="radio" name="team-sort" checked={viewDraft.teamSort === option} onChange={() => setViewDraft((current) => ({ ...current, teamSort: option }))} />
+                    {option === "name" ? "Alfabetico" : option === "cap_desc" ? "Cap libero" : "Spazio roster"}
+                  </label>)}
+                </fieldset>
+                <fieldset className="team-explorer-fieldset">
+                  <legend>Menu da aprire</legend>
+                  <div className="team-explorer-checks">
+                    {dataSectionKeys.map((section) => <label key={section}><input type="checkbox" checked={viewDraft.sections.includes(section)} onChange={() => toggleDraftSection(section)} /> {sectionLabels[section]}</label>)}
+                  </div>
+                </fieldset>
+              </div>
+              <footer><button className="button secondary" type="button" onClick={() => setExplorerDialog(null)}>Annulla</button><button className="button primary" type="button" onClick={applyView}>Applica</button></footer>
+            </>}
+          </section>
+        </div>
+      )}
+      <div className={`team-accordion ${mobileExplorerOpen ? "mobile-explorer-open" : ""}`} ref={accordionRef}>
       {displayedTeams.map((team, index) => {
         const expanded = openTeams.includes(team.code);
         const metrics = teamMetrics.get(team.code)!;
@@ -385,11 +488,11 @@ function teamCapSpaces(entries: RosterEntry[], capSeasonName: string, countTeamO
   }));
 }
 
-function matchesPlayerFilter(entry: RosterEntry, filter: PlayerFilter) {
+function matchesPlayerFilter(entry: RosterEntry, filter: PlayerFilter, capSeasonName: string) {
   const role = entry.role ?? "X";
   const roleMatches = !filter.roles.length || filter.roles.includes(role);
-  const slotMatches = !filter.slots.length || filter.slots.includes(entry.slot);
-  return roleMatches && slotMatches;
+  const contractMatches = !filter.contracts.length || filter.contracts.some((filterKind) => matchesContractFilter(entry, filterKind, capSeasonName));
+  return roleMatches && contractMatches;
 }
 
 function slotSectionFor(slot: RosterEntry["slot"]): DataSectionKey {
@@ -399,8 +502,33 @@ function slotSectionFor(slot: RosterEntry["slot"]): DataSectionKey {
   return "roster";
 }
 
-function slotLabel(slot: PlayerFilter["slots"][number]) {
-  return slot === "regular" ? "Roster" : slot === "two_way" ? "Two-way" : slot === "g_league" ? "G-League" : "DPE";
+function contractFilterOptions(capSeasonName: string): Array<{ value: ContractFilter; label: string }> {
+  const nextSeasonName = followingSeasonName(capSeasonName);
+  const followingSeason = followingSeasonName(capSeasonName, 2);
+  return [
+    { value: "current_expiry", label: contractEndYear(capSeasonName) },
+    { value: "next_expiry", label: contractEndYear(nextSeasonName) },
+    { value: "following_expiry", label: contractEndYear(followingSeason) },
+    { value: "team_option", label: "T.O." },
+    { value: "qualifying_offer", label: "Q.O." },
+    { value: "pending", label: "Da assegnare" },
+    { value: "extension", label: "Estendibile" },
+  ];
+}
+
+function contractEndYear(seasonName: string) {
+  return seasonName.match(/\/(\d{2})$/)?.[1] ?? seasonName;
+}
+
+function matchesContractFilter(entry: RosterEntry, filterKind: ContractFilter, capSeasonName: string) {
+  const contract = entry.contract.trim().toUpperCase();
+  if (filterKind === "current_expiry") return contract.startsWith(contractEndYear(capSeasonName));
+  if (filterKind === "next_expiry") return contract.startsWith(contractEndYear(followingSeasonName(capSeasonName)));
+  if (filterKind === "following_expiry") return contract.startsWith(contractEndYear(followingSeasonName(capSeasonName, 2)));
+  if (filterKind === "team_option") return contract === "T.O.";
+  if (filterKind === "qualifying_offer") return /\(Q\)|\((?:2X|X2)\)/.test(contract);
+  if (filterKind === "extension") return /\(E\)/.test(contract);
+  return contract === "PENDING";
 }
 
 function CapCurrent({ value, scale }: { value: number; scale: number }) {
@@ -609,7 +737,7 @@ function SimplePlayerTable({
   playerFilter?: PlayerFilter;
   highlightedPlayer?: string;
 }) {
-  const filteredEntries = playerFilter ? entries.filter((entry) => matchesPlayerFilter(entry, playerFilter)) : entries;
+  const filteredEntries = playerFilter ? entries.filter((entry) => matchesPlayerFilter(entry, playerFilter, seasonName)) : entries;
   const sortedEntries = sort
     ? sortPlayerEntries(filteredEntries, seasonName, sort)
     : [...filteredEntries].sort((left, right) => (
