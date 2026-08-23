@@ -660,7 +660,6 @@ function PlayerDataRow({
       <span><ContractDisplay
         value={entry.contract}
         auctionAcquisition={entry.auctionAcquisition}
-        playoffTeamOptionPromotionSeason={entry.playoffTeamOptionPromotionSeason}
         slot={entry.slot}
         pendingAuctionContract={pendingAuctionContract}
         teamOptionEligible={Boolean(player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15))}
@@ -726,12 +725,11 @@ function isPendingAuctionContract(entry: RosterEntry, seasonName: string) {
 function ContractDisplay({
   value,
   auctionAcquisition,
-  playoffTeamOptionPromotionSeason,
   slot,
   pendingAuctionContract,
   teamOptionEligible,
   seasonName,
-}: Pick<RosterEntry, "auctionAcquisition" | "playoffTeamOptionPromotionSeason" | "slot"> & {
+}: Pick<RosterEntry, "auctionAcquisition" | "slot"> & {
   value: string;
   pendingAuctionContract: boolean;
   teamOptionEligible: boolean;
@@ -757,7 +755,6 @@ function ContractDisplay({
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "+ Q.O.", kind: "qo" }] : []),
     ...(/\((?:2X|X2)\)/i.test(value) ? [{ label: "×2", kind: "double" }] : []),
-    ...(playoffTeamOptionPromotionSeason ? [{ label: "+ PO", kind: "playoff-promotion" }] : []),
     ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
     ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
   ];
@@ -769,8 +766,6 @@ function ContractDisplay({
         key={marker.kind}
         title={marker.kind === "double"
           ? "Costo raddoppiato nell’ultimo anno"
-          : marker.kind === "playoff-promotion"
-            ? `Promozione obbligatoria nel roster all’inizio dell’offseason ${playoffTeamOptionPromotionSeason}`
           : marker.kind === "acquisition-qo"
             ? "Acquistato tramite Q.O. accettata"
             : marker.kind === "rfa" ? "Acquistato come restricted free agent" : undefined}
