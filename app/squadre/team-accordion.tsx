@@ -244,15 +244,15 @@ export function TeamAccordion({
       <div className={`team-accordion-mobile-toolbar ${explorerOpen ? "is-explorer-open" : ""}`} ref={mobileToolbarRef}>
         <button type="button" onClick={toggleRosterOnly} aria-label={rosterOnlyExpanded ? "Minimizza roster" : "Espandi roster"}>
           <span>{rosterOnlyExpanded ? "−" : "+"}</span>
-          Roster
+          {rosterOnlyExpanded ? "Min. roster" : "Esp. roster"}
         </button>
         <button type="button" onClick={toggleEverything} aria-label={allExpanded ? "Minimizza tutto" : "Espandi tutto"}>
           <span>{allExpanded ? "−" : "+"}</span>
-          Tutto
+          {allExpanded ? "Min. tutto" : "Esp. tutto"}
         </button>
         <button type="button" onClick={toggleExplorer} aria-expanded={explorerOpen}>
           <span>{explorerOpen ? "−" : "+"}</span>
-          Ricerca
+          {explorerOpen ? "Chiudi cerca" : "Apri cerca"}
         </button>
       </div>
       <div className={`team-explorer-sticky ${explorerOpen ? "is-explorer-open" : ""}`} ref={explorerRef}>
@@ -282,7 +282,7 @@ export function TeamAccordion({
         </button>
         <button className="team-toolbar-explorer-action" type="button" onClick={toggleExplorer} aria-expanded={explorerOpen}>
           <span>{explorerOpen ? "−" : "+"}</span>
-          <span>Ricerca</span>
+          <span>{explorerOpen ? "Chiudi ricerca" : "Apri ricerca"}</span>
         </button>
         </div>
       </div>
@@ -296,7 +296,7 @@ export function TeamAccordion({
                 <div className="team-player-search-results" aria-live="polite">
                   {normalizedPlayerSearchQuery.length < 3 ? <p>Scrivi almeno 3 caratteri.</p>
                     : playerSearchMatches.length ? playerSearchMatches.map((entry) => <button type="button" key={`${entry.teamCode}-${entry.name}-${entry.slot}`} onClick={() => focusPlayerTeam(entry)}>
-                      <strong>{entry.name}</strong><small>{entry.teamCode}</small><small>{slotLabel(entry.slot)}</small><i aria-hidden="true">›</i>
+                      <strong>{entry.name}</strong><span className="team-player-search-result-meta"><small>{entry.teamCode}</small><small>{slotLabel(entry.slot)}</small></span><i aria-hidden="true">›</i>
                     </button>) : <p>Nessun giocatore assegnato corrisponde alla ricerca.</p>}
                 </div>
               </div>
@@ -475,8 +475,8 @@ function TeamDetails({
     <div className="team-accordion-content">
       <div className="team-summary-strip">
         <SummaryValue label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} kind="roles" />
-        <SummaryValue label={`Cap libero ${capSeasons[1]}`} value={`${capSpaces[1]}`} />
-        <SummaryValue label={`Cap libero ${capSeasons[2]}`} value={`${capSpaces[2]}`} />
+        <SummaryValue label={`Cap libero ${capSeasons[1]}`} shortLabel={`Cap ${capSeasons[1].slice(2)}`} value={`${capSpaces[1]}`} />
+        <SummaryValue label={`Cap libero ${capSeasons[2]}`} shortLabel={`Cap ${capSeasons[2].slice(2)}`} value={`${capSpaces[2]}`} />
       </div>
 
       {inSeason && playerListPublished && roleMinimumMissing && (
@@ -542,7 +542,7 @@ function TeamDetails({
           <div className="data-table qo-data-table">
             <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
             {rights.map((right) => (
-              <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><span className="credit-value">{right.qualifyingAmount}</span></div>
+              <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><strong className="credit-value">{right.qualifyingAmount}</strong></div>
             ))}
             {!rights.length && <EmptyRow />}
           </div>
@@ -552,8 +552,8 @@ function TeamDetails({
   );
 }
 
-function SummaryValue({ label, value, kind }: { label: string; value: string; kind?: "roles" }) {
-  return <div className={kind}><span>{label}</span><strong>{value}</strong></div>;
+function SummaryValue({ label, shortLabel, value, kind }: { label: string; shortLabel?: string; value: string; kind?: "roles" }) {
+  return <div className={`summary-value ${kind ?? ""}`}><span><em className="summary-label-full">{label}</em><em className="summary-label-short">{shortLabel ?? label}</em></span><strong>{value}</strong></div>;
 }
 
 function DataSection({
@@ -580,9 +580,16 @@ function DataSection({
   );
 }
 
+/*
 function SortButton({ label, sortKey, sort, onClick }: { label: string; sortKey: SortKey; sort: SortState; onClick: (key: SortKey) => void }) {
   const active = sort.key === sortKey;
   return <button type="button" onClick={() => onClick(sortKey)}>{label}{active ? (sort.direction === "asc" ? " ↑" : " ↓") : ""}</button>;
+}
+
+*/
+function RosterSortButton({ label, sortKey, sort, onClick }: { label: string; sortKey: SortKey; sort: SortState; onClick: (key: SortKey) => void }) {
+  const active = sort.key === sortKey;
+  return <button type="button" onClick={() => onClick(sortKey)}><span>{label}</span>{active && <i className="sort-direction" aria-hidden="true">{sort.direction === "asc" ? "↑" : "↓"}</i>}</button>;
 }
 
 function SimplePlayerTable({
@@ -612,10 +619,10 @@ function SimplePlayerTable({
     <div className={`data-table roster-data-table ${cutPlayers ? "cut-player-table" : ""}`}>
       <div className="data-head">
         {sort && onSort && !cutPlayers ? <>
-          <SortButton label="Giocatore" sortKey="name" sort={sort} onClick={onSort} />
-          <SortButton label="Ruolo" sortKey="role" sort={sort} onClick={onSort} />
-          <SortButton label="Scadenza" sortKey="contract" sort={sort} onClick={onSort} />
-          <SortButton label="Costo" sortKey="cost" sort={sort} onClick={onSort} />
+          <RosterSortButton label="Giocatore" sortKey="name" sort={sort} onClick={onSort} />
+          <RosterSortButton label="Ruolo" sortKey="role" sort={sort} onClick={onSort} />
+          <RosterSortButton label="Scadenza" sortKey="contract" sort={sort} onClick={onSort} />
+          <RosterSortButton label="Costo" sortKey="cost" sort={sort} onClick={onSort} />
         </> : <>
           <span>Giocatore</span>
           <span>{cutPlayers ? "Stretch" : "Ruolo"}</span>
@@ -665,7 +672,7 @@ function PlayerDataRow({
         teamOptionEligible={Boolean(player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15))}
         seasonName={seasonName}
       /></span>
-      <span><i className="credit-value">{contractCostForSeason(entry, seasonName)}</i></span>
+      <span><strong className="credit-value">{contractCostForSeason(entry, seasonName)}</strong></span>
     </div>
   );
 }
