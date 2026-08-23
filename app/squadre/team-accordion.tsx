@@ -13,18 +13,9 @@ const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut",
 type DataSectionKey = (typeof dataSectionKeys)[number];
 type OpenSectionsByTeam = Record<string, DataSectionKey[]>;
 type TeamSort = "name" | "cap_desc" | "roster_space";
-type ContractFilter =
-  | "current_expiry"
-  | "next_expiry"
-  | "following_expiry"
-  | "team_option"
-  | "qualifying_offer"
-  | "extension"
-  | "pending";
-type PlayerFilter = { roles: Array<"G" | "A" | "C" | "X">; contracts: ContractFilter[] };
-type ExplorerDialog = "filter" | "view" | null;
+type ExplorerDialog = "search" | "order" | "view" | null;
 
-const playerRoles = ["G", "A", "C", "X"] as const;
+const playerSlotSectionKeys: DataSectionKey[] = ["roster", "two_way", "g_league", "dpe"];
 const sectionLabels: Record<DataSectionKey, string> = {
   roster: "Roster",
   two_way: "Two-way",
@@ -75,16 +66,11 @@ export function TeamAccordion({
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const [explorerDialog, setExplorerDialog] = useState<ExplorerDialog>(null);
   const [explorerOpen, setExplorerOpen] = useState(false);
-  const [playerQuery, setPlayerQuery] = useState("");
-  const [playerMatchIndex, setPlayerMatchIndex] = useState(0);
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [teamSort, setTeamSort] = useState<TeamSort>("name");
-  const [playerFilter, setPlayerFilter] = useState<PlayerFilter>({ roles: [], contracts: [] });
   const [sectionsToExpand, setSectionsToExpand] = useState<DataSectionKey[]>(["roster"]);
-  const [filterDraft, setFilterDraft] = useState<PlayerFilter>({ roles: [], contracts: [] });
-  const [viewDraft, setViewDraft] = useState<{ teamSort: TeamSort; sections: DataSectionKey[] }>({
-    teamSort: "name",
-    sections: ["roster"],
-  });
+  const [orderDraft, setOrderDraft] = useState<TeamSort>("name");
+  const [viewDraft, setViewDraft] = useState<DataSectionKey[]>(["roster"]);
   const teamRefs = useRef(new Map<string, HTMLElement>());
   const explorerRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -92,7 +78,7 @@ export function TeamAccordion({
   const accordionRef = useRef<HTMLDivElement>(null);
   const highlightedYear = highlightedDraftYear(draftAssets, finalizedDraftPositionYears);
   const displayedDraftAssets = draftAssets;
-  const normalizedQuery = normalizePlayerName(playerQuery);
+  const normalizedPlayerSearchQuery = normalizePlayerName(playerSearchQuery);
   const teamMetrics = useMemo(() => new Map(teams.map((team) => {
     const entries = rosterEntries.filter((entry) => entry.teamCode === team.code);
     const capSpaces = teamCapSpaces(entries, capSeasonName, countTeamOptions);
@@ -102,18 +88,11 @@ export function TeamAccordion({
       rosterSpace: 15 - active.filter((entry) => entry.slot === "regular").length,
     }];
   })), [capSeasonName, countTeamOptions, rosterEntries, teams]);
-  const hasPlayerFilter = playerFilter.roles.length > 0 || playerFilter.contracts.length > 0;
-  const availableContractOptions = useMemo(() => contractFilterOptions(capSeasonName).filter((option) => rosterEntries.some((entry) => (
-    entry.state === "active" && matchesContractFilter(entry, option.value, capSeasonName)
-  ))), [capSeasonName, rosterEntries]);
   const capScaleMinimum = useMemo(() => {
     const capValues = [...teamMetrics.values()].map((metrics) => metrics.currentCap);
     return capValues.length ? 1000 - Math.max(...capValues) : 0;
   }, [teamMetrics]);
   const displayedTeams = useMemo(() => teams
-    .filter((team) => normalizedQuery || !hasPlayerFilter || rosterEntries.some((entry) => (
-      entry.teamCode === team.code && entry.state === "active" && matchesPlayerFilter(entry, playerFilter, capSeasonName)
-    )))
     .slice()
     .sort((left, right) => {
       const leftMetrics = teamMetrics.get(left.code)!;
@@ -121,50 +100,14 @@ export function TeamAccordion({
       if (teamSort === "cap_desc") return rightMetrics.currentCap - leftMetrics.currentCap || left.name.localeCompare(right.name, "it");
       if (teamSort === "roster_space") return rightMetrics.rosterSpace - leftMetrics.rosterSpace || left.name.localeCompare(right.name, "it");
       return left.name.localeCompare(right.name, "it");
-    }), [capSeasonName, hasPlayerFilter, normalizedQuery, playerFilter, rosterEntries, teamMetrics, teamSort, teams]);
-  const playerMatches = useMemo(() => {
-    if (!normalizedQuery) return [];
-    return displayedTeams.flatMap((team) => rosterEntries
-      .filter((entry) => entry.teamCode === team.code && entry.state === "active" && normalizePlayerName(entry.name).includes(normalizedQuery))
-      .map((entry) => ({
-        teamCode: team.code,
-        playerName: entry.name,
-        section: slotSectionFor(entry.slot),
-      })));
-  }, [displayedTeams, normalizedQuery, rosterEntries]);
-  const currentPlayerMatchIndex = playerMatches.length ? Math.min(playerMatchIndex, playerMatches.length - 1) : 0;
-  const currentPlayerMatch = playerMatches[currentPlayerMatchIndex];
-  const highlightedPlayer = currentPlayerMatch?.playerName;
-  const highlightedTeam = currentPlayerMatch?.teamCode;
-  const highlightedSection = currentPlayerMatch?.section;
-  useEffect(() => {
-    if (!highlightedTeam || !highlightedSection) return;
-    setOpenTeams((current) => current.includes(highlightedTeam) ? current : [...current, highlightedTeam]);
-    setOpenSectionsByTeam((current) => {
-      const sections = current[highlightedTeam] ?? [];
-      return sections.includes(highlightedSection) ? current : { ...current, [highlightedTeam]: [...sections, highlightedSection] };
-    });
-    const frame = window.requestAnimationFrame(() => teamRefs.current.get(highlightedTeam)?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    return () => window.cancelAnimationFrame(frame);
-  }, [highlightedPlayer, highlightedSection, highlightedTeam]);
-
-  useEffect(() => {
-    if (!normalizedQuery) return;
-    setOpenTeams(teams.map((team) => team.code));
-    setOpenSectionsByTeam(Object.fromEntries(
-      teams.map((team) => [team.code, [...dataSectionKeys]]),
-    ));
-  }, [normalizedQuery, teams]);
-
-  useEffect(() => {
-    const availableFilters = new Set(availableContractOptions.map((option) => option.value));
-    const removeUnavailableFilters = (current: PlayerFilter) => {
-      const contracts = current.contracts.filter((contract) => availableFilters.has(contract));
-      return contracts.length === current.contracts.length ? current : { ...current, contracts };
-    };
-    setPlayerFilter(removeUnavailableFilters);
-    setFilterDraft(removeUnavailableFilters);
-  }, [availableContractOptions]);
+    }), [teamMetrics, teamSort, teams]);
+  const playerSearchMatches = useMemo(() => {
+    if (normalizedPlayerSearchQuery.length < 3) return [];
+    return rosterEntries
+      .filter((entry) => entry.state === "active" && normalizePlayerName(entry.name).includes(normalizedPlayerSearchQuery))
+      .slice()
+      .sort((left, right) => left.name.localeCompare(right.name, "it") || left.teamCode.localeCompare(right.teamCode));
+  }, [normalizedPlayerSearchQuery, rosterEntries]);
 
   useEffect(() => {
     const explorer = explorerRef.current;
@@ -249,53 +192,38 @@ export function TeamAccordion({
     });
   };
 
-  const toggleDraftPlayerFilter = (kind: keyof PlayerFilter, value: string) => {
-    setFilterDraft((current) => {
-      const values = current[kind] as string[];
-      return {
-        ...current,
-        [kind]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value],
-      } as PlayerFilter;
-    });
-  };
-
   const toggleDraftSection = (section: DataSectionKey) => {
-    setViewDraft((current) => ({
-      ...current,
-      sections: current.sections.includes(section)
-        ? current.sections.filter((item) => item !== section)
-        : [...current.sections, section],
-    }));
+    setViewDraft((current) => current.includes(section)
+      ? current.filter((item) => item !== section)
+      : [...current, section]);
   };
 
-  const applyFilter = () => {
-    setPlayerFilter(filterDraft);
+  const applyOrder = () => {
+    setTeamSort(orderDraft);
     setExplorerDialog(null);
   };
 
   const applyView = () => {
-    setTeamSort(viewDraft.teamSort);
-    setSectionsToExpand(viewDraft.sections);
+    setSectionsToExpand(viewDraft);
     const visibleTeamCodes = displayedTeams.map((team) => team.code);
     setOpenTeams((current) => [...new Set([...current, ...visibleTeamCodes])]);
     setOpenSectionsByTeam((current) => ({
       ...current,
-      ...Object.fromEntries(visibleTeamCodes.map((code) => [code, viewDraft.sections])),
+      ...Object.fromEntries(visibleTeamCodes.map((code) => [code, viewDraft])),
     }));
     setExplorerDialog(null);
   };
 
-  const resetExplorer = () => {
-    setPlayerQuery("");
-    setPlayerMatchIndex(0);
-    setPlayerFilter({ roles: [], contracts: [] });
-    setFilterDraft({ roles: [], contracts: [] });
-    setExplorerDialog(null);
+  const openPlayerSearch = () => {
+    setPlayerSearchQuery("");
+    setExplorerDialog("search");
   };
 
-  const movePlayerMatch = (direction: -1 | 1) => {
-    if (!playerMatches.length) return;
-    setPlayerMatchIndex((current) => (current + direction + playerMatches.length) % playerMatches.length);
+  const focusPlayerTeam = (entry: RosterEntry) => {
+    setExplorerDialog(null);
+    setOpenTeams((current) => current.includes(entry.teamCode) ? current : [...current, entry.teamCode]);
+    setOpenSectionsByTeam((current) => ({ ...current, [entry.teamCode]: [...playerSlotSectionKeys] }));
+    window.requestAnimationFrame(() => teamRefs.current.get(entry.teamCode)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   const toggleExplorer = () => {
@@ -330,32 +258,15 @@ export function TeamAccordion({
       <div className={`team-explorer-sticky ${explorerOpen ? "is-explorer-open" : ""}`} ref={explorerRef}>
         <section className={`team-explorer ${explorerOpen ? "is-explorer-open" : "is-explorer-closed"}`}>
           <div className="team-explorer-bar">
-            <label className="team-player-search">
-              <span className="team-player-search-control">
-                <input value={playerQuery} onChange={(event) => {
-                  setPlayerQuery(event.target.value);
-                  setPlayerMatchIndex(0);
-                }} placeholder="Cerca giocatore..." aria-label="Cerca giocatore" />
-                {playerQuery && <>
-                  <small aria-live="polite">{playerMatches.length ? `${currentPlayerMatchIndex + 1}/${playerMatches.length}` : "0 risultati"}</small>
-                  <button className="team-player-search-nav" type="button" onClick={() => movePlayerMatch(-1)} disabled={!playerMatches.length} aria-label="Risultato precedente">‹</button>
-                  <button className="team-player-search-nav" type="button" onClick={() => movePlayerMatch(1)} disabled={!playerMatches.length} aria-label="Risultato successivo">›</button>
-                  <button className="team-player-search-clear" type="button" onClick={() => {
-                    setPlayerQuery("");
-                    setPlayerMatchIndex(0);
-                  }} aria-label="Cancella ricerca">×</button>
-                </>}
-              </span>
-            </label>
-            <button className={`team-explorer-action ${hasPlayerFilter ? "is-active" : ""}`} type="button" onClick={() => {
-              setFilterDraft(playerFilter);
-              setExplorerDialog("filter");
-            }}><span className="team-explorer-label-desktop">Filtra giocatori</span><span className="team-explorer-label-mobile">Filtra</span></button>
-            <button className={`team-explorer-action ${teamSort !== "name" || sectionsToExpand.length !== 1 || !sectionsToExpand.includes("roster") ? "is-active" : ""}`} type="button" onClick={() => {
-              setViewDraft({ teamSort, sections: sectionsToExpand });
+            <button className="team-explorer-action" type="button" onClick={openPlayerSearch}>Cerca</button>
+            <button className="team-explorer-action" type="button" onClick={() => {
+              setOrderDraft(teamSort);
+              setExplorerDialog("order");
+            }}>Ordina</button>
+            <button className="team-explorer-action" type="button" onClick={() => {
+              setViewDraft(sectionsToExpand);
               setExplorerDialog("view");
-            }}><span className="team-explorer-label-desktop">Ordine e visualizzazione</span><span className="team-explorer-label-mobile">Ordine / vista</span></button>
-            <button className="team-explorer-reset" type="button" onClick={resetExplorer}><span className="team-explorer-label-desktop">Azzera filtri</span><span className="team-explorer-label-mobile">Azzera</span></button>
+            }}>Visualizza</button>
           </div>
         </section>
         <div className={`team-accordion-toolbar ${explorerOpen ? "is-explorer-open" : ""}`} ref={toolbarRef}>
@@ -377,38 +288,36 @@ export function TeamAccordion({
       </div>
       {explorerDialog && (
         <div className="team-explorer-dialog-backdrop" role="presentation" onMouseDown={() => setExplorerDialog(null)}>
-          <section className="team-explorer-dialog" role="dialog" aria-modal="true" aria-labelledby={`team-explorer-${explorerDialog}-title`} onMouseDown={(event) => event.stopPropagation()}>
-            {explorerDialog === "filter" ? <>
-              <header><span>Ricerca e visualizzazione</span><strong id="team-explorer-filter-title">Filtra giocatori</strong></header>
-              <div className="team-explorer-dialog-body">
-                <fieldset className="team-explorer-fieldset">
-                  <legend>Ruolo</legend>
-                  <div className="team-explorer-checks">
-                    {playerRoles.map((role) => <label key={role}><input type="checkbox" checked={filterDraft.roles.includes(role)} onChange={() => toggleDraftPlayerFilter("roles", role)} /> {role}</label>)}
-                  </div>
-                </fieldset>
-                <fieldset className="team-explorer-fieldset">
-                  <legend>Contratto</legend>
-                  <div className="team-explorer-checks">
-                    {availableContractOptions.map((option) => <label key={option.value}><input type="checkbox" checked={filterDraft.contracts.includes(option.value)} onChange={() => toggleDraftPlayerFilter("contracts", option.value)} /> {option.label}</label>)}
-                  </div>
-                </fieldset>
+          <section className={`team-explorer-dialog ${explorerDialog === "search" ? "team-player-search-dialog" : ""}`} role="dialog" aria-modal="true" aria-labelledby={`team-explorer-${explorerDialog}-title`} onMouseDown={(event) => event.stopPropagation()}>
+            {explorerDialog === "search" ? <>
+              <header><span>Squadre</span><strong id="team-explorer-search-title">Cerca giocatore</strong></header>
+              <div className="team-explorer-dialog-body team-player-search-dialog-body">
+                <label className="team-player-search-dialog-input"><span>Nome giocatore</span><input autoFocus value={playerSearchQuery} onChange={(event) => setPlayerSearchQuery(event.target.value)} placeholder="Almeno 3 caratteri..." /></label>
+                <div className="team-player-search-results" aria-live="polite">
+                  {normalizedPlayerSearchQuery.length < 3 ? <p>Scrivi almeno 3 caratteri.</p>
+                    : playerSearchMatches.length ? playerSearchMatches.map((entry) => <button type="button" key={`${entry.teamCode}-${entry.name}-${entry.slot}`} onClick={() => focusPlayerTeam(entry)}>
+                      <strong>{entry.name}</strong><small>{entry.teamCode}</small><small>{slotLabel(entry.slot)}</small><i aria-hidden="true">›</i>
+                    </button>) : <p>Nessun giocatore assegnato corrisponde alla ricerca.</p>}
+                </div>
               </div>
-              <footer><button className="button secondary" type="button" onClick={() => setExplorerDialog(null)}>Annulla</button><button className="button primary" type="button" onClick={applyFilter}>Applica filtro</button></footer>
-            </> : <>
-              <header><span>Ricerca e visualizzazione</span><strong id="team-explorer-view-title">Ordine e visualizzazione</strong></header>
+              <footer><button className="button secondary" type="button" onClick={() => setExplorerDialog(null)}>Chiudi</button></footer>
+            </> : explorerDialog === "order" ? <>
+              <header><span>Squadre</span><strong id="team-explorer-order-title">Ordina squadre</strong></header>
               <div className="team-explorer-dialog-body">
                 <fieldset className="team-explorer-fieldset team-explorer-order-options">
-                  <legend>Ordina squadre</legend>
                   {(["name", "cap_desc", "roster_space"] as TeamSort[]).map((option) => <label key={option}>
-                    <input type="radio" name="team-sort" checked={viewDraft.teamSort === option} onChange={() => setViewDraft((current) => ({ ...current, teamSort: option }))} />
+                    <input type="radio" name="team-sort" checked={orderDraft === option} onChange={() => setOrderDraft(option)} />
                     {option === "name" ? "Alfabetico" : option === "cap_desc" ? "Cap libero" : "Spazio roster"}
                   </label>)}
                 </fieldset>
+              </div>
+              <footer><button className="button secondary" type="button" onClick={() => setExplorerDialog(null)}>Annulla</button><button className="button primary" type="button" onClick={applyOrder}>Applica ordine</button></footer>
+            </> : <>
+              <header><span>Squadre</span><strong id="team-explorer-view-title">Visualizza menu</strong></header>
+              <div className="team-explorer-dialog-body">
                 <fieldset className="team-explorer-fieldset">
-                  <legend>Menu da aprire</legend>
                   <div className="team-explorer-checks">
-                    {dataSectionKeys.map((section) => <label key={section}><input type="checkbox" checked={viewDraft.sections.includes(section)} onChange={() => toggleDraftSection(section)} /> {sectionLabels[section]}</label>)}
+                    {dataSectionKeys.map((section) => <label key={section}><input type="checkbox" checked={viewDraft.includes(section)} onChange={() => toggleDraftSection(section)} /> {sectionLabels[section]}</label>)}
                   </div>
                 </fieldset>
               </div>
@@ -427,7 +336,7 @@ export function TeamAccordion({
           : Math.max(0, Math.min(1, (capUsage - capScaleMinimum) / (capScaleMaximum - capScaleMinimum)));
         return (
           <article
-            className={`team-accordion-item ${expanded ? "open" : ""} ${team.code === highlightedTeam ? "player-search-team" : ""}`}
+            className={`team-accordion-item ${expanded ? "open" : ""}`}
             key={team.code}
             ref={(element) => {
               if (element) teamRefs.current.set(team.code, element);
@@ -466,8 +375,6 @@ export function TeamAccordion({
                 changeSort={changeSort}
                 openSections={openSectionsByTeam[team.code] ?? ["roster"]}
                 toggleSection={(section) => toggleDataSection(team.code, section)}
-                playerFilter={playerFilter}
-                highlightedPlayer={team.code === highlightedTeam ? highlightedPlayer : undefined}
               />
             )}
           </article>
@@ -488,47 +395,11 @@ function teamCapSpaces(entries: RosterEntry[], capSeasonName: string, countTeamO
   }));
 }
 
-function matchesPlayerFilter(entry: RosterEntry, filter: PlayerFilter, capSeasonName: string) {
-  const role = entry.role ?? "X";
-  const roleMatches = !filter.roles.length || filter.roles.includes(role);
-  const contractMatches = !filter.contracts.length || filter.contracts.some((filterKind) => matchesContractFilter(entry, filterKind, capSeasonName));
-  return roleMatches && contractMatches;
-}
-
-function slotSectionFor(slot: RosterEntry["slot"]): DataSectionKey {
-  if (slot === "two_way") return "two_way";
-  if (slot === "g_league") return "g_league";
-  if (slot === "dpe") return "dpe";
-  return "roster";
-}
-
-function contractFilterOptions(capSeasonName: string): Array<{ value: ContractFilter; label: string }> {
-  const nextSeasonName = followingSeasonName(capSeasonName);
-  const followingSeason = followingSeasonName(capSeasonName, 2);
-  return [
-    { value: "current_expiry", label: contractEndYear(capSeasonName) },
-    { value: "next_expiry", label: contractEndYear(nextSeasonName) },
-    { value: "following_expiry", label: contractEndYear(followingSeason) },
-    { value: "team_option", label: "T.O." },
-    { value: "qualifying_offer", label: "Q.O." },
-    { value: "pending", label: "Da assegnare" },
-    { value: "extension", label: "Estendibile" },
-  ];
-}
-
-function contractEndYear(seasonName: string) {
-  return seasonName.match(/\/(\d{2})$/)?.[1] ?? seasonName;
-}
-
-function matchesContractFilter(entry: RosterEntry, filterKind: ContractFilter, capSeasonName: string) {
-  const contract = entry.contract.trim().toUpperCase();
-  if (filterKind === "current_expiry") return contract.startsWith(contractEndYear(capSeasonName));
-  if (filterKind === "next_expiry") return contract.startsWith(contractEndYear(followingSeasonName(capSeasonName)));
-  if (filterKind === "following_expiry") return contract.startsWith(contractEndYear(followingSeasonName(capSeasonName, 2)));
-  if (filterKind === "team_option") return contract === "T.O.";
-  if (filterKind === "qualifying_offer") return /\(Q\)|\((?:2X|X2)\)/.test(contract);
-  if (filterKind === "extension") return /\(E\)/.test(contract);
-  return contract === "PENDING";
+function slotLabel(slot: RosterEntry["slot"]) {
+  if (slot === "two_way") return "Two-way";
+  if (slot === "g_league") return "G-League";
+  if (slot === "dpe") return "DPE";
+  return "Roster";
 }
 
 function CapCurrent({ value, scale }: { value: number; scale: number }) {
@@ -556,8 +427,6 @@ function TeamDetails({
   changeSort,
   openSections,
   toggleSection,
-  playerFilter,
-  highlightedPlayer,
 }: {
   entries: RosterEntry[];
   assets: DraftAsset[];
@@ -575,8 +444,6 @@ function TeamDetails({
   changeSort: (key: SortKey) => void;
   openSections: DataSectionKey[];
   toggleSection: (section: DataSectionKey) => void;
-  playerFilter: PlayerFilter;
-  highlightedPlayer?: string;
 }) {
   const active = entries.filter((entry) => entry.state === "active");
   const regular = active.filter((entry) => entry.slot === "regular");
@@ -627,23 +494,23 @@ function TeamDetails({
         </section>
       )}
 
-      <DataSection label={`Roster (${regular.length}/15)`} expanded={openSections.includes("roster")} onToggle={() => toggleSection("roster")}>
-        <SimplePlayerTable entries={regular} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} playerFilter={playerFilter} highlightedPlayer={highlightedPlayer} />
+      <DataSection tone="roster" label={`Roster (${regular.length}/15)`} expanded={openSections.includes("roster")} onToggle={() => toggleSection("roster")}>
+        <SimplePlayerTable entries={regular} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
-      <DataSection label={`Two-way (${twoWay.length}/2)`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
-        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} playerFilter={playerFilter} highlightedPlayer={highlightedPlayer} />
+      <DataSection tone="two_way" label={`Two-way (${twoWay.length}/2)`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
+        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
-      <DataSection label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>
-        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} playerFilter={playerFilter} highlightedPlayer={highlightedPlayer} />
+      <DataSection tone="g_league" label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>
+        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
-      <DataSection label={`Disabled player exception (${dpe.length}/1)`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
-        <SimplePlayerTable entries={dpe} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} playerFilter={playerFilter} highlightedPlayer={highlightedPlayer} />
+      <DataSection tone="dpe" label={`Disabled player exception (${dpe.length}/1)`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
+        <SimplePlayerTable entries={dpe} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} />
       </DataSection>
 
-      <DataSection label={`Scelte (${eligibleAssetCount})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
+      <DataSection tone="draft" label={`Scelte (${eligibleAssetCount})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
         <div className="data-table draft-data-table">
           <div className="data-head"><span>Anno</span><span>Giro</span><span>SQ / POS</span><span>Clausola</span></div>
           {sortedAssets.map((asset, index) => {
@@ -666,12 +533,12 @@ function TeamDetails({
         </div>
       </DataSection>
 
-      <DataSection label={`Tagliati (${cut.length})`} expanded={openSections.includes("cut")} onToggle={() => toggleSection("cut")}>
-        <SimplePlayerTable entries={cut} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} cutPlayers playerFilter={playerFilter} highlightedPlayer={highlightedPlayer} />
+      <DataSection tone="cut" label={`Tagliati (${cut.length})`} expanded={openSections.includes("cut")} onToggle={() => toggleSection("cut")}>
+        <SimplePlayerTable entries={cut} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} cutPlayers />
       </DataSection>
 
       {showQualifyingOffers && (
-        <DataSection label={`Qualifying offer (${rights.length})`} expanded={openSections.includes("qualifying_offer")} onToggle={() => toggleSection("qualifying_offer")}>
+        <DataSection tone="qualifying_offer" label={`Qualifying offer (${rights.length})`} expanded={openSections.includes("qualifying_offer")} onToggle={() => toggleSection("qualifying_offer")}>
           <div className="data-table qo-data-table">
             <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
             {rights.map((right) => (
@@ -690,18 +557,20 @@ function SummaryValue({ label, value, kind }: { label: string; value: string; ki
 }
 
 function DataSection({
+  tone,
   label,
   expanded,
   onToggle,
   children,
 }: {
+  tone: DataSectionKey;
   label: string;
   expanded: boolean;
   onToggle: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <section className={`accordion-data-section ${expanded ? "open" : ""}`}>
+    <section className={`accordion-data-section section-${tone} ${expanded ? "open" : ""}`}>
       <button className="accordion-data-section-trigger" type="button" aria-expanded={expanded} onClick={onToggle}>
         <span>{label}</span>
         <i aria-hidden="true">{expanded ? "−" : "+"}</i>
@@ -724,8 +593,6 @@ function SimplePlayerTable({
   cutPlayers = false,
   sort,
   onSort,
-  playerFilter,
-  highlightedPlayer,
 }: {
   entries: RosterEntry[];
   seasonName: string;
@@ -734,13 +601,10 @@ function SimplePlayerTable({
   cutPlayers?: boolean;
   sort?: SortState;
   onSort?: (key: SortKey) => void;
-  playerFilter?: PlayerFilter;
-  highlightedPlayer?: string;
 }) {
-  const filteredEntries = playerFilter ? entries.filter((entry) => matchesPlayerFilter(entry, playerFilter, seasonName)) : entries;
   const sortedEntries = sort
-    ? sortPlayerEntries(filteredEntries, seasonName, sort)
-    : [...filteredEntries].sort((left, right) => (
+    ? sortPlayerEntries(entries, seasonName, sort)
+    : [...entries].sort((left, right) => (
       contractCostForSeason(right, seasonName) - contractCostForSeason(left, seasonName)
       || left.name.localeCompare(right.name, "it")
     ));
@@ -765,7 +629,6 @@ function SimplePlayerTable({
         player={playerList.find((item) => normalizePlayerName(item.name) === normalizePlayerName(entry.name))}
         pendingAuctionContract={pendingAuctionContracts && isPendingAuctionContract(entry, seasonName)}
         cutPlayer={cutPlayers}
-        highlighted={Boolean(highlightedPlayer && normalizePlayerName(entry.name) === normalizePlayerName(highlightedPlayer))}
         key={`${entry.name}-${entry.state}`}
       />)}
       {!sortedEntries.length && <EmptyRow />}
@@ -801,6 +664,7 @@ function PlayerDataRow({
         slot={entry.slot}
         pendingAuctionContract={pendingAuctionContract}
         teamOptionEligible={Boolean(player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15))}
+        seasonName={seasonName}
       /></span>
       <span><i className="credit-value">{contractCostForSeason(entry, seasonName)}</i></span>
     </div>
@@ -866,10 +730,12 @@ function ContractDisplay({
   slot,
   pendingAuctionContract,
   teamOptionEligible,
+  seasonName,
 }: Pick<RosterEntry, "auctionAcquisition" | "playoffTeamOptionPromotionSeason" | "slot"> & {
   value: string;
   pendingAuctionContract: boolean;
   teamOptionEligible: boolean;
+  seasonName: string;
 }) {
   if (pendingAuctionContract) {
     const pendingMarkers = [
@@ -886,6 +752,7 @@ function ContractDisplay({
   if (!value) return <i className="contract-value">—</i>;
   if (value === "T.O.") return <i className="contract-value contract-team-option">T.O.</i>;
   const year = value.match(/\d{2}/)?.[0] ?? value;
+  const expiryTone = contractExpiryTone(year, seasonName);
   const markers = [
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "+ Q.O.", kind: "qo" }] : []),
@@ -896,7 +763,7 @@ function ContractDisplay({
   ];
   return (
     <span className="contract-group">
-      <i className="contract-value">{year}</i>
+      <i className={`contract-value contract-expiry contract-expiry-${expiryTone}`}>{year}</i>
       {markers.map((marker) => <i
         className={`contract-marker contract-marker-${marker.kind}`}
         key={marker.kind}
@@ -910,4 +777,12 @@ function ContractDisplay({
       >{marker.label}</i>)}
     </span>
   );
+}
+
+function contractExpiryTone(year: string, seasonName: string) {
+  const contractYear = Number(year);
+  const currentYear = Number(seasonName.match(/\/(\d{2})$/)?.[1]);
+  if (!Number.isFinite(contractYear) || !Number.isFinite(currentYear)) return "later";
+  const distance = (contractYear - currentYear + 100) % 100;
+  return distance === 0 ? "current" : distance === 1 ? "next" : "later";
 }
