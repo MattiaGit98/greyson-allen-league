@@ -234,7 +234,8 @@ export function TeamAccordion({
       const explorer = explorerRef.current;
       if (!explorer) return;
       const toolbarHeight = mobileToolbarRef.current?.offsetHeight ?? 0;
-      const destination = explorer.getBoundingClientRect().top + window.scrollY - 74 - toolbarHeight;
+      const headerHeight = document.querySelector<HTMLElement>(".site-header")?.offsetHeight ?? 74;
+      const destination = explorer.getBoundingClientRect().top + window.scrollY - headerHeight - toolbarHeight;
       window.scrollTo({ top: Math.max(0, destination), behavior: "smooth" });
     });
   };
