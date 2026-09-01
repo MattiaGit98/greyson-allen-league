@@ -17,11 +17,16 @@ const operationLabels: Record<string, string> = {
   sign_and_trade: "Sign and trade",
   scelta_draft: "Scelta draft",
   ordine_draft_finale: "Ordine draft finale",
+  consegna_contratti: "Consegna contratti completata",
   movimento_annullato: "Movimento annullato",
   rettifica_roster_contratto: "Rettifica dell'admin",
   rettifica_roster_rimozione: "Rettifica dell'admin",
   rettifica_roster_aggiunta: "Rettifica dell'admin",
 };
+
+export const movementFilterOptions = Object.entries(operationLabels)
+  .map(([value, label]) => ({ value, label }))
+  .sort((left, right) => left.label.localeCompare(right.label, "it"));
 
 export function movementOperationLabel(operationType: string) {
   const normalized = operationType.trim().toLocaleLowerCase("it-IT");

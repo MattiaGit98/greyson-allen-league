@@ -114,6 +114,9 @@ export function movementUndoWindowError({
       ? "L'ordine definitivo del Draft non può essere annullato."
       : "Una scelta ufficiale del Draft non può essere annullata.";
   }
+  if (operationType === "consegna_contratti") {
+    return "La consegna dei contratti non può essere annullata dal registro movimenti.";
+  }
   if (operationType === "acquisto_asta" && !operationWindows.auction(currentMoment)) {
     return "Un'assegnazione d'asta non può più essere annullata dopo il Termine asta.";
   }
