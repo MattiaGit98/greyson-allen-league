@@ -14,7 +14,7 @@ export async function saveTeamIdentity(
   const code = String(formData.get("code") ?? "").trim().toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
   const owner = String(formData.get("owner") ?? "").trim();
-  if (!/^[A-Z0-9]{2,5}$/.test(code)) return { error: "La sigla deve contenere da 2 a 5 lettere o numeri." };
+  if (!/^[A-Z]{3}$/.test(code)) return { error: "La sigla deve contenere esattamente tre lettere." };
   if (!name || name.length > 100) return { error: "Inserisci un nome squadra valido." };
   if (!owner || owner.length > 200) return { error: "Inserisci almeno un proprietario." };
 

@@ -350,7 +350,10 @@ export function TeamAccordion({
               aria-expanded={expanded}
               onClick={() => toggleTeam(team.code, expanded)}
             >
-              <b className={`team-code-badge team-hue-${index % 7}`}>{team.code}</b>
+              <b className={`team-code-badge team-hue-${index % 7}`} aria-label={`Sigla ${team.code}`}>{team.code}</b>
+              <b className={`team-code-rail team-hue-${index % 7}`} aria-label={`Sigla ${team.code}`}>
+                {[...team.code].map((letter, index) => <span aria-hidden="true" key={`${letter}-${index}`}>{letter}</span>)}
+              </b>
               <span className="team-accordion-identity">
                 <strong>{team.name}</strong>
                 <small>{team.owner}</small>
