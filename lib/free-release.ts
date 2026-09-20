@@ -19,6 +19,7 @@ export const freeReleaseReasonLabels: Record<FreeReleaseReason, string> = {
 export type FreeReleasePlayer = {
   cost: number;
   contract: string;
+  state: "active" | "cut";
 };
 
 export function isFreeReleaseReason(value: string): value is FreeReleaseReason {
@@ -49,6 +50,9 @@ export function freeReleaseReasonAvailability(
   }
 
   if (reason === "under_half_games") {
+    if (player.state !== "active") {
+      return { available: false, unavailableReason: "Questa causale è riservata ai giocatori non ancora tagliati." };
+    }
     const available = !hasReachedMoment(moment, "auction_start");
     return available
       ? { available: true }
