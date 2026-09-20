@@ -267,14 +267,14 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
       <div className="team-option-editor">
         <div className="team-option-mode playoff">
           <span>Esercizio anticipato</span>
-          <strong>Utilizzo nei playoff</strong>
+          <strong>Utilizzo in una gara dei playoff</strong>
         </div>
         <label className="admin-team-select team-option-team-select">
           <span>Squadra</span>
           <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setSelected({}); }} />
         </label>
         <div className="team-option-list">
-          <div className="team-option-list-head"><span>Giocatore</span><span>Utilizzato nei playoff</span><span>Effetto</span></div>
+          <div className="team-option-list-head"><span>Giocatore</span><span>Utilizzato in una gara dei playoff</span><span>Effetto</span></div>
           {players.map((player) => (
             <div className="team-option-row" key={player.id}>
               <div className="team-option-player">

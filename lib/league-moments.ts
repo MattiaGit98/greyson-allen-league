@@ -7,6 +7,7 @@ export const leagueMoments = [
   "trade_deadline",
   "buyout_end",
   "free_agency_end",
+  "free_agency_reopening",
 ] as const;
 
 export type LeagueMoment = (typeof leagueMoments)[number];
@@ -21,6 +22,7 @@ export const leagueMomentLabels: Record<LeagueTransition, string> = {
   trade_deadline: "Trade deadline",
   buyout_end: "Termine buyout",
   free_agency_end: "Termine free agency",
+  free_agency_reopening: "Riapertura free agency",
   season_end: "Fine stagione",
 };
 
@@ -76,11 +78,14 @@ export function tradesAreSuspendedForAuction(moment: LeagueMoment) {
 
 export const operationWindows = {
   teamOption: (moment: LeagueMoment) => moment === "offseason_start",
-  playoffTeamOption: (moment: LeagueMoment) => moment === "free_agency_end",
+  playoffTeamOption: (moment: LeagueMoment) => hasReachedMoment(moment, "free_agency_end"),
   draft: (moment: LeagueMoment) => hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "auction_start"),
   auction: (moment: LeagueMoment) => hasReachedMoment(moment, "auction_start") && !hasReachedMoment(moment, "auction_completed"),
   contractAssignment: (moment: LeagueMoment) => moment === "auction_completed",
-  freeAgency: (moment: LeagueMoment) => hasReachedMoment(moment, "contract_delivery") && !hasReachedMoment(moment, "free_agency_end"),
+  freeAgency: (moment: LeagueMoment) => (
+    (hasReachedMoment(moment, "contract_delivery") && !hasReachedMoment(moment, "free_agency_end"))
+    || hasReachedMoment(moment, "free_agency_reopening")
+  ),
   trades: (moment: LeagueMoment) => (
     !tradesAreSuspendedForAuction(moment)
     && !hasReachedMoment(moment, "trade_deadline")

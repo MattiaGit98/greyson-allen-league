@@ -13,6 +13,7 @@ export const datedLeagueTransitions: LeagueCalendarEventKey[] = [
   "buyout_end",
   "free_agency_end",
   "postseason_start",
+  "free_agency_reopening",
   "season_end",
 ];
 
@@ -69,8 +70,8 @@ export function nextPhaseDate(dates: PhaseDateMap, moment: LeagueMoment, today?:
     if (postseasonStart && (!today || postseasonStart >= today)) {
       return { transition: "postseason_start" as const, event: calendarEventLabel("postseason_start"), date: postseasonStart };
     }
-    const date = phaseDateForTransition(dates, "season_end");
-    return date ? { transition: "season_end" as const, event: calendarEventLabel("season_end"), date } : null;
+    const date = phaseDateForTransition(dates, "free_agency_reopening");
+    return date ? { transition: "free_agency_reopening" as const, event: calendarEventLabel("free_agency_reopening"), date } : null;
   }
   const transitions = datedLeagueTransitions.slice(datedLeagueTransitions.indexOf(moment as LeagueTransition) + 1);
   const next = transitions.find((transition): transition is LeagueTransition => (

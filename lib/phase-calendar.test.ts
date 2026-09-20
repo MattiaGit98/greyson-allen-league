@@ -24,6 +24,7 @@ describe("calendario delle fasi", () => {
       { key: "buyout_end", event: "Termine buyout", date: "" },
       { key: "free_agency_end", event: "Termine free agency", date: "" },
       { key: "postseason_start", event: "Inizio postseason", date: "" },
+      { key: "free_agency_reopening", event: "Riapertura free agency", date: "" },
       { key: "season_end", event: "Fine stagione", date: "" },
     ]);
   });
@@ -33,9 +34,10 @@ describe("calendario delle fasi", () => {
     expect(nextPhaseDate(dates, "contract_delivery", "2026-10-16")).toMatchObject({ event: "Trade deadline" });
   });
 
-  it("dopo l'inizio postseason passa automaticamente alla fine stagione", () => {
-    const postseasonDates = normalizePhaseDates({ ...dates, postseason_start: "2027-05-20", season_end: "2027-06-01" });
+  it("dopo l'inizio postseason passa automaticamente alla riapertura della free agency", () => {
+    const postseasonDates = normalizePhaseDates({ ...dates, postseason_start: "2027-05-20", free_agency_reopening: "2027-05-25", season_end: "2027-06-01" });
     expect(nextPhaseDate(postseasonDates, "free_agency_end", "2027-05-20")).toMatchObject({ event: "Inizio postseason" });
-    expect(nextPhaseDate(postseasonDates, "free_agency_end", "2027-05-21")).toMatchObject({ event: "Fine stagione" });
+    expect(nextPhaseDate(postseasonDates, "free_agency_end", "2027-05-21")).toMatchObject({ event: "Riapertura free agency" });
+    expect(nextPhaseDate(postseasonDates, "free_agency_reopening", "2027-05-26")).toMatchObject({ event: "Fine stagione" });
   });
 });

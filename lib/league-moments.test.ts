@@ -23,8 +23,14 @@ describe("momenti della lega", () => {
     expect(operationWindows.teamOption("team_option_deadline")).toBe(false);
     expect(operationWindows.playoffTeamOption("buyout_end")).toBe(false);
     expect(operationWindows.playoffTeamOption("free_agency_end")).toBe(true);
+    expect(operationWindows.playoffTeamOption("free_agency_reopening")).toBe(true);
     expect(operationWindows.freeAgency("contract_delivery")).toBe(true);
     expect(operationWindows.freeAgency("free_agency_end")).toBe(false);
+    expect(operationWindows.freeAgency("free_agency_reopening")).toBe(true);
+    expect(operationWindows.trades("free_agency_reopening")).toBe(false);
+    expect(operationWindows.extensions("free_agency_reopening")).toBe(false);
+    expect(operationWindows.dpeActivation("free_agency_reopening")).toBe(false);
+    expect(operationWindows.dpeReintegration("free_agency_reopening")).toBe(false);
     expect(operationWindows.freeRelease("offseason_start")).toBe(true);
     expect(operationWindows.freeRelease("free_agency_end")).toBe(false);
     expect(operationWindows.buyout("trade_deadline")).toBe(true);
@@ -51,12 +57,14 @@ describe("momenti della lega", () => {
     expect(operationWindows.trades("trade_deadline")).toBe(false);
   });
 
-  it("propone la fine stagione come ultimo passaggio non persistito", () => {
-    expect(nextLeagueTransition("free_agency_end")).toBe("season_end");
+  it("riapre la free agency prima di proporre la fine stagione", () => {
+    expect(nextLeagueTransition("free_agency_end")).toBe("free_agency_reopening");
+    expect(nextLeagueTransition("free_agency_reopening")).toBe("season_end");
   });
 
   it("passa pubblicamente alla postseason alla relativa data, senza creare una nuova fase", () => {
     expect(publicPhaseLabel("free_agency_end", "2027-05-20", "2027-05-19")).toBe("Regular season");
     expect(publicPhaseLabel("free_agency_end", "2027-05-20", "2027-05-20")).toBe("Postseason");
+    expect(publicPhaseLabel("free_agency_reopening", "2027-05-20", "2027-05-25")).toBe("Postseason");
   });
 });

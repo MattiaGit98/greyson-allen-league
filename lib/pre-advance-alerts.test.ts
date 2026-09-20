@@ -172,7 +172,7 @@ describe("avvisi prima dell’avanzamento della lega", () => {
       rosterEntry("In DPE", { slot: "dpe" }),
     ]);
     const result = buildPreAdvanceChecklist({
-      currentMoment: "free_agency_end",
+      currentMoment: "free_agency_reopening",
       seasonName: "2026/27",
       state: current,
       currentHistorySeason: "2026/27",
@@ -186,7 +186,7 @@ describe("avvisi prima dell’avanzamento della lega", () => {
       rosterEntry("Secondo anno", { slot: "two_way", contractStartSeason: "2025/26" }),
     ]);
     const result = buildPreAdvanceChecklist({
-      currentMoment: "free_agency_end",
+      currentMoment: "free_agency_reopening",
       seasonName: "2026/27",
       state: current,
       currentHistorySeason: "2026/27",
@@ -203,7 +203,7 @@ describe("avvisi prima dell’avanzamento della lega", () => {
       playoffTeamOptionPromotionSeason: "2027/28",
     });
     const seasonEndChecklist = buildPreAdvanceChecklist({
-      currentMoment: "free_agency_end",
+      currentMoment: "free_agency_reopening",
       seasonName: "2026/27",
       state: state([
         ...Array.from({ length: 15 }, (_, index) => rosterEntry(`Roster ${index}`)),

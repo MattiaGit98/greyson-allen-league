@@ -94,6 +94,10 @@ export function buildLeagueTransitionPreview(input: {
     preview.newPossibilities.push("Si apre l'esercizio anticipato delle T.O. in G-League utilizzate nei playoff.");
   }
 
+  if (transition === "free_agency_reopening") {
+    preview.newPossibilities.push("Riapre la free agency per la March Madness e resta disponibile fino alla fine della stagione.");
+  }
+
   if (transition === "season_end") {
     try {
       const advance = calculateLeagueAdvance({
@@ -116,6 +120,7 @@ export function buildLeagueTransitionPreview(input: {
     }
     preview.newPossibilities.push("La nuova annata ripartirà da Inizio offseason.");
     preview.closedPossibilities.push("La stagione corrente sarà conclusa.");
+    preview.closedPossibilities.push("Si chiude la free agency riaperta per la March Madness.");
     preview.closedPossibilities.push("Si chiude l'esercizio anticipato delle T.O. per utilizzo nei playoff.");
   }
 
