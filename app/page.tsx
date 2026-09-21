@@ -56,6 +56,9 @@ export default async function HomePage() {
     && (state.finalizedDraftPositionYears ?? []).includes(draftYear)
     ? historyState.competitions.Draft.find((entry) => entry.season === String(draftYear) && entry.content.kind === "draft")
     : undefined;
+  const firstRoundLastPosition = Math.max(0, ...(state.draftOrders ?? [])
+    .filter((assignment) => assignment.year === draftYear && assignment.round === "1° giro")
+    .map((assignment) => assignment.position));
   const selectedCompetition = hasReachedMoment(moment, "contract_delivery") && state.homepageCompetition
     ? { name: state.homepageCompetition, content: competitionState.competitions[state.homepageCompetition] }
     : null;
@@ -120,7 +123,7 @@ export default async function HomePage() {
       </div>
       <div className="home-seasonal-content">
         {selectedHonours?.content.kind === "honours" && <HomeHonoursFeature title={selectedHonours.season} rows={selectedHonours.content.rows} />}
-        {selectedDraft?.content.kind === "draft" && <HomeDraftFeature year={draftYear} rows={selectedDraft.content.rows.map((row) => ({ ...row, team: teamNames.get(row.team) ?? row.team }))} />}
+        {selectedDraft?.content.kind === "draft" && <HomeDraftFeature year={draftYear} firstRoundLastPosition={firstRoundLastPosition} rows={selectedDraft.content.rows.map((row) => ({ ...row, team: teamNames.get(row.team) ?? row.team }))} />}
         {selectedCompetition && <HomeCompetitionFeature name={selectedCompetition.name} content={selectedCompetition.content} teams={competitionState.teams} />}
       </div>
     </section>

@@ -18,9 +18,9 @@ const publicHistoryMenuOptions = [
   ...historyCompetitionNames.filter((name) => name !== "Draft").slice(2),
 ] satisfies HistoryCompetitionName[];
 
-export function HistoryExplorer({ competitions }: { competitions: HistoryCompetitionMap }) {
-  const [selectedName, setSelectedName] = useState<HistoryCompetitionName>(historyCompetitionNames[0]);
-  const [selectedSeason, setSelectedSeason] = useState("");
+export function HistoryExplorer({ competitions, initialName, initialSeason }: { competitions: HistoryCompetitionMap; initialName?: HistoryCompetitionName; initialSeason?: string }) {
+  const [selectedName, setSelectedName] = useState<HistoryCompetitionName>(initialName ?? historyCompetitionNames[0]);
+  const [selectedSeason, setSelectedSeason] = useState(initialSeason ?? "");
   const entries = competitions[selectedName];
   const isAggregate = aggregateHistoryNames.has(selectedName);
   const activeEntry = isAggregate

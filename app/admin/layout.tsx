@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logout } from "@/app/login/actions";
+import { AdminSuccessFeedback } from "@/components/admin-success-feedback";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -15,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <span>Area admin · {user.email}</span>
         <form action={logout}><button type="submit">Esci</button></form>
       </div>
+      <AdminSuccessFeedback />
       {children}
     </>
   );

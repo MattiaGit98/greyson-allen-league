@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { CompetitionContentView } from "@/components/competition-explorer";
 import type { CompetitionContent, CompetitionName, CompetitionTeam } from "@/lib/competitions";
 import type { HistoryHonoursRow } from "@/lib/history-competitions";
@@ -16,13 +17,20 @@ export function HomeHonoursFeature({ title, rows }: { title: string; rows: Histo
   );
 }
 
-export function HomeDraftFeature({ year, rows }: { year: number; rows: Array<{ pick: string; team: string; player: string }> }) {
+export function HomeDraftFeature({ year, rows, firstRoundLastPosition }: { year: number; rows: Array<{ pick: string; team: string; player: string }>; firstRoundLastPosition: number }) {
   return (
     <section className="home-season-feature">
-      <header><div><span>Draft {year}</span><h2>Tabellone draft</h2></div><Link href="/storico">Vai allo storico →</Link></header>
+      <header><div><span>Draft {year}</span><h2>Tabellone draft</h2></div><Link href={`/storico?category=Draft&season=${year}`}>Vai allo storico →</Link></header>
       <div className="home-draft-board">
         <div><span>#</span><span>Squadra</span><span>Giocatore</span></div>
-        {rows.map((row, index) => <div className={row.player ? "is-assigned" : ""} key={`${row.pick}-${index}`}><strong>{row.pick || String(index + 1)}</strong><span>{row.team || "—"}</span><span>{row.player || "Da assegnare"}</span></div>)}
+        {rows.map((row, index) => {
+          const position = Number(row.pick) || index + 1;
+          return <Fragment key={`${row.pick}-${index}`}>
+            {position === 1 && firstRoundLastPosition > 0 && <div className="home-draft-round-divider first-round" role="heading" aria-level={3}>1° giro</div>}
+            {position === firstRoundLastPosition + 1 && firstRoundLastPosition > 0 && <div className="home-draft-round-divider second-round" role="heading" aria-level={3}>2° giro</div>}
+            <div className={row.player ? "is-assigned" : ""}><strong>{row.pick || String(index + 1)}</strong><span>{row.team || "—"}</span><span>{row.player || "Da assegnare"}</span></div>
+          </Fragment>;
+        })}
       </div>
     </section>
   );

@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { renameTeamIdentity, replaceTeamCodeInContent } from "@/lib/team-identity";
 
 export type TeamIdentitySaveState = { message?: string; error?: string };
 
@@ -27,25 +29,13 @@ export async function saveTeamIdentity(
     return { error: "Questo nome squadra è già utilizzato." };
   }
 
-  const nextState: EditableLeagueState = {
-    ...state,
-    teams: state.teams.map((team) => team.code === originalCode
-      ? { ...team, code, name, owner, slug: code.toLocaleLowerCase("it") }
-      : team),
-    rosterEntries: state.rosterEntries.map((entry) => entry.teamCode === originalCode
-      ? { ...entry, teamCode: code }
-      : entry),
-    draftAssets: state.draftAssets.map((asset) => asset.teamCode === originalCode
-      ? { ...asset, teamCode: code }
-      : asset),
-    qualifyingOfferRights: state.qualifyingOfferRights.map((right) => right.teamCode === originalCode
-      ? { ...right, teamCode: code }
-      : right),
-  };
+  const nextState = renameTeamIdentity(state, originalCode, code, name, owner);
   const saved = await persistLeagueState(nextState, "Squadra aggiornata.");
   if (saved.error) return saved;
-  await synchronizeTeamIdentity(originalCode, code, name, owner);
-  return saved;
+  const syncError = await synchronizeTeamIdentity(originalCode, code, name, owner);
+  revalidatePath("/", "layout");
+  if (syncError) redirect(`/admin/squadre-proprietari?error=${encodeURIComponent(`La squadra è stata aggiornata nello stato della lega, ma non tutti i dati collegati sono stati sincronizzati: ${syncError}`)}`);
+  redirect(`/admin/squadre-proprietari?updated=${encodeURIComponent(saved.message ?? "Squadra aggiornata.")}`);
 }
 
 async function persistLeagueState(state: EditableLeagueState, message: string): Promise<TeamIdentitySaveState> {
@@ -56,39 +46,32 @@ async function persistLeagueState(state: EditableLeagueState, message: string): 
   const response = await supabase.rpc("replace_league_state", { state_payload: state });
   if (response.error) return { error: response.error.message };
 
-  [
-    "/squadre",
-    "/giocatori",
-    "/admin",
-    "/admin/squadre-proprietari",
-    "/admin/free-agent",
-    "/admin/scambi",
-  ].forEach((path) => revalidatePath(path));
   return { message };
 }
 
-async function synchronizeTeamIdentity(originalCode: string, code: string, name: string, owner: string) {
+async function synchronizeTeamIdentity(originalCode: string, code: string, name: string, owner: string): Promise<string | null> {
   const supabase = await createSupabaseServerClient();
-  if (!supabase) return;
-  await supabase
+  if (!supabase) return "Supabase non configurato.";
+  const teamUpdate = await supabase
     .from("teams")
     .update({ code, name, owner_name: owner, slug: code.toLocaleLowerCase("it") })
-    .eq("code", originalCode);
+    .eq("code", originalCode)
+    .select("id");
+  if (teamUpdate.error) return teamUpdate.error.message;
+  if (teamUpdate.data?.length !== 1) return "Squadra non trovata nella tabella delle competizioni.";
 
-  if (originalCode === code) return;
-  const content = await supabase.from("competition_content").select("id,content");
-  if (content.error) return;
-  await Promise.all((content.data ?? []).map((row) => supabase
-    .from("competition_content")
-    .update({ content: replaceStringValue(row.content, originalCode, code) })
-    .eq("id", row.id)));
-}
-
-function replaceStringValue(value: unknown, previous: string, next: string): unknown {
-  if (value === previous) return next;
-  if (Array.isArray(value)) return value.map((item) => replaceStringValue(item, previous, next));
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => (
-    [key === previous ? next : key, replaceStringValue(item, previous, next)]
-  )));
+  if (originalCode === code) return null;
+  const content = await supabase.from("competition_content").select("season_id,competition_name,content");
+  if (content.error) return content.error.message;
+  for (const row of content.data ?? []) {
+    const replaced = replaceTeamCodeInContent(row.content, originalCode, code);
+    if (JSON.stringify(replaced) === JSON.stringify(row.content)) continue;
+    const result = await supabase
+      .from("competition_content")
+      .update({ content: replaced })
+      .eq("season_id", row.season_id)
+      .eq("competition_name", row.competition_name);
+    if (result.error) return result.error.message;
+  }
+  return null;
 }
