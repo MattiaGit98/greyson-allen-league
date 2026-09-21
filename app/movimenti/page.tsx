@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { conciseMovementDetail, movementFilterOptions, movementOperationLabel } from "@/lib/movement-display";
+import { MovementList } from "./movement-list";
 
 const movementsPerPage = 25;
 const movementHistoryDays = 365;
@@ -63,21 +64,18 @@ export default async function TransactionsPage({
         <small>Ultimi {movementHistoryDays} giorni</small>
       </form>
 
-      <div className="movement-list">
-        <div className="movement-list-head"><span>Data e ora</span><span>Operazione</span><span>Dettaglio</span></div>
-        {movements.map((movement) => {
-          const operationType = String(movement.operation_type);
-          const summary = conciseMovementDetail(operationType, String(movement.summary));
-          return (
-            <div className="movement-list-row" key={movement.id}>
-              <time dateTime={movement.created_at}>{formatMovementDate(movement.created_at)}</time>
-              <strong>{movementOperationLabel(operationType)}</strong>
-              <span className="movement-detail">{summary}</span>
-            </div>
-          );
-        })}
-        {!movements.length && <div className="movement-empty">Nessun movimento registrato negli ultimi {movementHistoryDays} giorni</div>}
-      </div>
+      <MovementList historyDays={movementHistoryDays} movements={movements.map((movement) => {
+        const operationType = String(movement.operation_type);
+        const fullDetail = String(movement.summary);
+        return {
+          id: String(movement.id),
+          dateTime: movement.created_at,
+          displayedDate: formatMovementDate(movement.created_at),
+          operation: movementOperationLabel(operationType),
+          conciseDetail: conciseMovementDetail(operationType, fullDetail),
+          fullDetail,
+        };
+      })} />
 
       {totalMovements > movementsPerPage && (
         <nav className="movement-pagination" aria-label="Pagine dei movimenti">

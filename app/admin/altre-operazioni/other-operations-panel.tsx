@@ -15,6 +15,7 @@ import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib
 import {
   availableFreeReleaseReasons,
   freeReleaseReasonAvailability,
+  hadDpeInPreviousSeason,
   freeReleaseReasonLabels,
   freeReleaseReasonValues,
   type FreeReleaseReason,
@@ -104,7 +105,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
   const [installments, setInstallments] = useState<2 | 3>(2);
   const [releaseReason, setReleaseReason] = useState<FreeReleaseReason | "">("");
   const oneCreditTeamOptionRelease = operation === "free_release"
-    && freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player).available;
+    && freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
   const preview = operationPreview(operation, player, team, props, installments, confirmed, roleMinimumConfirmed, releaseReason);
   const formAction = operation === "extension"
     ? applyContractExtension
@@ -145,8 +146,9 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
             <div className="release-reason-fieldset">
               <span>Causa del rilascio</span>
               <div className="release-reason-list">
-                {freeReleaseReasonValues.filter((reason) => reason !== "one_credit_team_option").map((reason) => {
-                  const availability = freeReleaseReasonAvailability(reason, props.leagueMoment, player);
+                {freeReleaseReasonValues.filter((reason) => reason !== "one_credit_team_option"
+                  && !(reason === "under_half_games" && hadDpeInPreviousSeason(player, props.seasonName))).map((reason) => {
+                  const availability = freeReleaseReasonAvailability(reason, props.leagueMoment, player, props.seasonName);
                   return (
                     <label className={availability.available ? "" : "disabled"} key={reason}>
                       <input
@@ -210,7 +212,7 @@ function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, p
   const unresolvedTeamOption = isUnresolvedTeamOption(player, props.leagueMoment);
   if (player.state === "active" && player.isExtensionEligible && player.expiryYear === props.seasonEndYear && operationWindows.extensions(props.leagueMoment)) choices.push({ value: "extension", label: "Estensione contrattuale" });
   if (player.state === "active" && !unresolvedTeamOption) choices.push({ value: "cut", label: "Taglio" });
-  if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
+  if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player, props.seasonName).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
   if (player.state === "active" && operationWindows.buyout(props.leagueMoment) && player.expiryYear && player.expiryYear > props.seasonEndYear) choices.push({ value: "buyout", label: "Buyout" });
   if (canApplyStretchProvision(player, props.seasonEndYear)) choices.push({ value: "stretch", label: "Stretch provision" });
   if (player.state === "active" && !unresolvedTeamOption && player.slot !== "dpe" && slots.dpe < 1 && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
@@ -300,11 +302,11 @@ function operationPreview(
   const capWarnings: string[] = [];
   if (requiresConfirmation(operation, props.phase) && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
   if (operation === "free_release") {
-    const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player).available;
+    const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
     if (!automaticOneCreditRelease) {
       if (!releaseReason) errors.push("Seleziona una e una sola causa di rilascio gratuito.");
       else {
-        const availability = freeReleaseReasonAvailability(releaseReason, props.leagueMoment, player);
+        const availability = freeReleaseReasonAvailability(releaseReason, props.leagueMoment, player, props.seasonName);
         if (!availability.available) errors.push(availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
       }
     }

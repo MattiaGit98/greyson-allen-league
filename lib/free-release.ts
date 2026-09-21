@@ -1,4 +1,5 @@
 import { hasReachedMoment, tradesAreSuspendedForAuction, type LeagueMoment } from "./league-moments";
+import { previousSeasonName } from "./season-time";
 
 export const freeReleaseReasonValues = [
   "no_nba_roster",
@@ -20,7 +21,12 @@ export type FreeReleasePlayer = {
   cost: number;
   contract: string;
   state: "active" | "cut";
+  dpeAppliedSeasons?: string[];
 };
+
+export function hadDpeInPreviousSeason(player: FreeReleasePlayer, seasonName: string) {
+  return player.dpeAppliedSeasons?.includes(previousSeasonName(seasonName)) ?? false;
+}
 
 export function isFreeReleaseReason(value: string): value is FreeReleaseReason {
   return (freeReleaseReasonValues as readonly string[]).includes(value);
@@ -30,6 +36,7 @@ export function freeReleaseReasonAvailability(
   reason: FreeReleaseReason,
   moment: LeagueMoment,
   player: FreeReleasePlayer,
+  seasonName: string,
 ): { available: boolean; unavailableReason?: string } {
   if (reason === "no_nba_roster") {
     const available = hasReachedMoment(moment, "team_option_deadline")
@@ -53,6 +60,9 @@ export function freeReleaseReasonAvailability(
     if (player.state !== "active") {
       return { available: false, unavailableReason: "Questa causale è riservata ai giocatori non ancora tagliati." };
     }
+    if (hadDpeInPreviousSeason(player, seasonName)) {
+      return { available: false };
+    }
     const available = !hasReachedMoment(moment, "auction_start");
     return available
       ? { available: true }
@@ -67,6 +77,6 @@ export function freeReleaseReasonAvailability(
   return { available: true };
 }
 
-export function availableFreeReleaseReasons(moment: LeagueMoment, player: FreeReleasePlayer) {
-  return freeReleaseReasonValues.filter((reason) => freeReleaseReasonAvailability(reason, moment, player).available);
+export function availableFreeReleaseReasons(moment: LeagueMoment, player: FreeReleasePlayer, seasonName: string) {
+  return freeReleaseReasonValues.filter((reason) => freeReleaseReasonAvailability(reason, moment, player, seasonName).available);
 }

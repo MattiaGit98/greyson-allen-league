@@ -50,6 +50,9 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
         ...entry,
         endedPreviousSeasonInGLeague: entry.state === "active" && entry.slot === "g_league",
         twoWayPromotionLocked: false,
+        dpeAppliedSeasons: entry.state === "active" && entry.slot === "dpe"
+          ? [input.seasonName]
+          : entry.dpeAppliedSeasons?.includes(input.seasonName) ? [input.seasonName] : undefined,
       };
       const expiry = contractExpiryYear(entry.contract, expiringYear);
       const becomesFinalYearOption = expiry === expiringYear + 1

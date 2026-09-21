@@ -36,6 +36,7 @@ export function TeamAccordion({
   playerListPublished,
   inSeason,
   initialTeam,
+  initialPlayer,
   showQualifyingOffers,
   capSeasonName,
   countTeamOptions,
@@ -51,17 +52,25 @@ export function TeamAccordion({
   playerListPublished: boolean;
   inSeason: boolean;
   initialTeam?: string;
+  initialPlayer?: string;
   showQualifyingOffers: boolean;
   capSeasonName: string;
   countTeamOptions: boolean;
   pendingAuctionContracts: boolean;
   capScaleMaximum: number;
 }) {
+  const initialPlayerOnTeam = Boolean(initialTeam && initialPlayer && rosterEntries.some((entry) => (
+    entry.teamCode === initialTeam
+    && entry.state === "active"
+    && normalizePlayerName(entry.name) === normalizePlayerName(initialPlayer)
+  )));
   const [openTeams, setOpenTeams] = useState<string[]>(
     initialTeam && teams.some((team) => team.code === initialTeam) ? [initialTeam] : [],
   );
   const [openSectionsByTeam, setOpenSectionsByTeam] = useState<OpenSectionsByTeam>(() => (
-    initialTeam && teams.some((team) => team.code === initialTeam) ? { [initialTeam]: ["roster"] } : {}
+    initialTeam && teams.some((team) => team.code === initialTeam)
+      ? { [initialTeam]: initialPlayerOnTeam ? [...playerSlotSectionKeys] : ["roster"] }
+      : {}
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
   const [explorerDialog, setExplorerDialog] = useState<ExplorerDialog>(null);
@@ -108,6 +117,14 @@ export function TeamAccordion({
       .slice()
       .sort((left, right) => left.name.localeCompare(right.name, "it") || left.teamCode.localeCompare(right.teamCode));
   }, [normalizedPlayerSearchQuery, rosterEntries]);
+
+  useEffect(() => {
+    if (!initialTeam || !initialPlayerOnTeam) return;
+    const frame = window.requestAnimationFrame(() => {
+      teamRefs.current.get(initialTeam)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialPlayerOnTeam, initialTeam]);
 
   useEffect(() => {
     const explorer = explorerRef.current;
@@ -267,7 +284,7 @@ export function TeamAccordion({
             <button className="team-explorer-action" type="button" onClick={() => {
               setViewDraft(sectionsToExpand);
               setExplorerDialog("view");
-            }}>Visualizza</button>
+            }}>Apri sezioni</button>
           </div>
         </section>
         <div className={`team-accordion-toolbar ${explorerOpen ? "is-explorer-open" : ""}`} ref={toolbarRef}>

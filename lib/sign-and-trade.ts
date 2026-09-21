@@ -9,6 +9,7 @@ import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "./rules/fr
 import { countRosterRoles } from "./rules/roster";
 import { calculateCapSpace } from "./season-time";
 import { tradePlayerId } from "./trade-state";
+import { inheritedDpeSeasons } from "./dpe-rules";
 
 export type SignAndTradeRequest = {
   kind: "free_agent";
@@ -115,6 +116,7 @@ export function buildSignAndTradeProvisional(input: {
   if (blockingErrors.length) throw new Error(blockingErrors.map((issue) => issue.message).join(" "));
   const contract = automaticFreeAgentContract(input.seasonName, tradeDeadlineHasPassed(input.moment));
   if (!contract) throw new Error("Annata non valida.");
+  const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
   const signingEntry: RosterEntry = {
     name: player.name,
     role: player.role === "X" ? undefined : player.role,
@@ -127,6 +129,7 @@ export function buildSignAndTradeProvisional(input: {
     buyoutApplied: false,
     freeAgentSignedSeason: input.seasonName,
     contractStartSeason: input.seasonName,
+    ...(dpeAppliedSeasons.length ? { dpeAppliedSeasons } : {}),
   };
   return {
     state: {

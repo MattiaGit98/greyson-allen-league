@@ -19,6 +19,7 @@ import {
 } from "@/lib/team-option-contract";
 import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
+import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 
 const path = "/admin/free-agent";
 
@@ -168,6 +169,7 @@ export async function signFreeAgent(formData: FormData) {
     tradeDeadlineHasPassed(moment) || roleMinimumReplacement,
   );
   if (!contract) fail("Annata non valida.");
+  const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
   const rosterEntry: RosterEntry = {
     name: player.name,
     role: player.role === "X" ? undefined : player.role,
@@ -180,6 +182,7 @@ export async function signFreeAgent(formData: FormData) {
     buyoutApplied: false,
     freeAgentSignedSeason: seasonResponse.data.name,
     contractStartSeason: seasonResponse.data.name,
+    ...(dpeAppliedSeasons.length ? { dpeAppliedSeasons } : {}),
   };
   const rosterEntries = [
     ...state.rosterEntries.map((entry, index) => {

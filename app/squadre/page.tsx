@@ -8,7 +8,7 @@ import { roleMinimumChecksApply } from "@/lib/role-minimums";
 export default async function TeamsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ team?: string }>;
+  searchParams: Promise<{ team?: string; player?: string }>;
 }) {
   const query = await searchParams;
   const [activeSeason, leagueState] = await Promise.all([
@@ -34,6 +34,7 @@ export default async function TeamsPage({
         playerListPublished={leagueState.playerListStatus === "published"}
         inSeason={roleMinimumChecksApply(phase, leagueMoment)}
         initialTeam={query.team?.toUpperCase()}
+        initialPlayer={query.player}
         showQualifyingOffers={!hasReachedMoment(leagueMoment, "auction_completed")}
         capSeasonName={capSeasonName}
         countTeamOptions={countTeamOptions}

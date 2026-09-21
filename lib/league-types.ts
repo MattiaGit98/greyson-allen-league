@@ -31,6 +31,7 @@ export type RosterEntry = {
   contractStartSeason?: string;
   twoWayPromotionLocked?: boolean;
   playoffTeamOptionPromotionSeason?: string;
+  dpeAppliedSeasons?: string[];
 };
 
 export type QualifyingOfferRight = {

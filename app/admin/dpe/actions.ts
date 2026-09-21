@@ -60,8 +60,13 @@ export async function applyDpeOperation(formData: FormData) {
     if (teamActive.filter((item) => item.slot === "regular").length >= 15) fail("Per il reintegro serve uno slot roster libero.");
   }
 
+  const seasonName = season.data.name;
   const rosterEntries: RosterEntry[] = state.rosterEntries.map((item, index) => index === entryIndex
-    ? { ...item, slot: operation === "dpe_activate" ? "dpe" : "regular" }
+    ? {
+      ...item,
+      slot: operation === "dpe_activate" ? "dpe" : "regular",
+      dpeAppliedSeasons: [...new Set([...(item.dpeAppliedSeasons ?? []), seasonName])],
+    }
     : item);
   const teamRosterAfter = rosterEntries.filter((item) => item.teamCode === teamCode);
   const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, season.data.status, leagueMoment);
@@ -69,7 +74,6 @@ export async function applyDpeOperation(formData: FormData) {
   if (roleMinimumShortage(teamRosterAfter, season.data.status, leagueMoment).total > 0 && !roleMinimumConfirmed) {
     fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");
   }
-  const seasonName = season.data.name;
   const beforeSpaces = capSpaces(state.rosterEntries, teamCode, seasonName, season.data.status, season.data.team_options_resolved);
   const spaces = capSpaces(rosterEntries, teamCode, seasonName, season.data.status, season.data.team_options_resolved);
   const capWarnings = salaryCapWarningsForSpaces({

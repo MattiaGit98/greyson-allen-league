@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 type PlayerStatus = "roster" | "qo" | "fa";
@@ -64,7 +65,9 @@ export function PlayerExplorer({ rows, showRealTeam, showEligibility }: { rows: 
           <article className={`player-row ${showRealTeam && row.realTeam ? "has-real-team" : ""} ${showEligibility && row.rookie ? "is-rookie" : ""} ${showEligibility && row.under23 ? "is-under23" : ""}`} key={row.listOrder}>
             <span className="player-order">{row.listOrder}</span>
             <span className="player-identity">
-              <strong className="player-name">{row.name}</strong>
+              {row.rosterTeamCode
+                ? <Link className="player-name player-team-link" href={`/squadre?team=${encodeURIComponent(row.rosterTeamCode)}&player=${encodeURIComponent(row.name)}`} title={`Vai alla squadra di ${row.name}`}>{row.name}</Link>
+                : <strong className="player-name">{row.name}</strong>}
               <span className="player-flags">
                 {showEligibility && row.rookie && <small className="player-flag player-flag-rookie">Rookie</small>}
                 {showEligibility && row.under23 && <small className="player-flag player-flag-u23">U23</small>}

@@ -31,6 +31,7 @@ export type AdminRosterPlayer = {
   contractStartSeason?: string;
   twoWayPromotionLocked?: boolean;
   playoffTeamOptionPromotionSeason?: string;
+  dpeAppliedSeasons?: string[];
 };
 
 export type AdminRosterTeam = {
@@ -143,6 +144,7 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
             contractStartSeason: entry.contractStartSeason,
             twoWayPromotionLocked: entry.twoWayPromotionLocked,
             playoffTeamOptionPromotionSeason: entry.playoffTeamOptionPromotionSeason,
+            dpeAppliedSeasons: entry.dpeAppliedSeasons,
           };
         }),
       };

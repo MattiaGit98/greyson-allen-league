@@ -21,6 +21,7 @@ import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
 import { slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { applyStandardContractCut } from "@/lib/team-option-contract";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
+import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 
 const auctionPath = "/admin/asta";
 type AuctionEditKind = "cut" | "free_release" | "slot";
@@ -74,6 +75,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile nello slot di destinazione.");
   if (cutPlayerName === playerName) fail("Il nuovo acquisto non può essere anche il giocatore tagliato.");
 
+  const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
   const rosterEntry: RosterEntry = {
     name: player.name,
     role: player.role === "X" ? undefined : player.role,
@@ -87,6 +89,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     auctionAcquisition,
     auctionPrice: price,
     contractStartSeason: season.name,
+    ...(dpeAppliedSeasons.length ? { dpeAppliedSeasons } : {}),
   };
   const rosterEntries = [
     ...state.rosterEntries.map((entry, index) => index === cutIndex ? {
@@ -155,7 +158,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
       ...applyStandardContractCut(item, currentEndYear, "auction_start"),
     } : item);
   } else if (kind === "free_release") {
-    if (!freeReleaseReasonAvailability("one_credit_team_option", leagueMomentFromSeason(season), entry).available) {
+    if (!freeReleaseReasonAvailability("one_credit_team_option", leagueMomentFromSeason(season), entry, season.name).available) {
       fail("Questo giocatore non è idoneo al rilascio gratuito durante l'asta.");
     }
     rosterEntries = state.rosterEntries.filter((_, index) => index !== entryIndex);

@@ -153,9 +153,24 @@ describe("avanzamento della lega", () => {
       ],
     });
     expect(dpeResult.rosterEntries).toEqual([
-      expect.objectContaining({ name: "DPE lunga", slot: "regular" }),
+      expect.objectContaining({ name: "DPE lunga", slot: "regular", dpeAppliedSeasons: ["2026/27"] }),
     ]);
     expect(dpeResult.reintegratedDpePlayers).toEqual([{ playerName: "DPE lunga", teamCode: "AAA" }]);
+  });
+
+  it("conserva l'anno della DPE reintegrata anticipatamente solo nell'offseason successiva", () => {
+    const rosterEntries = [{
+      name: "Ex DPE", cost: 4, contract: "29", role: "G" as const,
+      state: "active" as const, slot: "regular" as const, teamCode: "AAA", dpeAppliedSeasons: ["2026/27"],
+    }];
+    const firstAdvance = calculateLeagueAdvance({
+      seasonName: "2026/27", rosterEntries, qualifyingOfferRights: [], playerList: [],
+    });
+    expect(firstAdvance.rosterEntries[0].dpeAppliedSeasons).toEqual(["2026/27"]);
+    const secondAdvance = calculateLeagueAdvance({
+      seasonName: "2027/28", rosterEntries: firstAdvance.rosterEntries, qualifyingOfferRights: [], playerList: [],
+    });
+    expect(secondAdvance.rosterEntries[0].dpeAppliedSeasons).toBeUndefined();
   });
 
   it("promuove all’inizio dell’offseason i Two-way che hanno concluso il secondo anno", () => {

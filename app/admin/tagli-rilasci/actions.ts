@@ -49,7 +49,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   if (kind === "buyout" && !operationWindows.buyout(leagueMoment)) operationError(returnPath, "La finestra dei buyout non è aperta.");
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
-    const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, entry);
+    const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, entry, season.name);
     if (oneCreditTeamOptionRelease.available) {
       releaseReason = "one_credit_team_option";
     } else {
@@ -57,7 +57,7 @@ export async function applyRosterExitOperation(formData: FormData) {
         operationError(returnPath, "Seleziona una e una sola causa di rilascio gratuito.");
       }
       releaseReason = submittedReleaseReasons[0];
-      const availability = freeReleaseReasonAvailability(releaseReason, leagueMoment, entry);
+      const availability = freeReleaseReasonAvailability(releaseReason, leagueMoment, entry, season.name);
       if (!availability.available) operationError(returnPath, availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
     }
   }
