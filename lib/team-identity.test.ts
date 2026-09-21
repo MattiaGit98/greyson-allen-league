@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyLeagueState } from "./league-state";
-import { renameTeamIdentity, replaceTeamCodeInContent } from "./team-identity";
+import { renameOpenDraftHistory, renameTeamIdentity, replaceTeamCodeInContent } from "./team-identity";
 
 describe("rinomina squadra", () => {
   it("aggiorna la sigla della scelta anche se la scelta appartiene a un'altra squadra", () => {
@@ -65,5 +65,41 @@ describe("rinomina squadra", () => {
   it("aggiorna i riferimenti nelle classifiche e nei tabelloni senza toccare altri valori", () => {
     expect(replaceTeamCodeInContent({ positions: ["OLD", "BBB"], results: { OLD: { wins: 2 }, BBB: { wins: 1 } } }, "OLD", "NEW"))
       .toEqual({ positions: ["NEW", "BBB"], results: { NEW: { wins: 2 }, BBB: { wins: 1 } } });
+  });
+
+  it("aggiorna solo il draft aperto e quelli futuri, compresa una scelta già assegnata", () => {
+    const entries = [
+      { season: "2029", content: { kind: "draft" as const, rows: [{ pick: "1", team: "OLD", player: "Storico" }] } },
+      { season: "2030", content: { kind: "draft" as const, rows: [
+        { pick: "1", team: "OLD", player: "Rookie scelto" },
+        { pick: "2", team: "OLD", player: "" },
+      ] } },
+      { season: "2031", content: { kind: "draft" as const, rows: [{ pick: "1", team: "OLD", player: "" }] } },
+    ];
+    const assets = [
+      { label: "Scelta", round: "1° giro", year: 2030, originOrOverall: 2, teamCode: "NEW" },
+      { label: "Scelta", round: "1° giro", year: 2031, originOrOverall: 1, teamCode: "NEW" },
+    ];
+
+    const renamed = renameOpenDraftHistory(entries, assets, "OLD", "NEW");
+
+    expect(renamed.changed).toBe(true);
+    expect(renamed.entries[0].content).toMatchObject({ rows: [{ team: "OLD" }] });
+    expect(renamed.entries[1].content).toMatchObject({ rows: [{ team: "NEW" }, { team: "NEW" }] });
+    expect(renamed.entries[2].content).toMatchObject({ rows: [{ team: "NEW" }] });
+    expect(entries[1].content.rows[0].team).toBe("OLD");
+  });
+
+  it("non cambia un draft concluso anche se la sigla è stata usata allora", () => {
+    const entries = [
+      { season: "2030", content: { kind: "draft" as const, rows: [{ pick: "1", team: "OLD", player: "Rookie scelto" }] } },
+      { season: "2031", content: { kind: "draft" as const, rows: [{ pick: "1", team: "OLD", player: "" }] } },
+    ];
+    const assets = [{ label: "Scelta", round: "1° giro", year: 2031, originOrOverall: 1, teamCode: "NEW" }];
+
+    const renamed = renameOpenDraftHistory(entries, assets, "OLD", "NEW");
+
+    expect(renamed.entries[0].content).toMatchObject({ rows: [{ team: "OLD" }] });
+    expect(renamed.entries[1].content).toMatchObject({ rows: [{ team: "NEW" }] });
   });
 });

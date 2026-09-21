@@ -1,4 +1,8 @@
 import type { EditableLeagueState } from "./league-state";
+import type { DraftAsset } from "./league-types";
+import type { HistoryCompetitionEntry } from "./history-competitions";
+import { nextDraftYear } from "./draft-positions";
+import { synchronizeUnassignedDraftOwners } from "./draft-history";
 
 export function renameTeamIdentity(
   state: EditableLeagueState,
@@ -43,4 +47,27 @@ export function replaceTeamCodeInContent(value: unknown, previous: string, next:
   return Object.fromEntries(Object.entries(value).map(([key, item]) => (
     [key === previous ? next : key, replaceTeamCodeInContent(item, previous, next)]
   )));
+}
+
+export function renameOpenDraftHistory(
+  entries: HistoryCompetitionEntry[],
+  draftAssets: DraftAsset[],
+  previousCode: string,
+  nextCode: string,
+) {
+  const openYear = nextDraftYear(draftAssets);
+  if (openYear === null) return { entries, changed: false };
+  let changed = false;
+  const renamed = entries.map((entry) => {
+    const year = Number(entry.season);
+    if (!Number.isInteger(year) || year < openYear || entry.content.kind !== "draft") return entry;
+    const rows = entry.content.rows.map((row) => {
+      if (row.team !== previousCode) return row;
+      changed = true;
+      return { ...row, team: nextCode };
+    });
+    return { ...entry, content: { ...entry.content, rows } };
+  });
+  const synchronized = synchronizeUnassignedDraftOwners(renamed, draftAssets, [openYear]);
+  return { entries: synchronized.entries, changed: changed || synchronized.changed };
 }

@@ -13,6 +13,8 @@ import { displayedSeasonName } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadCompetitionState } from "@/lib/competition-store";
+import { nextDraftYear } from "@/lib/draft-positions";
+import { synchronizeUnassignedDraftOwners } from "@/lib/draft-history";
 
 const movementDateFormatter = new Intl.DateTimeFormat("it-IT", {
   timeZone: "Europe/Rome",
@@ -56,6 +58,9 @@ export default async function HomePage() {
     && (state.finalizedDraftPositionYears ?? []).includes(draftYear)
     ? historyState.competitions.Draft.find((entry) => entry.season === String(draftYear) && entry.content.kind === "draft")
     : undefined;
+  const visibleDraft = selectedDraft && nextDraftYear(state.draftAssets) === draftYear
+    ? synchronizeUnassignedDraftOwners([selectedDraft], state.draftAssets, [draftYear]).entries[0]
+    : selectedDraft;
   const firstRoundLastPosition = Math.max(0, ...(state.draftOrders ?? [])
     .filter((assignment) => assignment.year === draftYear && assignment.round === "1° giro")
     .map((assignment) => assignment.position));
@@ -123,7 +128,7 @@ export default async function HomePage() {
       </div>
       <div className="home-seasonal-content">
         {selectedHonours?.content.kind === "honours" && <HomeHonoursFeature title={selectedHonours.season} rows={selectedHonours.content.rows} />}
-        {selectedDraft?.content.kind === "draft" && <HomeDraftFeature year={draftYear} firstRoundLastPosition={firstRoundLastPosition} rows={selectedDraft.content.rows.map((row) => ({ ...row, team: teamNames.get(row.team) ?? row.team }))} />}
+        {visibleDraft?.content.kind === "draft" && <HomeDraftFeature year={draftYear} firstRoundLastPosition={firstRoundLastPosition} rows={visibleDraft.content.rows.map((row) => ({ ...row, team: teamNames.get(row.team) ?? row.team }))} />}
         {selectedCompetition && <HomeCompetitionFeature name={selectedCompetition.name} content={selectedCompetition.content} teams={competitionState.teams} />}
       </div>
     </section>

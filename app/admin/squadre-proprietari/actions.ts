@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { renameTeamIdentity, replaceTeamCodeInContent } from "@/lib/team-identity";
+import { normalizeHistoryEntries } from "@/lib/history-competitions";
+import { renameOpenDraftHistory, renameTeamIdentity, replaceTeamCodeInContent } from "@/lib/team-identity";
 
 export type TeamIdentitySaveState = { message?: string; error?: string };
 
@@ -32,7 +33,7 @@ export async function saveTeamIdentity(
   const nextState = renameTeamIdentity(state, originalCode, code, name, owner);
   const saved = await persistLeagueState(nextState, "Squadra aggiornata.");
   if (saved.error) return saved;
-  const syncError = await synchronizeTeamIdentity(originalCode, code, name, owner);
+  const syncError = await synchronizeTeamIdentity(originalCode, code, name, owner, nextState);
   revalidatePath("/", "layout");
   if (syncError) redirect(`/admin/squadre-proprietari?error=${encodeURIComponent(`La squadra è stata aggiornata nello stato della lega, ma non tutti i dati collegati sono stati sincronizzati: ${syncError}`)}`);
   redirect(`/admin/squadre-proprietari?updated=${encodeURIComponent(saved.message ?? "Squadra aggiornata.")}`);
@@ -49,9 +50,20 @@ async function persistLeagueState(state: EditableLeagueState, message: string): 
   return { message };
 }
 
-async function synchronizeTeamIdentity(originalCode: string, code: string, name: string, owner: string): Promise<string | null> {
+async function synchronizeTeamIdentity(originalCode: string, code: string, name: string, owner: string, state: EditableLeagueState): Promise<string | null> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return "Supabase non configurato.";
+  const draftHistory = await supabase.from("history_competition_content").select("entries").eq("category", "Draft").maybeSingle();
+  if (draftHistory.error) return draftHistory.error.message;
+  if (draftHistory.data) {
+    const entries = normalizeHistoryEntries("Draft", draftHistory.data.entries);
+    if (!entries) return "Lo storico del Draft non è valido.";
+    const renamed = renameOpenDraftHistory(entries, state.draftAssets, originalCode, code);
+    if (renamed.changed) {
+      const update = await supabase.rpc("replace_history_competition_content", { target_category: "Draft", payload: renamed.entries });
+      if (update.error) return update.error.message;
+    }
+  }
   const teamUpdate = await supabase
     .from("teams")
     .update({ code, name, owner_name: owner, slug: code.toLocaleLowerCase("it") })
