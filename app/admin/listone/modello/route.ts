@@ -32,6 +32,12 @@ export async function GET() {
   instructions.getCell("A6").value = "La squadra reale resterà quella indicata in questo file anche in caso di trasferimenti successivi.";
   instructions.getCell("A7").value = "Lo stato fantasy non va inserito: verrà calcolato automaticamente da roster e Q.O.";
 
+  instructions.getCell("A8").value = "Rookie e U23: usa il menu a tendina e scegli SI o NO. Una cella vuota equivale a NO.";
+  instructions.getCell("A9").value = "Rookie: SI solo per i rookie eleggibili per il Draft della lega; anche se under 23, lascia U23 su NO.";
+  instructions.getCell("A10").value = "U23: SI solo per i non rookie che avranno al massimo 23 anni al 31 dicembre.";
+  instructions.getCell("A11").value = "Considera l'anno solare in cui inizia la stagione.";
+  instructions.getCell("A12").value = "Per gli altri giocatori: NO in entrambe. Non mettere mai SI in entrambe: l'importazione lo blocca.";
+
   const sheet = workbook.addWorksheet("Listone", {
     views: [{ state: "frozen", ySplit: 1, showGridLines: false }],
   });
