@@ -1,7 +1,7 @@
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace } from "@/lib/season-time";
 import { FreeAgentPanel } from "./free-agent-panel";
-import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
 import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { requireActiveSeason } from "@/lib/active-season";
@@ -86,7 +86,10 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
     <section className="section page-top admin-dashboard free-agent-admin-page">
       {query.updated && <p className="notice success">{query.updated}</p>}
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
-      {leagueState.playerListStatus === "published" && !freeAgencyOpen && <p className="notice">La free agency non è aperta in questo momento della lega.</p>}
+      {!freeAgencyOpen && <p className="notice"><strong>Free agency chiusa.</strong> {hasReachedMoment(leagueMoment, "free_agency_end")
+        ? "Riaprirà con l’avanzamento alla fase Riapertura free agency."
+        : "Aprirà dopo la consegna dei contratti."}</p>}
+      {freeAgencyOpen && leagueState.playerListStatus !== "published" && <p className="notice">Pubblica il listone ufficiale per rendere operative le firme dei free agent.</p>}
       <FreeAgentPanel
         phase={freeAgencyOpen ? "regular_season" : "closed"}
         seasonName={seasonName}

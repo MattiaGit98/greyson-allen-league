@@ -45,7 +45,7 @@ export function FreeAgentPanel({
   teams,
   players,
 }: {
-  phase: string;
+  phase: "regular_season" | "closed";
   seasonName: string;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
@@ -56,6 +56,9 @@ export function FreeAgentPanel({
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [outsideListOpen, setOutsideListOpen] = useState(false);
+  const freeAgencyOpen = phase === "regular_season";
+  const canSign = freeAgencyOpen && listPublished;
+  const unavailableReason = !freeAgencyOpen ? "Free agency chiusa" : !listPublished ? "Listone ufficiale non pubblicato" : undefined;
   const freeAgents = useMemo(() => players.filter((player) => (
     !player.rosterTeamCode
     && !player.qualifyingTeamCode
@@ -82,7 +85,7 @@ export function FreeAgentPanel({
           <span>Cerca</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" />
         </label>
-        <button className="button secondary" type="button" disabled={!listPublished} onClick={() => setOutsideListOpen(true)}>
+        <button className="button secondary" type="button" disabled={!canSign} title={unavailableReason} onClick={() => setOutsideListOpen(true)}>
           + Giocatore fuori listone
         </button>
       </div>
@@ -103,7 +106,7 @@ export function FreeAgentPanel({
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>
             <strong className="real-team">{player.realTeam || "—"}</strong>
             <span className={`player-status player-status-highlight${player.buyoutApplied ? " player-status-buyout" : ""}`}><strong>FA</strong>{player.buyoutApplied && <small>Buyout</small>}</span>
-            <button className="auction-row-action bid" type="button" disabled={!listPublished} onClick={() => setSelectedName(player.name)}>Firma</button>
+            <button className="auction-row-action bid" type="button" disabled={!canSign} title={unavailableReason} onClick={() => setSelectedName(player.name)}>{freeAgencyOpen ? "Firma" : "Chiusa"}</button>
           </article>
         ))}
         {!freeAgents.length && <div className="data-empty">{listPublished ? "Nessun free agent trovato" : "Listone non ancora pubblicato"}</div>}

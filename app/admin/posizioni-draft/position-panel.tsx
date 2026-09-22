@@ -106,6 +106,7 @@ export function DraftPositionPanel({
         <span>Prossimo draft</span>
         <strong>{draftYear}</strong>
       </div>
+      {finalized && <p className="validation success">Ordine definitivo del Draft {draftYear}: posizioni e scelte bonus non sono più modificabili.</p>}
 
       <DraftRoundTable
         title="Primo giro"
@@ -135,7 +136,6 @@ export function DraftPositionPanel({
           {!finalized && allRowsFilled && finalChecksPassed && <p className="validation warning">Dopo la conferma l'ordine non sarà più modificabile.</p>}
           {!finalized && allRowsFilled && !finalChecksPassed && <p className="validation error">Salvataggio finale non disponibile: i controlli non sono stati superati.</p>}
           {!finalized && allRowsFilled && finalErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
-          {finalized && <p className="validation success">Ordine definitivo del Draft {draftYear}: posizioni e scelte bonus non sono più modificabili.</p>}
         </div>
         {!finalized && (
           <div className="draft-position-footer-actions">

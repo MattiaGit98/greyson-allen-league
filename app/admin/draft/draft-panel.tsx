@@ -57,7 +57,7 @@ export function DraftPanel({
         <p className="notice draft-panel-notice">Nessun rookie disponibile nel listone.</p>
       )}
       <div className="draft-panel-table">
-        <div className="draft-panel-head"><span>Scelta</span><span>Proprietario</span><span>Prezzo</span><span>Giocatore</span><span>Slot</span><span>Taglia/rilascia</span><span></span></div>
+        <div className="draft-panel-head"><span>Scelta · proprietario</span><span>Giocatore</span><span>Slot</span><span>Taglia/rilascia</span><span></span></div>
         {picks.map((pick, index) => {
           const selectedPlayer = selections[pick.id] ?? "";
           const immediateExit = immediateExits[pick.id] === true;
@@ -83,16 +83,13 @@ export function DraftPanel({
               <input type="hidden" name="draft_year" value={pick.year} />
               <input type="hidden" name="destination_slot" value={requestedDestination} />
               <input type="hidden" name="immediate_exit" value={String(immediateExit)} />
-              <div className="draft-panel-pick">
-                {position !== null
-                  ? <b>#{position}</b>
-                  : <b className="unresolved">{pick.originOrOverall}</b>}
-                <span>{pick.round}</span>
-              </div>
-              <div className="draft-panel-owner"><i>{pick.teamCode}</i><strong>{formatTeamName(pick.ownerName)}</strong></div>
-              <div className={`draft-panel-price ${pick.price === null ? "unresolved" : ""}`}>
-                <strong>{pick.price ?? "—"}</strong>
-                {pick.price === null && <small>Da definire</small>}
+              <div className="draft-panel-identity">
+                <div className="draft-panel-pick">
+                  {position !== null
+                    ? <b>#{position}</b>
+                    : <b className="unresolved">{pick.originOrOverall}</b>}
+                </div>
+                <div className="draft-panel-owner" title={formatTeamName(pick.ownerName)}><i>{pick.teamCode}</i><strong>{formatTeamName(pick.ownerName)}</strong></div>
               </div>
               <SearchableRookieSelect
                 players={players}
@@ -103,7 +100,7 @@ export function DraftPanel({
                 }}
                 disabled={!draftOpen || !players.length || pick.price === null}
                 placeholder={pick.price === null
-                  ? "Posizione da definire"
+                  ? "Scelta da completare"
                   : players.length ? "Scrivi il nome del rookie…" : "Listone rookie non disponibile"}
               />
               <label className="draft-panel-slot-select">

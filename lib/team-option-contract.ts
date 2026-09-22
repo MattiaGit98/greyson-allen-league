@@ -1,4 +1,4 @@
-import type { RosterEntry } from "./league-types";
+import type { QualifyingOfferRight, RosterEntry } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { followingSeasonName, seasonEndYear } from "./season-time";
 
@@ -13,6 +13,16 @@ export function destinationAfterTeamOptionExercise(
 
 export function isUnresolvedTeamOption(entry: Pick<RosterEntry, "contract">, moment: LeagueMoment) {
   return entry.contract === "T.O." && !hasReachedMoment(moment, "team_option_deadline");
+}
+
+export function qualifyingOfferForDeclinedTeamOption(
+  entry: Pick<RosterEntry, "name" | "cost" | "teamCode">,
+): QualifyingOfferRight {
+  return {
+    playerName: entry.name,
+    qualifyingAmount: entry.cost,
+    teamCode: entry.teamCode,
+  };
 }
 
 export function exercisedTeamOptionTerms(entry: Pick<RosterEntry, "contract" | "cost" | "teamOptionBaseCost" | "teamOptionFinalYear">) {

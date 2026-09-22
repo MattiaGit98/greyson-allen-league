@@ -7,6 +7,7 @@ import {
   exercisePlayoffTeamOption,
   isUnresolvedTeamOption,
   markExercisedTeamOption,
+  qualifyingOfferForDeclinedTeamOption,
   teamOptionCutAdjustment,
 } from "./team-option-contract";
 
@@ -72,6 +73,17 @@ describe("garanzia dell'ultimo anno della team option", () => {
     expect(teamOptionCutAdjustment(option, 2027, "auction_completed")).toMatchObject({
       adjusted: true,
       entry: { cost: 5, contract: "28" },
+    });
+  });
+});
+
+describe("risoluzione della team option", () => {
+  it("assegna al proprietario la Q.O. al prezzo della T.O. non esercitata", () => {
+    const unresolvedOption: RosterEntry = { ...option, contract: "T.O." };
+    expect(qualifyingOfferForDeclinedTeamOption(unresolvedOption)).toEqual({
+      playerName: "T.O.",
+      qualifyingAmount: 5,
+      teamCode: "AAA",
     });
   });
 });

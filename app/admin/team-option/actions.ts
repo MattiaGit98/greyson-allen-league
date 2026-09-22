@@ -8,7 +8,7 @@ import { calculateCapSpace, followingSeasonName, previousSeasonName, seasonEndYe
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
-import { destinationAfterTeamOptionExercise, exercisePlayoffTeamOption, markExercisedTeamOption } from "@/lib/team-option-contract";
+import { destinationAfterTeamOptionExercise, exercisePlayoffTeamOption, markExercisedTeamOption, qualifyingOfferForDeclinedTeamOption } from "@/lib/team-option-contract";
 
 type Decision = { playerName: string; decision: "exercise" | "decline"; destination: "regular" | "two_way" };
 const path = "/admin/team-option";
@@ -52,6 +52,13 @@ export async function saveTeamOptionDecisions(formData: FormData) {
     }, endYear + 1)];
   });
   if (handled.size !== decisions.length) fail("Una o più team option non appartengono alla squadra selezionata.");
+  const declinedRights = state.rosterEntries
+    .filter((entry) => entry.teamCode === teamCode && byName.get(entry.name)?.decision === "decline")
+    .map(qualifyingOfferForDeclinedTeamOption);
+  const rightNames = new Set(state.qualifyingOfferRights.map((right) => right.playerName.trim().toLocaleLowerCase("it-IT")));
+  if (declinedRights.some((right) => rightNames.has(right.playerName.trim().toLocaleLowerCase("it-IT")))) {
+    fail("Una delle team option lasciate andare possiede già una qualifying offer.");
+  }
   const active = rosterEntries.filter((entry) => entry.teamCode === teamCode && entry.state === "active");
   const limits = { regular: 15, two_way: 2, g_league: 3, dpe: 1 } as const;
   for (const slot of Object.keys(limits) as (keyof typeof limits)[]) {
@@ -70,11 +77,16 @@ export async function saveTeamOptionDecisions(formData: FormData) {
     if (space < 0) capWarnings.push(`Le decisioni porterebbero il cap ${targetSeason} oltre 1000 crediti (cap libero ${space}).`);
   }
   requireCapCompliance(capWarnings, fail);
-  const nextState = { ...state, rosterEntries };
+  const nextState = {
+    ...state,
+    rosterEntries,
+    qualifyingOfferRights: [...state.qualifyingOfferRights, ...declinedRights],
+  };
   let movementState = state;
   const movements: LeagueMovementDraft[] = decisions.map((decision) => {
     const before = movementState;
     const resolvedEntry = rosterEntries.find((entry) => entry.teamCode === teamCode && entry.name === decision.playerName);
+    const declinedRight = declinedRights.find((right) => right.playerName === decision.playerName);
     const after = {
       ...before,
       rosterEntries: before.rosterEntries.flatMap((entry) => (
@@ -83,9 +95,10 @@ export async function saveTeamOptionDecisions(formData: FormData) {
           : [entry]
       )),
     };
+    if (declinedRight) after.qualifyingOfferRights = [...before.qualifyingOfferRights, declinedRight];
     movementState = after;
     const detail = decision.decision === "decline"
-      ? `${decision.playerName}: T.O. non esercitata da ${teamCode}; giocatore rilasciato`
+      ? `${decision.playerName}: T.O. non esercitata da ${teamCode}; giocatore rilasciato; Q.O. per l'asta a ${declinedRight?.qualifyingAmount ?? 0} crediti`
       : `${decision.playerName}: T.O. esercitata da ${teamCode}; slot ${slotLabel(resolvedEntry?.slot)}; ${resolvedEntry?.cost ?? 0} crediti; scadenza ${resolvedEntry?.contract ?? "-"}`;
     return {
       before,
