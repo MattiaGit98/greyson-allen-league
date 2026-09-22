@@ -42,10 +42,19 @@ describe("assegnazione draft", () => {
   });
 
   it("applica un credito a una scelta del secondo giro anche se numerata 15", () => {
+    const first = buildDraftAssignment({
+      state: state(), historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "regular",
+    });
     const result = buildDraftAssignment({
-      state: state(), historyEntries: [], draftYear: 2026, pickIndex: 1, requestedPlayerName: "Rookie Due", destinationSlot: "regular",
+      state: first.state, historyEntries: first.historyEntries, draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Due", destinationSlot: "regular",
     });
     expect(result.price).toBe(1);
+  });
+
+  it("non permette di saltare una scelta ancora da assegnare", () => {
+    expect(() => buildDraftAssignment({
+      state: state(), historyEntries: [], draftYear: 2026, pickIndex: 1, requestedPlayerName: "Rookie Due", destinationSlot: "regular",
+    })).toThrow(/scelta precedente/i);
   });
 
   it("rende ordinaria la contropartita del quarto draft al completamento del draft corrente", () => {
@@ -144,11 +153,14 @@ describe("assegnazione draft", () => {
   });
 
   it("registra il rilascio immediato del secondo giro senza creare contratto", () => {
-    const result = buildDraftAssignment({
-      state: state(), historyEntries: [], draftYear: 2026, pickIndex: 1, requestedPlayerName: "Rookie Due", destinationSlot: "immediate_release",
+    const first = buildDraftAssignment({
+      state: state(), historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "regular",
     });
-    expect(result.state.rosterEntries).toHaveLength(0);
-    expect(result.state.draftAssets).toHaveLength(1);
+    const result = buildDraftAssignment({
+      state: first.state, historyEntries: first.historyEntries, draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Due", destinationSlot: "immediate_release",
+    });
+    expect(result.state.rosterEntries).toHaveLength(first.state.rosterEntries.length);
+    expect(result.state.draftAssets.some((pick) => pick.year === 2026)).toBe(false);
     const content = result.historyEntries[0].content;
     expect(content.kind).toBe("draft");
     if (content.kind === "draft") expect(content.rows[14]).toEqual({ pick: "15", team: "AAA", player: "Rookie Due" });
@@ -164,9 +176,12 @@ describe("assegnazione draft", () => {
 
     const cutInput = state();
     cutInput.draftAssets[1].draftCost = 2;
-    const cut = buildDraftAssignment({
-      state: cutInput, historyEntries: [], draftYear: 2026, pickIndex: 1, requestedPlayerName: "Rookie Due", destinationSlot: "immediate_cut",
+    const first = buildDraftAssignment({
+      state: cutInput, historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "regular",
     });
-    expect(cut.state.rosterEntries[0]).toMatchObject({ state: "cut", contract: "27", cost: 2 });
+    const cut = buildDraftAssignment({
+      state: first.state, historyEntries: first.historyEntries, draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Due", destinationSlot: "immediate_cut",
+    });
+    expect(cut.state.rosterEntries.at(-1)).toMatchObject({ state: "cut", contract: "27", cost: 2 });
   });
 });

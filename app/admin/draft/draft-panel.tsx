@@ -72,7 +72,8 @@ export function DraftPanel({
           });
           const capAfter = pick.price === null || destination === "immediate_release" ? pick.capSpace : pick.capSpace - pick.price;
           const capWarning = Boolean(selectedPlayer) && pick.price !== null && capAfter < 0;
-          const canAssign = draftOpen && Boolean(selectedPlayer) && pick.price !== null && !slotErrors.length;
+          const canEdit = draftOpen && index === 0 && pick.price !== null;
+          const canAssign = canEdit && Boolean(selectedPlayer) && !slotErrors.length;
           const position = draftOverallPosition(pick.originOrOverall);
           const startsRound = index === 0 || picks[index - 1]?.round !== pick.round;
           return (
@@ -98,14 +99,14 @@ export function DraftPanel({
                   setSelections((current) => ({ ...current, [pick.id]: value }));
                   if (!value) setImmediateExits((current) => ({ ...current, [pick.id]: false }));
                 }}
-                disabled={!draftOpen || !players.length || pick.price === null}
+                disabled={!canEdit || !players.length}
                 placeholder={pick.price === null
                   ? "Scelta da completare"
                   : players.length ? "Scrivi il nome del rookie…" : "Listone rookie non disponibile"}
               />
               <label className="draft-panel-slot-select">
                 <span>Slot</span>
-                <select value={requestedDestination} onChange={(event) => setDestinations((current) => ({ ...current, [pick.id]: event.target.value as DraftDestinationSlot }))} disabled={!draftOpen || pick.price === null || immediateExit}>
+                <select value={requestedDestination} onChange={(event) => setDestinations((current) => ({ ...current, [pick.id]: event.target.value as DraftDestinationSlot }))} disabled={!canEdit || immediateExit}>
                   <option value="regular">Roster ({pick.slots.regular}/{draftSlotLimits.regular})</option>
                   <option value="two_way">Two-way ({pick.slots.two_way}/{draftSlotLimits.two_way})</option>
                   <option value="g_league">G-League ({pick.slots.g_league}/{draftSlotLimits.g_league})</option>
@@ -115,7 +116,7 @@ export function DraftPanel({
                 <input
                   type="checkbox"
                   checked={immediateExit}
-                  disabled={!draftOpen || !selectedPlayer || pick.price === null}
+                  disabled={!canEdit || !selectedPlayer}
                   onChange={(event) => setImmediateExits((current) => ({ ...current, [pick.id]: event.target.checked }))}
                 />
                 <span>{pick.price === 1 ? "Rilascia" : "Taglia"}</span>
@@ -155,7 +156,9 @@ function SearchableRookieSelect({
   const [open, setOpen] = useState(false);
   const matches = useMemo(() => {
     const normalized = search.trim().toLocaleLowerCase("it-IT");
-    return players.filter((player) => !normalized || player.name.toLocaleLowerCase("it-IT").includes(normalized));
+    return players
+      .filter((player) => !normalized || player.name.toLocaleLowerCase("it-IT").includes(normalized))
+      .sort((left, right) => left.name.localeCompare(right.name, "it", { sensitivity: "base" }));
   }, [players, search]);
 
   function selectPlayer(player: PlayerListEntry) {
@@ -215,10 +218,6 @@ function SearchableRookieSelect({
                 key={player.name}
               >
                 <strong>{player.name}</strong>
-                <span>
-                  <i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i>
-                  {player.realTeam && <small>{player.realTeam}</small>}
-                </span>
               </button>
             ))}
             {!matches.length && <p>Nessun rookie trovato</p>}

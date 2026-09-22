@@ -186,7 +186,9 @@ export function RosterCorrectionPanel({
                 onChange={(event) => { setAddition((current) => ({ ...current, playerName: event.target.value })); setForceCap(false); setRoleMinimumConfirmed(false); }}
               />
               <datalist id="roster-correction-free-agents">
-                {freeAgents.map((player) => <option value={player.name} key={player.name}>{player.role}</option>)}
+                {[...freeAgents]
+                  .sort((left, right) => left.name.localeCompare(right.name, "it", { sensitivity: "base" }))
+                  .map((player) => <option value={player.name} key={player.name} />)}
               </datalist>
             </label>
             <label><span>Ruolo</span><strong>{preview.additionPlayer?.role ?? "X"}</strong></label>

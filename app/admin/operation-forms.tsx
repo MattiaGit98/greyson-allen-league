@@ -376,14 +376,14 @@ export function SlotMoveForm(props: OperationProps) {
         <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setPlayerId(""); }} />
       </label>
 
-      <div className="team-accordion-content admin-editor-content slot-management-content">
+      <div className="team-accordion-content admin-editor-content other-operations-content slot-management-content">
         {slotGroups.map((group) => {
           const groupPlayers = players.filter((item) => item.slot === group.slot);
           return (
-            <section className="accordion-data-section slot-management-section" key={group.slot}>
+            <section className="accordion-data-section other-operations-section slot-management-section" key={group.slot}>
               <p>{group.label} ({groupPlayers.length}/{group.limit})</p>
-              <div className="slot-management-table">
-                <div className="slot-management-head"><span>Giocatore</span><span>Ruolo</span><span>Scadenza</span><span>Costo</span></div>
+              <div className="other-operations-table slot-management-table">
+                <div className="other-operations-head slot-management-head"><span>Giocatore</span><span>Ruolo</span><span>Scadenza</span><span>Costo</span><span>Nuovo slot</span></div>
                 {groupPlayers.map((item) => {
                   const selected = item.id === playerId;
                   const rowDestination = selected ? destination : item.slot as Exclude<Slot, "dpe">;
@@ -393,11 +393,11 @@ export function SlotMoveForm(props: OperationProps) {
                     props.leagueMoment,
                   );
                   return (
-                    <div className={`slot-management-row ${selected ? "selected" : ""}`} key={item.id}>
+                    <div className={`other-operations-row slot-management-row ${selected ? "selected" : ""}`} key={item.id}>
                       <strong>{item.name}</strong>
-                      <i className={`mini-role mini-role-${item.role?.toLowerCase() ?? "none"}`}>{item.role ?? "X"}</i>
+                      <span>{item.role ?? "X"}</span>
                       <span>{item.contract}</span>
-                      <b>{item.cost}</b>
+                      <span>{item.cost}</span>
                       <select value={rowDestination} disabled={legalDestinations.length === 1} onChange={(event) => chooseDestination(item, event.target.value as Exclude<Slot, "dpe">)} aria-label={`Nuovo slot di ${item.name}`}>
                         {legalDestinations.map((slot) => (
                           <option value={slot} key={slot}>{slotLabel(slot)}{item.slot === slot ? " · attuale" : ""}</option>

@@ -1,6 +1,6 @@
 import type { EditableLeagueState } from "./league-state";
 import type { HistoryCompetitionEntry, HistoryDraftRow } from "./history-competitions";
-import { draftOverallPosition } from "./draft-rules";
+import { compareDraftPicks, draftOverallPosition } from "./draft-rules";
 import { findTeamSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
 import { removeRolelessPlayersByName } from "./roleless-player-list";
 
@@ -45,6 +45,11 @@ export function buildDraftAssignment({
   if (!Number.isInteger(pickIndex) || pickIndex < 0) throw new Error("Scelta non valida. Aggiorna la pagina e riprova.");
   const pick = state.draftAssets[pickIndex];
   if (!pick || pick.year !== draftYear) throw new Error("La scelta non appartiene al draft attuale.");
+  const nextPick = state.draftAssets
+    .map((asset, index) => ({ asset, index }))
+    .filter(({ asset }) => asset.year === draftYear)
+    .sort((left, right) => compareDraftPicks(left.asset, right.asset))[0];
+  if (pickIndex !== nextPick?.index) throw new Error("Assegna prima la scelta precedente del draft.");
 
   const position = draftOverallPosition(pick.originOrOverall);
   const configuredCost = pick.draftCost;

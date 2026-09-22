@@ -11,6 +11,7 @@ type Row = {
   rookie: boolean;
   under23: boolean;
   listOrder: number;
+  publicOrder: number | null;
   rosterTeamCode: string | null;
   qualifyingTeamCode: string | null;
   buyoutApplied: boolean;
@@ -22,7 +23,7 @@ function statusOf(row: Row): PlayerStatus {
   return "fa";
 }
 
-export function PlayerExplorer({ rows, showRealTeam, showEligibility }: { rows: Row[]; showRealTeam: boolean; showEligibility: boolean }) {
+export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility }: { rows: Row[]; showOrder: boolean; showRealTeam: boolean; showEligibility: boolean }) {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("all");
   const [status, setStatus] = useState("all");
@@ -53,9 +54,9 @@ export function PlayerExplorer({ rows, showRealTeam, showEligibility }: { rows: 
         </div>}
       </div>
 
-      <div className={`player-list${showRealTeam ? "" : " without-real-team"}`}>
+      <div className={`player-list${showOrder ? "" : " without-order"}${showRealTeam ? "" : " without-real-team"}`}>
         <div className="player-list-head">
-          <span>#</span>
+          {showOrder && <span>#</span>}
           <span>Giocatore</span>
           <span>Ruolo</span>
           {showRealTeam && <span>Squadra NBA</span>}
@@ -63,7 +64,7 @@ export function PlayerExplorer({ rows, showRealTeam, showEligibility }: { rows: 
         </div>
         {filtered.map((row) => (
           <article className={`player-row ${showRealTeam && row.realTeam ? "has-real-team" : ""} ${showEligibility && row.rookie ? "is-rookie" : ""} ${showEligibility && row.under23 ? "is-under23" : ""}`} key={row.listOrder}>
-            <span className="player-order">{row.listOrder}</span>
+            {showOrder && <span className="player-order">{row.publicOrder}</span>}
             <span className="player-identity">
               {row.rosterTeamCode
                 ? <Link className="player-name player-team-link" href={`/squadre?team=${encodeURIComponent(row.rosterTeamCode)}&player=${encodeURIComponent(row.name)}`} title={`Vai alla squadra di ${row.name}`}>{row.name}</Link>
