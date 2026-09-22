@@ -3,13 +3,16 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { requireActiveSeason } from "@/lib/active-season";
 import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { normalizePlayerName } from "@/lib/admin-alerts";
+import { showPlayerListRealTeam } from "@/lib/player-list-visibility";
 
 export default async function PlayersPage() {
   const [leagueState, activeSeason] = await Promise.all([
     loadEditableLeagueState(),
     requireActiveSeason(),
   ]);
-  const showEligibility = !hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "contract_delivery");
+  const moment = leagueMomentFromSeason(activeSeason.season);
+  const showEligibility = !hasReachedMoment(moment, "contract_delivery");
+  const showRealTeam = showPlayerListRealTeam(leagueState.playerListStatus, moment);
   const rows = leagueState.playerList.map((player, index) => {
     const normalizedName = normalizePlayerName(player.name);
     const activeRoster = leagueState.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedName && entry.state === "active");
@@ -34,7 +37,7 @@ export default async function PlayersPage() {
       )}
       <PlayerExplorer
         rows={rows}
-        showRealTeam={leagueState.playerListStatus === "published"}
+        showRealTeam={showRealTeam}
         showEligibility={showEligibility}
       />
     </section>

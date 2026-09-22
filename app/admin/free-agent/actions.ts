@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PlayerListEntry, RosterEntry } from "@/lib/league-types";
-import { nbaTeamCodes } from "@/data/nba-teams";
 import { normalizePlayerName } from "@/lib/admin-alerts";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
@@ -30,7 +29,6 @@ export async function signFreeAgent(formData: FormData) {
   const playerSource = clean(formData.get("player_source"));
   const playerName = clean(formData.get("player_name"));
   const playerRole = clean(formData.get("player_role"));
-  const realTeam = clean(formData.get("real_team")).toUpperCase();
   const teamCode = clean(formData.get("team_code")).toUpperCase();
   const cutPlayerName = clean(formData.get("cut_player_name"));
   const promotionPlayerName = clean(formData.get("promotion_player_name"));
@@ -41,8 +39,8 @@ export async function signFreeAgent(formData: FormData) {
     fail("Dati della firma non validi.");
   }
   if (Boolean(promotionPlayerName) !== Boolean(promotionDestination)) fail("Promozione contestuale non valida.");
-  if (playerSource === "outside" && (!["G", "A", "C", "X"].includes(playerRole) || !nbaTeamCodes.has(realTeam))) {
-    fail("Per il giocatore fuori listone devi indicare ruolo e squadra NBA.");
+  if (playerSource === "outside" && !["G", "A", "C", "X"].includes(playerRole)) {
+    fail("Per il giocatore fuori listone devi indicare il ruolo.");
   }
 
   const supabase = await createSupabaseServerClient();
@@ -71,7 +69,7 @@ export async function signFreeAgent(formData: FormData) {
     player = {
       name: playerName.replace(/\s+/g, " "),
       role: playerRole as PlayerListEntry["role"],
-      realTeam,
+      realTeam: "FA",
       rookie: false,
       under23: false,
     };

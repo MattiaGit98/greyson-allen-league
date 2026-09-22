@@ -19,7 +19,7 @@ type Resolution = {
   realTeam: string;
 };
 
-export function PlayerListImport() {
+export function PlayerListImport({ showRealTeam }: { showRealTeam: boolean }) {
   const [state, action, pending] = useActionState(preparePlayerListImport, initialState);
   return (
     <>
@@ -31,12 +31,12 @@ export function PlayerListImport() {
         <button className="button primary" type="submit" disabled={pending}>{pending ? "Analisi…" : "Importa come ufficiale"}</button>
       </form>
       {state.error && <p className="notice error list-import-error">Importazione non riuscita: {state.error}</p>}
-      {state.preview && <ReconciliationDialog preview={state.preview} key={state.preview.previewKey} />}
+      {state.preview && <ReconciliationDialog preview={state.preview} showRealTeam={showRealTeam} key={state.preview.previewKey} />}
     </>
   );
 }
 
-function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImportState["preview"]> }) {
+function ReconciliationDialog({ preview, showRealTeam }: { preview: NonNullable<PlayerListImportState["preview"]>; showRealTeam: boolean }) {
   const [dismissed, setDismissed] = useState(false);
   const [editingSource, setEditingSource] = useState<string | null>(null);
   const [backupPending, setBackupPending] = useState(false);
@@ -47,7 +47,7 @@ function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImpo
       sourceName: mismatch.sourceName,
       kind: mismatch.suggestedName ? "existing" : "new",
       targetName: mismatch.suggestedName ?? mismatch.sourceName,
-      realTeam: "",
+      realTeam: "FA",
     }]),
   ));
   if (dismissed) return null;
@@ -89,12 +89,12 @@ function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImpo
               {preview.mismatches.map((mismatch) => {
                 const resolution = resolutions[mismatch.sourceName];
                 return (
-                  <div className="list-reconciliation-row" key={mismatch.sourceName}>
+                  <div className={`list-reconciliation-row${resolution.kind === "new" ? " is-new" : ""}`} key={mismatch.sourceName}>
                     <div><strong>{mismatch.sourceName}</strong><small>{mismatch.references.join(" · ")}</small></div>
                     <div>
                       <strong>{resolution.kind === "existing" ? resolution.targetName : `Nuovo: ${resolution.targetName}`}</strong>
                       {resolution.kind === "new"
-                        ? <small className={resolution.realTeam ? "" : "missing"}>Ruolo X · {resolution.realTeam || "squadra reale da indicare"}</small>
+                        ? <small>X{showRealTeam ? ` · ${resolution.realTeam === "FA" ? "Nessuna squadra NBA" : resolution.realTeam}` : ""}</small>
                         : <small>{mismatch.suggestedName === resolution.targetName ? "Corrispondenza consigliata" : "Corrispondenza modificata"}</small>}
                     </div>
                     <button type="button" onClick={() => setEditingSource(mismatch.sourceName)}>Modifica</button>
@@ -115,6 +115,7 @@ function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImpo
         <MatchChoiceDialog
           mismatch={editingMismatch}
           players={preview.players}
+          showRealTeam={showRealTeam}
           initial={resolutions[editingMismatch.sourceName]}
           onCancel={() => setEditingSource(null)}
           onSave={(resolution) => {
@@ -127,9 +128,10 @@ function ReconciliationDialog({ preview }: { preview: NonNullable<PlayerListImpo
   );
 }
 
-function MatchChoiceDialog({ mismatch, players, initial, onCancel, onSave }: {
+function MatchChoiceDialog({ mismatch, players, showRealTeam, initial, onCancel, onSave }: {
   mismatch: PlayerListImportMismatch;
   players: PlayerListEntry[];
+  showRealTeam: boolean;
   initial: Resolution;
   onCancel: () => void;
   onSave: (resolution: Resolution) => void;
@@ -154,18 +156,18 @@ function MatchChoiceDialog({ mismatch, players, initial, onCancel, onSave }: {
         <div className="auction-modal-body">
           <div className="match-kind-choice">
             <label><input type="radio" checked={kind === "existing"} onChange={() => { setKind("existing"); setTargetName(mismatch.suggestedName ?? players[0]?.name ?? ""); }} /><strong>Giocatore del listone</strong></label>
-            <label><input type="radio" checked={kind === "new"} onChange={() => { setKind("new"); setTargetName(mismatch.sourceName); }} /><strong>Nuovo giocatore</strong></label>
+            <label><input type="radio" checked={kind === "new"} onChange={() => { setKind("new"); setTargetName(mismatch.sourceName); setRealTeam("FA"); }} /><strong>Nuovo giocatore</strong></label>
           </div>
           {kind === "existing" ? (
             <div className="match-existing-player-fields">
               <label><span>Cerca nel listone</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Scrivi il nome…" /></label>
-              <label><span>Giocatore</span><select size={Math.min(8, Math.max(3, filteredPlayers.length))} value={targetName} onChange={(event) => setTargetName(event.target.value)}>{filteredPlayers.map((player) => <option value={player.name} key={player.name}>{player.name} · {player.role} · {player.realTeam || "—"}</option>)}</select></label>
+              <label><span>Giocatore</span><select size={Math.min(8, Math.max(3, filteredPlayers.length))} value={targetName} onChange={(event) => setTargetName(event.target.value)}>{filteredPlayers.map((player) => <option value={player.name} key={player.name}>{player.name} · {player.role}{showRealTeam ? ` · ${player.realTeam || "—"}` : ""}</option>)}</select></label>
             </div>
           ) : (
             <div className="match-new-player-fields">
               <label><span>Nome da aggiungere</span><input value={targetName} onChange={(event) => setTargetName(event.target.value)} maxLength={120} /></label>
-              <label><span>Squadra NBA</span><select value={realTeam} onChange={(event) => setRealTeam(event.target.value)}><option value="">Seleziona</option><option value="FA">Nessuna squadra NBA</option>{nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}</select></label>
-              <p className="validation warning">Il giocatore verrà aggiunto in fondo al listone con ruolo X.</p>
+              <label><span>Ruolo</span><select value="X" disabled><option value="X">X · Nessun ruolo Dunkest</option></select></label>
+              {showRealTeam && <label><span>Squadra NBA</span><select value={realTeam} onChange={(event) => setRealTeam(event.target.value)}><option value="FA">Nessuna squadra NBA</option>{nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}</select></label>}
             </div>
           )}
         </div>

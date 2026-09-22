@@ -383,7 +383,7 @@ export function SlotMoveForm(props: OperationProps) {
             <section className="accordion-data-section slot-management-section" key={group.slot}>
               <p>{group.label} ({groupPlayers.length}/{group.limit})</p>
               <div className="slot-management-table">
-                <div className="slot-management-head"><span>Giocatore</span><span>Ruolo</span><span>Scadenza</span><span>Costo</span><span>Nuovo slot</span></div>
+                <div className="slot-management-head"><span>Giocatore</span><span>Ruolo</span><span>Scadenza</span><span>Costo</span></div>
                 {groupPlayers.map((item) => {
                   const selected = item.id === playerId;
                   const rowDestination = selected ? destination : item.slot as Exclude<Slot, "dpe">;

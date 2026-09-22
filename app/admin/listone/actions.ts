@@ -10,6 +10,7 @@ import { requireActiveSeason } from "@/lib/active-season";
 import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { suggestPlayerName } from "@/lib/player-name-matching";
+import { alignActiveRosterEntries, referencedPlayerNames, syncActiveRosterRoles } from "@/lib/player-list-reconciliation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type PlayerListSaveState = { message?: string; error?: string; savedRevision?: number };
@@ -36,7 +37,7 @@ export async function savePlayerList(
   formData: FormData,
 ): Promise<PlayerListSaveState> {
   try {
-    const players = parsePlayers(formData.get("players_json"));
+    let players = parsePlayers(formData.get("players_json"));
     const newPlayerNames = parseNewPlayerNames(formData.get("new_player_names_json"));
     const status = formData.get("list_status") === "published" ? "published" : "offseason";
     const supabase = await createSupabaseServerClient();
@@ -46,6 +47,11 @@ export async function savePlayerList(
 
     const current = await loadEditableLeagueState();
     const activeSeason = await requireActiveSeason();
+    if (hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "auction_completed")) {
+      const newNames = new Set(newPlayerNames.map(normalizePlayerName));
+      players = players.map((player) => newNames.has(normalizePlayerName(player.name))
+        ? { ...player, realTeam: "FA" } : player);
+    }
     if (hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "contract_delivery")
       && eligibilityChanged(players, current.playerList)) {
       return { error: "Dopo la consegna dei contratti le indicazioni Rookie e U23 non sono più modificabili." };
@@ -78,10 +84,7 @@ export async function savePlayerList(
     const rolesByName = new Map(players.map((player) => [normalizePlayerName(player.name), player.role]));
     const nextState: EditableLeagueState = {
       ...current,
-      rosterEntries: current.rosterEntries.map((entry) => {
-        const role = rolesByName.get(normalizePlayerName(entry.name));
-        return { ...entry, role: !role || role === "X" ? undefined : role };
-      }),
+      rosterEntries: syncActiveRosterRoles(current.rosterEntries, (name) => rolesByName.get(normalizePlayerName(name))),
       playerList: players,
       playerListStatus: status,
     };
@@ -128,7 +131,7 @@ export async function preparePlayerListImport(
       && eligibilityChanged(players, current.playerList)) {
       throw new Error("Dopo la consegna dei contratti le indicazioni Rookie e U23 non sono più modificabili.");
     }
-    const references = referencedPlayerNames(current);
+    const references = referencedPlayerNames(current.rosterEntries, current.qualifyingOfferRights);
     const importedNames = new Set(players.map((player) => player.name));
     const mismatches = [...references.entries()]
       .filter(([sourceName]) => !importedNames.has(sourceName))
@@ -164,7 +167,7 @@ export async function confirmPlayerListImport(formData: FormData) {
       && eligibilityChanged(importedPlayers, current.playerList)) {
       throw new Error("Dopo la consegna dei contratti le indicazioni Rookie e U23 non sono più modificabili.");
     }
-    const references = referencedPlayerNames(current);
+    const references = referencedPlayerNames(current.rosterEntries, current.qualifyingOfferRights);
     const importedExact = new Map(importedPlayers.map((player) => [player.name, player]));
     const requiredSources = [...references.keys()].filter((sourceName) => !importedExact.has(sourceName));
     const resolutionBySource = new Map(resolutions.map((resolution) => [resolution.sourceName, resolution]));
@@ -185,30 +188,23 @@ export async function confirmPlayerListImport(formData: FormData) {
         if (!target) throw new Error(`Il giocatore selezionato per ${resolution.sourceName} non è più presente nel listone importato.`);
       } else {
         const name = cleanPlayerName(resolution.targetName);
-        const realTeam = resolution.realTeam.toUpperCase();
+        const realTeam = hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "auction_completed")
+          ? "FA" : resolution.realTeam.toUpperCase();
         if (!name) throw new Error(`Inserisci il nome da aggiungere per ${resolution.sourceName}.`);
         if (!realTeam || (realTeam !== "FA" && !nbaTeamCodes.has(realTeam))) throw new Error(`Indica la squadra reale di ${name}.`);
-        target = playerByNormalizedName.get(normalizePlayerName(name));
-        if (!target) {
-          target = { name, role: "X", realTeam, rookie: false, under23: false };
-          players.push(target);
-          playerByNormalizedName.set(normalizePlayerName(name), target);
-          importedExact.set(name, target);
+        if (playerByNormalizedName.has(normalizePlayerName(name))) {
+          throw new Error(`${name} è già nel listone: scegli un giocatore esistente oppure cambia nome.`);
         }
+        target = { name, role: "X", realTeam, rookie: false, under23: false };
+        players.push(target);
+        playerByNormalizedName.set(normalizePlayerName(name), target);
+        importedExact.set(name, target);
       }
       canonicalBySource.set(resolution.sourceName, target);
     }
 
     const canonicalPlayer = (sourceName: string) => importedExact.get(sourceName) ?? canonicalBySource.get(sourceName);
-    const rosterEntries = current.rosterEntries.map((entry) => {
-      const target = canonicalPlayer(entry.name);
-      if (!target) throw new Error(`Nessuna corrispondenza confermata per ${entry.name}.`);
-      return {
-        ...entry,
-        name: target.name,
-        role: target.role === "X" ? undefined : target.role,
-      };
-    });
+    const rosterEntries = alignActiveRosterEntries(current.rosterEntries, canonicalPlayer);
     ensureNoActiveRosterDuplicates(rosterEntries);
     const qualifyingOfferRights = current.qualifyingOfferRights.map((right) => {
       const target = canonicalPlayer(right.playerName);
@@ -308,23 +304,6 @@ async function playersFromWorkbook(file: File) {
     });
   });
   return validatePlayers(imported);
-}
-
-function referencedPlayerNames(state: EditableLeagueState) {
-  const references = new Map<string, Set<string>>();
-  const add = (name: string, reference: string) => {
-    const current = references.get(name) ?? new Set<string>();
-    current.add(reference);
-    references.set(name, current);
-  };
-  state.rosterEntries.forEach((entry) => {
-    const placement = entry.state === "cut"
-      ? "tagliato"
-      : entry.slot === "two_way" ? "Two-way" : entry.slot === "g_league" ? "G-League" : entry.slot === "dpe" ? "DPE" : "roster";
-    add(entry.name, `${entry.teamCode} · ${placement}`);
-  });
-  state.qualifyingOfferRights.forEach((right) => add(right.playerName, `${right.teamCode} · Q.O.`));
-  return references;
 }
 
 function parseResolutions(value: FormDataEntryValue | null): ImportResolution[] {

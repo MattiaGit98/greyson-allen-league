@@ -120,4 +120,27 @@ describe("sign and trade", () => {
     })).toThrow("trade deadline");
   });
 
+  it("aggiunge un giocatore fuori listone senza richiedere la squadra NBA", () => {
+    const provisional = buildSignAndTradeProvisional({
+      state: baseState(),
+      request: {
+        kind: "free_agent",
+        playerSource: "outside",
+        playerName: "Nuovo giocatore",
+        playerRole: "G",
+        realTeam: "",
+        signerTeamCode: "AAA",
+        price: 1,
+        destinationSlot: "regular",
+      },
+      seasonName: "2026/27",
+      phase: "regular_season",
+      moment: "contract_delivery",
+    });
+
+    expect(provisional.state.playerList.at(-1)).toMatchObject({
+      name: "Nuovo giocatore", role: "G", realTeam: "FA", rookie: false, under23: false,
+    });
+  });
+
 });

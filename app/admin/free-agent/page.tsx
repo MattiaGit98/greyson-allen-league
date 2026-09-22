@@ -35,7 +35,6 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
     return {
       name: player.name,
       role: player.role,
-      realTeam: player.realTeam,
       rookie: player.rookie,
       under23: player.under23,
       listOrder: index + 1,

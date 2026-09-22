@@ -1,5 +1,4 @@
 import type { PlayerListEntry } from "./league-types";
-import { nbaTeamCodes } from "../data/nba-teams";
 import { normalizePlayerName } from "./admin-alerts";
 import { isCapIssueCode } from "./cap-override";
 import type { RosterEntry } from "./league-types";
@@ -63,14 +62,13 @@ export function buildSignAndTradeProvisional(input: {
   } else {
     if (listedPlayer) throw new Error("Il giocatore è già nel listone.");
     const role = request.playerRole;
-    const realTeam = request.realTeam.trim().toUpperCase();
-    if (!request.playerName.trim() || !["G", "A", "C", "X"].includes(role) || !nbaTeamCodes.has(realTeam)) {
-      throw new Error("Per il giocatore fuori listone devi indicare nome, ruolo e squadra NBA.");
+    if (!request.playerName.trim() || !["G", "A", "C", "X"].includes(role)) {
+      throw new Error("Per il giocatore fuori listone devi indicare nome e ruolo.");
     }
     player = {
       name: request.playerName.trim().replace(/\s+/g, " "),
       role: role as PlayerListEntry["role"],
-      realTeam,
+      realTeam: "FA",
       rookie: false,
       under23: false,
     };

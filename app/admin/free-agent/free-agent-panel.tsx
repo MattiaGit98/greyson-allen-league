@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { nbaTeams } from "@/data/nba-teams";
 import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
 import { countRosterRoles } from "@/lib/rules/roster";
 import { signFreeAgent } from "./actions";
@@ -13,7 +12,6 @@ type Slot = "regular" | "two_way" | "g_league" | "dpe";
 type PlayerOption = {
   name: string;
   role: "G" | "A" | "C" | "X";
-  realTeam: string;
   listOrder: number;
   rosterTeamCode: string | null;
   qualifyingTeamCode: string | null;
@@ -80,33 +78,29 @@ export function FreeAgentPanel({
 
   return (
     <>
-      <div className="free-agent-panel-toolbar">
+      <div className={`free-agent-panel-toolbar${canSign ? "" : " is-unavailable"}`}>
         <label className="auction-search search-field">
           <span>Cerca</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" disabled={!canSign} />
         </label>
         <button className="button secondary" type="button" disabled={!canSign} title={unavailableReason} onClick={() => setOutsideListOpen(true)}>
           + Giocatore fuori listone
         </button>
       </div>
 
-      <div className="auction-player-list free-agent-player-list">
+      <div className={`auction-player-list free-agent-player-list${canSign ? "" : " is-unavailable"}`}>
         <div className="auction-player-head">
-          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>Squadra NBA</span><span>Stato</span><span></span>
+          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>B.O.</span><span></span>
         </div>
         {freeAgents.map((player) => (
           <article className="auction-player-row" key={player.listOrder}>
             <span className="player-order">{player.listOrder}</span>
             <span className="player-identity">
               <strong className="player-name">{player.name}</strong>
-              <span className="auction-player-subline">
-                {player.realTeam && <small>{player.realTeam}</small>}
-              </span>
             </span>
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>
-            <strong className="real-team">{player.realTeam || "—"}</strong>
-            <span className={`player-status player-status-highlight${player.buyoutApplied ? " player-status-buyout" : ""}`}><strong>FA</strong>{player.buyoutApplied && <small>Buyout</small>}</span>
-            <button className="auction-row-action bid" type="button" disabled={!canSign} title={unavailableReason} onClick={() => setSelectedName(player.name)}>{freeAgencyOpen ? "Firma" : "Chiusa"}</button>
+            <span className="free-agent-buyout-cell">{player.buyoutApplied && <strong className="free-agent-buyout-mark" title="Buyout applicato" aria-label="Buyout applicato">X</strong>}</span>
+            <button className="auction-row-action bid" type="button" disabled={!canSign} title={unavailableReason} onClick={() => setSelectedName(player.name)}>Firma</button>
           </article>
         ))}
         {!freeAgents.length && <div className="data-empty">{listPublished ? "Nessun free agent trovato" : "Listone non ancora pubblicato"}</div>}
@@ -169,7 +163,6 @@ function FreeAgentDialog({
   const [promotionDestination, setPromotionDestination] = useState<"regular" | "two_way" | "g_league">("regular");
   const [outsideName, setOutsideName] = useState("");
   const [outsideRole, setOutsideRole] = useState<"G" | "A" | "C" | "X" | "">("");
-  const [outsideRealTeam, setOutsideRealTeam] = useState("");
   const [buyoutTopSixConfirmed, setBuyoutTopSixConfirmed] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [roleMinimumReplacement, setRoleMinimumReplacement] = useState(false);
@@ -181,7 +174,7 @@ function FreeAgentDialog({
   ));
   const promotionPlayer = promotablePlayers.find((item) => item.name === promotionPlayerName);
   const availablePromotionDestinations = promotionPlayer?.promotionDestinations ?? [];
-  const customReady = outsideName.trim() && outsideRole && outsideRealTeam;
+  const customReady = outsideName.trim() && outsideRole;
   const selectedRole: "G" | "A" | "C" | null = player
     ? player.role === "X" ? null : player.role
     : outsideRole === "G" || outsideRole === "A" || outsideRole === "C" ? outsideRole : null;
@@ -246,7 +239,7 @@ function FreeAgentDialog({
       sign_source: outsideList ? "outside" : "list",
       sign_player: outsideList ? outsideName.trim() : player?.name ?? "",
       sign_role: outsideList ? outsideRole : "",
-      sign_real_team: outsideList ? outsideRealTeam : "",
+      sign_real_team: outsideList ? "FA" : "",
       sign_team: teamCode,
       sign_price: String(price),
       sign_slot: destination,
@@ -259,7 +252,7 @@ function FreeAgentDialog({
       <input type="hidden" name="player_source" value={outsideList ? "outside" : "list"} />
       <input type="hidden" name="player_name" value={outsideList ? outsideName.trim() : player?.name ?? ""} />
       <input type="hidden" name="player_role" value={outsideList ? outsideRole : ""} />
-      <input type="hidden" name="real_team" value={outsideList ? outsideRealTeam : ""} />
+      <input type="hidden" name="real_team" value={outsideList ? "FA" : ""} />
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="price" value={price} />
       <input type="hidden" name="destination" value={destination} />
@@ -274,7 +267,7 @@ function FreeAgentDialog({
         <div>
           <span>Firma free agent</span>
           <strong>{(player?.name ?? outsideName.trim()) || "Giocatore fuori listone"}</strong>
-          <small>{player ? `${player.role} · ${player.realTeam || "Squadra NBA non indicata"}` : "Inserimento contestuale nel listone"}</small>
+          <small>{player ? player.role : "Inserimento contestuale nel listone"}</small>
         </div>
         <button type="button" onClick={onClose} aria-label="Chiudi">×</button>
       </div>
@@ -285,7 +278,6 @@ function FreeAgentDialog({
             <>
               <Field label="Nome giocatore"><input type="text" maxLength={120} value={outsideName} onChange={(event) => { setOutsideName(event.target.value); setBuyoutTopSixConfirmed(false); }} /></Field>
               <Field label="Ruolo"><select value={outsideRole} onChange={(event) => { setOutsideRole(event.target.value as typeof outsideRole); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}><option value="">Seleziona</option><option value="G">Guardia</option><option value="A">Ala</option><option value="C">Centro</option><option value="X">Senza ruolo Dunkest</option></select></Field>
-              <Field label="Squadra NBA"><select value={outsideRealTeam} onChange={(event) => setOutsideRealTeam(event.target.value)}><option value="">Seleziona</option>{nbaTeams.map((item) => <option value={item.code} key={item.code}>{item.code} · {item.name}</option>)}</select></Field>
             </>
           )}
           <Field label="Squadra">
