@@ -28,7 +28,7 @@ export function HomeDraftFeature({ year, rows, firstRoundLastPosition }: { year:
           return <Fragment key={`${row.pick}-${index}`}>
             {position === 1 && firstRoundLastPosition > 0 && <div className="home-draft-round-divider first-round" role="heading" aria-level={3}>1° giro</div>}
             {position === firstRoundLastPosition + 1 && firstRoundLastPosition > 0 && <div className="home-draft-round-divider second-round" role="heading" aria-level={3}>2° giro</div>}
-            <div className={row.player ? "is-assigned" : ""}><strong>{row.pick || String(index + 1)}</strong><span>{row.team || "—"}</span><span>{row.player || "Da assegnare"}</span></div>
+            <div className={row.player ? "is-assigned" : ""}><strong>{row.pick || String(index + 1)}</strong><span>{row.team || "—"}</span><span className={row.player ? "home-draft-player" : ""}>{row.player || "Da assegnare"}</span></div>
           </Fragment>;
         })}
       </div>

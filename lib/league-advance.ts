@@ -7,6 +7,7 @@ import {
   requiresPlayoffTeamOptionPromotion,
   requiresSecondYearTwoWayPromotion,
 } from "./two-way-promotions";
+import { orderPlayerListByRole } from "./player-list-order";
 
 export type LeagueAdvanceInput = {
   seasonName: string;
@@ -112,7 +113,7 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     expiringYear,
     rosterEntries: retainedEntries,
     qualifyingOfferRights,
-    playerList,
+    playerList: orderPlayerListByRole(playerList),
     expiredContracts: input.rosterEntries.length - retainedEntries.length,
     generatedQualifyingOffers: generatedRights.length,
     doubledTeamOptions: doublingKeys.size,

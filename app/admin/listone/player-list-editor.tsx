@@ -1,13 +1,15 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerListEntry } from "@/lib/league-types";
 import { nbaTeams } from "@/data/nba-teams";
-import { savePlayerList, type PlayerListSaveState } from "./actions";
+import { movePlayerToRoleBoundary, orderPlayerListByRole } from "@/lib/player-list-order";
+import { savePlayerList, updatePlayerListEntry, type PlayerListEntrySaveState, type PlayerListSaveState } from "./actions";
 
 type EditablePlayer = PlayerListEntry & { rowId: string };
 
 const initialSaveState: PlayerListSaveState = {};
+const initialEntrySaveState: PlayerListEntrySaveState = {};
 
 export function PlayerListEditor({
   initialPlayers,
@@ -26,21 +28,49 @@ export function PlayerListEditor({
   })));
   const [query, setQuery] = useState("");
   const [saveState, saveAction, pending] = useActionState(savePlayerList, initialSaveState);
+  const [entrySaveState, entrySaveAction, entryPending] = useActionState(updatePlayerListEntry, initialEntrySaveState);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editingPlayer, setEditingPlayer] = useState<PlayerListEntry | null>(null);
+  const [editSubmitted, setEditSubmitted] = useState(false);
+  const [editSuccess, setEditSuccess] = useState("");
+  const handledEntryRevision = useRef<number | undefined>(undefined);
   const provisionalList = initialStatus === "offseason";
   const eligibilityDisabled = provisionalList || !eligibilityEditable;
   useEffect(() => {
     if (!saveState.savedRevision) return;
-    setRows((current) => current.map((row, index) => (
+    setRows((current) => orderPlayerListByRole(current.map((row, index) => (
       row.rowId.startsWith("new-") ? { ...row, rowId: `saved-${saveState.savedRevision}-${index}` } : row
-    )));
+    ))));
   }, [saveState.savedRevision]);
+  useEffect(() => {
+    if (!editSubmitted || !entrySaveState.savedRevision || entrySaveState.savedRevision === handledEntryRevision.current || !entrySaveState.savedPlayer || !editingRowId) return;
+    handledEntryRevision.current = entrySaveState.savedRevision;
+    setRows((current) => {
+      const playerIndex = current.findIndex((row) => row.rowId === editingRowId);
+      if (playerIndex < 0) return current;
+      const roleCategoryChanged = (current[playerIndex].role === "X") !== (entrySaveState.savedPlayer!.role === "X");
+      const updated = current.map((row, index) => index === playerIndex ? { ...row, ...entrySaveState.savedPlayer } : row);
+      return roleCategoryChanged ? movePlayerToRoleBoundary(updated, playerIndex) : updated;
+    });
+    setEditSuccess(entrySaveState.message ?? `${entrySaveState.savedPlayer.name} aggiornato.`);
+    setEditingRowId(null);
+    setEditingPlayer(null);
+    setEditSubmitted(false);
+  }, [editSubmitted, editingRowId, entrySaveState.message, entrySaveState.savedPlayer, entrySaveState.savedRevision]);
   const visibleRows = useMemo(() => {
     const search = query.trim().toLocaleLowerCase("it-IT");
     return rows.filter((row) => !search || row.name.toLocaleLowerCase("it-IT").includes(search));
   }, [query, rows]);
 
   function updateRow(rowId: string, patch: Partial<PlayerListEntry>) {
-    setRows((current) => current.map((row) => row.rowId === rowId ? { ...row, ...patch } : row));
+    setRows((current) => {
+      const playerIndex = current.findIndex((row) => row.rowId === rowId);
+      if (playerIndex < 0) return current;
+      const roleCategoryChanged = patch.role !== undefined
+        && (current[playerIndex].role === "X") !== (patch.role === "X");
+      const updated = current.map((row, index) => index === playerIndex ? { ...row, ...patch } : row);
+      return roleCategoryChanged ? movePlayerToRoleBoundary(updated, playerIndex) : updated;
+    });
   }
 
   function addRow() {
@@ -56,11 +86,19 @@ export function PlayerListEditor({
     setQuery("");
   }
 
+  function openEditor(row: EditablePlayer) {
+    setEditingRowId(row.rowId);
+    setEditingPlayer({ name: row.name, role: row.role, realTeam: row.realTeam, rookie: row.rookie, under23: row.under23 });
+    setEditSubmitted(false);
+    setEditSuccess("");
+  }
+
   const payload = rows.map(({ rowId: _rowId, ...player }) => player);
   const newPlayerNames = rows.filter((row) => row.rowId.startsWith("new-")).map((row) => row.name.trim());
   const hasIncompleteNewPlayer = rows.some((row) => row.rowId.startsWith("new-") && (!row.name.trim() || !row.realTeam));
 
   return (
+    <>
     <form action={saveAction} className="player-list-editor">
       <input type="hidden" name="players_json" value={JSON.stringify(payload)} />
       <input type="hidden" name="new_player_names_json" value={JSON.stringify(newPlayerNames)} />
@@ -84,6 +122,7 @@ export function PlayerListEditor({
       </div>
 
       {provisionalList && <p className="notice">Listone provvisorio: non è modificabile fino alla pubblicazione del listone ufficiale.</p>}
+      {editSuccess && <p className="notice success">{editSuccess}</p>}
       {saveState.message && <p className="notice success">{saveState.message}</p>}
       {saveState.error && <p className="notice error">Salvataggio non riuscito: {saveState.error}</p>}
 
@@ -100,17 +139,19 @@ export function PlayerListEditor({
               {isNew
                 ? <input className="player-list-edit-name" aria-label={`Nome riga ${absoluteIndex + 1}`} value={row.name} onChange={(event) => updateRow(row.rowId, { name: event.target.value })} autoFocus />
                 : <strong className="player-list-edit-name" title={row.name}>{row.name}</strong>}
-              <select aria-label={`Ruolo di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.role} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { role: event.target.value as PlayerListEntry["role"] })}>
-                <option value="G">G</option><option value="A">A</option><option value="C">C</option><option value="X">X</option>
-              </select>
+              {isNew ? (
+                <select aria-label={`Ruolo di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.role} onChange={(event) => updateRow(row.rowId, { role: event.target.value as PlayerListEntry["role"] })}>
+                  <option value="G">G</option><option value="A">A</option><option value="C">C</option><option value="X">X</option>
+                </select>
+              ) : <span className="player-list-edit-static"><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>}
               {showRealTeam && (isNew ? (
                 <select aria-label={`Squadra NBA di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.realTeam} required onChange={(event) => updateRow(row.rowId, { realTeam: event.target.value })}>
                   <option value="">Seleziona</option>
                   <option value="FA">Nessuna squadra NBA</option>
                   {nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}
                 </select>
-              ) : <input aria-label={`Squadra NBA di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.realTeam} disabled={provisionalList} onChange={(event) => updateRow(row.rowId, { realTeam: event.target.value })} />)}
-              <label className="compact-check" title="Rookie e U23 sono alternative">
+              ) : <strong className="player-list-edit-real-team">{row.realTeam || "—"}</strong>)}
+              {isNew ? <label className="compact-check" title="Rookie e U23 sono alternative">
                 <input
                   type="checkbox"
                   checked={row.rookie}
@@ -121,8 +162,8 @@ export function PlayerListEditor({
                   })}
                 />
                 <span>Rookie</span>
-              </label>
-              <label className="compact-check" title="Rookie e U23 sono alternative">
+              </label> : <span className={`player-list-edit-boolean${row.rookie ? " active" : ""}`}>{row.rookie ? "✓" : "—"}</span>}
+              {isNew ? <label className="compact-check" title="Rookie e U23 sono alternative">
                 <input
                   type="checkbox"
                   checked={row.under23}
@@ -133,11 +174,11 @@ export function PlayerListEditor({
                   })}
                 />
                 <span>U23</span>
-              </label>
+              </label> : <span className={`player-list-edit-boolean${row.under23 ? " active" : ""}`}>{row.under23 ? "✓" : "—"}</span>}
               <div className="player-list-edit-actions">
-                {!provisionalList && <>
-                  <button className="danger" type="button" onClick={() => setRows((current) => current.filter((item) => item.rowId !== row.rowId))}>Rimuovi</button>
-                </>}
+                {!provisionalList && (isNew
+                  ? <button type="button" onClick={() => setRows((current) => current.filter((item) => item.rowId !== row.rowId))}>Annulla</button>
+                  : <button type="button" onClick={() => openEditor(row)}>Modifica</button>)}
               </div>
             </div>
           );
@@ -147,8 +188,40 @@ export function PlayerListEditor({
 
       <div className="player-list-editor-footer">
         <span>{rows.length} giocatori</span>
-        {!provisionalList && <button className="button primary" type="submit" disabled={pending || hasIncompleteNewPlayer}>{pending ? "Salvataggio…" : "Salva listone"}</button>}
+        {!provisionalList && newPlayerNames.length > 0 && <button className="button primary" type="submit" disabled={pending || hasIncompleteNewPlayer}>{pending ? "Salvataggio…" : "Salva nuovi giocatori"}</button>}
       </div>
     </form>
+    {editingPlayer && editingRowId && (
+      <div className="auction-modal-backdrop" role="presentation" onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !entryPending) {
+          setEditingRowId(null);
+          setEditingPlayer(null);
+          setEditSubmitted(false);
+        }
+      }}>
+        <form className="auction-modal player-list-entry-modal" action={entrySaveAction} onSubmit={() => setEditSubmitted(true)} role="dialog" aria-modal="true" aria-label={`Modifica ${editingPlayer.name}`}>
+          <input type="hidden" name="original_name" value={editingPlayer.name} />
+          <input type="hidden" name="player_json" value={JSON.stringify(editingPlayer)} />
+          <header className="auction-modal-header">
+            <div><span>Modifica giocatore</span><strong>{editingPlayer.name}</strong></div>
+          </header>
+          <div className="auction-modal-body player-list-entry-modal-fields">
+            <label><span>Ruolo</span><select value={editingPlayer.role} onChange={(event) => setEditingPlayer((current) => current ? { ...current, role: event.target.value as PlayerListEntry["role"] } : current)}><option value="G">G</option><option value="A">A</option><option value="C">C</option><option value="X">X</option></select></label>
+            {showRealTeam && <label><span>Squadra NBA</span><select value={editingPlayer.realTeam} onChange={(event) => setEditingPlayer((current) => current ? { ...current, realTeam: event.target.value } : current)}><option value="FA">Nessuna squadra NBA</option>{nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}</select></label>}
+            <fieldset>
+              <legend>Categoria</legend>
+              <label className="compact-check"><input type="checkbox" checked={editingPlayer.rookie} disabled={eligibilityDisabled} onChange={(event) => setEditingPlayer((current) => current ? { ...current, rookie: event.target.checked, under23: event.target.checked ? false : current.under23 } : current)} /><span>Rookie</span></label>
+              <label className="compact-check"><input type="checkbox" checked={editingPlayer.under23} disabled={eligibilityDisabled} onChange={(event) => setEditingPlayer((current) => current ? { ...current, under23: event.target.checked, rookie: event.target.checked ? false : current.rookie } : current)} /><span>U23</span></label>
+            </fieldset>
+            {editSubmitted && entrySaveState.error && <p className="validation error">Salvataggio non riuscito: {entrySaveState.error}</p>}
+          </div>
+          <footer className="auction-modal-actions">
+            <button className="button secondary" type="button" disabled={entryPending} onClick={() => { setEditingRowId(null); setEditingPlayer(null); setEditSubmitted(false); }}>Annulla</button>
+            <button className="button primary" type="submit" disabled={entryPending}>{entryPending ? "Salvataggio…" : "Salva modifiche"}</button>
+          </footer>
+        </form>
+      </div>
+    )}
+    </>
   );
 }

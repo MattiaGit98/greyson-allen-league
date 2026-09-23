@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useState, useTransition } from "react";
 import type { LeagueTransitionPreview } from "@/lib/league-transition";
-import { advanceLeaguePhaseStep, restoreLatestPhaseBackup } from "./actions";
+import { advanceLeaguePhaseStep } from "./actions";
 
 export function PhaseAdvanceButton({ currentLabel, nextLabel, preview, missingPhaseDate = false }: { currentLabel: string; nextLabel: string; preview: LeagueTransitionPreview; missingPhaseDate?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -48,32 +48,6 @@ export function PhaseAdvanceButton({ currentLabel, nextLabel, preview, missingPh
         </div>
       )}
     </>
-  );
-}
-
-export function RestorePhaseButton({ backupId, transitionLabel }: { backupId: string; transitionLabel: string }) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState("");
-
-  async function restore(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (pending || !window.confirm(`Ripristinare la situazione precedente al passaggio ${transitionLabel}?`)) return;
-    const formData = new FormData(event.currentTarget);
-    setError("");
-    try {
-      await downloadImportableBackup();
-      startTransition(() => restoreLatestPhaseBackup(formData));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Backup non riuscito.");
-    }
-  }
-
-  return (
-    <form onSubmit={restore}>
-      <input type="hidden" name="backup_id" value={backupId} />
-      <button className="button secondary" type="submit" disabled={pending}>{pending ? "Backup e ripristino…" : "Ripristina situazione precedente"}</button>
-      {error && <p className="validation error">{error}</p>}
-    </form>
   );
 }
 

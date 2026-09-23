@@ -94,7 +94,7 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility 
           selected={categories}
           onToggle={(value) => setCategories((current) => toggleSelection(current, value))}
         />}
-        {filtersAreActive && <button className="player-filter-reset" type="button" onClick={resetFilters}>Azzera filtri</button>}
+        <button className="player-filter-reset" type="button" onClick={resetFilters} disabled={!filtersAreActive}>Azzera filtri</button>
       </div>
 
       <div className={`player-list${showOrder ? "" : " without-order"}${showRealTeam ? "" : " without-real-team"}`}>

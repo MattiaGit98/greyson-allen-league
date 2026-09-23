@@ -19,6 +19,7 @@ import {
 import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
+import { orderPlayerListByRole } from "@/lib/player-list-order";
 
 const path = "/admin/free-agent";
 
@@ -224,7 +225,7 @@ export async function signFreeAgent(formData: FormData) {
   const nextState = {
     ...state,
     rosterEntries,
-    playerList: playerSource === "outside" ? [...state.playerList, player] : state.playerList,
+    playerList: playerSource === "outside" ? orderPlayerListByRole([...state.playerList, player]) : state.playerList,
   };
   const response = await persistLeagueMovement(
     supabase,

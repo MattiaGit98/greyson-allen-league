@@ -7,7 +7,6 @@ import { buildAutomaticHistoryArchive } from "@/lib/history-archive";
 import { loadCurrentHistoryImports, loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { calculateLeagueAdvance } from "@/lib/league-advance";
 import {
-  isLeagueMoment,
   leagueMomentLabels,
   leagueMomentFromSeason,
   macroPhaseForMoment,
@@ -162,34 +161,6 @@ export async function saveLeaguePhaseDates(formData: FormData) {
   if (update.error) phaseError(update.error.message);
   revalidateLeaguePages();
   redirect("/admin/calendario?dates=1");
-}
-
-export async function restoreLatestPhaseBackup(formData: FormData) {
-  const backupId = String(formData.get("backup_id") ?? "").trim();
-  if (!backupId) phaseError("Backup non valido.");
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) phaseError("Supabase non configurato.");
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) phaseError("Sessione scaduta.");
-  const [latest, activeSeason] = await Promise.all([
-    supabase.from("league_phase_backups").select("id,to_phase,season_id,season_snapshot").is("restored_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("seasons").select(seasonSelection).eq("is_active", true).maybeSingle(),
-  ]);
-  if (latest.error || latest.data?.id !== backupId) phaseError("Puoi ripristinare soltanto l’ultimo passaggio disponibile.");
-  if (!activeSeason.data || leagueMomentFromSeason(activeSeason.data) !== latest.data.to_phase) {
-    phaseError("Il momento della lega è stato rettificato manualmente: questo backup non è più ripristinabile direttamente.");
-  }
-  const restored = await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backupId });
-  if (restored.error) phaseError(restored.error.message);
-  const snapshot = latest.data.season_snapshot as {
-    timeline_moment?: unknown;
-  };
-  if (!isLeagueMoment(snapshot.timeline_moment)) phaseError("Il backup non contiene un momento della lega valido.");
-  const restoredMoment = snapshot.timeline_moment;
-  const momentRestore = await supabase.from("seasons").update({ timeline_moment: restoredMoment }).eq("id", latest.data.season_id);
-  if (momentRestore.error) phaseError(momentRestore.error.message);
-  revalidateLeaguePages();
-  redirect("/admin/impostazioni?restored=1");
 }
 
 async function performLeagueSeasonAdvance(

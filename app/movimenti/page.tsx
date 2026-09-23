@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { conciseMovementDetail, movementFilterOptions, movementOperationLabel } from "@/lib/movement-display";
+import { MovementFilter } from "./movement-filter";
 import { MovementList } from "./movement-list";
 
 const movementsPerPage = 25;
@@ -52,17 +53,7 @@ export default async function TransactionsPage({
 
   return (
     <section className="section movements-page">
-      <form className="movement-filter" action="/movimenti" method="get">
-        <label>
-          <span>Mostra</span>
-          <select name="type" defaultValue={selectedType}>
-            <option value="all">Tutti i movimenti</option>
-            {movementFilterOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>
-        <button className="button secondary" type="submit">Applica filtro</button>
-        <small>Ultimi {movementHistoryDays} giorni</small>
-      </form>
+      <MovementFilter selectedType={selectedType} options={movementFilterOptions} historyDays={movementHistoryDays} />
 
       <MovementList historyDays={movementHistoryDays} movements={movements.map((movement) => {
         const operationType = String(movement.operation_type);

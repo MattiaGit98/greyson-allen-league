@@ -10,10 +10,12 @@ import { requireActiveSeason } from "@/lib/active-season";
 import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { suggestPlayerName } from "@/lib/player-name-matching";
+import { movePlayerToRoleBoundary, orderPlayerListByRole } from "@/lib/player-list-order";
 import { alignActiveRosterEntries, referencedPlayerNames, syncActiveRosterRoles } from "@/lib/player-list-reconciliation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type PlayerListSaveState = { message?: string; error?: string; savedRevision?: number };
+export type PlayerListEntrySaveState = PlayerListSaveState & { savedPlayer?: PlayerListEntry };
 export type PlayerListImportMismatch = {
   sourceName: string;
   references: string[];
@@ -47,6 +49,12 @@ export async function savePlayerList(
 
     const current = await loadEditableLeagueState();
     const activeSeason = await requireActiveSeason();
+    if (current.playerListStatus === "published") {
+      players = orderPlayerListByRole(players);
+      const submittedNames = new Set(players.map((player) => normalizePlayerName(player.name)));
+      const removedPlayer = current.playerList.find((player) => !submittedNames.has(normalizePlayerName(player.name)));
+      if (removedPlayer) return { error: `${removedPlayer.name} non può essere eliminato dal listone.` };
+    }
     if (hasReachedMoment(leagueMomentFromSeason(activeSeason.season), "auction_completed")) {
       const newNames = new Set(newPlayerNames.map(normalizePlayerName));
       players = players.map((player) => newNames.has(normalizePlayerName(player.name))
@@ -107,6 +115,70 @@ export async function savePlayerList(
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Listone non valido." };
+  }
+}
+
+export async function updatePlayerListEntry(
+  _previousState: PlayerListEntrySaveState,
+  formData: FormData,
+): Promise<PlayerListEntrySaveState> {
+  try {
+    const originalName = String(formData.get("original_name") ?? "").trim();
+    const submitted = validatePlayers([JSON.parse(String(formData.get("player_json") ?? "{}")) as unknown])[0];
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) return { error: "Supabase non configurato." };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "Sessione scaduta." };
+
+    const [current, activeSeason] = await Promise.all([
+      loadEditableLeagueState(),
+      requireActiveSeason(),
+    ]);
+    if (current.playerListStatus !== "published") {
+      return { error: "Il listone provvisorio non è modificabile. Per pubblicare il nuovo listone usa l’importazione Excel." };
+    }
+    const playerIndex = current.playerList.findIndex((player) => normalizePlayerName(player.name) === normalizePlayerName(originalName));
+    if (playerIndex < 0) return { error: "Il giocatore non è più presente nel listone." };
+
+    const previous = current.playerList[playerIndex];
+    const moment = leagueMomentFromSeason(activeSeason.season);
+    const player: PlayerListEntry = {
+      ...submitted,
+      name: previous.name,
+      realTeam: hasReachedMoment(moment, "auction_completed")
+        ? previous.realTeam
+        : submitted.realTeam.trim().toUpperCase(),
+    };
+    if (!hasReachedMoment(moment, "auction_completed")
+      && (!player.realTeam || (player.realTeam !== "FA" && !nbaTeamCodes.has(player.realTeam)))) {
+      return { error: `Indica una squadra NBA valida per ${player.name}.` };
+    }
+    if (hasReachedMoment(moment, "contract_delivery")
+      && (player.rookie !== previous.rookie || player.under23 !== previous.under23)) {
+      return { error: "Dopo la consegna dei contratti le indicazioni Rookie e U23 non sono più modificabili." };
+    }
+
+    let players = current.playerList.map((item, index) => index === playerIndex ? player : item);
+    if ((previous.role === "X") !== (player.role === "X")) {
+      players = movePlayerToRoleBoundary(players, playerIndex);
+    }
+    const rolesByName = new Map(players.map((item) => [normalizePlayerName(item.name), item.role]));
+    const nextState: EditableLeagueState = {
+      ...current,
+      rosterEntries: syncActiveRosterRoles(current.rosterEntries, (name) => rolesByName.get(normalizePlayerName(name))),
+      playerList: players,
+    };
+    const response = await supabase.rpc("replace_league_state", { state_payload: nextState });
+    if (response.error) return { error: response.error.message };
+
+    revalidatePlayerListPaths();
+    return {
+      savedRevision: Date.now(),
+      savedPlayer: player,
+      message: `${player.name} aggiornato.`,
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Modifica del giocatore non valida." };
   }
 }
 
@@ -213,17 +285,18 @@ export async function confirmPlayerListImport(formData: FormData) {
     });
     ensureNoQualifyingOfferConflicts(qualifyingOfferRights);
 
+    const orderedPlayers = orderPlayerListByRole(players);
     const nextState: EditableLeagueState = {
       ...current,
       rosterEntries,
       qualifyingOfferRights,
-      playerList: players,
+      playerList: orderedPlayers,
       playerListStatus: "published",
     };
     const response = await supabase.rpc("replace_league_state", { state_payload: nextState });
     if (response.error) throw new Error(response.error.message);
     revalidatePlayerListPaths();
-    redirect(`/admin/listone?imported=${players.length}&aligned=${requiredSources.length}`);
+    redirect(`/admin/listone?imported=${orderedPlayers.length}&aligned=${requiredSources.length}`);
   } catch (error) {
     if (isNextRedirect(error)) throw error;
     const message = error instanceof Error ? error.message : "Conferma non valida.";

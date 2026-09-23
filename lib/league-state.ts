@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "./supabase/server";
 import type { SavedDraftOrderAssignment } from "./draft-positions";
 import { countTradeEligibleDraftAssets } from "./future-draft-picks";
 import { competitionNames, type CompetitionName } from "./competitions";
+import { orderPlayerListByRole } from "./player-list-order";
 
 export type EditableLeagueState = {
   teams: TeamSummary[];
@@ -74,7 +75,7 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
     rosterEntries,
     draftAssets,
     qualifyingOfferRights,
-    playerList: Array.isArray(input.playerList) ? input.playerList : fallback.playerList,
+    playerList: orderPlayerListByRole(Array.isArray(input.playerList) ? input.playerList : fallback.playerList),
     playerListStatus: input.playerListStatus === "published" ? "published" : "offseason",
     publicNotice: typeof input.publicNotice === "string" ? input.publicNotice.slice(0, 2000).trim() : "",
     homepageHonoursTable: typeof input.homepageHonoursTable === "string" ? input.homepageHonoursTable.slice(0, 120) : "",

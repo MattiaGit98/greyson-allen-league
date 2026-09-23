@@ -9,6 +9,7 @@ import { countRosterRoles } from "./rules/roster";
 import { calculateCapSpace } from "./season-time";
 import { tradePlayerId } from "./trade-state";
 import { inheritedDpeSeasons } from "./dpe-rules";
+import { orderPlayerListByRole } from "./player-list-order";
 
 export type SignAndTradeRequest = {
   kind: "free_agent";
@@ -133,7 +134,7 @@ export function buildSignAndTradeProvisional(input: {
     state: {
       ...state,
       rosterEntries: [...state.rosterEntries, signingEntry],
-      playerList: request.playerSource === "outside" ? [...state.playerList, player] : state.playerList,
+      playerList: request.playerSource === "outside" ? orderPlayerListByRole([...state.playerList, player]) : state.playerList,
     },
     signingEntry,
     signingEntryId: tradePlayerId(request.signerTeamCode, signingEntry.name),
