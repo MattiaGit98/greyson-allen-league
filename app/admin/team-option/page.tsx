@@ -13,6 +13,6 @@ export default async function TeamOptionPage({ searchParams }: { searchParams: P
     {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
     {ordinaryOpen && <TeamOptionForm {...context} />}
     {playoffOpen && <PlayoffTeamOptionForm {...context} />}
-    {!ordinaryOpen && !playoffOpen && <p className="notice">Il blocco riaprirà dopo il termine della free agency per registrare le T.O. dei giocatori utilizzati nei playoff.</p>}
+    {!ordinaryOpen && !playoffOpen && <p className="notice"><strong>Pannello Team option chiuso.</strong> Riaprirà dopo il termine della free agency per registrare le T.O. dei giocatori utilizzati nei playoff.</p>}
   </section>;
 }

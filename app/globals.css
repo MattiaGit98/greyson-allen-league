@@ -1391,7 +1391,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .free-agent-panel-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .free-agent-panel-toolbar .auction-search { flex: 1 1 420px; margin: 0; }
 .free-agent-panel-toolbar > .button { flex: 0 0 auto; min-height: 44px; }
-.free-agent-panel-toolbar.is-unavailable, .free-agent-player-list.is-unavailable { opacity: .55; }
 .free-agent-player-list .auction-player-head, .free-agent-player-list .auction-player-row { grid-template-columns: 38px minmax(0, 1fr) 54px 48px 92px; }
 .free-agent-player-list .auction-row-action:disabled { cursor: not-allowed; }
 .free-agent-player-list .auction-row-action:disabled:hover { transform: none; box-shadow: none; }

@@ -78,17 +78,17 @@ export function FreeAgentPanel({
 
   return (
     <>
-      <div className={`free-agent-panel-toolbar${canSign ? "" : " is-unavailable"}`}>
+      <div className="free-agent-panel-toolbar">
         <label className="auction-search search-field">
           <span>Cerca</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" disabled={!canSign} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" />
         </label>
-        <button className="button secondary" type="button" disabled={!canSign} title={unavailableReason} onClick={() => setOutsideListOpen(true)}>
+        <button className="button secondary" type="button" onClick={() => setOutsideListOpen(true)}>
           + Giocatore fuori listone
         </button>
       </div>
 
-      <div className={`auction-player-list free-agent-player-list${canSign ? "" : " is-unavailable"}`}>
+      <div className="auction-player-list free-agent-player-list">
         <div className="auction-player-head">
           <span>#</span><span>Giocatore</span><span>Ruolo</span><span>B.O.</span><span></span>
         </div>
@@ -100,7 +100,7 @@ export function FreeAgentPanel({
             </span>
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>
             <span className="free-agent-buyout-cell">{player.buyoutApplied && <strong className="free-agent-buyout-mark" title="Buyout applicato" aria-label="Buyout applicato">X</strong>}</span>
-            <button className="auction-row-action bid" type="button" disabled={!canSign} title={unavailableReason} onClick={() => setSelectedName(player.name)}>Firma</button>
+            <button className="auction-row-action bid" type="button" onClick={() => setSelectedName(player.name)}>Firma</button>
           </article>
         ))}
         {!freeAgents.length && <div className="data-empty">{listPublished ? "Nessun free agent trovato" : "Listone non ancora pubblicato"}</div>}
@@ -122,6 +122,8 @@ export function FreeAgentPanel({
             seasonName={seasonName}
             tradeDeadlinePassed={tradeDeadlinePassed}
             signAndTradeOpen={signAndTradeOpen}
+            canSign={canSign}
+            unavailableReason={unavailableReason}
             outsideList={outsideListOpen}
             onClose={() => {
               setSelectedName(null);
@@ -142,6 +144,8 @@ function FreeAgentDialog({
   seasonName,
   tradeDeadlinePassed,
   signAndTradeOpen,
+  canSign,
+  unavailableReason,
   outsideList,
   onClose,
 }: {
@@ -152,6 +156,8 @@ function FreeAgentDialog({
   seasonName: string;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
+  canSign: boolean;
+  unavailableReason?: string;
   outsideList: boolean;
   onClose: () => void;
 }) {
@@ -248,7 +254,7 @@ function FreeAgentDialog({
   }
 
   return (
-    <form action={signFreeAgent} className="auction-modal" role="dialog" aria-modal="true" aria-label={`Firma ${(player?.name ?? outsideName) || "giocatore fuori listone"}`}>
+    <form action={signFreeAgent} className="auction-modal" onSubmit={(event) => { if (!canSign) event.preventDefault(); }} role="dialog" aria-modal="true" aria-label={`Firma ${(player?.name ?? outsideName) || "giocatore fuori listone"}`}>
       <input type="hidden" name="player_source" value={outsideList ? "outside" : "list"} />
       <input type="hidden" name="player_name" value={outsideList ? outsideName.trim() : player?.name ?? ""} />
       <input type="hidden" name="player_role" value={outsideList ? outsideRole : ""} />
@@ -273,6 +279,7 @@ function FreeAgentDialog({
       </div>
 
       <div className="auction-modal-body">
+        {!canSign && <p className="validation error free-agent-window-closed"><strong>{unavailableReason ?? "Operazione non disponibile"}.</strong> Puoi consultare e compilare questa finestra, ma non confermare l’operazione.</p>}
         <div className={`auction-modal-fields ${outsideList ? "free-agent-outside-fields" : ""}`}>
           {outsideList && (
             <>
@@ -346,7 +353,7 @@ function FreeAgentDialog({
             Confermo che assegnerò in seguito i free agent casuali da 1 credito necessari per ripristinare i ruoli.
           </label>
         )}
-        {preview.errors.map((error) => <p className="validation error" key={error.code}>{error.message}</p>)}
+        {preview.errors.filter((error) => canSign || error.code !== "FREE_AGENCY_CLOSED").map((error) => <p className="validation error" key={error.code}>{error.message}</p>)}
         {signAndTradeOpen && temporarySlotErrors.length > 0 && signAndTradeErrors.length === 0 && (
           <p className="validation warning">Con Firma e scambia puoi proseguire, ma lo slot deve essere liberato nella situazione finale.</p>
         )}
@@ -360,11 +367,11 @@ function FreeAgentDialog({
           className="button secondary sign-trade-action"
           type="button"
           onClick={openSignAndTrade}
-          disabled={!signAndTradeOpen || signAndTradeErrors.length > 0 || outsideDuplicate || !team}
+          disabled={!canSign || !signAndTradeOpen || signAndTradeErrors.length > 0 || outsideDuplicate || !team}
         >
           Firma e scambia
         </button>
-        <button className="button primary" type="submit" disabled={!preview.valid || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || capWarnings.length > 0}>Registra firma</button>
+        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || capWarnings.length > 0}>Registra firma</button>
       </div>
     </form>
   );
