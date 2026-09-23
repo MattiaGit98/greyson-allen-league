@@ -24,9 +24,29 @@ const operationLabels: Record<string, string> = {
   rettifica_roster_aggiunta: "Rettifica dell'admin",
 };
 
-export const movementFilterOptions = Object.entries(operationLabels)
-  .map(([value, label]) => ({ value, label }))
+const movementFilterGroups = [
+  { value: "asta", label: "Asta", operationTypes: ["acquisto_asta", "modifica_asta"] },
+  { value: "dpe", label: "DPE", operationTypes: ["dpe_activate", "dpe_reintegrate"] },
+  { value: "estensioni", label: "Estensioni contrattuali", operationTypes: ["estensione_contrattuale"] },
+  { value: "free_agent", label: "Free agent", operationTypes: ["firma_free_agent"] },
+  { value: "movimenti_annullati", label: "Movimenti annullati", operationTypes: ["movimento_annullato"] },
+  { value: "procedure_stagionali", label: "Procedure stagionali", operationTypes: ["ordine_draft_finale", "consegna_contratti"] },
+  { value: "qualifying_offer", label: "Qualifying offer", operationTypes: ["qualifying_offer_non_estesa"] },
+  { value: "rettifiche_admin", label: "Rettifiche dell'admin", operationTypes: ["rettifica_roster_contratto", "rettifica_roster_rimozione", "rettifica_roster_aggiunta"] },
+  { value: "scambi", label: "Scambi", operationTypes: ["scambio", "sign_and_trade"] },
+  { value: "scelte_draft", label: "Scelte draft", operationTypes: ["scelta_draft"] },
+  { value: "slot", label: "Spostamenti slot", operationTypes: ["spostamento_slot"] },
+  { value: "tagli_rilasci", label: "Tagli e rilasci", operationTypes: ["cut", "free_release", "buyout", "stretch_provision"] },
+  { value: "team_option", label: "Team option", operationTypes: ["team_option", "team_option_playoff"] },
+] as const;
+
+export const movementFilterOptions = movementFilterGroups
+  .map(({ value, label }) => ({ value, label }))
   .sort((left, right) => left.label.localeCompare(right.label, "it"));
+
+export function movementOperationTypesForFilter(value: string) {
+  return movementFilterGroups.find((group) => group.value === value)?.operationTypes ?? null;
+}
 
 export function movementOperationLabel(operationType: string) {
   const normalized = operationType.trim().toLocaleLowerCase("it-IT");

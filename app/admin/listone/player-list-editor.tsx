@@ -96,6 +96,9 @@ export function PlayerListEditor({
   const payload = rows.map(({ rowId: _rowId, ...player }) => player);
   const newPlayerNames = rows.filter((row) => row.rowId.startsWith("new-")).map((row) => row.name.trim());
   const hasIncompleteNewPlayer = rows.some((row) => row.rowId.startsWith("new-") && (!row.name.trim() || !row.realTeam));
+  const editingRealTeamIsStandard = Boolean(editingPlayer && (
+    editingPlayer.realTeam === "FA" || nbaTeams.some((team) => team.code === editingPlayer.realTeam)
+  ));
 
   return (
     <>
@@ -128,13 +131,13 @@ export function PlayerListEditor({
 
       <div className={`player-list-edit-table${showRealTeam ? "" : " without-real-team"}`}>
         <div className="player-list-edit-head">
-          <span>#</span><span>Giocatore</span><span>Ruolo</span>{showRealTeam && <span>Squadra NBA</span>}<span>Rookie</span><span>U23</span><span></span>
+          <span>#</span><span>Giocatore</span><span>Ruolo</span>{showRealTeam && <span>Squadra NBA</span>}<span>Rookie</span><span>U23</span><span className="player-list-edit-action-head"></span>
         </div>
         {visibleRows.map((row) => {
           const absoluteIndex = rows.findIndex((item) => item.rowId === row.rowId);
           const isNew = row.rowId.startsWith("new-");
           return (
-            <div className={`player-list-edit-row${showRealTeam ? "" : " without-real-team"}`} key={row.rowId}>
+            <div className={`player-list-edit-row${showRealTeam ? "" : " without-real-team"}${isNew ? " is-new" : ""}`} key={row.rowId}>
               <span className="player-list-edit-order">{absoluteIndex + 1}</span>
               {isNew
                 ? <input className="player-list-edit-name" aria-label={`Nome riga ${absoluteIndex + 1}`} value={row.name} onChange={(event) => updateRow(row.rowId, { name: event.target.value })} autoFocus />
@@ -162,7 +165,7 @@ export function PlayerListEditor({
                   })}
                 />
                 <span>Rookie</span>
-              </label> : <span className={`player-list-edit-boolean${row.rookie ? " active" : ""}`}>{row.rookie ? "✓" : "—"}</span>}
+              </label> : <span className={`player-list-edit-boolean${row.rookie ? " active" : ""}`}><small>Rookie</small>{row.rookie ? "✓" : "—"}</span>}
               {isNew ? <label className="compact-check" title="Rookie e U23 sono alternative">
                 <input
                   type="checkbox"
@@ -174,12 +177,19 @@ export function PlayerListEditor({
                   })}
                 />
                 <span>U23</span>
-              </label> : <span className={`player-list-edit-boolean${row.under23 ? " active" : ""}`}>{row.under23 ? "✓" : "—"}</span>}
+              </label> : <span className={`player-list-edit-boolean${row.under23 ? " active" : ""}`}><small>U23</small>{row.under23 ? "✓" : "—"}</span>}
               <div className="player-list-edit-actions">
                 {!provisionalList && (isNew
                   ? <button type="button" onClick={() => setRows((current) => current.filter((item) => item.rowId !== row.rowId))}>Annulla</button>
                   : <button type="button" onClick={() => openEditor(row)}>Modifica</button>)}
               </div>
+              {!isNew && <span className="player-list-edit-mobile-role" aria-hidden="true">
+                <span className="player-list-edit-mobile-eligibility">
+                  {row.rookie && <small className="player-flag player-flag-rookie">R</small>}
+                  {row.under23 && <small className="player-flag player-flag-u23">U23</small>}
+                </span>
+                <i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i>
+              </span>}
             </div>
           );
         })}
@@ -207,7 +217,7 @@ export function PlayerListEditor({
           </header>
           <div className="auction-modal-body player-list-entry-modal-fields">
             <label><span>Ruolo</span><select value={editingPlayer.role} onChange={(event) => setEditingPlayer((current) => current ? { ...current, role: event.target.value as PlayerListEntry["role"] } : current)}><option value="G">G</option><option value="A">A</option><option value="C">C</option><option value="X">X</option></select></label>
-            {showRealTeam && <label><span>Squadra NBA</span><select value={editingPlayer.realTeam} onChange={(event) => setEditingPlayer((current) => current ? { ...current, realTeam: event.target.value } : current)}><option value="FA">Nessuna squadra NBA</option>{nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}</select></label>}
+            {showRealTeam && <label><span>Squadra NBA</span><select value={editingPlayer.realTeam} onChange={(event) => setEditingPlayer((current) => current ? { ...current, realTeam: event.target.value } : current)}>{!editingRealTeamIsStandard && <option value={editingPlayer.realTeam}>{editingPlayer.realTeam || "Dato attuale non indicato"}</option>}<option value="FA">Nessuna squadra NBA</option>{nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}</select></label>}
             <fieldset>
               <legend>Categoria</legend>
               <label className="compact-check"><input type="checkbox" checked={editingPlayer.rookie} disabled={eligibilityDisabled} onChange={(event) => setEditingPlayer((current) => current ? { ...current, rookie: event.target.checked, under23: event.target.checked ? false : current.under23 } : current)} /><span>Rookie</span></label>

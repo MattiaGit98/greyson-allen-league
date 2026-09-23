@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { conciseMovementDetail, movementFilterOptions, movementOperationLabel } from "@/lib/movement-display";
+import { conciseMovementDetail, movementFilterOptions, movementOperationLabel, movementOperationTypesForFilter } from "@/lib/movement-display";
 import { MovementFilter } from "./movement-filter";
 import { MovementList } from "./movement-list";
 
@@ -22,7 +22,8 @@ export default async function TransactionsPage({
   searchParams: Promise<{ page?: string; type?: string }>;
 }) {
   const query = await searchParams;
-  const selectedType = movementFilterOptions.some((option) => option.value === query.type) ? query.type! : "all";
+  const selectedOperationTypes = movementOperationTypesForFilter(query.type ?? "");
+  const selectedType = selectedOperationTypes ? query.type! : "all";
   const requestedPage = positiveInteger(query.page) ?? 1;
   const since = new Date();
   since.setDate(since.getDate() - movementHistoryDays);
@@ -36,7 +37,7 @@ export default async function TransactionsPage({
       .select("id,operation_type,summary,reverted,created_at", { count: "exact" })
       .eq("reverted", false)
       .gte("created_at", since.toISOString());
-    if (selectedType !== "all") request = request.eq("operation_type", selectedType);
+    if (selectedOperationTypes) request = request.in("operation_type", [...selectedOperationTypes]);
     const from = (page - 1) * movementsPerPage;
     return request.order("created_at", { ascending: false }).range(from, from + movementsPerPage - 1);
   };

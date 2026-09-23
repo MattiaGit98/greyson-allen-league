@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conciseMovementDetail, movementOperationLabel } from "./movement-display";
+import { conciseMovementDetail, movementOperationLabel, movementOperationTypesForFilter } from "./movement-display";
 
 describe("visualizzazione sintetica dei movimenti", () => {
   it("abbrevia una team option mantenendo giocatore e squadra", () => {
@@ -47,5 +47,16 @@ describe("visualizzazione sintetica dei movimenti", () => {
   it("formatta il tipo di operazione", () => {
     expect(movementOperationLabel("spostamento_slot")).toBe("Spostamento slot");
     expect(movementOperationLabel("operazione_personalizzata")).toBe("Operazione personalizzata");
+  });
+
+  it("raggruppa i tipi simili nei filtri pubblici", () => {
+    expect(movementOperationTypesForFilter("rettifiche_admin")).toEqual([
+      "rettifica_roster_contratto",
+      "rettifica_roster_rimozione",
+      "rettifica_roster_aggiunta",
+    ]);
+    expect(movementOperationTypesForFilter("team_option")).toEqual(["team_option", "team_option_playoff"]);
+    expect(movementOperationTypesForFilter("procedure_stagionali")).toEqual(["ordine_draft_finale", "consegna_contratti"]);
+    expect(movementOperationTypesForFilter("inesistente")).toBeNull();
   });
 });

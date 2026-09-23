@@ -161,7 +161,7 @@ function PlayerCheckFilter<T extends string>({ className = "", label, options, s
 function PlayerStatus({ row }: { row: Row }) {
   if (row.rosterTeamCode) return <span className="player-status player-status-roster">{row.rosterTeamCode}</span>;
   if (row.qualifyingTeamCode) {
-    return <span className="player-status player-status-highlight"><strong>Q.O.</strong><small>{row.qualifyingTeamCode}</small></span>;
+    return <span className="player-status player-status-highlight"><strong>Q.O. {row.qualifyingTeamCode}</strong></span>;
   }
   if (row.buyoutApplied) {
     return <span className="player-status player-status-highlight player-status-buyout"><strong>FA</strong><small>Buyout</small></span>;

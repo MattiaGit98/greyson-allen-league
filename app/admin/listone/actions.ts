@@ -142,14 +142,17 @@ export async function updatePlayerListEntry(
 
     const previous = current.playerList[playerIndex];
     const moment = leagueMomentFromSeason(activeSeason.season);
+    const submittedRealTeam = submitted.realTeam.trim().toUpperCase();
+    const previousRealTeam = previous.realTeam.trim().toUpperCase();
     const player: PlayerListEntry = {
       ...submitted,
       name: previous.name,
       realTeam: hasReachedMoment(moment, "auction_completed")
         ? previous.realTeam
-        : submitted.realTeam.trim().toUpperCase(),
+        : submittedRealTeam === previousRealTeam ? previous.realTeam : submittedRealTeam,
     };
     if (!hasReachedMoment(moment, "auction_completed")
+      && player.realTeam.trim().toUpperCase() !== previousRealTeam
       && (!player.realTeam || (player.realTeam !== "FA" && !nbaTeamCodes.has(player.realTeam)))) {
       return { error: `Indica una squadra NBA valida per ${player.name}.` };
     }

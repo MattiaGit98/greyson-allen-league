@@ -178,6 +178,7 @@ export function TradeBuilder({
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
 
   const participants = participantCodes
     .map((code) => teams.find((team) => team.code === code))
@@ -294,8 +295,8 @@ export function TradeBuilder({
     && capWarnings.length === 0
     && !simulatorRoleMinimumSlotError
     && (!roleMinimumConfirmationRequired || roleMinimumConfirmed);
-  const simulationRecap = simulator && simulationValid
-    ? withTradeImportPayload(tradeSimulationRecap({
+  const readableTradeRecap = simulationValid
+    ? tradeSimulationRecap({
       teams,
       participantCodes,
       playerMoves,
@@ -306,7 +307,10 @@ export function TradeBuilder({
       cuts,
       promotions,
       existingClauseAgreements,
-    }), tradeImportPayload({
+    })
+    : "";
+  const simulationRecap = simulator && readableTradeRecap
+    ? withTradeImportPayload(readableTradeRecap, tradeImportPayload({
       participantCodes,
       playerMoves,
       pickMoves,
@@ -513,7 +517,17 @@ export function TradeBuilder({
     <form
       action={simulator ? undefined : registerAction}
       className={`trade-builder${simulator ? " trade-simulator-builder" : ""}`}
-      onSubmit={simulator ? (event) => event.preventDefault() : undefined}
+      onSubmit={(event) => {
+        if (simulator) {
+          event.preventDefault();
+          return;
+        }
+        const submitter = (event.nativeEvent as SubmitEvent).submitter;
+        if (!(submitter instanceof HTMLElement) || submitter.dataset.tradeFinalSubmit !== "true") {
+          event.preventDefault();
+          if (simulationValid) setConfirmationOpen(true);
+        }
+      }}
     >
       {!simulator && <input
         type="hidden"
@@ -667,13 +681,41 @@ export function TradeBuilder({
       {simulator ? (
         <TradeSimulationStatus valid={simulationValid} recap={simulationRecap} errors={validationErrors} warnings={validationWarnings} />
       ) : (
-        <button
-          className="button primary trade-submit"
-          type="submit"
-          disabled={!evaluation.valid || capWarnings.length > 0 || roleMinimumSlotErrors.length > 0 || (roleMinimumConfirmationRequired && !roleMinimumConfirmed)}
-        >
-          {evaluation.valid ? "Registra scambio" : "Operazione non disponibile"}
-        </button>
+        <>
+          <button
+            className="button primary trade-submit"
+            type="submit"
+            disabled={!simulationValid}
+          >
+            {simulationValid ? "Conferma scambio" : "Operazione non disponibile"}
+          </button>
+          {confirmationOpen && (
+            <div
+              className="auction-modal-backdrop trade-confirmation-backdrop"
+              role="presentation"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) setConfirmationOpen(false);
+              }}
+            >
+              <section className="auction-modal trade-confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="trade-confirmation-title">
+                <header className="auction-modal-header">
+                  <div>
+                    <span>Riepilogo definitivo</span>
+                    <strong id="trade-confirmation-title">Conferma scambio</strong>
+                    <small>Controlla il testo prima di registrare il movimento.</small>
+                  </div>
+                </header>
+                <div className="auction-modal-body trade-confirmation-body">
+                  <textarea value={readableTradeRecap} readOnly aria-label="Recap dello scambio da confermare" />
+                </div>
+                <footer className="auction-modal-actions">
+                  <button className="button secondary" type="button" onClick={() => setConfirmationOpen(false)}>Chiudi</button>
+                  <button className="button primary" type="submit" data-trade-final-submit="true">Conferma definitivamente</button>
+                </footer>
+              </section>
+            </div>
+          )}
+        </>
       )}
     </form>
   );
