@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildMovementReversal,
+  draftChoiceBelongsToSeason,
   movementReversalCapErrors,
   movementReversalSlotErrors,
   movementUndoMetadataFromState,
@@ -65,14 +66,38 @@ describe("movement reversal", () => {
     })).toMatch(/non può essere annullato/);
   });
 
-  it("never allows an official Draft selection to be reversed", () => {
-    expect(movementUndoWindowError({
+  it("allows only the latest Draft selection before the auction starts", () => {
+    const input = {
       operationType: "scelta_draft",
       movementSeasonName: null,
       undoBeforeMoment: null,
       currentSeasonName: "2026/27",
-      currentMoment: "offseason_start",
-    })).toMatch(/scelta ufficiale.*non può essere annullata/i);
+      currentMoment: "team_option_deadline",
+    } as const;
+    expect(movementUndoWindowError({ ...input, isLatestDraftChoice: false })).toMatch(/soltanto l'ultima scelta/i);
+    expect(movementUndoWindowError({ ...input, isLatestDraftChoice: true })).toBeNull();
+    expect(movementUndoWindowError({ ...input, currentMoment: "auction_start", isLatestDraftChoice: true }))
+      .toMatch(/Inizio asta/i);
+  });
+
+  it("recognizes the season of legacy Draft movements from their history snapshot", () => {
+    const afterHistory = [{
+      season: "2026",
+      content: { kind: "draft", rows: [{ player: "Rookie", team: "AAA" }] },
+    }];
+    expect(draftChoiceBelongsToSeason(null, afterHistory, "2026/27")).toBe(true);
+    expect(draftChoiceBelongsToSeason(null, afterHistory, "2027/28")).toBe(false);
+    expect(draftChoiceBelongsToSeason("2027/28", afterHistory, "2027/28")).toBe(true);
+  });
+
+  it("does not reopen a reversed Draft selection after the auction starts", () => {
+    expect(movementUndoWindowError({
+      operationType: "movimento_annullato",
+      movementSeasonName: "2026/27",
+      undoBeforeMoment: "auction_start",
+      currentSeasonName: "2026/27",
+      currentMoment: "auction_start",
+    })).toMatch(/annullamento del Draft.*Inizio asta/i);
   });
 
   it("allows an auction assignment reversal only while the auction is open", () => {

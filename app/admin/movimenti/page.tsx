@@ -1,6 +1,6 @@
 import { requireActiveSeason } from "@/lib/active-season";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
-import { auctionAssignmentReversalDuringAuction, buildMovementReversal, movementReversalCapErrors, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
+import { auctionAssignmentReversalDuringAuction, buildMovementReversal, draftChoiceBelongsToSeason, movementReversalCapErrors, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
 import { conciseMovementDetail, movementOperationLabel, movementSearchFilter, normalizeMovementSearchQuery } from "@/lib/movement-display";
 import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
@@ -20,8 +20,21 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
   const countTeamOptions = shouldCountTeamOptions(season.status, season.team_options_resolved);
   let movementRequest = supabase.from("league_movements").select("id,operation_type,summary,before_state,after_state,season_name,undo_before_moment,created_at,reverted_at");
   if (textFilter) movementRequest = movementRequest.or(textFilter);
-  const response = await movementRequest.order("created_at", { ascending: false }).limit(100);
+  const [response, draftChoicesResponse] = await Promise.all([
+    movementRequest.order("created_at", { ascending: false }).limit(100),
+    supabase
+      .from("league_movements")
+      .select("id,season_name,after_history")
+      .eq("operation_type", "scelta_draft")
+      .is("reverted_at", null)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false }),
+  ]);
   if (response.error) throw new Error(`Registro movimenti non disponibile: ${response.error.message}`);
+  if (draftChoicesResponse.error) throw new Error(`Scelte del Draft non disponibili: ${draftChoicesResponse.error.message}`);
+  const latestDraftChoiceId = (draftChoicesResponse.data ?? []).find((movement) => (
+    draftChoiceBelongsToSeason(movement.season_name, movement.after_history, season.name)
+  ))?.id ?? null;
   const movements = (response.data ?? []).map((movement) => {
     let reversible = !movement.reverted_at;
     let reason = "";
@@ -34,6 +47,7 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
         undoBeforeMoment: movement.undo_before_moment ?? snapshotMetadata.undoBeforeMoment,
         currentSeasonName: season.name,
         currentMoment,
+        isLatestDraftChoice: movement.id === latestDraftChoiceId,
       });
       if (windowError) {
         reversible = false;

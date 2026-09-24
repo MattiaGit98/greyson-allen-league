@@ -102,17 +102,26 @@ export function movementUndoWindowError({
   undoBeforeMoment,
   currentSeasonName,
   currentMoment,
+  isLatestDraftChoice = false,
 }: {
   operationType: string;
   movementSeasonName?: string | null;
   undoBeforeMoment?: string | null;
   currentSeasonName: string;
   currentMoment: LeagueMoment;
+  isLatestDraftChoice?: boolean;
 }) {
-  if (operationType === "ordine_draft_finale" || operationType === "scelta_draft") {
-    return operationType === "ordine_draft_finale"
-      ? "L'ordine definitivo del Draft non può essere annullato."
-      : "Una scelta ufficiale del Draft non può essere annullata.";
+  if (operationType === "ordine_draft_finale") {
+    return "L'ordine definitivo del Draft non può essere annullato.";
+  }
+  if (operationType === "scelta_draft") {
+    if (!operationWindows.draft(currentMoment)) {
+      return "Le scelte del Draft non possono più essere annullate dall'Inizio asta.";
+    }
+    return isLatestDraftChoice ? null : "Puoi annullare soltanto l'ultima scelta effettuata nel Draft in corso.";
+  }
+  if (undoBeforeMoment === "auction_start" && !operationWindows.draft(currentMoment)) {
+    return "Questo annullamento del Draft non può più essere modificato dall'Inizio asta.";
   }
   if (operationType === "consegna_contratti") {
     return "La consegna dei contratti non può essere annullata dal registro movimenti.";
@@ -132,6 +141,29 @@ export function movementUndoWindowError({
     return "Le decisioni sulle team option non sono più annullabili dopo la scadenza per l'esercizio delle T.O.";
   }
   return null;
+}
+
+export function draftChoiceBelongsToSeason(
+  movementSeasonName: string | null | undefined,
+  afterHistory: unknown,
+  currentSeasonName: string,
+) {
+  if (movementSeasonName) return movementSeasonName === currentSeasonName;
+  if (!Array.isArray(afterHistory)) return false;
+  const draftYear = currentSeasonName.slice(0, 4);
+  return afterHistory.some((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const record = entry as Record<string, unknown>;
+    if (record.season !== draftYear || !record.content || typeof record.content !== "object") return false;
+    const content = record.content as Record<string, unknown>;
+    if (content.kind !== "draft" || !Array.isArray(content.rows)) return false;
+    return content.rows.some((row) => (
+      Boolean(row)
+      && typeof row === "object"
+      && typeof (row as Record<string, unknown>).player === "string"
+      && Boolean(((row as Record<string, unknown>).player as string).trim())
+    ));
+  });
 }
 
 export function auctionAssignmentReversalDuringAuction(operationType: string, currentMoment: LeagueMoment) {
