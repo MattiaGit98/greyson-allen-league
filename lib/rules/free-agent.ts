@@ -12,6 +12,7 @@ export function automaticFreeAgentContract(seasonName: string, tradeDeadlinePass
 
 export function evaluateFreeAgentSigning(input: {
   phase: string;
+  enforceRoleMinimums?: boolean;
   currentCost: number;
   price: number;
   destination: "regular" | "two_way";
@@ -76,7 +77,7 @@ export function evaluateFreeAgentSigning(input: {
   const rolesAfter = { ...input.roles };
   if (input.playerRole) rolesAfter[input.playerRole] += 1;
   if (input.cutSlot !== "dpe" && input.cutRole) rolesAfter[input.cutRole] -= 1;
-  const roleCheck = validateRoleMinimums(rolesAfter, input.phase === "regular_season");
+  const roleCheck = validateRoleMinimums(rolesAfter, input.enforceRoleMinimums ?? input.phase === "regular_season");
   errors.push(...slotCheck.errors);
   warnings.push(...cap.errors, ...cap.warnings, ...slotCheck.warnings);
   warnings.push(...roleCheck.errors.map((issue) => ({

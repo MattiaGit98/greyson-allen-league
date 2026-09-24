@@ -44,8 +44,10 @@ export type DraftClauseResolution = {
   agreementId: string;
   role: "protected" | "protection_counterparty" | "swap_right" | "swap_subject";
   subjectYear: number;
+  subjectRound?: string;
   subjectOriginTeamCode: string;
   counterpartYear: number;
+  counterpartRound?: string;
   counterpartOriginTeamCode: string;
   threshold?: number;
   originalOwnerTeamCode: string;

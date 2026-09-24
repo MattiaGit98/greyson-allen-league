@@ -1,10 +1,12 @@
 export function canApplyStretchProvision(entry: {
+  cost: number;
   contract: string;
   state: "active" | "cut";
   stretchProvisionApplied?: boolean;
   buyoutApplied?: boolean;
 }, currentSeasonEndYear: number) {
   return entry.state === "cut"
+    && entry.cost > 0
     && !isStretchUnavailable(entry)
     && contractExpiryYear(entry.contract, currentSeasonEndYear) === currentSeasonEndYear;
 }

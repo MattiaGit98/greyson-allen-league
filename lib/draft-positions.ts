@@ -180,6 +180,7 @@ type ClauseAgreement = {
   subjectRound: string;
   subjectOriginTeamCode: string;
   counterpartYear: number;
+  counterpartRound: string;
   counterpartOriginTeamCode: string;
   threshold?: number;
 };
@@ -190,7 +191,7 @@ function resolveDraftClauses(draftAssets: DraftAsset[], draftYear: number, teamC
 
   for (const agreement of agreements) {
     const subjectIndex = findOriginalPick(nextAssets, agreement.subjectYear, agreement.subjectRound, agreement.subjectOriginTeamCode, teamCodes);
-    const counterpartIndex = findOriginalPick(nextAssets, agreement.counterpartYear, agreement.subjectRound, agreement.counterpartOriginTeamCode, teamCodes);
+    const counterpartIndex = findOriginalPick(nextAssets, agreement.counterpartYear, agreement.counterpartRound, agreement.counterpartOriginTeamCode, teamCodes);
     if (subjectIndex < 0 || counterpartIndex < 0) throw new Error(`Non trovo entrambe le scelte della clausola ${agreement.agreementId}.`);
     const subject = nextAssets[subjectIndex];
     const counterpart = nextAssets[counterpartIndex];
@@ -215,7 +216,7 @@ function resolveDraftClauses(draftAssets: DraftAsset[], draftYear: number, teamC
   let ownershipChanges = 0;
   for (const agreement of agreements) {
     const subjectIndex = findOriginalPick(nextAssets, agreement.subjectYear, agreement.subjectRound, agreement.subjectOriginTeamCode, teamCodes);
-    const counterpartIndex = findOriginalPick(nextAssets, agreement.counterpartYear, agreement.subjectRound, agreement.counterpartOriginTeamCode, teamCodes);
+    const counterpartIndex = findOriginalPick(nextAssets, agreement.counterpartYear, agreement.counterpartRound, agreement.counterpartOriginTeamCode, teamCodes);
     const subject = nextAssets[subjectIndex];
     const counterpart = nextAssets[counterpartIndex];
     const subjectPosition = draftOverallPosition(subject.originOrOverall);
@@ -244,13 +245,18 @@ function collectClauseAgreements(draftAssets: DraftAsset[], draftYear: number, t
   for (const asset of draftAssets) {
     if (asset.clauseResolution?.subjectYear === draftYear && ["protected", "swap_right"].includes(asset.clauseResolution.role)) {
       const resolution = asset.clauseResolution;
+      const counterpartAsset = draftAssets.find((candidate) => (
+        candidate.clauseResolution?.agreementId === resolution.agreementId
+        && ["protection_counterparty", "swap_subject"].includes(candidate.clauseResolution.role)
+      ));
       agreements.set(resolution.agreementId, {
         agreementId: resolution.agreementId,
         kind: resolution.role === "protected" ? "protection" : "swap",
         subjectYear: resolution.subjectYear,
-        subjectRound: asset.round,
+        subjectRound: resolution.subjectRound ?? asset.round,
         subjectOriginTeamCode: resolution.subjectOriginTeamCode,
         counterpartYear: resolution.counterpartYear,
+        counterpartRound: resolution.counterpartRound ?? counterpartAsset?.round ?? asset.round,
         counterpartOriginTeamCode: resolution.counterpartOriginTeamCode,
         threshold: resolution.threshold,
       });
@@ -261,7 +267,7 @@ function collectClauseAgreements(draftAssets: DraftAsset[], draftYear: number, t
     if (!originTeamCode) continue;
     const protection = parseProtection(asset.label);
     if (protection) {
-      const agreementId = `protection:${draftYear}:${asset.round}:${originTeamCode}:${protection.counterpartYear}:${protection.counterpartOriginTeamCode}`;
+      const agreementId = `protection:${draftYear}:${asset.round}:${originTeamCode}:${protection.counterpartYear}:${protection.counterpartRound}:${protection.counterpartOriginTeamCode}`;
       agreements.set(agreementId, {
         agreementId,
         kind: "protection",
@@ -269,6 +275,7 @@ function collectClauseAgreements(draftAssets: DraftAsset[], draftYear: number, t
         subjectRound: asset.round,
         subjectOriginTeamCode: originTeamCode,
         counterpartYear: protection.counterpartYear,
+        counterpartRound: protection.counterpartRound,
         counterpartOriginTeamCode: protection.counterpartOriginTeamCode,
         threshold: protection.threshold,
       });
@@ -285,6 +292,7 @@ function collectClauseAgreements(draftAssets: DraftAsset[], draftYear: number, t
         subjectRound: asset.round,
         subjectOriginTeamCode: originTeamCode,
         counterpartYear: draftYear,
+        counterpartRound: asset.round,
         counterpartOriginTeamCode,
       });
     }
@@ -293,14 +301,15 @@ function collectClauseAgreements(draftAssets: DraftAsset[], draftYear: number, t
 }
 
 function parseProtection(label: string) {
-  const compact = label.match(/^Protetta top (\d+),\s*1[ªa]\s+(\d{4})\s+([A-Z]+)$/i);
-  const extended = label.match(/^Protetta top (\d+);\s*contropartita:\s*1[ªa]\s+scelta\s+(\d{4})\s+([A-Z]+)$/i);
+  const compact = label.match(/^Protetta top (\d+),\s*([12])[ªa]\s+(\d{4})\s+([A-Z]+)$/i);
+  const extended = label.match(/^Protetta top (\d+);\s*contropartita:\s*([12])[ªa]\s+scelta\s+(\d{4})\s+([A-Z]+)$/i);
   const match = compact ?? extended;
   if (!match) return null;
   return {
     threshold: Number(match[1]),
-    counterpartYear: Number(match[2]),
-    counterpartOriginTeamCode: match[3].toUpperCase(),
+    counterpartRound: `${match[2]}° giro`,
+    counterpartYear: Number(match[3]),
+    counterpartOriginTeamCode: match[4].toUpperCase(),
   };
 }
 
@@ -320,8 +329,10 @@ function clauseResolutionFor(agreement: ClauseAgreement, side: "subject" | "coun
       ? side === "subject" ? "protected" : "protection_counterparty"
       : side === "subject" ? "swap_right" : "swap_subject",
     subjectYear: agreement.subjectYear,
+    subjectRound: agreement.subjectRound,
     subjectOriginTeamCode: agreement.subjectOriginTeamCode,
     counterpartYear: agreement.counterpartYear,
+    counterpartRound: agreement.counterpartRound,
     counterpartOriginTeamCode: agreement.counterpartOriginTeamCode,
     threshold: agreement.threshold,
     originalOwnerTeamCode,

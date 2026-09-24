@@ -1,5 +1,16 @@
+import type { RosterEntry } from "./league-types";
+
 export type ReleaseOperationKind = "cut" | "free_release" | "buyout";
 export type ThreeYearValues = [number, number, number];
+
+export function applyFreeRelease<T extends RosterEntry>(entry: T): T {
+  return {
+    ...entry,
+    cost: 0,
+    state: "cut",
+    slot: "regular",
+  };
+}
 
 export function releaseCapSpaces({
   kind,

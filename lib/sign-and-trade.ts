@@ -20,6 +20,7 @@ export type SignAndTradeRequest = {
   signerTeamCode: string;
   price: number;
   destinationSlot: "regular" | "two_way";
+  buyoutTopSixConfirmed: boolean;
 };
 
 export type SignAndTradeProvisional = {
@@ -75,6 +76,14 @@ export function buildSignAndTradeProvisional(input: {
     };
   }
   const normalizedName = normalizePlayerName(player.name);
+  const buyoutFreeAgent = request.playerSource === "list" && state.rosterEntries.some((entry) => (
+    normalizePlayerName(entry.name) === normalizedName
+    && entry.state === "cut"
+    && entry.buyoutApplied === true
+  ));
+  if (buyoutFreeAgent && !request.buyoutTopSixConfirmed) {
+    throw new Error("Conferma di aver verificato che la squadra firmataria occupi una delle prime sei posizioni della regular season per acquisire questo free agent soggetto a buyout.");
+  }
   const activePlayer = state.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedName && entry.state === "active");
   const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedName);
   const teamEntries = state.rosterEntries.filter((entry) => entry.teamCode === request.signerTeamCode);

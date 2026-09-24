@@ -73,7 +73,8 @@ export type ExistingTradeClauseAgreement = {
   counterpartyOwnerTeamCode: string;
   subjectYear: number;
   counterpartyYear: number;
-  round: string;
+  subjectRound: string;
+  counterpartyRound: string;
   clause: Exclude<TradePickClause, "none">;
   label: string;
   subjectIndex: number;
@@ -124,14 +125,14 @@ export function existingTradeClauseAgreements(assets: DraftAsset[], teamCodes: s
     const counterpartyIndex = assets.findIndex((asset, index) => (
       index !== subjectIndex
       && asset.year === counterpartYear
-      && asset.round === subject.round
+      && asset.round === (protection?.counterpartRound ?? subject.round)
       && draftOriginTeamCode(asset, teamCodes) === counterpartOrigin
     ));
     if (counterpartyIndex < 0) return;
     const counterpart = assets[counterpartyIndex];
     const agreementId = protection
-      ? `protection:${subject.year}:${subject.round}:${subjectOrigin}:${counterpart.year}:${counterpartOrigin}`
-      : `swap:${subject.year}:${subject.round}:${subjectOrigin}:${counterpart.year}:${counterpartOrigin}`;
+      ? `protection:${subject.year}:${subject.round}:${subjectOrigin}:${counterpart.year}:${counterpart.round}:${counterpartOrigin}`
+      : `swap:${subject.year}:${subject.round}:${subjectOrigin}:${counterpart.year}:${counterpart.round}:${counterpartOrigin}`;
     if (agreements.has(agreementId)) return;
     const clause = protection ? `protected_top_${protection.threshold}` as const : "swap" as const;
     agreements.set(agreementId, agreementFromPair(
@@ -212,7 +213,7 @@ function agreementFromPair(
 ): ExistingTradeClauseAgreement {
   const label = clause === "swap"
     ? `${subject.asset.year} ${subject.asset.round}: diritto di swap tra ${subject.asset.originTeamCode ?? subject.asset.originOrOverall} e ${counterpart.asset.originTeamCode ?? counterpart.asset.originOrOverall}`
-    : `${subject.asset.year} ${subject.asset.round}: ${clause.replace("protected_top_", "protetta top ")} · contropartita ${counterpart.asset.year}`;
+    : `${subject.asset.year} ${subject.asset.round}: ${clause.replace("protected_top_", "protetta top ")} · contropartita ${counterpart.asset.year} ${counterpart.asset.round}`;
   return {
     agreementId,
     subjectPickId: tradePickId(subject.asset.teamCode, subject.index, subject.asset),
@@ -221,7 +222,8 @@ function agreementFromPair(
     counterpartyOwnerTeamCode: counterpart.asset.teamCode,
     subjectYear: subject.asset.year,
     counterpartyYear: counterpart.asset.year,
-    round: subject.asset.round,
+    subjectRound: subject.asset.round,
+    counterpartyRound: counterpart.asset.round,
     clause,
     label,
     subjectIndex: subject.index,
@@ -260,12 +262,14 @@ function applyDraftClauses(
     const counterpartOrigin = draftOriginTeamCode(counterpart, teamCodes);
     if (!counterpartOrigin) throw new Error("Non è possibile determinare la squadra originaria della contropartita.");
     const kind = clause.clause === "swap" ? "swap" : "protection";
-    const agreementId = `${kind}:${subject.year}:${subject.round}:${subjectOrigin}:${counterpart.year}:${counterpartOrigin}`;
+    const agreementId = `${kind}:${subject.year}:${subject.round}:${subjectOrigin}:${counterpart.year}:${counterpart.round}:${counterpartOrigin}`;
     const common = {
       agreementId,
       subjectYear: subject.year,
+      subjectRound: subject.round,
       subjectOriginTeamCode: subjectOrigin,
       counterpartYear: counterpart.year,
+      counterpartRound: counterpart.round,
       counterpartOriginTeamCode: counterpartOrigin,
       ...(threshold === null ? {} : { threshold }),
     };
@@ -279,19 +283,20 @@ function applyDraftClauses(
       role: kind === "swap" ? "swap_subject" : "protection_counterparty",
       originalOwnerTeamCode: counterpart.teamCode,
     };
-    const roundOrdinal = subject.round.startsWith("2") ? "2ª" : "1ª";
+    const subjectRoundOrdinal = subject.round.startsWith("2") ? "2ª" : "1ª";
+    const counterpartRoundOrdinal = counterpart.round.startsWith("2") ? "2ª" : "1ª";
     next[clause.subjectIndex] = {
       ...subject,
       label: kind === "swap"
         ? `Diritto di swap con ${counterpartOrigin}`
-        : `Protetta top ${threshold}; contropartita: ${roundOrdinal} scelta ${counterpart.year} ${counterpartOrigin}`,
+        : `Protetta top ${threshold}; contropartita: ${counterpartRoundOrdinal} scelta ${counterpart.year} ${counterpartOrigin}`,
       clauseResolution: subjectResolution,
     };
     next[clause.counterpartyIndex!] = {
       ...counterpart,
       label: kind === "swap"
         ? `Subisce il diritto di swap con ${subjectOrigin}`
-        : `Contropartita se la ${roundOrdinal} scelta ${subject.year} ${subjectOrigin} rientra in top ${threshold}`,
+        : `Contropartita se la ${subjectRoundOrdinal} scelta ${subject.year} ${subjectOrigin} rientra in top ${threshold}`,
       clauseResolution: counterpartResolution,
     };
   }
@@ -312,13 +317,14 @@ function draftOriginTeamCode(asset: DraftAsset, teamCodes: string[]) {
 }
 
 function parseProtection(label: string) {
-  const compact = label.match(/^Protetta top (\d+),\s*1[ªa]\s+(\d{4})\s+([A-Z]+)$/i);
-  const extended = label.match(/^Protetta top (\d+);\s*contropartita:\s*1[ªa]\s+scelta\s+(\d{4})\s+([A-Z]+)$/i);
+  const compact = label.match(/^Protetta top (\d+),\s*([12])[ªa]\s+(\d{4})\s+([A-Z]+)$/i);
+  const extended = label.match(/^Protetta top (\d+);\s*contropartita:\s*([12])[ªa]\s+scelta\s+(\d{4})\s+([A-Z]+)$/i);
   const match = compact ?? extended;
   if (!match) return null;
   return {
     threshold: Number(match[1]),
-    counterpartYear: Number(match[2]),
-    counterpartOriginTeamCode: match[3].toUpperCase(),
+    counterpartRound: `${match[2]}° giro`,
+    counterpartYear: Number(match[3]),
+    counterpartOriginTeamCode: match[4].toUpperCase(),
   };
 }

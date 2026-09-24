@@ -197,8 +197,8 @@ export function TradeBuilder({
         counterpartyOwnerTeamCode: agreement.counterpartyOwnerTeamCode,
         subjectYear: agreement.subjectYear,
         counterpartyYear: agreement.counterpartyYear,
-        subjectRound: agreement.round,
-        counterpartyRound: agreement.round,
+        subjectRound: agreement.subjectRound,
+        counterpartyRound: agreement.counterpartyRound,
         action: "remove" as const,
         clause: null,
       }]
@@ -445,8 +445,8 @@ export function TradeBuilder({
         counterpartyOwnerTeamCode: agreement.counterpartyOwnerTeamCode,
         subjectYear: agreement.subjectYear,
         counterpartyYear: agreement.counterpartyYear,
-        subjectRound: agreement.round,
-        counterpartyRound: agreement.round,
+        subjectRound: agreement.subjectRound,
+        counterpartyRound: agreement.counterpartyRound,
         action: "remove",
         clause: null,
       }];
@@ -1662,8 +1662,8 @@ function hydrateTradeImport(
     counterpartyOwnerTeamCode: agreement.counterpartyOwnerTeamCode,
     subjectYear: agreement.subjectYear,
     counterpartyYear: agreement.counterpartyYear,
-    subjectRound: agreement.round,
-    counterpartyRound: agreement.round,
+    subjectRound: agreement.subjectRound,
+    counterpartyRound: agreement.counterpartyRound,
     action: "remove",
     clause: null,
   }));

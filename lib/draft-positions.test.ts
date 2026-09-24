@@ -181,4 +181,51 @@ describe("posizioni draft", () => {
     expect(protectedAfterCorrection?.teamCode).toBe("DDD");
     expect(counterpartyAfterCorrection?.teamCode).toBe("CCC");
   });
+
+  it("risolve una protezione usando una contropartita del secondo giro dello stesso draft", () => {
+    const teamCodes = ["AAA", "BBB"];
+    const agreement = {
+      agreementId: "protection:2027:1° giro:AAA:2027:2° giro:AAA",
+      subjectYear: 2027,
+      subjectRound: "1° giro",
+      subjectOriginTeamCode: "AAA",
+      counterpartYear: 2027,
+      counterpartRound: "2° giro",
+      counterpartOriginTeamCode: "AAA",
+      threshold: 1,
+    };
+    const assets: DraftAsset[] = [
+      {
+        label: "Protetta top 1; contropartita: 2ª scelta 2027 AAA",
+        round: "1° giro",
+        year: 2027,
+        originOrOverall: "AAA",
+        teamCode: "BBB",
+        clauseResolution: { ...agreement, role: "protected", originalOwnerTeamCode: "BBB" },
+      },
+      { label: "Scelta", round: "1° giro", year: 2027, originOrOverall: "BBB", teamCode: "BBB" },
+      {
+        label: "Contropartita se la 1ª scelta 2027 AAA rientra in top 1",
+        round: "2° giro",
+        year: 2027,
+        originOrOverall: "AAA",
+        teamCode: "AAA",
+        clauseResolution: { ...agreement, role: "protection_counterparty", originalOwnerTeamCode: "AAA" },
+      },
+      { label: "Scelta", round: "2° giro", year: 2027, originOrOverall: "BBB", teamCode: "BBB" },
+    ];
+    const assignments = [
+      { position: 1, originTeamCode: "AAA", isBonus: false, round: "1° giro" as const, cost: 25 },
+      { position: 2, originTeamCode: "BBB", isBonus: false, round: "1° giro" as const, cost: 21 },
+      { position: 3, originTeamCode: "AAA", isBonus: false, round: "2° giro" as const, cost: 1 },
+      { position: 4, originTeamCode: "BBB", isBonus: false, round: "2° giro" as const, cost: 1 },
+    ];
+
+    const result = applyCompleteDraftOrder(assets, 2027, assignments, teamCodes);
+    const subject = result.draftAssets.find((asset) => asset.year === 2027 && asset.round === "1° giro" && asset.originTeamCode === "AAA");
+    const counterpart = result.draftAssets.find((asset) => asset.year === 2027 && asset.round === "2° giro" && asset.originTeamCode === "AAA");
+
+    expect(subject?.teamCode).toBe("AAA");
+    expect(counterpart?.teamCode).toBe("BBB");
+  });
 });

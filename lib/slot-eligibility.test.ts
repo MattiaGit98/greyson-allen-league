@@ -93,6 +93,23 @@ describe("idoneità Two-way e G-League", () => {
     )).toEqual(["regular"]);
   });
 
+  it("consente gli slot speciali a un contratto da assegnare solo con futura T.O. e soglie valide", () => {
+    const pending = {
+      contract: "PENDING",
+      cost: 5,
+      auctionPrice: 5,
+      slot: "regular" as const,
+      contractStartSeason: "2026/27",
+    };
+
+    expect(legalSlotDestinations({ ...pending, rookie: true }, "2026/27", "auction_completed"))
+      .toEqual(["regular", "two_way", "g_league"]);
+    expect(legalSlotDestinations({ ...pending, under23: true, cost: 16, auctionPrice: 16 }, "2026/27", "auction_completed"))
+      .toEqual(["regular"]);
+    expect(legalSlotDestinations({ ...pending, rookie: true, auctionAcquisition: "restricted_free_agent" }, "2026/27", "auction_completed"))
+      .toEqual(["regular"]);
+  });
+
   it("lo spostamento non modifica contratto, costo o provenienza", () => {
     const entry = {
       name: "Giocatore",

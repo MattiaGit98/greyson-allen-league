@@ -27,7 +27,7 @@ export default async function TradeSimulatorPage() {
     followingSeasonName(seasonName),
     followingSeasonName(seasonName, 2),
   ];
-  const officialRoles = new Map(leagueState.playerList.map((player) => [normalizePlayerName(player.name), player.role]));
+  const officialPlayers = new Map(leagueState.playerList.map((player) => [normalizePlayerName(player.name), player]));
   const firstTradableDraft = nextDraftYear(leagueState.draftAssets);
   const tradableDraftYears = firstTradableDraft === null
     ? []
@@ -94,7 +94,7 @@ export default async function TradeSimulatorPage() {
           ))),
           contract: entry.contract,
           role: (() => {
-            const role = officialRoles.get(normalizePlayerName(entry.name));
+            const role = officialPlayers.get(normalizePlayerName(entry.name))?.role;
             return role && role !== "X" ? role : null;
           })(),
           slot: entry.slot,
@@ -111,7 +111,12 @@ export default async function TradeSimulatorPage() {
             : orderCurrentSlotFirst(
               entry.slot,
               legalSlotDestinations(
-                { ...entry, slot: entry.slot as ManagedRosterSlot },
+                {
+                  ...entry,
+                  slot: entry.slot as ManagedRosterSlot,
+                  rookie: officialPlayers.get(normalizePlayerName(entry.name))?.rookie ?? false,
+                  under23: officialPlayers.get(normalizePlayerName(entry.name))?.under23 ?? false,
+                },
                 seasonName,
                 leagueMoment,
               ),

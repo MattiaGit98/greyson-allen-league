@@ -549,6 +549,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
             const auctionPrice = player.auctionPrice ?? player.cost;
             const selectedSlot = assignment?.slot ?? player.slot;
             const destinationRequiresOption = selectedSlot === "two_way" || selectedSlot === "g_league";
+            const startsInSpecialSlot = player.slot === "two_way" || player.slot === "g_league";
             const optionEligible = player.rookie || (player.under23 && auctionPrice <= 15);
             const allowedContracts = allowedPostAuctionContracts(player.auctionAcquisition);
             return (
@@ -558,6 +559,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
                 <div className="contract-choice-list">
                   {contractChoices.map((choice) => {
                     const disabled = !allowedContracts.includes(choice.kind)
+                      || (startsInSpecialSlot && choice.kind !== "team_option")
                       || (destinationRequiresOption
                         ? choice.kind !== "team_option" || !optionEligible
                         : choice.kind === "team_option" && !optionEligible);

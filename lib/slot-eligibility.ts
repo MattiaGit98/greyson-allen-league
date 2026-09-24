@@ -6,8 +6,15 @@ export type ManagedRosterSlot = "regular" | "two_way" | "g_league";
 
 export type SlotEligibilityEntry = Pick<
   RosterEntry,
-  "contract" | "cost" | "teamOptionFinalYear" | "freeAgentSignedSeason" | "endedPreviousSeasonInGLeague" | "contractStartSeason" | "twoWayPromotionLocked"
->;
+  "contract" | "cost" | "teamOptionFinalYear" | "freeAgentSignedSeason" | "endedPreviousSeasonInGLeague" | "contractStartSeason" | "twoWayPromotionLocked" | "auctionAcquisition" | "auctionPrice"
+> & {
+  rookie?: boolean;
+  under23?: boolean;
+};
+
+export function hasPendingAuctionContract(entry: Pick<SlotEligibilityEntry, "contract">) {
+  return ["", "-", "PENDING", "DA ASSEGNARE"].includes(entry.contract.trim().toLocaleUpperCase("it-IT"));
+}
 
 export function contractIncludesTeamOption(entry: Pick<SlotEligibilityEntry, "contract" | "teamOptionFinalYear">) {
   return entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O."
@@ -16,6 +23,16 @@ export function contractIncludesTeamOption(entry: Pick<SlotEligibilityEntry, "co
 }
 
 export function slotEligibility(entry: SlotEligibilityEntry, seasonName: string) {
+  if (hasPendingAuctionContract(entry)) {
+    const price = entry.auctionPrice ?? entry.cost;
+    const teamOptionEligible = entry.rookie === true || (entry.under23 === true && price <= 15);
+    const specialSlotEligible = !entry.auctionAcquisition && teamOptionEligible;
+    return {
+      regular: true,
+      two_way: specialSlotEligible && price <= 10,
+      g_league: specialSlotEligible && price <= 5,
+    } satisfies Record<ManagedRosterSlot, boolean>;
+  }
   const teamOption = contractIncludesTeamOption(entry);
   return {
     regular: true,
@@ -31,6 +48,20 @@ export function slotEligibility(entry: SlotEligibilityEntry, seasonName: string)
 export function slotEligibilityErrors(entry: SlotEligibilityEntry, destination: ManagedRosterSlot, seasonName: string) {
   const eligibility = slotEligibility(entry, seasonName);
   if (eligibility[destination]) return [];
+  if (hasPendingAuctionContract(entry)) {
+    if (entry.auctionAcquisition) {
+      return ["Un acquisto tramite Q.O. o come RFA deve restare nel roster."];
+    }
+    const price = entry.auctionPrice ?? entry.cost;
+    if (entry.under23 && !entry.rookie && price > 15) {
+      return ["Un Under 23 acquistato all'asta per più di 15 crediti non può ricevere la T.O. necessaria per questo slot."];
+    }
+    if (!entry.rookie && !entry.under23) {
+      return ["Questo giocatore non è idoneo alla T.O. necessaria per lo slot speciale."];
+    }
+    if (destination === "g_league" && price > 5) return ["La G-League richiede un costo massimo di 5 crediti."];
+    if (destination === "two_way" && price > 10) return ["Il Two-way richiede un costo massimo di 10 crediti."];
+  }
   if (destination === "g_league") {
     return ["La G-League richiede un contratto con T.O. e un costo massimo di 5 crediti."];
   }

@@ -17,7 +17,7 @@ import {
   isUnresolvedTeamOption,
 } from "@/lib/team-option-contract";
 import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
-import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
+import { roleMinimumChecksApply, roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { orderPlayerListByRole } from "@/lib/player-list-order";
 
@@ -128,6 +128,7 @@ export async function signFreeAgent(formData: FormData) {
   });
   const evaluation = evaluateFreeAgentSigning({
     phase: seasonResponse.data.status,
+    enforceRoleMinimums: roleMinimumChecksApply(seasonResponse.data.status, moment),
     currentCost,
     price,
     destination,
@@ -187,12 +188,6 @@ export async function signFreeAgent(formData: FormData) {
     ...state.rosterEntries.map((entry, index) => {
       if (index === cutIndex) return applyStandardContractCut(entry, endYear, moment);
       if (index === promotionIndex) return { ...entry, slot: promotionDestination };
-      if (playerSource === "list"
-        && normalizePlayerName(entry.name) === normalizedPlayerName
-        && entry.state === "cut"
-        && entry.buyoutApplied === true) {
-        return { ...entry, buyoutApplied: false };
-      }
       return entry;
     }),
     rosterEntry,
@@ -213,11 +208,14 @@ export async function signFreeAgent(formData: FormData) {
     optionSeasonName: seasonResponse.data.name,
     countTeamOptions: true,
   });
+  const roleMinimumCapException = roleMinimumReplacement
+    && price === 1
+    && afterCost <= currentCost + 1;
   const capWarnings = [
     ...(afterCost > 1000 && price > 1
       ? [`Il free agent può essere acquistato per più di 1 credito soltanto se il cap resta entro quota 1000 (cap libero ${1000 - afterCost}).`]
       : []),
-    ...(afterCost > 1100 && (currentCost <= 1100 || afterCost > currentCost)
+    ...(afterCost > 1100 && (currentCost <= 1100 || afterCost > currentCost) && !roleMinimumCapException
       ? [`La firma aumenterebbe il cap oltre quota 1100 (cap libero ${1000 - afterCost}).`]
       : []),
   ];

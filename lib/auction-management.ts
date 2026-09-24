@@ -1,4 +1,12 @@
 import type { AuctionAcquisitionKind, RosterEntry } from "./league-types";
+import type { LeagueMoment } from "./league-moments";
+import {
+  isSlotDemotion,
+  slotEligibilityErrors,
+  slotMoveTimingErrors,
+  type ManagedRosterSlot,
+  type SlotEligibilityEntry,
+} from "./slot-eligibility";
 
 export type AuctionSlot = "regular" | "two_way" | "g_league";
 export type AuctionRosterSlot = AuctionSlot | "dpe";
@@ -92,10 +100,36 @@ export function auctionDestinationErrors({
   const errors: string[] = [];
   if (!Number.isInteger(price) || price < 1) errors.push("Il prezzo deve essere un numero intero di almeno 1 credito.");
   if (slot === "regular") return errors;
-  if (!rookie && !under23) errors.push("La T.O. è disponibile soltanto per rookie e Under 23 idonei.");
+  if (!rookie && !(under23 && price <= 15)) errors.push("La T.O. è disponibile soltanto per rookie o Under 23 acquistati per non più di 15 crediti.");
   if (slot === "two_way" && price > 10) errors.push("Il Two-way è disponibile fino a 10 crediti.");
   if (slot === "g_league" && price > 5) errors.push("La G-League è disponibile fino a 5 crediti.");
   return errors;
+}
+
+export function legalAuctionPromotionDestinations({
+  entry,
+  rookie,
+  under23,
+  seasonName,
+  moment,
+}: {
+  entry: SlotEligibilityEntry & Pick<RosterEntry, "slot" | "auctionPrice" | "contractStartSeason">;
+  rookie: boolean;
+  under23: boolean;
+  seasonName: string;
+  moment: LeagueMoment;
+}) {
+  if (entry.slot === "dpe") return [];
+  const source = entry.slot as ManagedRosterSlot;
+  const pendingAuctionContract = isPostAuctionContractAssignmentCandidate(entry, seasonName);
+  return (["regular", "two_way", "g_league"] as AuctionSlot[]).filter((destination) => {
+    if (destination === source || isSlotDemotion(source, destination)) return false;
+    if (slotMoveTimingErrors({ ...entry, slot: source }, destination, seasonName, moment).length) return false;
+    if (pendingAuctionContract) {
+      return auctionDestinationErrors({ slot: destination, price: entry.auctionPrice ?? entry.cost, rookie, under23 }).length === 0;
+    }
+    return slotEligibilityErrors(entry, destination, seasonName).length === 0;
+  });
 }
 
 export function auctionSlotCountsAfterMove({

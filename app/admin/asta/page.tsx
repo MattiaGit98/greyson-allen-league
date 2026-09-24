@@ -8,6 +8,7 @@ import { normalizeState } from "@/lib/league-state";
 import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { conciseMovementDetail } from "@/lib/movement-display";
+import { legalAuctionPromotionDestinations } from "@/lib/auction-management";
 
 export default async function AuctionAdminPage({
   searchParams,
@@ -71,13 +72,23 @@ export default async function AuctionAdminPage({
         .sort((left, right) => left.localeCompare(right, "it")),
       players: active
         .filter((entry) => entry.slot !== "dpe")
-        .map((entry) => ({
-          name: entry.name,
-          role: entry.role ?? null,
-          cost: entry.cost,
-          contract: entry.contract,
-          slot: entry.slot as "regular" | "two_way" | "g_league",
-        }))
+        .map((entry) => {
+          const listedPlayer = leagueState.playerList.find((player) => player.name === entry.name);
+          return {
+            name: entry.name,
+            role: entry.role ?? null,
+            cost: entry.cost,
+            contract: entry.contract,
+            slot: entry.slot as "regular" | "two_way" | "g_league",
+            promotionDestinations: legalAuctionPromotionDestinations({
+              entry,
+              rookie: listedPlayer?.rookie ?? false,
+              under23: listedPlayer?.under23 ?? false,
+              seasonName,
+              moment: leagueMoment,
+            }),
+          };
+        })
         .sort((left, right) => left.name.localeCompare(right.name, "it")),
     };
   });

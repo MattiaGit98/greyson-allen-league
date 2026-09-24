@@ -43,11 +43,18 @@ export async function moveRosterSlot(formData: FormData) {
   if (sourceSlot === destination) fail("Scegli uno slot diverso da quello attuale.");
 
   const moment = leagueMomentFromSeason(seasonResponse.data);
-  const legalDestinations = legalSlotDestinations({ ...entry, slot: sourceSlot }, seasonResponse.data.name, moment);
+  const listPlayer = state.playerList.find((player) => player.name.trim().toLocaleLowerCase("it-IT") === entry.name.trim().toLocaleLowerCase("it-IT"));
+  const eligibilityEntry = {
+    ...entry,
+    slot: sourceSlot,
+    rookie: listPlayer?.rookie ?? false,
+    under23: listPlayer?.under23 ?? false,
+  };
+  const legalDestinations = legalSlotDestinations(eligibilityEntry, seasonResponse.data.name, moment);
   if (!legalDestinations.includes(destination)) fail("Questo spostamento di slot non è consentito.");
-  const timingErrors = slotMoveTimingErrors({ ...entry, slot: sourceSlot }, destination, seasonResponse.data.name, moment);
+  const timingErrors = slotMoveTimingErrors(eligibilityEntry, destination, seasonResponse.data.name, moment);
   if (timingErrors.length) fail(timingErrors.join(" "));
-  const eligibilityErrors = slotEligibilityErrors(entry, destination, seasonResponse.data.name);
+  const eligibilityErrors = slotEligibilityErrors(eligibilityEntry, destination, seasonResponse.data.name);
   if (eligibilityErrors.length) fail(eligibilityErrors.join(" "));
 
   const rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex

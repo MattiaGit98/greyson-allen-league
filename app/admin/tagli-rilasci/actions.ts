@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { RosterEntry } from "@/lib/league-types";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
-import { releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
+import { applyFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -70,7 +70,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   let buyoutTotalResidual: number | null = null;
   let optionCutAdjustment: ReturnType<typeof teamOptionCutAdjustment> | null = null;
   if (kind === "free_release") {
-    rosterEntries = state.rosterEntries.filter((_, index) => index !== entryIndex);
+    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? applyFreeRelease(item) : item);
   } else if (kind === "buyout") {
     if (season.status !== "regular_season") operationError(returnPath, "Il buyout è disponibile soltanto durante la regular season.");
     const remainingYears = charges.filter((charge) => charge > 0).length;

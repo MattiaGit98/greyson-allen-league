@@ -8,6 +8,7 @@ import {
   isPostAuctionContractAssignmentCandidate,
   auctionSlotCapacityErrors,
   auctionSlotCountsAfterMove,
+  legalAuctionPromotionDestinations,
 } from "./auction-management";
 
 describe("pannello asta", () => {
@@ -105,6 +106,7 @@ describe("pannello asta", () => {
     expect(auctionDestinationErrors({ slot: "g_league", price: 6, rookie: true, under23: true })).toHaveLength(1);
     expect(auctionDestinationErrors({ slot: "g_league", price: 5, rookie: false, under23: false })).toHaveLength(1);
     expect(auctionDestinationErrors({ slot: "two_way", price: 10, rookie: false, under23: true })).toEqual([]);
+    expect(auctionDestinationErrors({ slot: "two_way", price: 16, rookie: false, under23: true })).toHaveLength(2);
   });
 
   it("consente di liberare la destinazione con uno scambio contestuale", () => {
@@ -116,5 +118,37 @@ describe("pannello asta", () => {
     expect(auctionSlotCapacityErrors(withoutExchange)).toHaveLength(1);
     expect(withExchange).toEqual(counts);
     expect(auctionSlotCapacityErrors(withExchange)).toEqual([]);
+  });
+
+  it("propone in asta soltanto le promozioni consentite", () => {
+    expect(legalAuctionPromotionDestinations({
+      entry: {
+        slot: "g_league",
+        contract: "PENDING",
+        cost: 5,
+        auctionPrice: 5,
+        contractStartSeason: "2026/27",
+      },
+      rookie: true,
+      under23: false,
+      seasonName: "2026/27",
+      moment: "auction_start",
+    })).toEqual(["regular", "two_way"]);
+
+    expect(legalAuctionPromotionDestinations({
+      entry: { slot: "two_way", contract: "28", cost: 8 },
+      rookie: false,
+      under23: false,
+      seasonName: "2026/27",
+      moment: "auction_start",
+    })).toEqual(["regular"]);
+
+    expect(legalAuctionPromotionDestinations({
+      entry: { slot: "regular", contract: "28", cost: 8 },
+      rookie: false,
+      under23: false,
+      seasonName: "2026/27",
+      moment: "auction_start",
+    })).toEqual([]);
   });
 });

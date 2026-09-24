@@ -128,21 +128,21 @@ export function buildDraftAssignment({
     futurePicksAdded = generated.added;
   }
 
-  const createsRosterEntry = destinationSlot !== "immediate_release";
-  const activeSlot = destinationSlot === "immediate_cut" ? "regular" : destinationSlot;
-  const nextRosterEntries = createsRosterEntry ? [
+  const immediateExit = destinationSlot === "immediate_cut" || destinationSlot === "immediate_release";
+  const activeSlot = immediateExit ? "regular" : destinationSlot;
+  const nextRosterEntries = [
     ...state.rosterEntries,
     {
       name: player.name,
       role: player.role === "X" ? undefined : player.role,
-      cost: price,
-      contract: destinationSlot === "immediate_cut" ? String((draftYear + 1) % 100).padStart(2, "0") : "T.O.",
-      state: destinationSlot === "immediate_cut" ? "cut" as const : "active" as const,
+      cost: destinationSlot === "immediate_release" ? 0 : price,
+      contract: immediateExit ? String((draftYear + 1) % 100).padStart(2, "0") : "T.O.",
+      state: immediateExit ? "cut" as const : "active" as const,
       slot: activeSlot as DraftRosterSlot,
       teamCode: pick.teamCode,
       contractStartSeason: `${draftYear}/${String((draftYear + 1) % 100).padStart(2, "0")}`,
     },
-  ] : state.rosterEntries;
+  ];
   const draftedState: EditableLeagueState = {
     ...state,
     rosterEntries: nextRosterEntries,

@@ -36,6 +36,7 @@ type TeamOption = {
 
 export function FreeAgentPanel({
   phase,
+  enforceRoleMinimums,
   seasonName,
   tradeDeadlinePassed,
   signAndTradeOpen,
@@ -44,6 +45,7 @@ export function FreeAgentPanel({
   players,
 }: {
   phase: "regular_season" | "closed";
+  enforceRoleMinimums: boolean;
   seasonName: string;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
@@ -90,11 +92,10 @@ export function FreeAgentPanel({
 
       <div className="auction-player-list free-agent-player-list">
         <div className="auction-player-head">
-          <span>#</span><span>Giocatore</span><span>Ruolo</span><span>B.O.</span><span></span>
+          <span>Giocatore</span><span>Ruolo</span><span>B.O.</span><span></span>
         </div>
         {freeAgents.map((player) => (
           <article className="auction-player-row" key={player.listOrder}>
-            <span className="player-order">{player.listOrder}</span>
             <span className="player-identity">
               <strong className="player-name">{player.name}</strong>
             </span>
@@ -119,6 +120,7 @@ export function FreeAgentPanel({
             allPlayers={players}
             teams={teams}
             phase={phase}
+            enforceRoleMinimums={enforceRoleMinimums}
             seasonName={seasonName}
             tradeDeadlinePassed={tradeDeadlinePassed}
             signAndTradeOpen={signAndTradeOpen}
@@ -141,6 +143,7 @@ function FreeAgentDialog({
   allPlayers,
   teams,
   phase,
+  enforceRoleMinimums,
   seasonName,
   tradeDeadlinePassed,
   signAndTradeOpen,
@@ -153,6 +156,7 @@ function FreeAgentDialog({
   allPlayers: PlayerOption[];
   teams: TeamOption[];
   phase: string;
+  enforceRoleMinimums: boolean;
   seasonName: string;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
@@ -194,6 +198,7 @@ function FreeAgentDialog({
   const outsideDuplicate = outsideList && allPlayers.some((item) => normalizeName(item.name) === normalizeName(outsideName));
   const preview = evaluateFreeAgentSigning({
     phase,
+    enforceRoleMinimums,
     currentCost: team?.currentCost ?? 0,
     price,
     destination,
@@ -224,9 +229,12 @@ function FreeAgentDialog({
     A: Math.max(0, 5 - preview.calculated.rolesAfter.A),
     C: Math.max(0, 3 - preview.calculated.rolesAfter.C),
   };
-  const roleMinimumReplacementAvailable = phase === "regular_season"
+  const roleMinimumReplacementAvailable = enforceRoleMinimums
+    && price === 1
+    && Boolean(player)
     && Boolean(selectedRole)
     && roleMinimumShortageBefore[selectedRole as "G" | "A" | "C"] > 0;
+  const blockingCapWarnings = roleMinimumReplacement && roleMinimumReplacementAvailable ? [] : capWarnings;
   const contract = automaticFreeAgentContract(seasonName, tradeDeadlinePassed || roleMinimumReplacement) ?? "—";
   const roleMinimumSlotError = roleMinimumConfirmationRequired
     ? roleMinimumRecoverySlotError({ ...roleMinimumShortageAfter, total: roleMinimumShortageAfter.G + roleMinimumShortageAfter.A + roleMinimumShortageAfter.C }, {
@@ -249,6 +257,7 @@ function FreeAgentDialog({
       sign_team: teamCode,
       sign_price: String(price),
       sign_slot: destination,
+      sign_buyout_top_six_confirmed: String(buyoutTopSixConfirmed),
     });
     window.location.assign(`/admin/scambi?${params.toString()}`);
   }
@@ -280,32 +289,32 @@ function FreeAgentDialog({
 
       <div className="auction-modal-body">
         {!canSign && <p className="validation error free-agent-window-closed"><strong>{unavailableReason ?? "Operazione non disponibile"}.</strong> Puoi consultare e compilare questa finestra, ma non confermare l’operazione.</p>}
-        <div className={`auction-modal-fields ${outsideList ? "free-agent-outside-fields" : ""}`}>
+        <div className={`auction-modal-fields free-agent-signing-fields ${outsideList ? "free-agent-outside-fields" : ""}`}>
           {outsideList && (
             <>
-              <Field label="Nome giocatore"><input type="text" maxLength={120} value={outsideName} onChange={(event) => { setOutsideName(event.target.value); setBuyoutTopSixConfirmed(false); }} /></Field>
-              <Field label="Ruolo"><select value={outsideRole} onChange={(event) => { setOutsideRole(event.target.value as typeof outsideRole); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}><option value="">Seleziona</option><option value="G">Guardia</option><option value="A">Ala</option><option value="C">Centro</option><option value="X">Senza ruolo Dunkest</option></select></Field>
+              <Field label="Nome giocatore" className="field-player-name"><input type="text" maxLength={120} value={outsideName} onChange={(event) => { setOutsideName(event.target.value); setBuyoutTopSixConfirmed(false); }} /></Field>
+              <Field label="Ruolo" className="field-player-role"><select value={outsideRole} onChange={(event) => { setOutsideRole(event.target.value as typeof outsideRole); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}><option value="">Seleziona</option><option value="G">Guardia</option><option value="A">Ala</option><option value="C">Centro</option><option value="X">Senza ruolo Dunkest</option></select></Field>
             </>
           )}
-          <Field label="Squadra">
+          <Field label="Squadra" className="field-team">
             <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setBuyoutTopSixConfirmed(false); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
-          <Field label="Prezzo"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setRoleMinimumConfirmed(false); if (value !== 1) setRoleMinimumReplacement(false); if (value > 10) { setDestination("regular"); } }} /></Field>
-          <Field label="Slot">
+          <Field label="Prezzo" className="field-price"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setRoleMinimumConfirmed(false); if (value !== 1) setRoleMinimumReplacement(false); if (value > 10) { setDestination("regular"); } }} /></Field>
+          <Field label="Slot" className="field-slot">
             <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); setRoleMinimumConfirmed(false); }}>
               <option value="regular">Roster</option>
               <option value="two_way" disabled={price > 10}>Two-way</option>
             </select>
           </Field>
-          <Field label="Giocatore da tagliare">
+          <Field label="Giocatore da tagliare" className="field-cut-player">
             <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); setRoleMinimumConfirmed(false); if (event.target.value === promotionPlayerName) setPromotionPlayerName(""); }}>
               <option value="">Nessun taglio</option>
               {cuttablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {item.cost} · {item.contract} · {slotLabel(item.slot)}</option>)}
             </select>
           </Field>
-          <Field label="Giocatore da promuovere">
+          <Field label="Giocatore da promuovere" className="field-promotion-player">
             <select value={promotionPlayerName} onChange={(event) => {
               const nextPlayer = promotablePlayers.find((item) => item.name === event.target.value);
               setPromotionPlayerName(event.target.value);
@@ -317,7 +326,7 @@ function FreeAgentDialog({
               {promotablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {slotLabel(item.slot)}</option>)}
             </select>
           </Field>
-          <Field label="Destinazione promozione">
+          <Field label="Slot destinazione" className="field-promotion-destination">
             <select value={promotionDestination} onChange={(event) => { setPromotionDestination(event.target.value as typeof promotionDestination); setRoleMinimumConfirmed(false); }} disabled={!promotionPlayer}>
               {availablePromotionDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
             </select>
@@ -346,6 +355,9 @@ function FreeAgentDialog({
             Questo free agent è assegnato per coprire la carenza di ruolo: contratto annuale senza Q.O. (1 credito)
           </label>
         )}
+        {roleMinimumReplacement && roleMinimumReplacementAvailable && capWarnings.length > 0 && (
+          <p className="validation warning">L’assegnazione obbligatoria da 1 credito può superare il salary cap; il credito continua comunque a pesare sul cap della squadra.</p>
+        )}
         {roleMinimumSlotError && <p className="validation error">{roleMinimumSlotError}</p>}
         {roleMinimumConfirmationRequired && !roleMinimumSlotError && (
           <label className="operation-check role-minimum-check">
@@ -358,7 +370,7 @@ function FreeAgentDialog({
           <p className="validation warning">Con Firma e scambia puoi proseguire, ma lo slot deve essere liberato nella situazione finale.</p>
         )}
         {otherWarnings.map((warning) => <p className="validation warning" key={warning.code}>{warning.message}</p>)}
-        <CapBlocker warnings={capWarnings.map((warning) => warning.message)} />
+        <CapBlocker warnings={blockingCapWarnings.map((warning) => warning.message)} />
       </div>
 
       <div className="auction-modal-actions">
@@ -367,18 +379,18 @@ function FreeAgentDialog({
           className="button secondary sign-trade-action"
           type="button"
           onClick={openSignAndTrade}
-          disabled={!canSign || !signAndTradeOpen || signAndTradeErrors.length > 0 || outsideDuplicate || !team}
+          disabled={!canSign || !signAndTradeOpen || signAndTradeErrors.length > 0 || buyoutEligibilityConfirmationMissing || outsideDuplicate || !team}
         >
           Firma e scambia
         </button>
-        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || capWarnings.length > 0}>Registra firma</button>
+        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || blockingCapWarnings.length > 0}>Registra firma</button>
       </div>
     </form>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="auction-field"><span>{label}</span>{children}</label>;
+function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+  return <label className={`auction-field ${className}`.trim()}><span>{label}</span>{children}</label>;
 }
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {

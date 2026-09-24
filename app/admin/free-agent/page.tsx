@@ -5,6 +5,7 @@ import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadli
 import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { requireActiveSeason } from "@/lib/active-season";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 
 export default async function FreeAgentPage({ searchParams }: { searchParams: Promise<{ error?: string; updated?: string }> }) {
   const query = await searchParams;
@@ -91,6 +92,7 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
       {freeAgencyOpen && leagueState.playerListStatus !== "published" && <p className="notice">Pubblica il listone ufficiale per rendere operative le firme dei free agent.</p>}
       <FreeAgentPanel
         phase={freeAgencyOpen ? "regular_season" : "closed"}
+        enforceRoleMinimums={roleMinimumChecksApply(activeSeason.season.status, leagueMoment)}
         seasonName={seasonName}
         tradeDeadlinePassed={tradeDeadlineHasPassed(leagueMoment)}
         signAndTradeOpen={signAndTradeOpen}

@@ -7,6 +7,7 @@ import {
   auctionContractForSlot,
   auctionDestinationErrors,
   isPostAuctionContractAssignmentCandidate,
+  legalAuctionPromotionDestinations,
   qualifyingAuctionErrors,
   type AuctionSlot,
   type QualifyingAuctionOutcome,
@@ -21,6 +22,7 @@ import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
 import { slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { applyStandardContractCut } from "@/lib/team-option-contract";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
+import { applyFreeRelease } from "@/lib/release-operations";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 
 const auctionPath = "/admin/asta";
@@ -32,8 +34,11 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   const price = Number(formData.get("price"));
   const slot = cleanText(formData.get("slot")) as AuctionSlot;
   const cutPlayerName = cleanText(formData.get("cut_player_name"));
+  const promotionPlayerName = cleanText(formData.get("promotion_player_name"));
+  const promotionDestination = cleanText(formData.get("promotion_destination")) as AuctionSlot;
   const qualifyingOutcome = cleanText(formData.get("qualifying_outcome")) as QualifyingAuctionOutcome;
   if (!playerName || !teamCode || !["regular", "two_way", "g_league"].includes(slot)) fail("Dati dell'acquisto non validi.");
+  if (Boolean(promotionPlayerName) !== Boolean(promotionDestination)) fail("Promozione contestuale non valida.");
 
   const { supabase, season } = await auctionContext();
   const state = await loadEditableLeagueState();
@@ -70,10 +75,28 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     entry.name === cutPlayerName
     && entry.teamCode === teamCode
     && entry.state === "active"
-    && entry.slot === slot
   )) : -1;
-  if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile nello slot di destinazione.");
+  if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile.");
   if (cutPlayerName === playerName) fail("Il nuovo acquisto non può essere anche il giocatore tagliato.");
+  const promotionIndex = promotionPlayerName ? state.rosterEntries.findIndex((entry) => (
+    entry.name === promotionPlayerName
+    && entry.teamCode === teamCode
+    && entry.state === "active"
+  )) : -1;
+  if (promotionPlayerName && promotionIndex < 0) fail("Il giocatore scelto per la promozione non è più disponibile.");
+  if (promotionIndex === cutIndex && promotionIndex >= 0) fail("Lo stesso giocatore non può essere tagliato e promosso.");
+  const promotionPlayer = promotionIndex >= 0 ? state.rosterEntries[promotionIndex] : undefined;
+  if (promotionPlayer) {
+    const listedPromotionPlayer = state.playerList.find((item) => item.name === promotionPlayer.name);
+    const destinations = legalAuctionPromotionDestinations({
+      entry: promotionPlayer,
+      rookie: listedPromotionPlayer?.rookie ?? false,
+      under23: listedPromotionPlayer?.under23 ?? false,
+      seasonName: season.name,
+      moment: leagueMomentFromSeason(season),
+    });
+    if (!destinations.includes(promotionDestination)) fail("La destinazione della promozione non è consentita.");
+  }
 
   const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
   const rosterEntry: RosterEntry = {
@@ -92,9 +115,11 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     ...(dpeAppliedSeasons.length ? { dpeAppliedSeasons } : {}),
   };
   const rosterEntries = [
-    ...state.rosterEntries.map((entry, index) => index === cutIndex ? {
-      ...applyStandardContractCut(entry, currentEndYear, "auction_start"),
-    } : entry),
+    ...state.rosterEntries.map((entry, index) => {
+      if (index === cutIndex) return applyStandardContractCut(entry, currentEndYear, "auction_start");
+      if (index === promotionIndex) return { ...entry, slot: promotionDestination };
+      return entry;
+    }),
     rosterEntry,
   ];
   const overflow = slotOverflow(rosterEntries, teamCode);
@@ -114,10 +139,10 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     state,
     nextState,
     "acquisto_asta",
-    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto da assegnare; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}`, capWarnings, false),
+    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto da assegnare; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${slotLabel(promotionDestination)}` : ""}`, capWarnings, false),
   );
 
-  const suffix = cutPlayerName ? ` Taglio contestuale: ${cutPlayerName}.` : "";
+  const suffix = `${cutPlayerName ? ` Taglio contestuale: ${cutPlayerName}.` : ""}${promotionPlayer ? ` Promozione contestuale: ${promotionPlayer.name} verso ${slotLabel(promotionDestination)}.` : ""}`;
   success(`${playerName} assegnato a ${teamCode} per ${price} crediti.${suffix}`);
 }
 
@@ -161,7 +186,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
     if (!freeReleaseReasonAvailability("one_credit_team_option", leagueMomentFromSeason(season), entry, season.name).available) {
       fail("Questo giocatore non è idoneo al rilascio gratuito durante l'asta.");
     }
-    rosterEntries = state.rosterEntries.filter((_, index) => index !== entryIndex);
+    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? applyFreeRelease(item) : item);
   } else {
     if (!["regular", "two_way", "g_league"].includes(newSlot)) fail("Slot non valido.");
     if (entry.slot === "dpe") fail("Il reintegro dalla DPE va registrato nel blocco Altre operazioni.");

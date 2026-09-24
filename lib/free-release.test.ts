@@ -33,6 +33,15 @@ describe("causali del rilascio gratuito", () => {
     ]);
   });
 
+  it("non consente un secondo rilascio a un giocatore già registrato a costo zero", () => {
+    const alreadyReleased = { ...cut, cost: 0 };
+    expect(availableFreeReleaseReasons("team_option_deadline", alreadyReleased, seasonName)).toEqual([]);
+    expect(freeReleaseReasonAvailability("no_nba_roster", "team_option_deadline", alreadyReleased, seasonName)).toEqual({
+      available: false,
+      unavailableReason: "Il giocatore è già stato rilasciato gratuitamente.",
+    });
+  });
+
   it("nasconde solo la causale delle partite dopo una DPE nella stagione precedente", () => {
     const formerDpe = { ...ordinary, dpeAppliedSeasons: ["2026/27"] };
     expect(freeReleaseReasonAvailability("under_half_games", "offseason_start", formerDpe, seasonName).available).toBe(false);

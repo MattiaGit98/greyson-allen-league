@@ -1,4 +1,6 @@
 import type { RosterEntry } from "./league-types";
+import { hasReachedMoment, type LeagueMoment } from "./league-moments";
+import { previousSeasonName } from "./season-time";
 
 export function entriesForDpeAdjustedCap<T extends Pick<RosterEntry, "state" | "slot">>(entries: T[], seasonDistance: number) {
   return entries.filter((entry) => (
@@ -11,4 +13,11 @@ export function inheritedDpeSeasons(entries: RosterEntry[], playerName: string) 
   return [...new Set(entries
     .filter((entry) => entry.name.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT") === normalizedName)
     .flatMap((entry) => entry.dpeAppliedSeasons ?? []))];
+}
+
+export function shouldShowDpeBadge(entry: Pick<RosterEntry, "dpeAppliedSeasons">, seasonName: string, leagueMoment: LeagueMoment) {
+  const appliedSeasons = entry.dpeAppliedSeasons ?? [];
+  if (appliedSeasons.includes(seasonName)) return true;
+  return !hasReachedMoment(leagueMoment, "auction_start")
+    && appliedSeasons.includes(previousSeasonName(seasonName));
 }

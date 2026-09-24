@@ -38,6 +38,10 @@ export function freeReleaseReasonAvailability(
   player: FreeReleasePlayer,
   seasonName: string,
 ): { available: boolean; unavailableReason?: string } {
+  if (player.state === "cut" && player.cost === 0) {
+    return { available: false, unavailableReason: "Il giocatore è già stato rilasciato gratuitamente." };
+  }
+
   if (reason === "no_nba_roster") {
     const available = hasReachedMoment(moment, "team_option_deadline")
       && !hasReachedMoment(moment, "free_agency_end")

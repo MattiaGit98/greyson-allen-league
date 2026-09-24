@@ -30,6 +30,7 @@ type AuctionTeam = {
     cost: number;
     contract: string;
     slot: AuctionSlot;
+    promotionDestinations: AuctionSlot[];
   }[];
 };
 
@@ -161,14 +162,21 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   const [price, setPrice] = useState(1);
   const [slot, setSlot] = useState<AuctionSlot>("regular");
   const [cutPlayerName, setCutPlayerName] = useState("");
+  const [promotionPlayerName, setPromotionPlayerName] = useState("");
+  const [promotionDestination, setPromotionDestination] = useState<AuctionSlot>("regular");
   const [qualifyingOutcome, setQualifyingOutcome] = useState<QualifyingAuctionOutcome | "">(row.qualifying ? "" : "normal");
   const constrainedAcquisition = qualifyingOutcome === "qualifying_offer" || qualifyingOutcome === "restricted_free_agent";
   const effectiveTeamCode = constrainedAcquisition ? row.qualifying?.teamCode ?? "" : teamCode;
   const effectivePrice = qualifyingOutcome === "qualifying_offer" ? row.qualifying?.amount ?? 0 : price;
   const effectiveSlot: AuctionSlot = constrainedAcquisition ? "regular" : slot;
   const team = teams.find((item) => item.code === effectiveTeamCode) ?? teams[0];
-  const cutCandidates = (team?.players ?? []).filter((player) => player.slot === effectiveSlot);
+  const cutCandidates = (team?.players ?? []).filter((player) => player.name !== promotionPlayerName);
   const cutPlayer = cutCandidates.find((player) => player.name === cutPlayerName);
+  const promotablePlayers = (team?.players ?? []).filter((player) => (
+    player.promotionDestinations.length > 0 && player.name !== cutPlayerName
+  ));
+  const promotionPlayer = promotablePlayers.find((player) => player.name === promotionPlayerName);
+  const availablePromotionDestinations = promotionPlayer?.promotionDestinations ?? [];
   const errors = [
     ...(phase !== "auction" ? ["La fase della lega non è impostata su Asta."] : []),
     ...(pendingDraftPicks > 0 ? [`Il Draft dell'annata non è completo: restano ${pendingDraftPicks} scelte.`] : []),
@@ -188,6 +196,10 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     : [];
   const afterSlots = team ? { ...team.slots, [effectiveSlot]: team.slots[effectiveSlot] + 1 } : null;
   if (afterSlots && cutPlayer) afterSlots[cutPlayer.slot] -= 1;
+  if (afterSlots && promotionPlayer) {
+    afterSlots[promotionPlayer.slot] -= 1;
+    afterSlots[promotionDestination] += 1;
+  }
   const slotLimit = effectiveSlot === "regular" ? 15 : effectiveSlot === "two_way" ? 2 : 3;
   const slotErrors = afterSlots ? auctionSlotCapacityErrors(afterSlots) : [];
   const qoTeam = row.qualifying ? teams.find((item) => item.code === row.qualifying?.teamCode) : null;
@@ -199,6 +211,8 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
       <input type="hidden" name="price" value={effectivePrice} />
       <input type="hidden" name="slot" value={effectiveSlot} />
       <input type="hidden" name="cut_player_name" value={cutPlayerName} />
+      <input type="hidden" name="promotion_player_name" value={promotionPlayerName} />
+      <input type="hidden" name="promotion_destination" value={promotionPlayer ? promotionDestination : ""} />
       <input type="hidden" name="qualifying_outcome" value={qualifyingOutcome} />
       <ModalHeader row={row} label="Asta" onClose={onClose} />
 
@@ -210,13 +224,14 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
             <small>{row.qualifying.amount} crediti</small>
           </div>
         )}
-        <div className={`auction-modal-fields${row.qualifying ? " qualifying-outcome-layout" : ""}`}>
+        <div className={`auction-modal-fields auction-purchase-fields${row.qualifying ? " qualifying-outcome-layout" : ""}`}>
           {row.qualifying && (
-            <Field label="Esito Q.O.">
+            <Field label="Esito Q.O." className="field-qualifying-outcome">
               <select value={qualifyingOutcome} onChange={(event) => {
                 const outcome = event.target.value as QualifyingAuctionOutcome | "";
                 setQualifyingOutcome(outcome);
                 setCutPlayerName("");
+                setPromotionPlayerName("");
                 if (outcome === "qualifying_offer" || outcome === "restricted_free_agent") setSlot("regular");
               }}>
                 <option value="">Seleziona l'esito</option>
@@ -226,15 +241,15 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
               </select>
             </Field>
           )}
-          <Field label="Squadra acquirente">
-            <select value={effectiveTeamCode} disabled={constrainedAcquisition} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); }}>
+          <Field label="Squadra acquirente" className="field-team">
+            <select value={effectiveTeamCode} disabled={constrainedAcquisition} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
-          <Field label="Prezzo">
+          <Field label="Prezzo" className="field-price">
             <input type="number" min="1" step="1" inputMode="numeric" value={effectivePrice} disabled={qualifyingOutcome === "qualifying_offer"} onChange={(event) => { setPrice(Number(event.target.value)); }} />
           </Field>
-          <Field label="Slot">
+          <Field label="Slot" className="field-slot">
             <select value={effectiveSlot} disabled={constrainedAcquisition} onChange={(event) => {
               setSlot(event.target.value as AuctionSlot);
               setCutPlayerName("");
@@ -244,14 +259,35 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
               <option value="g_league">G-League</option>
             </select>
           </Field>
-          <Field label="Giocatore da tagliare">
-            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); }}>
+          <Field label="Giocatore da tagliare" className="field-cut-player">
+            <select value={cutPlayerName} onChange={(event) => {
+              setCutPlayerName(event.target.value);
+              if (event.target.value === promotionPlayerName) setPromotionPlayerName("");
+            }}>
               <option value="">Nessun taglio</option>
               {cutCandidates.map((player) => (
                 <option value={player.name} key={player.name}>
                   {player.name} · {slotLabel(player.slot)} · {player.cost}
                 </option>
               ))}
+            </select>
+          </Field>
+          <Field label="Giocatore da promuovere" className="field-promotion-player">
+            <select value={promotionPlayerName} onChange={(event) => {
+              const nextPlayer = promotablePlayers.find((player) => player.name === event.target.value);
+              setPromotionPlayerName(event.target.value);
+              setPromotionDestination(nextPlayer?.promotionDestinations[0] ?? "regular");
+              if (event.target.value === cutPlayerName) setCutPlayerName("");
+            }}>
+              <option value="">Nessuna promozione</option>
+              {promotablePlayers.map((player) => (
+                <option value={player.name} key={player.name}>{player.name} · {slotLabel(player.slot)}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Slot destinazione" className="field-promotion-destination">
+            <select value={promotionDestination} onChange={(event) => setPromotionDestination(event.target.value as AuctionSlot)} disabled={!promotionPlayer}>
+              {availablePromotionDestinations.map((destination) => <option value={destination} key={destination}>{slotLabel(destination)}</option>)}
             </select>
           </Field>
         </div>
@@ -263,6 +299,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
         </div>
         <CutPlayerCheck names={team?.cutPlayerNames ?? []} />
         {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
+        {promotionPlayer && <p className="auction-context-cut"><span>Promozione contestuale</span><strong>{promotionPlayer.name} · {slotLabel(promotionPlayer.slot)} → {slotLabel(promotionDestination)}</strong></p>}
         {slotErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         {errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         <CapBlocker warnings={capWarnings} />
@@ -471,7 +508,7 @@ function modificationDetails(row: AuctionRow, kind: "cut" | "free_release" | "sl
   const roster = row.roster!;
   const lines = team ? afterSpaces.map((space, index) => `Cap libero ${seasonLabel(seasonName, index)}: ${team.spaces[index]} → ${space}`) : [];
   if (kind === "cut") return { title: `${row.name} sarà tagliato da ${roster.teamCode}`, lines: [`Il contratto da ${roster.cost} crediti continuerà a pesare fino alla scadenza ${roster.contract}.`, ...lines] };
-  if (kind === "free_release") return { title: `${row.name} sarà rilasciato gratuitamente da ${roster.teamCode}`, lines: ["Il giocatore non resterà tra i tagliati.", ...lines] };
+  if (kind === "free_release") return { title: `${row.name} sarà rilasciato gratuitamente da ${roster.teamCode}`, lines: ["Resterà tra i tagliati a 0 crediti con la stessa scadenza contrattuale.", ...lines] };
   return {
     title: `${row.name}: ${slotLabel(roster.slot)} → ${slotLabel(newSlot)}`,
     lines: [
@@ -496,8 +533,8 @@ function ModalHeader({ row, label, onClose }: { row: AuctionRow; label: string; 
   </div>;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="auction-field"><span>{label}</span>{children}</label>;
+function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+  return <label className={`auction-field ${className}`.trim()}><span>{label}</span>{children}</label>;
 }
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {

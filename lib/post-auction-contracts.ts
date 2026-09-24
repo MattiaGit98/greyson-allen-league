@@ -23,6 +23,17 @@ export function postAuctionContractCandidates(state: EditableLeagueState, season
   return state.rosterEntries.filter((entry) => isPostAuctionContractAssignmentCandidate(entry, seasonName));
 }
 
+export function tradedPostAuctionContractDraftNames(
+  state: EditableLeagueState,
+  movedRosterIndexes: number[],
+  seasonName: string,
+) {
+  return [...new Set(movedRosterIndexes.flatMap((index) => {
+    const entry = state.rosterEntries[index];
+    return entry && isPostAuctionContractAssignmentCandidate(entry, seasonName) ? [entry.name] : [];
+  }))];
+}
+
 export function missingPostAuctionContractDrafts(
   state: EditableLeagueState,
   drafts: PostAuctionContractDraft[],
@@ -112,7 +123,11 @@ function validateDraft(
     throw new Error(`${entry.name}: un acquisto tramite Q.O. o come RFA deve restare nel roster.`);
   }
   const auctionPrice = entry.auctionPrice ?? entry.cost;
+  const startsInSpecialSlot = entry.slot === "two_way" || entry.slot === "g_league";
   const destinationRequiresTeamOption = draft.slot === "two_way" || draft.slot === "g_league";
+  if (startsInSpecialSlot && draft.contractKind !== "team_option") {
+    throw new Error(`${entry.name}: un giocatore in Two-way o G-League può ricevere soltanto la T.O.`);
+  }
   if (destinationRequiresTeamOption && draft.contractKind !== "team_option") {
     throw new Error(`${entry.name}: negli slot speciali è selezionabile soltanto la T.O.`);
   }

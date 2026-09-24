@@ -11,6 +11,7 @@ import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction } from "@/lib/league-moments";
 import { persistLeagueMovement } from "@/lib/league-movements";
+import { tradedPostAuctionContractDraftNames } from "@/lib/post-auction-contracts";
 import { removeRolelessPlayersLeavingRosters } from "@/lib/roleless-player-list";
 import { countRosterRoles } from "@/lib/rules/roster";
 import { roleMinimumChecksApply, roleMinimumRecoverySlotError } from "@/lib/role-minimums";
@@ -125,6 +126,7 @@ export async function registerTrade(formData: FormData) {
     normalizePlayerName(player.name),
     player.role === "X" ? null : player.role,
   ]));
+  const playerDetailsByName = new Map(state.playerList.map((player) => [normalizePlayerName(player.name), player]));
   const activePlayers = new Map(state.rosterEntries.flatMap((entry, stateIndex) => (
     entry.state === "active"
       ? [[tradePlayerId(entry.teamCode, entry.name), { entry, stateIndex }] as const]
@@ -167,7 +169,12 @@ export async function registerTrade(formData: FormData) {
     const allowedDestinationSlots: TradeSlot[] = source.entry.slot === "dpe"
       ? ["dpe" as const]
       : legalSlotDestinations(
-        { ...source.entry, slot: source.entry.slot as ManagedRosterSlot },
+        {
+          ...source.entry,
+          slot: source.entry.slot as ManagedRosterSlot,
+          rookie: playerDetailsByName.get(normalizePlayerName(source.entry.name))?.rookie ?? false,
+          under23: playerDetailsByName.get(normalizePlayerName(source.entry.name))?.under23 ?? false,
+        },
         season.name,
         moment,
       );
@@ -302,8 +309,8 @@ export async function registerTrade(formData: FormData) {
       counterpartyOwnerTeamCode: agreement.counterpartyOwnerTeamCode,
       subjectYear: agreement.subjectYear,
       counterpartyYear: agreement.counterpartyYear,
-      subjectRound: agreement.round,
-      counterpartyRound: agreement.round,
+      subjectRound: agreement.subjectRound,
+      counterpartyRound: agreement.counterpartyRound,
       action: "remove" as const,
       clause: null,
     };
@@ -506,23 +513,42 @@ export async function registerTrade(formData: FormData) {
     nextState.draftAssets,
     nextState.finalizedDraftPositionYears ?? [],
   );
-  const response = synchronizedHistory.changed
-    ? await supabase.rpc("apply_league_state_and_history_movement", {
+  const resetContractDraftPlayers = operationWindows.contractAssignment(moment)
+    ? tradedPostAuctionContractDraftNames(
+      state,
+      playerChanges.map((change) => change.stateIndex),
+      season.name,
+    )
+    : [];
+  const response = resetContractDraftPlayers.length
+    ? await supabase.rpc("apply_trade_movement", {
       expected_before_state: originalState,
       next_state: nextState,
-      history_category: "Draft",
-      expected_before_history: history.competitions.Draft,
-      next_history: synchronizedHistory.entries,
+      requested_season_name: season.name,
+      reset_contract_player_names: resetContractDraftPlayers,
+      requested_history_category: synchronizedHistory.changed ? "Draft" : null,
+      expected_before_history: synchronizedHistory.changed ? history.competitions.Draft : null,
+      next_history: synchronizedHistory.changed ? synchronizedHistory.entries : null,
       movement_type: operationType,
       movement_summary: movementSummary,
     })
-    : await persistLeagueMovement(
-      supabase,
-      originalState,
-      nextState,
-      operationType,
-      movementSummary,
-    );
+    : synchronizedHistory.changed
+      ? await supabase.rpc("apply_league_state_and_history_movement", {
+        expected_before_state: originalState,
+        next_state: nextState,
+        history_category: "Draft",
+        expected_before_history: history.competitions.Draft,
+        next_history: synchronizedHistory.entries,
+        movement_type: operationType,
+        movement_summary: movementSummary,
+      })
+      : await persistLeagueMovement(
+        supabase,
+        originalState,
+        nextState,
+        operationType,
+        movementSummary,
+      );
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/storico", "/admin", path, "/admin/draft", "/admin/contratti", "/admin/posizioni-draft"]
     .forEach((route) => revalidatePath(route));
@@ -635,6 +661,7 @@ function validateSignAndTradeRequest(value: unknown): asserts value is SignAndTr
       !["list", "outside"].includes(String(value.playerSource))
       || !Number.isInteger(value.price)
       || !["regular", "two_way"].includes(String(value.destinationSlot))
+      || typeof value.buyoutTopSixConfirmed !== "boolean"
       || typeof value.playerRole !== "string"
       || !["G", "A", "C", "X", ""].includes(value.playerRole)
       || typeof value.realTeam !== "string"

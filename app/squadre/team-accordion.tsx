@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DraftAsset, PlayerListEntry, QualifyingOfferRight, RosterEntry, TeamSummary } from "@/lib/league-types";
 import { calculateCapSpace, contractCostForSeason, followingSeasonName } from "@/lib/season-time";
-import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
+import { entriesForDpeAdjustedCap, shouldShowDpeBadge } from "@/lib/dpe-rules";
+import type { LeagueMoment } from "@/lib/league-moments";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
 import { isFourthDraftPick } from "@/lib/future-draft-picks";
@@ -42,6 +43,7 @@ export function TeamAccordion({
   countTeamOptions,
   pendingAuctionContracts,
   capScaleMaximum,
+  leagueMoment,
 }: {
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
@@ -58,6 +60,7 @@ export function TeamAccordion({
   countTeamOptions: boolean;
   pendingAuctionContracts: boolean;
   capScaleMaximum: number;
+  leagueMoment: LeagueMoment;
 }) {
   const initialPlayerOnTeam = Boolean(initialTeam && initialPlayer && rosterEntries.some((entry) => (
     entry.teamCode === initialTeam
@@ -392,6 +395,7 @@ export function TeamAccordion({
                 capSeasonName={capSeasonName}
                 countTeamOptions={countTeamOptions}
                 pendingAuctionContracts={pendingAuctionContracts}
+                leagueMoment={leagueMoment}
                 sort={sort}
                 changeSort={changeSort}
                 openSections={openSectionsByTeam[team.code] ?? ["roster"]}
@@ -443,6 +447,7 @@ function TeamDetails({
   capSeasonName,
   countTeamOptions,
   pendingAuctionContracts,
+  leagueMoment,
   highlightedDraftYear,
   sort,
   changeSort,
@@ -460,6 +465,7 @@ function TeamDetails({
   capSeasonName: string;
   countTeamOptions: boolean;
   pendingAuctionContracts: boolean;
+  leagueMoment: LeagueMoment;
   highlightedDraftYear: number | null;
   sort: SortState;
   changeSort: (key: SortKey) => void;
@@ -516,19 +522,19 @@ function TeamDetails({
       )}
 
       <DataSection tone="roster" label={`Roster (${regular.length}/15)`} expanded={openSections.includes("roster")} onToggle={() => toggleSection("roster")}>
-        <SimplePlayerTable entries={regular} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
+        <SimplePlayerTable entries={regular} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection tone="two_way" label={`Two-way (${twoWay.length}/2)`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
-        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
+        <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection tone="g_league" label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>
-        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
+        <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
       <DataSection tone="dpe" label={`Disabled player exception (${dpe.length}/1)`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
-        <SimplePlayerTable entries={dpe} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} />
+        <SimplePlayerTable entries={dpe} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} />
       </DataSection>
 
       <DataSection tone="draft" label={`Scelte (${eligibleAssetCount})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
@@ -555,7 +561,7 @@ function TeamDetails({
       </DataSection>
 
       <DataSection tone="cut" label={`Tagliati (${cut.length})`} expanded={openSections.includes("cut")} onToggle={() => toggleSection("cut")}>
-        <SimplePlayerTable entries={cut} seasonName={capSeasonName} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} cutPlayers />
+        <SimplePlayerTable entries={cut} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} cutPlayers />
       </DataSection>
 
       {showQualifyingOffers && (
@@ -616,6 +622,7 @@ function RosterSortButton({ label, sortKey, sort, onClick }: { label: string; so
 function SimplePlayerTable({
   entries,
   seasonName,
+  leagueMoment,
   playerList,
   pendingAuctionContracts,
   cutPlayers = false,
@@ -624,6 +631,7 @@ function SimplePlayerTable({
 }: {
   entries: RosterEntry[];
   seasonName: string;
+  leagueMoment: LeagueMoment;
   playerList: PlayerListEntry[];
   pendingAuctionContracts: boolean;
   cutPlayers?: boolean;
@@ -654,6 +662,7 @@ function SimplePlayerTable({
       {sortedEntries.map((entry) => <PlayerDataRow
         entry={entry}
         seasonName={seasonName}
+        leagueMoment={leagueMoment}
         player={playerList.find((item) => normalizePlayerName(item.name) === normalizePlayerName(entry.name))}
         pendingAuctionContract={pendingAuctionContracts && isPendingAuctionContract(entry, seasonName)}
         cutPlayer={cutPlayers}
@@ -667,6 +676,7 @@ function SimplePlayerTable({
 function PlayerDataRow({
   entry,
   seasonName,
+  leagueMoment,
   player,
   pendingAuctionContract,
   cutPlayer = false,
@@ -674,6 +684,7 @@ function PlayerDataRow({
 }: {
   entry: RosterEntry;
   seasonName: string;
+  leagueMoment: LeagueMoment;
   player?: PlayerListEntry;
   pendingAuctionContract: boolean;
   cutPlayer?: boolean;
@@ -681,14 +692,21 @@ function PlayerDataRow({
 }) {
   return (
     <div className={`data-row ${pendingAuctionContract ? "pending-auction-contract" : ""} ${highlighted ? "player-search-match" : ""}`}>
-      <strong>{entry.name}</strong>
+      <strong className="roster-player-identity">
+        <span>{entry.name}</span>
+        {shouldShowDpeBadge(entry, seasonName, leagueMoment) && (
+          <i
+            className="player-flag roster-dpe-flag"
+            title="DPE esercitata: il rilascio per meno della metà delle partite resta bloccato fino all’Inizio asta successivo."
+          >DPE</i>
+        )}
+      </strong>
       <span>{cutPlayer
         ? isStretchUnavailable(entry) ? <i className="stretch-status applied">X</i> : "—"
         : entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "X"}</span>
       <span><ContractDisplay
         value={entry.contract}
         auctionAcquisition={entry.auctionAcquisition}
-        slot={entry.slot}
         pendingAuctionContract={pendingAuctionContract}
         teamOptionEligible={Boolean(player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15))}
         seasonName={seasonName}
@@ -753,11 +771,10 @@ function isPendingAuctionContract(entry: RosterEntry, seasonName: string) {
 function ContractDisplay({
   value,
   auctionAcquisition,
-  slot,
   pendingAuctionContract,
   teamOptionEligible,
   seasonName,
-}: Pick<RosterEntry, "auctionAcquisition" | "slot"> & {
+}: Pick<RosterEntry, "auctionAcquisition"> & {
   value: string;
   pendingAuctionContract: boolean;
   teamOptionEligible: boolean;
@@ -767,12 +784,15 @@ function ContractDisplay({
     const pendingMarkers = [
       ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
       ...(auctionAcquisition === "qualifying_offer" ? [{ label: "Q.O.", kind: "acquisition-qo" }] : []),
-      ...(teamOptionEligible && (slot === "two_way" || slot === "g_league") ? [{ label: "T.O. obbligatoria", kind: "pending-option" }] : []),
-      ...(teamOptionEligible && slot !== "two_way" && slot !== "g_league" ? [{ label: "T.O. possibile", kind: "pending-option" }] : []),
+      ...(teamOptionEligible ? [{ label: "T.O.", kind: "pending-option" }] : []),
     ];
     return <span className="contract-group">
-      <i className="contract-value contract-pending">Da definire</i>
-      {pendingMarkers.map((marker) => <i className={`contract-marker contract-marker-${marker.kind}`} key={marker.kind}>{marker.label}</i>)}
+      <i className="contract-value contract-pending" title="Contratto da assegnare">?</i>
+      {pendingMarkers.map((marker) => <i
+        className={`contract-marker contract-marker-${marker.kind}`}
+        key={marker.kind}
+        title={marker.kind === "pending-option" ? "Idoneo alla team option" : undefined}
+      >{marker.label}</i>)}
     </span>;
   }
   if (!value) return <i className="contract-value">—</i>;

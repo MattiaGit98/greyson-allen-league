@@ -1,6 +1,6 @@
 import { TeamAccordion } from "./team-accordion";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { hasReachedMoment, leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
@@ -20,7 +20,8 @@ export default async function TeamsPage({
   const teamOptionsResolved = activeSeason.season.team_options_resolved;
   const countTeamOptions = shouldCountTeamOptions(phase, teamOptionsResolved);
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
-  const pendingAuctionContracts = operationWindows.contractAssignment(leagueMoment);
+  const pendingAuctionContracts = hasReachedMoment(leagueMoment, "auction_start")
+    && !hasReachedMoment(leagueMoment, "contract_delivery");
 
   return (
     <section className="section teams-page">
@@ -40,6 +41,7 @@ export default async function TeamsPage({
         countTeamOptions={countTeamOptions}
         pendingAuctionContracts={pendingAuctionContracts}
         capScaleMaximum={hasReachedMoment(leagueMoment, "auction_completed") ? 1100 : 1000}
+        leagueMoment={leagueMoment}
       />
     </section>
   );

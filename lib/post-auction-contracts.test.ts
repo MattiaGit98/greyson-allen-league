@@ -3,6 +3,7 @@ import { emptyLeagueState, type EditableLeagueState } from "./league-state";
 import {
   applyPostAuctionContractDrafts,
   missingPostAuctionContractDrafts,
+  tradedPostAuctionContractDraftNames,
   type PostAuctionContractDraft,
 } from "./post-auction-contracts";
 
@@ -79,6 +80,12 @@ describe("bozze private dei contratti post asta", () => {
       drafts: [draft("Guardia", { slot: "two_way" }), draft("Rookie")],
       seasonName,
     })).toThrow("slot speciali");
+
+    expect(() => applyPostAuctionContractDrafts({
+      state: state(),
+      drafts: [draft("Guardia"), draft("Rookie", { contractKind: "annual", slot: "regular" })],
+      seasonName,
+    })).toThrow("in Two-way o G-League");
   });
 
   it("consente la T.O. ai rookie senza soglia e agli U23 soltanto fino a 15 crediti", () => {
@@ -149,5 +156,20 @@ describe("bozze private dei contratti post asta", () => {
       seasonName,
     });
     expect(published.rosterEntries.map((entry) => entry.contract)).toEqual(["27", "T.O."]);
+  });
+
+  it("azzera soltanto le bozze dei contratti pendenti coinvolti nello scambio", () => {
+    const current = state();
+    current.rosterEntries.push({
+      name: "Contratto già assegnato",
+      role: "C",
+      cost: 20,
+      contract: "28",
+      state: "active",
+      slot: "regular",
+      teamCode: "AAA",
+    });
+
+    expect(tradedPostAuctionContractDraftNames(current, [0, 2], seasonName)).toEqual(["Guardia"]);
   });
 });

@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { releaseCapSpaces, stretchCapSpaces } from "./release-operations";
+import { applyFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
 
 describe("tagli e rilasci", () => {
+  it("conserva il rilascio gratuito tra i tagliati a costo zero e con lo stesso contratto", () => {
+    expect(applyFreeRelease({
+      name: "Giocatore",
+      cost: 17,
+      contract: "29 (Q)",
+      state: "active",
+      slot: "g_league",
+      teamCode: "AAA",
+      buyoutApplied: true,
+    })).toEqual({
+      name: "Giocatore",
+      cost: 0,
+      contract: "29 (Q)",
+      state: "cut",
+      slot: "regular",
+      teamCode: "AAA",
+      buyoutApplied: true,
+    });
+  });
+
   it("fa rientrare sul cap corrente un contratto tagliato dalla DPE", () => {
     expect(releaseCapSpaces({
       kind: "cut",

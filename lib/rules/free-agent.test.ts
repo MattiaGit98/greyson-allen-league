@@ -94,4 +94,16 @@ describe("evaluateFreeAgentSigning", () => {
     expect(result.errors.some((error) => error.code === "TWO_WAY_PRICE_LIMIT")).toBe(true);
   });
 
+  it("non applica i minimi di ruolo quando la relativa finestra è terminata", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      enforceRoleMinimums: false,
+      roles: { G: 4, A: 5, C: 3 },
+      slots: { regular: 12, twoWay: 0, gLeague: 0, dpe: 0 },
+      playerRole: "A",
+    });
+
+    expect(result.warnings.some((warning) => warning.code.startsWith("ROLE_"))).toBe(false);
+  });
+
 });

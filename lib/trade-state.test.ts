@@ -158,6 +158,33 @@ describe("applicazione di uno scambio", () => {
     expect(after.draftAssets[0].clauseResolution?.role).toBe("protected");
   });
 
+  it("registra separatamente il giro della scelta protetta e quello della contropartita", () => {
+    const before = state();
+    before.draftAssets[1] = {
+      ...before.draftAssets[1],
+      round: "2° giro",
+    };
+
+    const after = applyValidatedTrade(before, {
+      playerMoves: [],
+      pickMoves: [{ stateIndex: 0, toTeamCode: "BBB" }],
+      pickClauses: [{ subjectIndex: 0, counterpartyIndex: 1, clause: "protected_top_5" }],
+      existingClauseChanges: [],
+      qualifyingOfferMoves: [],
+      cuts: [],
+    });
+
+    expect(after.draftAssets[0].clauseResolution).toMatchObject({
+      subjectRound: "1° giro",
+      counterpartRound: "2° giro",
+    });
+    expect(after.draftAssets[0].label).toContain("2ª scelta 2027 BBB");
+    expect(existingTradeClauseAgreements(after.draftAssets, ["AAA", "BBB"])[0]).toMatchObject({
+      subjectRound: "1° giro",
+      counterpartyRound: "2° giro",
+    });
+  });
+
   it("elimina automaticamente una clausola se lo scambio riunisce le due scelte nello stesso team", () => {
     const before = state();
     before.draftAssets[0].label = "Diritto di swap con BBB";
