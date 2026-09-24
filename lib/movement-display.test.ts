@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conciseMovementDetail, movementOperationLabel, movementOperationTypesForFilter } from "./movement-display";
+import { conciseMovementDetail, movementOperationLabel, movementOperationTypesForFilter, movementSearchFilter, normalizeMovementSearchQuery } from "./movement-display";
 
 describe("visualizzazione sintetica dei movimenti", () => {
   it("abbrevia una team option mantenendo giocatore e squadra", () => {
@@ -58,5 +58,12 @@ describe("visualizzazione sintetica dei movimenti", () => {
     expect(movementOperationTypesForFilter("team_option")).toEqual(["team_option", "team_option_playoff"]);
     expect(movementOperationTypesForFilter("procedure_stagionali")).toEqual(["ordine_draft_finale", "consegna_contratti"]);
     expect(movementOperationTypesForFilter("inesistente")).toBeNull();
+  });
+
+  it("costruisce la ricerca testuale anche sui nomi leggibili delle operazioni", () => {
+    expect(normalizeMovementSearchQuery("  LeBron   James  ")).toBe("LeBron James");
+    expect(movementSearchFilter("rettifica admin")).toContain("operation_type.in.(rettifica_roster_contratto,rettifica_roster_rimozione,rettifica_roster_aggiunta)");
+    expect(movementSearchFilter("Q.O.")).toContain("qualifying_offer_non_estesa");
+    expect(movementSearchFilter("... ")).toBeNull();
   });
 });

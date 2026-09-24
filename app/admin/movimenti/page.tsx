@@ -2,20 +2,25 @@ import { requireActiveSeason } from "@/lib/active-season";
 import { leagueMomentFromSeason } from "@/lib/league-moments";
 import { auctionAssignmentReversalDuringAuction, buildMovementReversal, movementReversalCapErrors, movementReversalSlotErrors, movementUndoMetadataFromState, movementUndoWindowError } from "@/lib/league-movements";
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
-import { conciseMovementDetail, movementOperationLabel } from "@/lib/movement-display";
+import { conciseMovementDetail, movementOperationLabel, movementSearchFilter, normalizeMovementSearchQuery } from "@/lib/movement-display";
 import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { UndoMovementButton } from "./undo-movement-button";
 import { roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
+import { MovementTextSearch } from "@/components/movement-text-search";
 
-export default async function MovementAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; reverted?: string }> }) {
+export default async function MovementAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; reverted?: string; q?: string }> }) {
   const query = await searchParams;
+  const searchQuery = normalizeMovementSearchQuery(query.q ?? "");
+  const textFilter = movementSearchFilter(searchQuery);
   const [{ supabase, season }, current] = await Promise.all([requireActiveSeason(), loadEditableLeagueState()]);
   const currentMoment = leagueMomentFromSeason(season);
   const capSeasonNames = [0, 1, 2].map((distance) => followingSeasonName(season.name, distance));
   const countTeamOptions = shouldCountTeamOptions(season.status, season.team_options_resolved);
-  const response = await supabase.from("league_movements").select("id,operation_type,summary,before_state,after_state,season_name,undo_before_moment,created_at,reverted_at").order("created_at", { ascending: false }).limit(100);
+  let movementRequest = supabase.from("league_movements").select("id,operation_type,summary,before_state,after_state,season_name,undo_before_moment,created_at,reverted_at");
+  if (textFilter) movementRequest = movementRequest.or(textFilter);
+  const response = await movementRequest.order("created_at", { ascending: false }).limit(100);
   if (response.error) throw new Error(`Registro movimenti non disponibile: ${response.error.message}`);
   const movements = (response.data ?? []).map((movement) => {
     let reversible = !movement.reverted_at;
@@ -91,6 +96,9 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
     <section className="section page-top admin-dashboard movement-admin-page">
       {query.reverted && <p className="notice success">Movimento annullato e stato precedente ripristinato.</p>}
       {query.error && <p className="notice error">Annullamento non riuscito: {query.error}</p>}
+      <div className="movement-admin-search">
+        <MovementTextSearch initialValue={searchQuery} path="/admin/movimenti" />
+      </div>
       <div className="movement-admin-list">
         {movements.map((movement) => (
           <article className={movement.reverted_at ? "reverted" : ""} key={movement.id}>
@@ -98,7 +106,7 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
             <UndoMovementButton movementId={movement.id} summary={conciseMovementDetail(movement.operation_type, movement.summary)} preview={movement.preview} roleMinimumConfirmationRequired={movement.roleMinimumConfirmationRequired} disabled={!movement.reversible} />
           </article>
         ))}
-        {!movements.length && <p className="data-empty">Nessun movimento annullabile registrato.</p>}
+        {!movements.length && <p className="data-empty">{searchQuery ? "Nessun movimento corrisponde alla ricerca." : "Nessun movimento annullabile registrato."}</p>}
       </div>
     </section>
   );

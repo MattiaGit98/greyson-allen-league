@@ -11,7 +11,7 @@ export type MovementListItem = {
   fullDetail: string;
 };
 
-export function MovementList({ movements, historyDays }: { movements: MovementListItem[]; historyDays: number }) {
+export function MovementList({ movements, historyDays, emptyMessage }: { movements: MovementListItem[]; historyDays: number; emptyMessage?: string }) {
   const [selected, setSelected] = useState<MovementListItem | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -35,7 +35,7 @@ export function MovementList({ movements, historyDays }: { movements: MovementLi
             <span className="movement-detail">{movement.conciseDetail}</span>
           </button>
         ))}
-        {!movements.length && <div className="movement-empty">Nessun movimento registrato negli ultimi {historyDays} giorni</div>}
+        {!movements.length && <div className="movement-empty">{emptyMessage ?? `Nessun movimento registrato negli ultimi ${historyDays} giorni`}</div>}
       </div>
 
       {selected && (

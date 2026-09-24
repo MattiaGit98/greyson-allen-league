@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, type CSSProperties } from "react";
 import {
   bracketUnknownTeamCode,
   competitionNames,
@@ -134,8 +134,39 @@ function CupGroupEditor({
   teams: CompetitionTeam[];
   onChange: (content: CupGroupContent) => void;
 }) {
+  const [roundsDraft, setRoundsDraft] = useState(content.rounds);
+  const [reductionConfirmation, setReductionConfirmation] = useState(false);
   const ranking = sortedCupTeams(content, teams);
   const positionByCode = new Map(ranking.map((row, index) => [row.team.code, index + 1]));
+  const tableColumns = {
+    "--cup-round-count": content.rounds,
+    "--cup-table-min-width": `${Math.max(620, 370 + content.rounds * 150)}px`,
+  } as CSSProperties;
+
+  function updateRounds(rounds: number) {
+    const results = Object.fromEntries(teams.map((team) => {
+      const current = cupTeamResult(content, team.code);
+      return [team.code, {
+        wins: Array.from({ length: rounds }, (_, index) => current.wins[index] ?? null),
+        scores: Array.from({ length: rounds }, (_, index) => current.scores[index] ?? ""),
+      }];
+    }));
+    onChange({ ...content, rounds, results });
+    setReductionConfirmation(false);
+  }
+
+  function requestRoundsUpdate() {
+    if (roundsDraft === content.rounds) return;
+    const removesSavedResults = roundsDraft < content.rounds && Object.values(content.results).some((result) => (
+      result.wins.slice(roundsDraft).some((win) => win !== null)
+      || result.scores.slice(roundsDraft).some((score) => score.trim() !== "")
+    ));
+    if (removesSavedResults && !reductionConfirmation) {
+      setReductionConfirmation(true);
+      return;
+    }
+    updateRounds(roundsDraft);
+  }
 
   function updateResult(code: string, field: "wins" | "scores", round: number, value: string) {
     const result = cupTeamResult(content, code);
@@ -145,33 +176,52 @@ function CupGroupEditor({
   }
 
   return (
-    <div className="cup-admin-table">
-      <div className="cup-admin-head">
-        <span>Squadra</span><span>V</span><span>Totale</span>
-        {Array.from({ length: content.rounds }, (_, index) => <span key={index}>G{index + 1}</span>)}
-      </div>
-      {teams.map((team) => {
-        const result = cupTeamResult(content, team.code);
-        const totals = ranking.find((row) => row.team.code === team.code)!.totals;
-        return (
-          <article className="cup-admin-row" key={team.code}>
-            <div className="cup-admin-team">
-              <strong className="standing-position">{positionByCode.get(team.code)}</strong>
-              <b>{team.name}</b>
-            </div>
-            <strong className="cup-admin-total">{totals.wins}</strong>
-            <strong className="cup-admin-total">{formatCompetitionNumber(totals.score)}</strong>
-            {Array.from({ length: content.rounds }, (_, round) => (
-              <div className="cup-round-inputs" key={round}>
-                <b>G{round + 1}</b>
-                <label><span>Vittoria</span><select value={result.wins[round] ?? ""} onChange={(event) => updateResult(team.code, "wins", round, event.target.value)}><option value="">—</option><option value="1">1</option><option value="0">0</option></select></label>
-                <label><span>Punteggio</span><input inputMode="decimal" value={result.scores[round]} onChange={(event) => updateResult(team.code, "scores", round, event.target.value)} placeholder="—" /></label>
-              </div>
+    <>
+      <div className="cup-round-count-control">
+        <label className="cup-round-count-field">
+          <span>Numero di giornate</span>
+          <select value={roundsDraft} onChange={(event) => {
+            setRoundsDraft(Number(event.target.value));
+            setReductionConfirmation(false);
+          }}>
+            {Array.from({ length: 10 }, (_, index) => index + 1).map((rounds) => (
+              <option value={rounds} key={rounds}>{rounds}</option>
             ))}
-          </article>
-        );
-      })}
-    </div>
+          </select>
+        </label>
+        <button className={`button cup-round-count-apply${reductionConfirmation ? " destructive" : ""}`} type="button" onClick={requestRoundsUpdate} disabled={roundsDraft === content.rounds}>
+          {reductionConfirmation ? "Conferma riduzione" : "Applica"}
+        </button>
+        {reductionConfirmation && <p>La riduzione eliminerà i risultati già compilati nelle giornate rimosse. Premi di nuovo per confermare.</p>}
+      </div>
+      <div className="cup-admin-table">
+        <div className="cup-admin-head" style={tableColumns}>
+          <span>Squadra</span><span>V</span><span>Totale</span>
+          {Array.from({ length: content.rounds }, (_, index) => <span key={index}>G{index + 1}</span>)}
+        </div>
+        {teams.map((team) => {
+          const result = cupTeamResult(content, team.code);
+          const totals = ranking.find((row) => row.team.code === team.code)!.totals;
+          return (
+            <article className="cup-admin-row" style={tableColumns} key={team.code}>
+              <div className="cup-admin-team">
+                <strong className="standing-position">{positionByCode.get(team.code)}</strong>
+                <b>{team.name}</b>
+              </div>
+              <strong className="cup-admin-total">{totals.wins}</strong>
+              <strong className="cup-admin-total">{formatCompetitionNumber(totals.score)}</strong>
+              {Array.from({ length: content.rounds }, (_, round) => (
+                <div className="cup-round-inputs" key={round}>
+                  <b>G{round + 1}</b>
+                  <label><span>Vittoria</span><select value={result.wins[round] ?? ""} onChange={(event) => updateResult(team.code, "wins", round, event.target.value)}><option value="">—</option><option value="1">1</option><option value="0">0</option></select></label>
+                  <label><span>Punteggio</span><input inputMode="decimal" value={result.scores[round]} onChange={(event) => updateResult(team.code, "scores", round, event.target.value)} placeholder="—" /></label>
+                </div>
+              ))}
+            </article>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

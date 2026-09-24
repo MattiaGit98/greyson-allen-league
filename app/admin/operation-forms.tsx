@@ -324,29 +324,36 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
 
 export function SlotMoveForm(props: OperationProps) {
   const [teamCode, setTeamCode] = useState(props.teams[0]?.code ?? "");
-  const [playerId, setPlayerId] = useState("");
-  const [destination, setDestination] = useState<Exclude<Slot, "dpe">>("regular");
+  const [destinations, setDestinations] = useState<Record<string, Exclude<Slot, "dpe">>>({});
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
   const players = (team?.players ?? []).filter((player) => player.state === "active" && player.slot !== "dpe");
-  const player = players.find((item) => item.id === playerId);
+  const selectedMoves = players.flatMap((player) => {
+    const destination = destinations[player.id];
+    return destination && destination !== player.slot ? [{ player, destination }] : [];
+  });
   const before = slotCounts(team);
   const after = { ...before };
-  if (player && destination !== player.slot) { after[player.slot] -= 1; after[destination] += 1; }
-  const eligibilityErrors = player ? slotEligibilityErrors(player, destination, props.seasonName) : [];
-  const timingErrors = player ? slotMoveTimingErrors(
-    { ...player, slot: player.slot as Exclude<Slot, "dpe"> },
-    destination,
-    props.seasonName,
-    props.leagueMoment,
-  ) : [];
+  selectedMoves.forEach(({ player, destination }) => {
+    after[player.slot] -= 1;
+    after[destination] += 1;
+  });
+  const moveErrors = selectedMoves.flatMap(({ player, destination }) => [
+    ...slotEligibilityErrors(player, destination, props.seasonName),
+    ...slotMoveTimingErrors(
+      { ...player, slot: player.slot as Exclude<Slot, "dpe"> },
+      destination,
+      props.seasonName,
+      props.leagueMoment,
+    ),
+  ].map((error) => `${player.name}: ${error}`));
   const capSeasonNames = [props.seasonName, seasonNameAt(props.seasonName, 1), seasonNameAt(props.seasonName, 2)];
   const capSpaces = [team?.space ?? 0, team?.nextSpace ?? 0, team?.followingSpace ?? 0];
   const errors = [
-    ...(!player ? ["Seleziona un giocatore."] : []),
-    ...(player && destination === player.slot ? ["Scegli uno slot diverso da quello attuale."] : []),
-    ...eligibilityErrors,
-    ...timingErrors,
-    ...(after[destination] > slotLimits[destination] ? [`Lo slot ${slotLabel(destination)} è pieno.`] : []),
+    ...(!selectedMoves.length ? ["Seleziona almeno uno spostamento."] : []),
+    ...moveErrors,
+    ...(Object.keys(slotLimits) as Slot[]).flatMap((slot) => (
+      after[slot] > slotLimits[slot] ? [`Lo slot ${slotLabel(slot)} è pieno (${after[slot]}/${slotLimits[slot]}).`] : []
+    )),
   ];
   const capWarnings = salaryCapWarningsForSpaces({ before: capSpaces, after: capSpaces, seasonNames: capSeasonNames, phase: props.phase, currentMoment: props.leagueMoment });
   const rolesBefore = roleCounts(team);
@@ -358,22 +365,23 @@ export function SlotMoveForm(props: OperationProps) {
 
   function chooseDestination(selectedPlayer: AdminRosterPlayer, nextDestination: Exclude<Slot, "dpe">) {
     if (nextDestination === selectedPlayer.slot) {
-      setPlayerId("");
-      setDestination(nextDestination);
+      setDestinations((current) => {
+        const next = { ...current };
+        delete next[selectedPlayer.id];
+        return next;
+      });
       return;
     }
-    setPlayerId(selectedPlayer.id);
-    setDestination(nextDestination);
+    setDestinations((current) => ({ ...current, [selectedPlayer.id]: nextDestination }));
   }
 
   return (
     <form action={moveRosterSlot} className="slot-management-workspace">
       <input type="hidden" name="team_code" value={teamCode} />
-      <input type="hidden" name="player_name" value={player?.name ?? ""} />
-      <input type="hidden" name="destination" value={destination} />
+      <input type="hidden" name="moves_json" value={JSON.stringify(selectedMoves.map(({ player, destination }) => ({ playerName: player.name, destination })))} />
       <label className="admin-team-select">
         <span>Squadra</span>
-        <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setPlayerId(""); }} />
+        <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setDestinations({}); }} />
       </label>
 
       <div className="team-accordion-content admin-editor-content other-operations-content slot-management-content">
@@ -385,8 +393,8 @@ export function SlotMoveForm(props: OperationProps) {
               <div className="other-operations-table slot-management-table">
                 <div className="other-operations-head slot-management-head"><span>Giocatore</span><span>Ruolo</span><span>Scadenza</span><span>Costo</span><span>Nuovo slot</span></div>
                 {groupPlayers.map((item) => {
-                  const selected = item.id === playerId;
-                  const rowDestination = selected ? destination : item.slot as Exclude<Slot, "dpe">;
+                  const selected = Boolean(destinations[item.id] && destinations[item.id] !== item.slot);
+                  const rowDestination = destinations[item.id] ?? item.slot as Exclude<Slot, "dpe">;
                   const legalDestinations = legalSlotDestinations(
                     { ...item, slot: item.slot as Exclude<Slot, "dpe"> },
                     props.seasonName,
@@ -412,13 +420,18 @@ export function SlotMoveForm(props: OperationProps) {
           );
         })}
 
-        {player && (
+        {selectedMoves.length > 0 && (
           <div className="slot-management-selection">
-            <div><span>Operazione selezionata</span><strong>{player.name}: {slotLabel(player.slot)} → {slotLabel(destination)}</strong></div>
+            <div>
+              <span>Spostamenti selezionati</span>
+              <div className="slot-management-move-list">
+                {selectedMoves.map(({ player, destination }) => <strong key={player.id}>{player.name}: {slotLabel(player.slot)} → {slotLabel(destination)}</strong>)}
+              </div>
+            </div>
           </div>
         )}
 
-        {player && (
+        {selectedMoves.length > 0 && (
           <div className="slot-management-recap">
             <div className="auction-modal-summary cap-three-years">
               {capSeasonNames.map((seasonName, index) => <Metric label={`Cap libero ${seasonName}`} value={`${formatSpace(capSpaces[index])} → ${formatSpace(capSpaces[index])}`} key={seasonName} />)}
@@ -426,13 +439,13 @@ export function SlotMoveForm(props: OperationProps) {
             <div className="auction-modal-summary operation-comparison-summary">
               <Metric label="Slot" value={`${formatSlots(before)} → ${formatSlots(after)}`} />
               <Metric label="Ruoli" value={`${formatRoles(rolesBefore)} → ${formatRoles(rolesBefore)}`} />
-              <Metric label="Spostamento" value={`${slotLabel(player.slot)} → ${slotLabel(destination)}`} />
+              <Metric label="Spostamenti" value={selectedMoves.length} />
             </div>
             <Validation errors={errors} warnings={capWarnings} />
           </div>
         )}
       </div>
-      <button className="button primary slot-management-save" type="submit" disabled={errors.length > 0}>Registra cambio slot</button>
+      <button className="button primary slot-management-save" type="submit" disabled={errors.length > 0}>Registra spostamenti{selectedMoves.length ? ` (${selectedMoves.length})` : ""}</button>
     </form>
   );
 }

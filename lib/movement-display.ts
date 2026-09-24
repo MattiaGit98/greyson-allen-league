@@ -53,6 +53,33 @@ export function movementOperationLabel(operationType: string) {
   return operationLabels[normalized] ?? capitalize(normalized.replaceAll("_", " "));
 }
 
+export function normalizeMovementSearchQuery(value: string) {
+  return value.replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+export function movementSearchFilter(value: string) {
+  const query = normalizeMovementSearchQuery(value);
+  const tokens = query
+    .replace(/[^\p{L}\p{N}-]+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!tokens.length) return null;
+  const pattern = tokens.join("%");
+  const normalizedTokens = tokens.map(searchKey);
+  const matchingTypes = Object.entries(operationLabels)
+    .filter(([operationType, label]) => {
+      const searchable = searchKey(`${operationType.replaceAll("_", " ")} ${label}`);
+      return normalizedTokens.every((token) => searchable.includes(token));
+    })
+    .map(([operationType]) => operationType);
+  return [
+    `summary.ilike.%${pattern}%`,
+    `operation_type.ilike.%${pattern}%`,
+    ...(matchingTypes.length ? [`operation_type.in.(${matchingTypes.join(",")})`] : []),
+  ].join(",");
+}
+
 export function conciseMovementDetail(operationType: string, summary: string) {
   const normalizedType = operationType.trim().toLocaleLowerCase("it-IT");
   const forcedCap = /(?:^|[;·])\s*CAP FORZATO\s*$/i.test(summary);
@@ -136,4 +163,11 @@ function normalize(value: string) {
 
 function capitalize(value: string) {
   return value ? `${value[0].toLocaleUpperCase("it-IT")}${value.slice(1)}` : value;
+}
+
+function searchKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLocaleLowerCase("it-IT");
 }

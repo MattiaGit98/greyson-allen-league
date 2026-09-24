@@ -46,9 +46,10 @@ function revalidateLeaguePages() {
   [
     "/", "/squadre", "/giocatori", "/movimenti", "/calendario", "/competizioni", "/storico",
     "/admin", "/admin/impostazioni", "/admin/importa-dati", "/admin/movimenti", "/admin/calendario",
-    "/admin/contenuti", "/admin/storico", "/admin/listone", "/admin/asta",
+    "/admin/contenuti", "/admin/storico", "/admin/listone", "/admin/asta", "/admin/backup",
     "/admin/draft", "/admin/posizioni-draft", "/admin/free-agent", "/admin/scambi",
     "/admin/team-option", "/admin/contratti", "/admin/slot", "/admin/altre-operazioni",
+    "/admin/avvisi", "/admin/rettifiche-roster", "/admin/squadre-proprietari",
   ].forEach((route) => revalidatePath(route));
 }
 

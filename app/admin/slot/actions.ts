@@ -13,9 +13,8 @@ const path = "/admin/slot";
 
 export async function moveRosterSlot(formData: FormData) {
   const teamCode = clean(formData.get("team_code")).toUpperCase();
-  const playerName = clean(formData.get("player_name"));
-  const destination = clean(formData.get("destination")) as ManagedRosterSlot;
-  if (!teamCode || !playerName || !["regular", "two_way", "g_league"].includes(destination)) {
+  const moves = parseMoves(formData.get("moves_json"));
+  if (!teamCode || !moves.length) {
     fail("Spostamento non valido.");
   }
 
@@ -29,37 +28,46 @@ export async function moveRosterSlot(formData: FormData) {
     .eq("is_active", true)
     .maybeSingle();
   if (seasonResponse.error || !seasonResponse.data) fail(seasonResponse.error?.message ?? "Nessuna stagione attiva.");
+  const season = seasonResponse.data;
 
   const state = await loadEditableLeagueState();
-  const entryIndex = state.rosterEntries.findIndex((entry) => (
-    entry.teamCode === teamCode
-    && entry.name === playerName
-    && entry.state === "active"
-  ));
-  const entry = state.rosterEntries[entryIndex];
-  if (!entry) fail("Il giocatore non appartiene più alla squadra selezionata.");
-  const sourceSlot = entry.slot;
-  if (sourceSlot === "dpe") fail("Per spostare un giocatore dalla DPE usa il reintegro.");
-  if (sourceSlot === destination) fail("Scegli uno slot diverso da quello attuale.");
-
-  const moment = leagueMomentFromSeason(seasonResponse.data);
-  const listPlayer = state.playerList.find((player) => player.name.trim().toLocaleLowerCase("it-IT") === entry.name.trim().toLocaleLowerCase("it-IT"));
-  const eligibilityEntry = {
-    ...entry,
-    slot: sourceSlot,
-    rookie: listPlayer?.rookie ?? false,
-    under23: listPlayer?.under23 ?? false,
-  };
-  const legalDestinations = legalSlotDestinations(eligibilityEntry, seasonResponse.data.name, moment);
-  if (!legalDestinations.includes(destination)) fail("Questo spostamento di slot non è consentito.");
-  const timingErrors = slotMoveTimingErrors(eligibilityEntry, destination, seasonResponse.data.name, moment);
-  if (timingErrors.length) fail(timingErrors.join(" "));
-  const eligibilityErrors = slotEligibilityErrors(eligibilityEntry, destination, seasonResponse.data.name);
-  if (eligibilityErrors.length) fail(eligibilityErrors.join(" "));
-
-  const rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
-    ? moveRosterEntryToSlot(item, destination)
-    : item);
+  const moment = leagueMomentFromSeason(season);
+  const listPlayers = new Map(state.playerList.map((player) => [normalizeName(player.name), player]));
+  const requestedNames = new Set<string>();
+  const changes = moves.map((move) => {
+    const normalizedName = normalizeName(move.playerName);
+    if (requestedNames.has(normalizedName)) fail(`Lo spostamento di ${move.playerName} è stato indicato più volte.`);
+    requestedNames.add(normalizedName);
+    const entryIndex = state.rosterEntries.findIndex((entry) => (
+      entry.teamCode === teamCode
+      && normalizeName(entry.name) === normalizedName
+      && entry.state === "active"
+    ));
+    const entry = state.rosterEntries[entryIndex];
+    if (!entry) fail(`${move.playerName} non appartiene più alla squadra selezionata.`);
+    const sourceSlot = entry.slot;
+    if (sourceSlot === "dpe") fail(`Per spostare ${entry.name} dalla DPE usa il reintegro.`);
+    if (sourceSlot === move.destination) fail(`${entry.name} è già nello slot selezionato.`);
+    const listPlayer = listPlayers.get(normalizeName(entry.name));
+    const eligibilityEntry = {
+      ...entry,
+      slot: sourceSlot,
+      rookie: listPlayer?.rookie ?? false,
+      under23: listPlayer?.under23 ?? false,
+    };
+    const legalDestinations = legalSlotDestinations(eligibilityEntry, season.name, moment);
+    if (!legalDestinations.includes(move.destination)) fail(`${entry.name}: questo spostamento di slot non è consentito.`);
+    const timingErrors = slotMoveTimingErrors(eligibilityEntry, move.destination, season.name, moment);
+    if (timingErrors.length) fail(`${entry.name}: ${timingErrors.join(" ")}`);
+    const eligibilityErrors = slotEligibilityErrors(eligibilityEntry, move.destination, season.name);
+    if (eligibilityErrors.length) fail(`${entry.name}: ${eligibilityErrors.join(" ")}`);
+    return { entryIndex, playerName: entry.name, sourceSlot, destination: move.destination };
+  });
+  const changesByIndex = new Map(changes.map((change) => [change.entryIndex, change.destination]));
+  const rosterEntries = state.rosterEntries.map((item, index) => {
+    const destination = changesByIndex.get(index);
+    return destination ? moveRosterEntryToSlot(item, destination) : item;
+  });
   const slotErrors = findTeamSlotOverflows(rosterEntries, teamCode).map(slotOverflowMessage);
   if (slotErrors.length) fail(slotErrors.join(" "));
 
@@ -69,12 +77,39 @@ export async function moveRosterSlot(formData: FormData) {
     state,
     nextState,
     "spostamento_slot",
-    `${playerName} (${teamCode}): ${slotLabel(sourceSlot)} → ${slotLabel(destination)}`,
+    changes.map((change) => `${change.playerName} (${teamCode}): ${slotLabel(change.sourceSlot)} → ${slotLabel(change.destination)}`).join("; "),
   );
   if (response.error) fail(response.error.message);
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/altre-operazioni"]
     .forEach((route) => revalidatePath(route));
-  redirect(`${path}?updated=${encodeURIComponent(`${playerName}: ${slotLabel(sourceSlot)} → ${slotLabel(destination)}.`)}`);
+  const updateMessage = changes.length === 1
+    ? `${changes[0].playerName}: ${slotLabel(changes[0].sourceSlot)} → ${slotLabel(changes[0].destination)}.`
+    : `${changes.length} spostamenti registrati per ${teamCode}.`;
+  redirect(`${path}?updated=${encodeURIComponent(updateMessage)}`);
+}
+
+function parseMoves(value: FormDataEntryValue | null) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(value ?? ""));
+  } catch {
+    fail("Elenco degli spostamenti non valido.");
+  }
+  if (!Array.isArray(parsed) || parsed.length > 30) fail("Elenco degli spostamenti non valido.");
+  return parsed.map((item) => {
+    if (!item || typeof item !== "object") fail("Elenco degli spostamenti non valido.");
+    const record = item as Record<string, unknown>;
+    const playerName = typeof record.playerName === "string" ? record.playerName.trim() : "";
+    const destination = record.destination as ManagedRosterSlot;
+    if (!playerName || !["regular", "two_way", "g_league"].includes(destination)) {
+      fail("Elenco degli spostamenti non valido.");
+    }
+    return { playerName, destination };
+  });
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLocaleLowerCase("it-IT");
 }
 
 function slotLabel(slot: ManagedRosterSlot | "dpe") {
