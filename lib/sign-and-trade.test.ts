@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditableLeagueState } from "./league-state";
-import { buildSignAndTradeProvisional } from "./sign-and-trade";
+import { buildSignAndTradeProvisional, signAndTradeTransfersNewSigning } from "./sign-and-trade";
 import { applyValidatedTrade } from "./trade-state";
 
 function team(code: string) {
@@ -36,6 +36,19 @@ function baseState(): EditableLeagueState {
 }
 
 describe("sign and trade", () => {
+  it("richiede che lo scambio trasferisca proprio il giocatore appena firmato", () => {
+    const signingEntryId = "AAA::Free Agent";
+    expect(signAndTradeTransfersNewSigning([
+      { id: signingEntryId, fromTeamCode: "AAA", toTeamCode: "BBB" },
+    ], signingEntryId, "AAA")).toBe(true);
+    expect(signAndTradeTransfersNewSigning([
+      { id: "AAA::Altro", fromTeamCode: "AAA", toTeamCode: "BBB" },
+    ], signingEntryId, "AAA")).toBe(false);
+    expect(signAndTradeTransfersNewSigning([
+      { id: signingEntryId, fromTeamCode: "AAA", toTeamCode: "AAA" },
+    ], signingEntryId, "AAA")).toBe(false);
+  });
+
   it("tollera lo slot provvisoriamente pieno ma permette di liberarlo nello stesso scambio", () => {
     const provisional = buildSignAndTradeProvisional({
       state: baseState(),

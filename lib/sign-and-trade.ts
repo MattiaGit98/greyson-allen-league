@@ -36,6 +36,18 @@ export type SignAndTradeProvisional = {
   spaceAfterSigning: number;
 };
 
+export function signAndTradeTransfersNewSigning(
+  moves: readonly { id: string; fromTeamCode: string; toTeamCode: string }[],
+  signingEntryId: string,
+  signerTeamCode: string,
+) {
+  return moves.some((move) => (
+    move.id === signingEntryId
+    && move.fromTeamCode === signerTeamCode
+    && move.toTeamCode !== signerTeamCode
+  ));
+}
+
 export function buildSignAndTradeProvisional(input: {
   state: EditableLeagueState;
   request: SignAndTradeRequest;

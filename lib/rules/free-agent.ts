@@ -26,6 +26,8 @@ export function evaluateFreeAgentSigning(input: {
   cutSlot: "regular" | "two_way" | "g_league" | "dpe" | null;
   promotionSourceSlot?: "regular" | "two_way" | "g_league" | null;
   promotionDestinationSlot?: "regular" | "two_way" | "g_league" | null;
+  contextualCuts?: { role: "G" | "A" | "C" | null; slot: "regular" | "two_way" | "g_league" | "dpe" }[];
+  contextualPromotions?: { sourceSlot: "regular" | "two_way" | "g_league"; destinationSlot: "regular" | "two_way" | "g_league" }[];
 }) {
   const errors = [];
   const warnings = [];
@@ -64,19 +66,31 @@ export function evaluateFreeAgentSigning(input: {
     regular: input.slots.regular + (input.destination === "regular" ? 1 : 0),
     twoWay: input.slots.twoWay + (input.destination === "two_way" ? 1 : 0),
   };
-  if (input.cutSlot === "regular") slotsAfter.regular -= 1;
-  if (input.cutSlot === "two_way") slotsAfter.twoWay -= 1;
-  if (input.cutSlot === "g_league") slotsAfter.gLeague -= 1;
-  if (input.cutSlot === "dpe") slotsAfter.dpe -= 1;
-  if (input.promotionSourceSlot === "two_way") slotsAfter.twoWay -= 1;
-  if (input.promotionSourceSlot === "g_league") slotsAfter.gLeague -= 1;
-  if (input.promotionDestinationSlot === "regular") slotsAfter.regular += 1;
-  if (input.promotionDestinationSlot === "two_way") slotsAfter.twoWay += 1;
-  if (input.promotionDestinationSlot === "g_league") slotsAfter.gLeague += 1;
+  const contextualCuts = input.contextualCuts ?? (input.cutSlot ? [{ role: input.cutRole, slot: input.cutSlot }] : []);
+  const contextualPromotions = input.contextualPromotions ?? (
+    input.promotionSourceSlot && input.promotionDestinationSlot
+      ? [{ sourceSlot: input.promotionSourceSlot, destinationSlot: input.promotionDestinationSlot }]
+      : []
+  );
+  for (const cut of contextualCuts) {
+    if (cut.slot === "regular") slotsAfter.regular -= 1;
+    if (cut.slot === "two_way") slotsAfter.twoWay -= 1;
+    if (cut.slot === "g_league") slotsAfter.gLeague -= 1;
+    if (cut.slot === "dpe") slotsAfter.dpe -= 1;
+  }
+  for (const promotion of contextualPromotions) {
+    if (promotion.sourceSlot === "two_way") slotsAfter.twoWay -= 1;
+    if (promotion.sourceSlot === "g_league") slotsAfter.gLeague -= 1;
+    if (promotion.destinationSlot === "regular") slotsAfter.regular += 1;
+    if (promotion.destinationSlot === "two_way") slotsAfter.twoWay += 1;
+    if (promotion.destinationSlot === "g_league") slotsAfter.gLeague += 1;
+  }
   const slotCheck = validateSlots(slotsAfter);
   const rolesAfter = { ...input.roles };
   if (input.playerRole) rolesAfter[input.playerRole] += 1;
-  if (input.cutSlot !== "dpe" && input.cutRole) rolesAfter[input.cutRole] -= 1;
+  for (const cut of contextualCuts) {
+    if (cut.slot !== "dpe" && cut.role) rolesAfter[cut.role] -= 1;
+  }
   const roleCheck = validateRoleMinimums(rolesAfter, input.enforceRoleMinimums ?? input.phase === "regular_season");
   errors.push(...slotCheck.errors);
   warnings.push(...cap.errors, ...cap.warnings, ...slotCheck.warnings);

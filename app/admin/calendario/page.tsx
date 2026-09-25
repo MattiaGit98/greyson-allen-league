@@ -1,9 +1,10 @@
 import { requireActiveSeason } from "@/lib/active-season";
-import { normalizePhaseDates } from "@/lib/phase-calendar";
+import { leagueMomentFromSeason } from "@/lib/league-moments";
+import { normalizePhaseDates, todayInRome } from "@/lib/phase-calendar";
 import { CalendarEditor } from "./calendar-editor";
 import { PhaseCalendarEditor } from "../impostazioni/phase-calendar-editor";
 
-export default async function CalendarAdminPage({ searchParams }: { searchParams: Promise<{ dates?: string }> }) {
+export default async function CalendarAdminPage({ searchParams }: { searchParams: Promise<{ dates?: string; error?: string }> }) {
   const query = await searchParams;
   const activeSeason = await requireActiveSeason();
   const response = await activeSeason.supabase
@@ -21,9 +22,14 @@ export default async function CalendarAdminPage({ searchParams }: { searchParams
   return (
     <section className="section page-top admin-dashboard">
       {query.dates && <p className="notice success">Date delle fasi salvate.</p>}
+      {query.error && <p className="notice error">Date non salvate: {query.error}</p>}
       <section className="calendar-admin-section">
         <header><span>Calendario della lega</span><strong>Date delle fasi</strong></header>
-        <PhaseCalendarEditor initialDates={normalizePhaseDates(activeSeason.season.phase_dates)} />
+        <PhaseCalendarEditor
+          initialDates={normalizePhaseDates(activeSeason.season.phase_dates)}
+          currentMoment={leagueMomentFromSeason(activeSeason.season)}
+          today={todayInRome()}
+        />
       </section>
       <section className="calendar-admin-section">
         <header><span>Calendario competizioni</span><strong>Giornate delle competizioni</strong></header>

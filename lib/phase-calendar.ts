@@ -1,4 +1,4 @@
-import { leagueMomentLabels, type LeagueMoment, type LeagueTransition } from "./league-moments";
+import { hasReachedMoment, leagueMomentLabels, type LeagueMoment, type LeagueTransition } from "./league-moments";
 
 export type LeagueCalendarEventKey = LeagueTransition | "regular_season_start" | "postseason_start";
 export type PhaseDateMap = Partial<Record<LeagueCalendarEventKey, string>>;
@@ -7,6 +7,19 @@ export const datedLeagueTransitions: LeagueCalendarEventKey[] = [
   "team_option_deadline",
   "auction_start",
   "auction_completed",
+  "contract_delivery",
+  "regular_season_start",
+  "trade_deadline",
+  "buyout_end",
+  "free_agency_end",
+  "postseason_start",
+  "free_agency_reopening",
+  "season_end",
+];
+
+const chronologicalCalendarEvents: LeagueCalendarEventKey[] = [
+  "team_option_deadline",
+  "auction_start",
   "contract_delivery",
   "regular_season_start",
   "trade_deadline",
@@ -38,6 +51,74 @@ export function normalizePhaseDates(value: unknown): PhaseDateMap {
 
 export function phaseDateForTransition(dates: PhaseDateMap, transition: LeagueTransition) {
   return transition === "auction_completed" ? dates.auction_start : dates[transition];
+}
+
+export function todayInRome(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function formatPhaseDate(date: string) {
+  const [year, month, day] = date.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+export function phaseCalendarValidationErrors({
+  dates,
+  previousDates,
+  currentMoment,
+  today,
+}: {
+  dates: PhaseDateMap;
+  previousDates: PhaseDateMap;
+  currentMoment: LeagueMoment;
+  today: string;
+}) {
+  const errors: string[] = [];
+  let previousPopulated: { event: LeagueCalendarEventKey; date: string } | null = null;
+
+  chronologicalCalendarEvents.forEach((event) => {
+    const date = dates[event];
+    if (!date) return;
+    if (previousPopulated && date < previousPopulated.date) {
+      errors.push(`${calendarEventLabel(event)} non può precedere ${calendarEventLabel(previousPopulated.event)}.`);
+    }
+    previousPopulated = { event, date };
+  });
+
+  chronologicalCalendarEvents.forEach((event) => {
+    if (!calendarEventIsCompleted(event, previousDates, currentMoment, today)) return;
+    const previousDate = previousDates[event];
+    const date = dates[event];
+    if (previousDate && !date) {
+      errors.push(`La data già conclusa di ${calendarEventLabel(event)} non può essere cancellata.`);
+      return;
+    }
+    if (date && date > today) {
+      errors.push(`La data già conclusa di ${calendarEventLabel(event)} non può essere spostata nel futuro.`);
+    }
+  });
+
+  return [...new Set(errors)];
+}
+
+function calendarEventIsCompleted(event: LeagueCalendarEventKey, previousDates: PhaseDateMap, currentMoment: LeagueMoment, today: string) {
+  if (event === "regular_season_start") {
+    return hasReachedMoment(currentMoment, "trade_deadline")
+      || Boolean(previousDates.regular_season_start && previousDates.regular_season_start < today);
+  }
+  if (event === "postseason_start") {
+    return hasReachedMoment(currentMoment, "free_agency_reopening")
+      || Boolean(previousDates.postseason_start && previousDates.postseason_start < today);
+  }
+  if (event === "season_end") return false;
+  if (event === "auction_completed") return hasReachedMoment(currentMoment, "auction_completed");
+  return hasReachedMoment(currentMoment, event);
 }
 
 export function generatedLeagueCalendar(dates: PhaseDateMap) {

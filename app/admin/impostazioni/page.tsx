@@ -13,7 +13,7 @@ import { phaseStepLabels } from "@/lib/phase-backups";
 import { requireActiveSeason } from "@/lib/active-season";
 import { PhaseAdvanceButton } from "./phase-advance-button";
 import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
-import { normalizePhaseDates, phaseDateForTransition } from "@/lib/phase-calendar";
+import { formatPhaseDate, normalizePhaseDates, phaseDateForTransition, todayInRome } from "@/lib/phase-calendar";
 
 export default async function LeagueSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; advanced?: string; stepped?: string }> }) {
   const [query, activeSeason, state, currentHistory] = await Promise.all([
@@ -28,9 +28,7 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
   const transition = nextLeagueTransition(currentMoment);
   const phaseDates = normalizePhaseDates(season.phase_dates);
   const nextPhaseDate = phaseDateForTransition(phaseDates, transition);
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
-    .formatToParts(new Date()).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
-  const todayIso = `${today.year}-${today.month}-${today.day}`;
+  const todayIso = todayInRome();
   const nextSeasonName = transition === "season_end"
     ? `${Number(season.name.slice(0, 4)) + 1}/${String((Number(season.name.slice(0, 4)) + 2) % 100).padStart(2, "0")}`
     : season.name;
@@ -64,11 +62,12 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
         <b>→</b>
         <div><span>Prossimo passaggio</span><strong>{nextSeasonName} · {leagueMomentLabels[transition]}</strong></div>
         {configured
-          ? <PhaseAdvanceButton currentLabel={`${season.name} · ${leagueMomentLabels[currentMoment]}`} nextLabel={`${nextSeasonName} · ${leagueMomentLabels[transition]}`} preview={preview} missingPhaseDate={!nextPhaseDate} />
+          ? <PhaseAdvanceButton currentLabel={`${season.name} · ${leagueMomentLabels[currentMoment]}`} nextLabel={`${nextSeasonName} · ${leagueMomentLabels[transition]}`} preview={preview} missingPhaseDate={!nextPhaseDate} phaseDateNotReached={Boolean(nextPhaseDate && nextPhaseDate > todayIso)} />
           : <button className="button primary" type="button" disabled>Esegui il prossimo passaggio</button>}
       </section>
 
       {!nextPhaseDate && <p className="notice">Inserisci la data della prossima fase prima di poter avanzare.</p>}
+      {nextPhaseDate && nextPhaseDate > todayIso && <p className="notice">Il prossimo passaggio sarà disponibile dal {formatPhaseDate(nextPhaseDate)}.</p>}
       {nextPhaseDate && nextPhaseDate < todayIso && <p className="notice error">La data della prossima fase è trascorsa: avanza la lega oppure correggi il calendario della lega.</p>}
     </section>
   );

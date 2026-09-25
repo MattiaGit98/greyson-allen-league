@@ -15,7 +15,9 @@ import {
 import type { AuctionAcquisitionKind } from "@/lib/league-types";
 import { slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { CapBlocker } from "@/app/admin/cap-force-control";
+import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
 import { UndoMovementButton } from "@/app/admin/movimenti/undo-movement-button";
+import { resolveContextualSlots, type ContextualSlotDecision } from "@/lib/contextual-slot-resolution";
 import { modifyAuctionPlayer, purchaseAuctionPlayer } from "./actions";
 
 type AuctionTeam = {
@@ -30,6 +32,7 @@ type AuctionTeam = {
     cost: number;
     contract: string;
     slot: AuctionSlot;
+    cuttable: boolean;
     promotionDestinations: AuctionSlot[];
   }[];
 };
@@ -161,22 +164,25 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   const [teamCode, setTeamCode] = useState(teams[0]?.code ?? "");
   const [price, setPrice] = useState(1);
   const [slot, setSlot] = useState<AuctionSlot>("regular");
-  const [cutPlayerName, setCutPlayerName] = useState("");
-  const [promotionPlayerName, setPromotionPlayerName] = useState("");
-  const [promotionDestination, setPromotionDestination] = useState<AuctionSlot>("regular");
+  const [slotDecisions, setSlotDecisions] = useState<ContextualSlotDecision[]>([]);
   const [qualifyingOutcome, setQualifyingOutcome] = useState<QualifyingAuctionOutcome | "">(row.qualifying ? "" : "normal");
   const constrainedAcquisition = qualifyingOutcome === "qualifying_offer" || qualifyingOutcome === "restricted_free_agent";
   const effectiveTeamCode = constrainedAcquisition ? row.qualifying?.teamCode ?? "" : teamCode;
   const effectivePrice = qualifyingOutcome === "qualifying_offer" ? row.qualifying?.amount ?? 0 : price;
   const effectiveSlot: AuctionSlot = constrainedAcquisition ? "regular" : slot;
   const team = teams.find((item) => item.code === effectiveTeamCode) ?? teams[0];
-  const cutCandidates = (team?.players ?? []).filter((player) => player.name !== promotionPlayerName);
-  const cutPlayer = cutCandidates.find((player) => player.name === cutPlayerName);
-  const promotablePlayers = (team?.players ?? []).filter((player) => (
-    player.promotionDestinations.length > 0 && player.name !== cutPlayerName
-  ));
-  const promotionPlayer = promotablePlayers.find((player) => player.name === promotionPlayerName);
-  const availablePromotionDestinations = promotionPlayer?.promotionDestinations ?? [];
+  const slotResolutionPlayers = (team?.players ?? []).map((player) => ({
+    name: player.name,
+    slot: player.slot,
+    cuttable: player.cuttable,
+    promotionDestinations: player.promotionDestinations,
+  }));
+  const slotResolution = resolveContextualSlots({
+    counts: team?.slots ?? { regular: 0, two_way: 0, g_league: 0 },
+    incomingSlot: effectiveSlot,
+    players: slotResolutionPlayers,
+    decisions: slotDecisions,
+  });
   const errors = [
     ...(phase !== "auction" ? ["La fase della lega non è impostata su Asta."] : []),
     ...(pendingDraftPicks > 0 ? [`Il Draft dell'annata non è completo: restano ${pendingDraftPicks} scelte.`] : []),
@@ -194,14 +200,9 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   const capWarnings = (team && team.spaces[0] - effectivePrice < 0 && effectivePrice > 1)
     ? [`L'offerta supera quota 1000: in asta sarebbe consentito soltanto un acquisto da 1 credito (cap libero ${team.spaces[0]} → ${team.spaces[0] - effectivePrice}).`]
     : [];
-  const afterSlots = team ? { ...team.slots, [effectiveSlot]: team.slots[effectiveSlot] + 1 } : null;
-  if (afterSlots && cutPlayer) afterSlots[cutPlayer.slot] -= 1;
-  if (afterSlots && promotionPlayer) {
-    afterSlots[promotionPlayer.slot] -= 1;
-    afterSlots[promotionDestination] += 1;
-  }
+  const afterSlots = team ? slotResolution.countsAfter : null;
   const slotLimit = effectiveSlot === "regular" ? 15 : effectiveSlot === "two_way" ? 2 : 3;
-  const slotErrors = afterSlots ? auctionSlotCapacityErrors(afterSlots) : [];
+  const slotErrors = slotResolution.errors;
   const qoTeam = row.qualifying ? teams.find((item) => item.code === row.qualifying?.teamCode) : null;
 
   return (
@@ -210,9 +211,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
       <input type="hidden" name="team_code" value={effectiveTeamCode} />
       <input type="hidden" name="price" value={effectivePrice} />
       <input type="hidden" name="slot" value={effectiveSlot} />
-      <input type="hidden" name="cut_player_name" value={cutPlayerName} />
-      <input type="hidden" name="promotion_player_name" value={promotionPlayerName} />
-      <input type="hidden" name="promotion_destination" value={promotionPlayer ? promotionDestination : ""} />
+      <input type="hidden" name="slot_resolution_json" value={JSON.stringify(slotDecisions)} />
       <input type="hidden" name="qualifying_outcome" value={qualifyingOutcome} />
       <ModalHeader row={row} label="Asta" onClose={onClose} />
 
@@ -230,8 +229,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
               <select value={qualifyingOutcome} onChange={(event) => {
                 const outcome = event.target.value as QualifyingAuctionOutcome | "";
                 setQualifyingOutcome(outcome);
-                setCutPlayerName("");
-                setPromotionPlayerName("");
+                setSlotDecisions([]);
                 if (outcome === "qualifying_offer" || outcome === "restricted_free_agent") setSlot("regular");
               }}>
                 <option value="">Seleziona l'esito</option>
@@ -242,7 +240,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
             </Field>
           )}
           <Field label="Squadra acquirente" className="field-team">
-            <select value={effectiveTeamCode} disabled={constrainedAcquisition} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); }}>
+            <select value={effectiveTeamCode} disabled={constrainedAcquisition} onChange={(event) => { setTeamCode(event.target.value); setSlotDecisions([]); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
@@ -252,45 +250,22 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
           <Field label="Slot" className="field-slot">
             <select value={effectiveSlot} disabled={constrainedAcquisition} onChange={(event) => {
               setSlot(event.target.value as AuctionSlot);
-              setCutPlayerName("");
+              setSlotDecisions([]);
             }}>
               <option value="regular">Roster</option>
               <option value="two_way">Two-way</option>
               <option value="g_league">G-League</option>
             </select>
           </Field>
-          <Field label="Giocatore da tagliare" className="field-cut-player">
-            <select value={cutPlayerName} onChange={(event) => {
-              setCutPlayerName(event.target.value);
-              if (event.target.value === promotionPlayerName) setPromotionPlayerName("");
-            }}>
-              <option value="">Nessun taglio</option>
-              {cutCandidates.map((player) => (
-                <option value={player.name} key={player.name}>
-                  {player.name} · {slotLabel(player.slot)} · {player.cost}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Giocatore da promuovere" className="field-promotion-player">
-            <select value={promotionPlayerName} onChange={(event) => {
-              const nextPlayer = promotablePlayers.find((player) => player.name === event.target.value);
-              setPromotionPlayerName(event.target.value);
-              setPromotionDestination(nextPlayer?.promotionDestinations[0] ?? "regular");
-              if (event.target.value === cutPlayerName) setCutPlayerName("");
-            }}>
-              <option value="">Nessuna promozione</option>
-              {promotablePlayers.map((player) => (
-                <option value={player.name} key={player.name}>{player.name} · {slotLabel(player.slot)}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Slot destinazione" className="field-promotion-destination">
-            <select value={promotionDestination} onChange={(event) => setPromotionDestination(event.target.value as AuctionSlot)} disabled={!promotionPlayer}>
-              {availablePromotionDestinations.map((destination) => <option value={destination} key={destination}>{slotLabel(destination)}</option>)}
-            </select>
-          </Field>
         </div>
+
+        <ContextualSlotResolver
+          counts={team?.slots ?? { regular: 0, two_way: 0, g_league: 0 }}
+          incomingSlot={effectiveSlot}
+          players={slotResolutionPlayers}
+          value={slotDecisions}
+          onChange={setSlotDecisions}
+        />
 
         <div className="auction-modal-summary">
           <Metric label={`Cap libero ${seasonName}`} value={team ? `${team.spaces[0]} → ${team.spaces[0] - effectivePrice}` : "—"} />
@@ -298,15 +273,13 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
           <Metric label="Acquisto" value={qualifyingOutcome ? auctionAcquisitionLabel(qualifyingOutcome === "qualifying_offer" || qualifyingOutcome === "restricted_free_agent" ? qualifyingOutcome : undefined) : "Da specificare"} />
         </div>
         <CutPlayerCheck names={team?.cutPlayerNames ?? []} />
-        {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
-        {promotionPlayer && <p className="auction-context-cut"><span>Promozione contestuale</span><strong>{promotionPlayer.name} · {slotLabel(promotionPlayer.slot)} → {slotLabel(promotionDestination)}</strong></p>}
         {slotErrors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         {errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         <CapBlocker warnings={capWarnings} />
       </div>
       <div className="auction-modal-actions">
         <button className="button secondary" type="button" onClick={onClose}>Annulla</button>
-        <button className="button primary" type="submit" disabled={errors.length > 0 || slotErrors.length > 0 || !team || capWarnings.length > 0}>Registra acquisto</button>
+        <button className="button primary" type="submit" disabled={errors.length > 0 || slotErrors.length > 0 || !slotResolution.complete || !team || capWarnings.length > 0}>Registra acquisto</button>
       </div>
     </form>
   );

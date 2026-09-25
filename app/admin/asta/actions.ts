@@ -24,6 +24,7 @@ import { applyStandardContractCut } from "@/lib/team-option-contract";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
 import { applyFreeRelease } from "@/lib/release-operations";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
+import { parseContextualSlotDecisions, resolveContextualSlots, type AppliedContextualSlotOperation } from "@/lib/contextual-slot-resolution";
 
 const auctionPath = "/admin/asta";
 type AuctionEditKind = "cut" | "free_release" | "slot";
@@ -33,12 +34,14 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   const teamCode = cleanText(formData.get("team_code")).toUpperCase();
   const price = Number(formData.get("price"));
   const slot = cleanText(formData.get("slot")) as AuctionSlot;
-  const cutPlayerName = cleanText(formData.get("cut_player_name"));
-  const promotionPlayerName = cleanText(formData.get("promotion_player_name"));
-  const promotionDestination = cleanText(formData.get("promotion_destination")) as AuctionSlot;
+  let slotDecisions;
+  try {
+    slotDecisions = parseContextualSlotDecisions(formData.get("slot_resolution_json"));
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Operazioni contestuali non valide.");
+  }
   const qualifyingOutcome = cleanText(formData.get("qualifying_outcome")) as QualifyingAuctionOutcome;
   if (!playerName || !teamCode || !["regular", "two_way", "g_league"].includes(slot)) fail("Dati dell'acquisto non validi.");
-  if (Boolean(promotionPlayerName) !== Boolean(promotionDestination)) fail("Promozione contestuale non valida.");
 
   const { supabase, season } = await auctionContext();
   const state = await loadEditableLeagueState();
@@ -70,33 +73,40 @@ export async function purchaseAuctionPlayer(formData: FormData) {
 
   const currentEndYear = seasonEndYear(season.name);
   if (currentEndYear === null) fail("Annata non valida.");
-
-  const cutIndex = cutPlayerName ? state.rosterEntries.findIndex((entry) => (
-    entry.name === cutPlayerName
-    && entry.teamCode === teamCode
-    && entry.state === "active"
-  )) : -1;
-  if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile.");
-  if (cutPlayerName === playerName) fail("Il nuovo acquisto non può essere anche il giocatore tagliato.");
-  const promotionIndex = promotionPlayerName ? state.rosterEntries.findIndex((entry) => (
-    entry.name === promotionPlayerName
-    && entry.teamCode === teamCode
-    && entry.state === "active"
-  )) : -1;
-  if (promotionPlayerName && promotionIndex < 0) fail("Il giocatore scelto per la promozione non è più disponibile.");
-  if (promotionIndex === cutIndex && promotionIndex >= 0) fail("Lo stesso giocatore non può essere tagliato e promosso.");
-  const promotionPlayer = promotionIndex >= 0 ? state.rosterEntries[promotionIndex] : undefined;
-  if (promotionPlayer) {
-    const listedPromotionPlayer = state.playerList.find((item) => item.name === promotionPlayer.name);
-    const destinations = legalAuctionPromotionDestinations({
-      entry: promotionPlayer,
-      rookie: listedPromotionPlayer?.rookie ?? false,
-      under23: listedPromotionPlayer?.under23 ?? false,
-      seasonName: season.name,
-      moment: leagueMomentFromSeason(season),
-    });
-    if (!destinations.includes(promotionDestination)) fail("La destinazione della promozione non è consentita.");
-  }
+  const moment = leagueMomentFromSeason(season);
+  const teamActiveEntries = state.rosterEntries.filter((entry) => (
+    entry.teamCode === teamCode && entry.state === "active" && entry.slot !== "dpe"
+  ));
+  const slotResolution = resolveContextualSlots({
+    counts: {
+      regular: teamActiveEntries.filter((entry) => entry.slot === "regular").length,
+      two_way: teamActiveEntries.filter((entry) => entry.slot === "two_way").length,
+      g_league: teamActiveEntries.filter((entry) => entry.slot === "g_league").length,
+    },
+    incomingSlot: slot,
+    players: teamActiveEntries.map((entry) => {
+      const listedPlayer = state.playerList.find((item) => item.name === entry.name);
+      return {
+        name: entry.name,
+        slot: entry.slot as AuctionSlot,
+        cuttable: true,
+        promotionDestinations: legalAuctionPromotionDestinations({
+          entry,
+          rookie: listedPlayer?.rookie ?? false,
+          under23: listedPlayer?.under23 ?? false,
+          seasonName: season.name,
+          moment,
+        }),
+      };
+    }),
+    decisions: slotDecisions,
+  });
+  if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
+  if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
+  const contextualCuts = new Set(slotResolution.operations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
+  const contextualPromotions = new Map(slotResolution.operations.flatMap((operation) => (
+    operation.kind === "promote" ? [[operation.playerName, operation.destinationSlot] as const] : []
+  )));
 
   const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
   const rosterEntry: RosterEntry = {
@@ -115,9 +125,12 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     ...(dpeAppliedSeasons.length ? { dpeAppliedSeasons } : {}),
   };
   const rosterEntries = [
-    ...state.rosterEntries.map((entry, index) => {
-      if (index === cutIndex) return applyStandardContractCut(entry, currentEndYear, "auction_start");
-      if (index === promotionIndex) return { ...entry, slot: promotionDestination };
+    ...state.rosterEntries.map((entry) => {
+      if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
+        return applyStandardContractCut(entry, currentEndYear, "auction_start");
+      }
+      const promotionDestination = contextualPromotions.get(entry.name);
+      if (promotionDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: promotionDestination };
       return entry;
     }),
     rosterEntry,
@@ -139,10 +152,10 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     state,
     nextState,
     "acquisto_asta",
-    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto da assegnare; ${acquisitionSummary(qualifyingOutcome)}${cutPlayerName ? `; taglio contestuale di ${cutPlayerName}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${slotLabel(promotionDestination)}` : ""}`, capWarnings, false),
+    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto da assegnare; ${acquisitionSummary(qualifyingOutcome)}${contextualOperationSummary(slotResolution.operations)}`, capWarnings, false),
   );
 
-  const suffix = `${cutPlayerName ? ` Taglio contestuale: ${cutPlayerName}.` : ""}${promotionPlayer ? ` Promozione contestuale: ${promotionPlayer.name} verso ${slotLabel(promotionDestination)}.` : ""}`;
+  const suffix = contextualOperationSuccessSuffix(slotResolution.operations);
   success(`${playerName} assegnato a ${teamCode} per ${price} crediti.${suffix}`);
 }
 
@@ -150,6 +163,22 @@ function acquisitionSummary(outcome: QualifyingAuctionOutcome) {
   if (outcome === "qualifying_offer") return "Q.O. accettata";
   if (outcome === "restricted_free_agent") return "restricted free agent";
   return "asta normale";
+}
+
+function contextualOperationSummary(operations: AppliedContextualSlotOperation[]) {
+  return operations.map((operation) => (
+    operation.kind === "cut"
+      ? `; taglio contestuale di ${operation.playerName}`
+      : `; promozione contestuale di ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}`
+  )).join("");
+}
+
+function contextualOperationSuccessSuffix(operations: AppliedContextualSlotOperation[]) {
+  return operations.map((operation) => (
+    operation.kind === "cut"
+      ? ` Taglio contestuale: ${operation.playerName}.`
+      : ` Promozione contestuale: ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}.`
+  )).join("");
 }
 
 export async function modifyAuctionPlayer(formData: FormData) {

@@ -20,6 +20,7 @@ import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-e
 import { roleMinimumChecksApply, roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { orderPlayerListByRole } from "@/lib/player-list-order";
+import { parseContextualSlotDecisions, resolveContextualSlots, type AppliedContextualSlotOperation } from "@/lib/contextual-slot-resolution";
 
 const path = "/admin/free-agent";
 
@@ -31,15 +32,17 @@ export async function signFreeAgent(formData: FormData) {
   const playerName = clean(formData.get("player_name"));
   const playerRole = clean(formData.get("player_role"));
   const teamCode = clean(formData.get("team_code")).toUpperCase();
-  const cutPlayerName = clean(formData.get("cut_player_name"));
-  const promotionPlayerName = clean(formData.get("promotion_player_name"));
-  const promotionDestination = clean(formData.get("promotion_destination")) as ManagedRosterSlot;
+  let slotDecisions;
+  try {
+    slotDecisions = parseContextualSlotDecisions(formData.get("slot_resolution_json"));
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Operazioni contestuali non valide.");
+  }
   const price = Number(formData.get("price"));
   const destination = clean(formData.get("destination")) as "regular" | "two_way";
   if (!["list", "outside"].includes(playerSource) || !playerName || playerName.length > 120 || !teamCode || !["regular", "two_way"].includes(destination)) {
     fail("Dati della firma non validi.");
   }
-  if (Boolean(promotionPlayerName) !== Boolean(promotionDestination)) fail("Promozione contestuale non valida.");
   if (playerSource === "outside" && !["G", "A", "C", "X"].includes(playerRole)) {
     fail("Per il giocatore fuori listone devi indicare il ruolo.");
   }
@@ -87,39 +90,39 @@ export async function signFreeAgent(formData: FormData) {
   const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedPlayerName);
   const teamEntries = state.rosterEntries.filter((entry) => entry.teamCode === teamCode);
   const activeEntries = teamEntries.filter((entry) => entry.state === "active");
-  const cutIndex = cutPlayerName ? state.rosterEntries.findIndex((entry) => (
-    entry.name === cutPlayerName
-    && entry.teamCode === teamCode
-    && entry.state === "active"
-  )) : -1;
-  if (cutPlayerName && cutIndex < 0) fail("Il giocatore scelto per il taglio non è più disponibile.");
-  const cutPlayer = cutIndex >= 0 ? state.rosterEntries[cutIndex] : undefined;
-  if (cutPlayer && isUnresolvedTeamOption(cutPlayer, moment)) {
-    fail("Una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.");
-  }
-  const promotionIndex = promotionPlayerName ? state.rosterEntries.findIndex((entry) => (
-    entry.name === promotionPlayerName
-    && entry.teamCode === teamCode
-    && entry.state === "active"
-  )) : -1;
-  if (promotionPlayerName && promotionIndex < 0) fail("Il giocatore scelto per la promozione non è più disponibile.");
-  if (promotionIndex === cutIndex && promotionIndex >= 0) fail("Lo stesso giocatore non può essere tagliato e promosso.");
-  const promotionPlayer = promotionIndex >= 0 ? state.rosterEntries[promotionIndex] : undefined;
-  if (promotionPlayer) {
-    if (promotionPlayer.slot === "dpe" || isUnresolvedTeamOption(promotionPlayer, moment)) {
-      fail("Questo giocatore non può essere promosso in questa fase.");
-    }
-    const destinations = legalPromotionDestinations(
-      { ...promotionPlayer, slot: promotionPlayer.slot as ManagedRosterSlot },
-      seasonResponse.data.name,
-      moment,
-    );
-    if (!destinations.includes(promotionDestination)) fail("La destinazione della promozione non è consentita.");
-  }
   const roleByName = new Map(state.playerList.map((item) => [
     normalizePlayerName(item.name),
     item.role === "X" ? null : item.role,
   ]));
+  const managedActiveEntries = activeEntries.filter((entry) => entry.slot !== "dpe");
+  const slotResolution = resolveContextualSlots({
+    counts: {
+      regular: managedActiveEntries.filter((entry) => entry.slot === "regular").length,
+      two_way: managedActiveEntries.filter((entry) => entry.slot === "two_way").length,
+      g_league: managedActiveEntries.filter((entry) => entry.slot === "g_league").length,
+    },
+    incomingSlot: destination,
+    players: managedActiveEntries.map((entry) => ({
+      name: entry.name,
+      slot: entry.slot as ManagedRosterSlot,
+      cuttable: !isUnresolvedTeamOption(entry, moment),
+      promotionDestinations: isUnresolvedTeamOption(entry, moment)
+        ? []
+        : legalPromotionDestinations(
+          { ...entry, slot: entry.slot as ManagedRosterSlot },
+          seasonResponse.data!.name,
+          moment,
+        ),
+    })),
+    decisions: slotDecisions,
+  });
+  if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
+  if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
+  const contextualCuts = new Set(slotResolution.operations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
+  const contextualPromotions = new Map(slotResolution.operations.flatMap((operation) => (
+    operation.kind === "promote" ? [[operation.playerName, operation.destinationSlot] as const] : []
+  )));
+  const contextualCutEntries = managedActiveEntries.filter((entry) => contextualCuts.has(entry.name));
   const currentCost = 1000 - calculateCapSpace({
     entries: teamEntries.filter((entry) => entry.state !== "active" || entry.slot !== "dpe"),
     seasonName: seasonResponse.data.name,
@@ -146,10 +149,15 @@ export async function signFreeAgent(formData: FormData) {
       slot: entry.slot,
     }))),
     playerRole: player.role === "X" ? null : player.role,
-    cutRole: cutPlayer ? roleByName.get(normalizePlayerName(cutPlayer.name)) ?? null : null,
-    cutSlot: cutPlayer?.slot ?? null,
-    promotionSourceSlot: promotionPlayer?.slot === "dpe" ? null : promotionPlayer?.slot ?? null,
-    promotionDestinationSlot: promotionPlayer ? promotionDestination : null,
+    cutRole: null,
+    cutSlot: null,
+    contextualCuts: contextualCutEntries.map((entry) => ({
+      role: roleByName.get(normalizePlayerName(entry.name)) ?? null,
+      slot: entry.slot as ManagedRosterSlot,
+    })),
+    contextualPromotions: slotResolution.operations.flatMap((operation) => (
+      operation.kind === "promote" ? [{ sourceSlot: operation.sourceSlot, destinationSlot: operation.destinationSlot }] : []
+    )),
   });
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
 
@@ -185,9 +193,12 @@ export async function signFreeAgent(formData: FormData) {
     ...(dpeAppliedSeasons.length ? { dpeAppliedSeasons } : {}),
   };
   const rosterEntries = [
-    ...state.rosterEntries.map((entry, index) => {
-      if (index === cutIndex) return applyStandardContractCut(entry, endYear, moment);
-      if (index === promotionIndex) return { ...entry, slot: promotionDestination };
+    ...state.rosterEntries.map((entry) => {
+      if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
+        return applyStandardContractCut(entry, endYear, moment);
+      }
+      const promotionDestination = contextualPromotions.get(entry.name);
+      if (promotionDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: promotionDestination };
       return entry;
     }),
     rosterEntry,
@@ -230,12 +241,12 @@ export async function signFreeAgent(formData: FormData) {
     state,
     nextState,
     "firma_free_agent",
-    `${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${roleMinimumReplacement ? "; assegnazione per carenza di ruolo" : ""}${playerSource === "outside" ? "; aggiunto al listone" : ""}${cutPlayer ? `; taglio contestuale di ${cutPlayer.name}` : ""}${promotionPlayer ? `; promozione contestuale di ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}` : ""}`,
+    `${player.name}: firmato da ${teamCode} per ${price} crediti; slot ${freeAgentSlotLabel(destination)}; contratto ${rosterEntry.contract}${roleMinimumReplacement ? "; assegnazione per carenza di ruolo" : ""}${playerSource === "outside" ? "; aggiunto al listone" : ""}${contextualOperationSummary(slotResolution.operations)}`,
   );
   if (response.error) fail(response.error.message);
 
   ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/listone", "/admin/asta"].forEach((route) => revalidatePath(route));
-  const suffix = `${cutPlayer ? ` Taglio contestuale: ${cutPlayer.name}.` : ""}${promotionPlayer ? ` Promozione contestuale: ${promotionPlayer.name} verso ${freeAgentSlotLabel(promotionDestination)}.` : ""}`;
+  const suffix = contextualOperationSuccessSuffix(slotResolution.operations);
   redirect(`${path}?updated=${encodeURIComponent(`${player.name} firmato da ${teamCode} per ${price}.${suffix}`)}`);
 }
 
@@ -248,6 +259,22 @@ function freeAgentSlotLabel(slot: string) {
   if (slot === "two_way") return "Two-way";
   if (slot === "g_league") return "G-League";
   return slot;
+}
+
+function contextualOperationSummary(operations: AppliedContextualSlotOperation[]) {
+  return operations.map((operation) => (
+    operation.kind === "cut"
+      ? `; taglio contestuale di ${operation.playerName}`
+      : `; promozione contestuale di ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}`
+  )).join("");
+}
+
+function contextualOperationSuccessSuffix(operations: AppliedContextualSlotOperation[]) {
+  return operations.map((operation) => (
+    operation.kind === "cut"
+      ? ` Taglio contestuale: ${operation.playerName}.`
+      : ` Promozione contestuale: ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}.`
+  )).join("");
 }
 
 function fail(message: string): never {

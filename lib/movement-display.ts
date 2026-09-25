@@ -22,6 +22,7 @@ const operationLabels: Record<string, string> = {
   rettifica_roster_contratto: "Rettifica dell'admin",
   rettifica_roster_rimozione: "Rettifica dell'admin",
   rettifica_roster_aggiunta: "Rettifica dell'admin",
+  rettifica_admin_scambio: "Rettifica dell'admin",
 };
 
 const movementFilterGroups = [
@@ -32,7 +33,7 @@ const movementFilterGroups = [
   { value: "movimenti_annullati", label: "Movimenti annullati", operationTypes: ["movimento_annullato"] },
   { value: "procedure_stagionali", label: "Procedure stagionali", operationTypes: ["ordine_draft_finale", "consegna_contratti"] },
   { value: "qualifying_offer", label: "Qualifying offer", operationTypes: ["qualifying_offer_non_estesa"] },
-  { value: "rettifiche_admin", label: "Rettifiche dell'admin", operationTypes: ["rettifica_roster_contratto", "rettifica_roster_rimozione", "rettifica_roster_aggiunta"] },
+  { value: "rettifiche_admin", label: "Rettifiche dell'admin", operationTypes: ["rettifica_roster_contratto", "rettifica_roster_rimozione", "rettifica_roster_aggiunta", "rettifica_admin_scambio"] },
   { value: "scambi", label: "Scambi", operationTypes: ["scambio", "sign_and_trade"] },
   { value: "scelte_draft", label: "Scelte draft", operationTypes: ["scelta_draft"] },
   { value: "slot", label: "Spostamenti slot", operationTypes: ["spostamento_slot"] },
@@ -98,7 +99,7 @@ export function conciseMovementDetail(operationType: string, summary: string) {
     concise = firstSegments(detail, 2);
   } else if (normalizedType === "scelta_draft") {
     concise = firstSegment(detail).replace(/\s+per\s+\d+\s+crediti\b.*$/i, "");
-  } else if (["scambio", "sign_and_trade"].includes(normalizedType)) {
+  } else if (["scambio", "sign_and_trade", "rettifica_admin_scambio"].includes(normalizedType)) {
     concise = conciseTrade(detail);
   } else if (normalizedType === "rettifica_roster_rimozione") {
     concise = conciseRosterCorrection(detail, "rimosso");

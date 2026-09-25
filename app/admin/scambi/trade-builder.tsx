@@ -16,7 +16,7 @@ import {
 import { countRosterRoles } from "@/lib/rules/roster";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import type { ExistingTradeClauseAgreement } from "@/lib/trade-state";
-import type { SignAndTradeRequest } from "@/lib/sign-and-trade";
+import { signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 
 type RosterPlayer = {
   id: string;
@@ -179,6 +179,7 @@ export function TradeBuilder({
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [recordAsCorrection, setRecordAsCorrection] = useState(false);
 
   const participants = participantCodes
     .map((code) => teams.find((team) => team.code === code))
@@ -269,6 +270,11 @@ export function TradeBuilder({
       : [`${formatTeamName(teams.find((item) => item.code === team.code)?.name ?? team.code)}: servono ${team.requiredRoleFreeAgents} slot tra roster e Two-way per i free agent obbligatori, ma ne restano ${freeSlots}.`];
   });
   const simulatorRoleMinimumSlotError = simulator && roleMinimumSlotErrors.length > 0;
+  const signAndTradePlayerTransferred = !signAndTrade || signAndTradeTransfersNewSigning(
+    playerMoves,
+    signAndTrade.signingEntryId,
+    signAndTrade.signerTeamCode,
+  );
 
   useEffect(() => {
     setPickClauses((current) => {
@@ -294,6 +300,7 @@ export function TradeBuilder({
   const simulationValid = evaluation.valid
     && capWarnings.length === 0
     && !simulatorRoleMinimumSlotError
+    && signAndTradePlayerTransferred
     && (!roleMinimumConfirmationRequired || roleMinimumConfirmed);
   const readableTradeRecap = simulationValid
     ? tradeSimulationRecap({
@@ -323,6 +330,7 @@ export function TradeBuilder({
     : "";
   const validationErrors = [
     ...evaluation.errors.map((error) => displayIssue(error.message, teams)),
+    ...(!signAndTradePlayerTransferred ? ["Il sign and trade deve trasferire il giocatore appena firmato a un’altra squadra."] : []),
     ...(simulator ? capWarnings.map((warning) => `Scambio non valido: ${warning}`) : []),
     ...roleMinimumSlotErrors.map((error) => `Scambio non valido: ${error}`),
   ];
@@ -707,6 +715,16 @@ export function TradeBuilder({
                 </header>
                 <div className="auction-modal-body trade-confirmation-body">
                   <textarea value={readableTradeRecap} readOnly aria-label="Recap dello scambio da confermare" />
+                  <label className="trade-confirmation-correction">
+                    <input
+                      type="checkbox"
+                      name="record_as_correction"
+                      value="true"
+                      checked={recordAsCorrection}
+                      onChange={(event) => setRecordAsCorrection(event.target.checked)}
+                    />
+                    <span>Registra questo movimento come rettifica dell’admin anziché come scambio.</span>
+                  </label>
                 </div>
                 <footer className="auction-modal-actions">
                   <button className="button secondary" type="button" onClick={() => setConfirmationOpen(false)}>Chiudi</button>

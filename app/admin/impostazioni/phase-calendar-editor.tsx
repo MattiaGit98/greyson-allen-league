@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { calendarEventLabel, datedLeagueTransitions, type LeagueCalendarEventKey, type PhaseDateMap } from "@/lib/phase-calendar";
+import type { LeagueMoment } from "@/lib/league-moments";
+import {
+  calendarEventLabel,
+  datedLeagueTransitions,
+  phaseCalendarValidationErrors,
+  type LeagueCalendarEventKey,
+  type PhaseDateMap,
+} from "@/lib/phase-calendar";
 import { saveLeaguePhaseDates } from "./actions";
 
-export function PhaseCalendarEditor({ initialDates }: { initialDates: PhaseDateMap }) {
+export function PhaseCalendarEditor({ initialDates, currentMoment, today }: { initialDates: PhaseDateMap; currentMoment: LeagueMoment; today: string }) {
   const [dates, setDates] = useState<PhaseDateMap>(initialDates);
   const rows = datedLeagueTransitions.filter((phase) => phase !== "auction_completed");
+  const validationErrors = phaseCalendarValidationErrors({ dates, previousDates: initialDates, currentMoment, today });
 
   function update(phase: LeagueCalendarEventKey, date: string) {
     setDates((current) => ({ ...current, [phase]: date, ...(phase === "auction_start" ? { auction_completed: date } : {}) }));
@@ -24,7 +32,12 @@ export function PhaseCalendarEditor({ initialDates }: { initialDates: PhaseDateM
           </div>
         ))}
       </div>
-      <button className="button primary calendar-save" type="submit">Salva date</button>
+      {validationErrors.length > 0 && (
+        <div className="notice error phase-date-errors" role="alert">
+          <ul>{validationErrors.map((error) => <li key={error}>{error}</li>)}</ul>
+        </div>
+      )}
+      <button className="button primary calendar-save" type="submit" disabled={validationErrors.length > 0}>Salva date</button>
     </form>
   );
 }

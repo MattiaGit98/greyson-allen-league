@@ -20,7 +20,15 @@ import { savePhaseBackup } from "@/lib/phase-backups";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { applyPostAuctionContractDrafts } from "@/lib/post-auction-contracts";
 import { contractDraftRows, loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
-import { datedLeagueTransitions, isPhaseDate, normalizePhaseDates, phaseDateForTransition } from "@/lib/phase-calendar";
+import {
+  datedLeagueTransitions,
+  formatPhaseDate,
+  isPhaseDate,
+  normalizePhaseDates,
+  phaseCalendarValidationErrors,
+  phaseDateForTransition,
+  todayInRome,
+} from "@/lib/phase-calendar";
 
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 const seasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment,phase_dates";
@@ -36,8 +44,13 @@ export async function advanceLeaguePhaseStep() {
   const currentMoment = leagueMomentFromSeason(season);
   const transition = nextLeagueTransition(currentMoment);
   const phaseDates = normalizePhaseDates(season.phase_dates);
-  if (!phaseDateForTransition(phaseDates, transition)) {
+  const transitionDate = phaseDateForTransition(phaseDates, transition);
+  if (!transitionDate) {
     phaseError(`Inserisci la data di ${transition === "auction_completed" ? "Asta" : leagueMomentLabels[transition]} prima di avanzare.`);
+  }
+  const today = todayInRome();
+  if (transitionDate > today) {
+    phaseError(`Non puoi avanzare a ${transition === "auction_completed" ? "Termine asta" : leagueMomentLabels[transition]} prima del ${formatPhaseDate(transitionDate)}.`);
   }
   const [state, currentHistory, contractDrafts] = await Promise.all([
     loadEditableLeagueState(),
@@ -140,25 +153,32 @@ export async function advanceLeaguePhaseStep() {
 
 export async function saveLeaguePhaseDates(formData: FormData) {
   const supabase = await createSupabaseServerClient();
-  if (!supabase) phaseError("Supabase non configurato.");
+  if (!supabase) calendarError("Supabase non configurato.");
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) phaseError("Sessione scaduta.");
+  if (!user) calendarError("Sessione scaduta.");
   let raw: unknown;
   try {
     raw = JSON.parse(String(formData.get("phase_dates_json") ?? "{}"));
   } catch {
-    phaseError("Date delle fasi non valide.");
+    calendarError("Date delle fasi non valide.");
   }
   const values = raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
-  if (!values) phaseError("Date delle fasi non valide.");
+  if (!values) calendarError("Date delle fasi non valide.");
   if (Object.values(values).some((value) => value !== "" && !isPhaseDate(value))) {
-    phaseError("Inserisci soltanto date valide.");
+    calendarError("Inserisci soltanto date valide.");
   }
   const phaseDates = normalizePhaseDates(Object.fromEntries(datedLeagueTransitions.map((key) => [key, values[key]])));
-  const season = await supabase.from("seasons").select("id").eq("is_active", true).maybeSingle();
-  if (season.error || !season.data) phaseError(season.error?.message ?? "Nessuna stagione attiva.");
+  const season = await supabase.from("seasons").select("id,timeline_moment,phase_dates").eq("is_active", true).maybeSingle();
+  if (season.error || !season.data) calendarError(season.error?.message ?? "Nessuna stagione attiva.");
+  const validationErrors = phaseCalendarValidationErrors({
+    dates: phaseDates,
+    previousDates: normalizePhaseDates(season.data.phase_dates),
+    currentMoment: leagueMomentFromSeason(season.data),
+    today: todayInRome(),
+  });
+  if (validationErrors.length) calendarError(validationErrors.join(" "));
   const update = await supabase.from("seasons").update({ phase_dates: phaseDates }).eq("id", season.data.id);
-  if (update.error) phaseError(update.error.message);
+  if (update.error) calendarError(update.error.message);
   revalidateLeaguePages();
   redirect("/admin/calendario?dates=1");
 }
@@ -208,4 +228,8 @@ function revalidateLeaguePages() {
 
 function phaseError(message: string): never {
   redirect(`/admin/impostazioni?error=${encodeURIComponent(message)}`);
+}
+
+function calendarError(message: string): never {
+  redirect(`/admin/calendario?error=${encodeURIComponent(message)}`);
 }

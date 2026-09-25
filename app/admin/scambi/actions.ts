@@ -28,7 +28,7 @@ import {
 import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
 import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
+import { buildSignAndTradeProvisional, signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { applyStandardContractCut, isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import {
   applyValidatedTrade,
@@ -44,6 +44,7 @@ const path = "/admin/scambi";
 
 export async function registerTrade(formData: FormData) {
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
+  const recordAsCorrection = formData.get("record_as_correction") === "true";
   let payload: TradeTransactionPayload;
   try {
     payload = parsePayload(formData.get("trade_json"));
@@ -110,6 +111,13 @@ export async function registerTrade(formData: FormData) {
   if (participantCodes.some((code) => !validTeamCodes.has(code))) fail("Una delle squadre coinvolte non è valida.");
   if (provisionalSignAndTrade && !participantCodes.includes(provisionalSignAndTrade.signerTeamCode)) {
     fail("La squadra firmataria deve partecipare allo scambio.");
+  }
+  if (provisionalSignAndTrade && !signAndTradeTransfersNewSigning(
+    payload.playerMoves,
+    provisionalSignAndTrade.signingEntryId,
+    provisionalSignAndTrade.signerTeamCode,
+  )) {
+    fail("Il sign and trade deve trasferire il giocatore appena firmato a un'altra squadra.");
   }
   const participants = new Set(participantCodes);
   const qualifyingOfferTransfersOpen = !hasReachedMoment(moment, "auction_completed");
@@ -468,7 +476,11 @@ export async function registerTrade(formData: FormData) {
     ...[...actualCapWarningsByTeam.entries()].flatMap(([teamCode, warnings]) => warnings.map((warning) => `${teamCode}: ${warning}`)),
   ])];
   requireCapCompliance(capWarnings, fail);
-  const operationType = provisionalSignAndTrade ? "sign_and_trade" : "scambio";
+  const operationType = recordAsCorrection
+    ? "rettifica_admin_scambio"
+    : provisionalSignAndTrade
+      ? "sign_and_trade"
+      : "scambio";
   const movementDetails = [
     ...(provisionalSignAndTrade ? [provisionalSignAndTrade.label] : []),
     ...playerChanges.flatMap((change) => {

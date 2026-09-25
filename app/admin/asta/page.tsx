@@ -80,6 +80,7 @@ export default async function AuctionAdminPage({
             cost: entry.cost,
             contract: entry.contract,
             slot: entry.slot as "regular" | "two_way" | "g_league",
+            cuttable: true,
             promotionDestinations: legalAuctionPromotionDestinations({
               entry,
               rookie: listedPlayer?.rookie ?? false,

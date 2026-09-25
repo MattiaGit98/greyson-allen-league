@@ -7,6 +7,8 @@ import { signFreeAgent } from "./actions";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { isCapIssueCode } from "@/lib/cap-override";
 import { roleMinimumRecoverySlotError } from "@/lib/role-minimums";
+import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
+import { resolveContextualSlots, type ContextualSlotDecision } from "@/lib/contextual-slot-resolution";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
 type PlayerOption = {
@@ -168,22 +170,21 @@ function FreeAgentDialog({
   const [teamCode, setTeamCode] = useState(teams[0]?.code ?? "");
   const [price, setPrice] = useState(1);
   const [destination, setDestination] = useState<"regular" | "two_way">("regular");
-  const [cutPlayerName, setCutPlayerName] = useState("");
-  const [promotionPlayerName, setPromotionPlayerName] = useState("");
-  const [promotionDestination, setPromotionDestination] = useState<"regular" | "two_way" | "g_league">("regular");
+  const [slotDecisions, setSlotDecisions] = useState<ContextualSlotDecision[]>([]);
   const [outsideName, setOutsideName] = useState("");
   const [outsideRole, setOutsideRole] = useState<"G" | "A" | "C" | "X" | "">("");
   const [buyoutTopSixConfirmed, setBuyoutTopSixConfirmed] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [roleMinimumReplacement, setRoleMinimumReplacement] = useState(false);
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
-  const cuttablePlayers = (team?.rosterPlayers ?? []).filter((item) => item.cuttable && item.name !== promotionPlayerName);
-  const cutPlayer = cuttablePlayers.find((item) => item.name === cutPlayerName);
-  const promotablePlayers = (team?.rosterPlayers ?? []).filter((item) => (
-    item.promotionDestinations.length > 0 && item.name !== cutPlayerName
+  const slotResolutionPlayers = (team?.rosterPlayers ?? []).flatMap((item) => (
+    item.slot === "dpe" ? [] : [{
+      name: item.name,
+      slot: item.slot,
+      cuttable: item.cuttable,
+      promotionDestinations: item.promotionDestinations,
+    }]
   ));
-  const promotionPlayer = promotablePlayers.find((item) => item.name === promotionPlayerName);
-  const availablePromotionDestinations = promotionPlayer?.promotionDestinations ?? [];
   const customReady = outsideName.trim() && outsideRole;
   const selectedRole: "G" | "A" | "C" | null = player
     ? player.role === "X" ? null : player.role
@@ -195,6 +196,20 @@ function FreeAgentDialog({
     dpe: team?.rosterPlayers.filter((item) => item.slot === "dpe").length ?? 0,
   };
   const roles = countRosterRoles(team?.rosterPlayers ?? []);
+  const slotResolution = resolveContextualSlots({
+    counts: { regular: slots.regular, two_way: slots.twoWay, g_league: slots.gLeague },
+    incomingSlot: destination,
+    players: slotResolutionPlayers,
+    decisions: slotDecisions,
+  });
+  const contextualCutPlayers = slotResolution.operations.flatMap((operation) => {
+    if (operation.kind !== "cut") return [];
+    const cutPlayer = team?.rosterPlayers.find((item) => item.name === operation.playerName);
+    return cutPlayer ? [cutPlayer] : [];
+  });
+  const contextualPromotions = slotResolution.operations.flatMap((operation) => (
+    operation.kind === "promote" ? [operation] : []
+  ));
   const outsideDuplicate = outsideList && allPlayers.some((item) => normalizeName(item.name) === normalizeName(outsideName));
   const preview = evaluateFreeAgentSigning({
     phase,
@@ -208,10 +223,13 @@ function FreeAgentDialog({
     qualifyingOfferActive: Boolean(player?.qualifyingTeamCode),
     roles,
     playerRole: selectedRole,
-    cutRole: cutPlayer?.role ?? null,
-    cutSlot: cutPlayer?.slot ?? null,
-    promotionSourceSlot: promotionPlayer?.slot === "dpe" ? null : promotionPlayer?.slot ?? null,
-    promotionDestinationSlot: promotionPlayer ? promotionDestination : null,
+    cutRole: null,
+    cutSlot: null,
+    contextualCuts: contextualCutPlayers.map((cutPlayer) => ({ role: cutPlayer.role, slot: cutPlayer.slot })),
+    contextualPromotions: contextualPromotions.map((promotion) => ({
+      sourceSlot: promotion.sourceSlot,
+      destinationSlot: promotion.destinationSlot,
+    })),
   });
   const slotBefore = destination === "regular" ? slots.regular : slots.twoWay;
   const slotAfter = destination === "regular" ? preview.calculated.slotsAfter.regular : preview.calculated.slotsAfter.twoWay;
@@ -244,7 +262,6 @@ function FreeAgentDialog({
     : null;
   const roleMinimumConfirmationMissing = roleMinimumConfirmationRequired && !roleMinimumConfirmed;
   const signAndTradeErrors = preview.errors.filter((error) => !error.code.startsWith("SLOT_"));
-  const temporarySlotErrors = preview.errors.filter((error) => error.code.startsWith("SLOT_"));
   const buyoutEligibilityConfirmationMissing = Boolean(player?.buyoutApplied) && !buyoutTopSixConfirmed;
 
   function openSignAndTrade() {
@@ -271,9 +288,7 @@ function FreeAgentDialog({
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="price" value={price} />
       <input type="hidden" name="destination" value={destination} />
-      <input type="hidden" name="cut_player_name" value={cutPlayerName} />
-      <input type="hidden" name="promotion_player_name" value={promotionPlayerName} />
-      <input type="hidden" name="promotion_destination" value={promotionPlayer ? promotionDestination : ""} />
+      <input type="hidden" name="slot_resolution_json" value={JSON.stringify(slotDecisions)} />
       <input type="hidden" name="buyout_top_six_confirmed" value={String(buyoutTopSixConfirmed)} />
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
       <input type="hidden" name="role_minimum_replacement" value={String(roleMinimumReplacement)} />
@@ -297,41 +312,26 @@ function FreeAgentDialog({
             </>
           )}
           <Field label="Squadra" className="field-team">
-            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setCutPlayerName(""); setPromotionPlayerName(""); setBuyoutTopSixConfirmed(false); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
+            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setSlotDecisions([]); setBuyoutTopSixConfirmed(false); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
-          <Field label="Prezzo" className="field-price"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setRoleMinimumConfirmed(false); if (value !== 1) setRoleMinimumReplacement(false); if (value > 10) { setDestination("regular"); } }} /></Field>
+          <Field label="Prezzo" className="field-price"><input type="number" min="1" step="1" inputMode="numeric" value={price} onChange={(event) => { const value = Number(event.target.value); setPrice(value); setRoleMinimumConfirmed(false); if (value !== 1) setRoleMinimumReplacement(false); if (value > 10 && destination !== "regular") { setDestination("regular"); setSlotDecisions([]); } }} /></Field>
           <Field label="Slot" className="field-slot">
-            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); setRoleMinimumConfirmed(false); }}>
+            <select value={destination} onChange={(event) => { setDestination(event.target.value as typeof destination); setSlotDecisions([]); setRoleMinimumConfirmed(false); }}>
               <option value="regular">Roster</option>
               <option value="two_way" disabled={price > 10}>Two-way</option>
             </select>
           </Field>
-          <Field label="Giocatore da tagliare" className="field-cut-player">
-            <select value={cutPlayerName} onChange={(event) => { setCutPlayerName(event.target.value); setRoleMinimumConfirmed(false); if (event.target.value === promotionPlayerName) setPromotionPlayerName(""); }}>
-              <option value="">Nessun taglio</option>
-              {cuttablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {item.cost} · {item.contract} · {slotLabel(item.slot)}</option>)}
-            </select>
-          </Field>
-          <Field label="Giocatore da promuovere" className="field-promotion-player">
-            <select value={promotionPlayerName} onChange={(event) => {
-              const nextPlayer = promotablePlayers.find((item) => item.name === event.target.value);
-              setPromotionPlayerName(event.target.value);
-              setPromotionDestination(nextPlayer?.promotionDestinations[0] ?? "regular");
-              setRoleMinimumConfirmed(false);
-              if (event.target.value === cutPlayerName) setCutPlayerName("");
-            }}>
-              <option value="">Nessuna promozione</option>
-              {promotablePlayers.map((item) => <option value={item.name} key={item.name}>{item.name} · {slotLabel(item.slot)}</option>)}
-            </select>
-          </Field>
-          <Field label="Slot destinazione" className="field-promotion-destination">
-            <select value={promotionDestination} onChange={(event) => { setPromotionDestination(event.target.value as typeof promotionDestination); setRoleMinimumConfirmed(false); }} disabled={!promotionPlayer}>
-              {availablePromotionDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
-            </select>
-          </Field>
         </div>
+
+        <ContextualSlotResolver
+          counts={{ regular: slots.regular, two_way: slots.twoWay, g_league: slots.gLeague }}
+          incomingSlot={destination}
+          players={slotResolutionPlayers}
+          value={slotDecisions}
+          onChange={(next) => { setSlotDecisions(next); setRoleMinimumConfirmed(false); }}
+        />
 
         <div className="auction-modal-summary free-agent-modal-summary">
           <Metric label="Spazio libero" value={`${preview.calculated.spaceBefore} → ${preview.calculated.spaceAfter}`} />
@@ -340,8 +340,6 @@ function FreeAgentDialog({
           <Metric label="Contratto" value={contract} />
         </div>
         <p className="manual-cut-check">Verifica manualmente che il giocatore acquisito non compaia tra i tagliati:<br />{team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}</p>
-        {cutPlayer && <p className="auction-context-cut"><span>Taglio contestuale</span><strong>{cutPlayer.name}</strong></p>}
-        {promotionPlayer && <p className="auction-context-cut"><span>Promozione contestuale</span><strong>{promotionPlayer.name} · {slotLabel(promotionPlayer.slot)} → {slotLabel(promotionDestination)}</strong></p>}
         {outsideDuplicate && <p className="validation error">Il giocatore è già nel listone: selezionalo dall’elenco.</p>}
         {player?.buyoutApplied && (
           <label className="operation-check free-agent-standing-check">
@@ -366,8 +364,8 @@ function FreeAgentDialog({
           </label>
         )}
         {preview.errors.filter((error) => canSign || error.code !== "FREE_AGENCY_CLOSED").map((error) => <p className="validation error" key={error.code}>{error.message}</p>)}
-        {signAndTradeOpen && temporarySlotErrors.length > 0 && signAndTradeErrors.length === 0 && (
-          <p className="validation warning">Con Firma e scambia puoi proseguire, ma lo slot deve essere liberato nella situazione finale.</p>
+        {signAndTradeOpen && slotResolution.steps.length > 0 && signAndTradeErrors.length === 0 && (
+          <p className="validation warning">Per Firma e scambia questa sequenza non viene applicata: gli slot devono risultare regolari alla fine dello scambio.</p>
         )}
         {otherWarnings.map((warning) => <p className="validation warning" key={warning.code}>{warning.message}</p>)}
         <CapBlocker warnings={blockingCapWarnings.map((warning) => warning.message)} />
@@ -383,7 +381,7 @@ function FreeAgentDialog({
         >
           Firma e scambia
         </button>
-        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || blockingCapWarnings.length > 0}>Registra firma</button>
+        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || !slotResolution.complete || slotResolution.errors.length > 0 || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || blockingCapWarnings.length > 0}>Registra firma</button>
       </div>
     </form>
   );
@@ -395,13 +393,6 @@ function Field({ label, children, className = "" }: { label: string; children: R
 
 function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return <div><span>{label}</span><strong>{value}</strong></div>;
-}
-
-function slotLabel(slot: Slot) {
-  if (slot === "two_way") return "Two-way";
-  if (slot === "g_league") return "G-League";
-  if (slot === "dpe") return "DPE";
-  return "Roster";
 }
 
 function normalizeName(value: string) {
