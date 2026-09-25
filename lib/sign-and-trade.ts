@@ -1,12 +1,9 @@
 import type { PlayerListEntry } from "./league-types";
 import { normalizePlayerName } from "./admin-alerts";
-import { isCapIssueCode } from "./cap-override";
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
 import { operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction, type LeagueMoment } from "./league-moments";
-import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "./rules/free-agent";
-import { countRosterRoles } from "./rules/roster";
-import { calculateCapSpace } from "./season-time";
+import { automaticFreeAgentContract } from "./rules/free-agent";
 import { tradePlayerId } from "./trade-state";
 import { inheritedDpeSeasons } from "./dpe-rules";
 import { orderPlayerListByRole } from "./player-list-order";
@@ -30,10 +27,6 @@ export type SignAndTradeProvisional = {
   signerTeamCode: string;
   playerName: string;
   label: string;
-  capWarnings: string[];
-  warnings: string[];
-  spaceBefore: number;
-  spaceAfterSigning: number;
 };
 
 export function signAndTradeTransfersNewSigning(
@@ -66,6 +59,9 @@ export function buildSignAndTradeProvisional(input: {
   if (!state.teams.some((team) => team.code === request.signerTeamCode)) throw new Error("Squadra firmataria non valida.");
   if (!Number.isInteger(request.price) || request.price < 1) throw new Error("Il prezzo deve essere un intero di almeno 1 credito.");
   if (!["regular", "two_way"].includes(request.destinationSlot)) throw new Error("Slot della firma non valido.");
+  if (request.destinationSlot === "two_way" && request.price > 10) {
+    throw new Error("Un free agent può essere inserito nei two-way soltanto fino a 10 crediti.");
+  }
 
   const requestedName = normalizePlayerName(request.playerName);
   const listedPlayer = state.playerList.find((player) => normalizePlayerName(player.name) === requestedName);
@@ -88,6 +84,10 @@ export function buildSignAndTradeProvisional(input: {
     };
   }
   const normalizedName = normalizePlayerName(player.name);
+  const activePlayer = state.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedName && entry.state === "active");
+  if (activePlayer) throw new Error("Il giocatore appartiene già a una squadra.");
+  const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedName);
+  if (qualifyingOffer) throw new Error("Il giocatore è coperto da una qualifying offer e non è un free agent.");
   const buyoutFreeAgent = request.playerSource === "list" && state.rosterEntries.some((entry) => (
     normalizePlayerName(entry.name) === normalizedName
     && entry.state === "cut"
@@ -96,44 +96,6 @@ export function buildSignAndTradeProvisional(input: {
   if (buyoutFreeAgent && !request.buyoutTopSixConfirmed) {
     throw new Error("Conferma di aver verificato che la squadra firmataria occupi una delle prime sei posizioni della regular season per acquisire questo free agent soggetto a buyout.");
   }
-  const activePlayer = state.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedName && entry.state === "active");
-  const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedName);
-  const teamEntries = state.rosterEntries.filter((entry) => entry.teamCode === request.signerTeamCode);
-  const activeEntries = teamEntries.filter((entry) => entry.state === "active");
-  const rolesByName = new Map(state.playerList.map((item) => [
-    normalizePlayerName(item.name),
-    item.role === "X" ? null : item.role,
-  ]));
-  const currentCost = 1000 - calculateCapSpace({
-    entries: teamEntries.filter((entry) => entry.state !== "active" || entry.slot !== "dpe"),
-    seasonName: input.seasonName,
-    optionSeasonName: input.seasonName,
-    countTeamOptions: true,
-  });
-  const evaluation = evaluateFreeAgentSigning({
-    phase: input.phase,
-    currentCost,
-    price: request.price,
-    destination: request.destinationSlot,
-    slots: {
-      regular: activeEntries.filter((entry) => entry.slot === "regular").length,
-      twoWay: activeEntries.filter((entry) => entry.slot === "two_way").length,
-      gLeague: activeEntries.filter((entry) => entry.slot === "g_league").length,
-      dpe: activeEntries.filter((entry) => entry.slot === "dpe").length,
-    },
-    playerSelected: true,
-    playerAlreadyOwned: Boolean(activePlayer),
-    qualifyingOfferActive: Boolean(qualifyingOffer),
-    roles: countRosterRoles(activeEntries.map((entry) => ({
-      role: rolesByName.get(normalizePlayerName(entry.name)) ?? null,
-      slot: entry.slot,
-    }))),
-    playerRole: player.role === "X" ? null : player.role,
-    cutRole: null,
-    cutSlot: null,
-  });
-  const blockingErrors = evaluation.errors.filter((issue) => !issue.code.startsWith("SLOT_"));
-  if (blockingErrors.length) throw new Error(blockingErrors.map((issue) => issue.message).join(" "));
   const contract = automaticFreeAgentContract(input.seasonName, tradeDeadlineHasPassed(input.moment));
   if (!contract) throw new Error("Annata non valida.");
   const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
@@ -162,10 +124,6 @@ export function buildSignAndTradeProvisional(input: {
     signerTeamCode: request.signerTeamCode,
     playerName: player.name,
     label: `Firma free agent · ${request.signerTeamCode} · ${request.price} crediti · ${slotLabel(request.destinationSlot)}`,
-    capWarnings: evaluation.warnings.filter((issue) => isCapIssueCode(issue.code)).map((issue) => issue.message),
-    warnings: evaluation.warnings.filter((issue) => !isCapIssueCode(issue.code)).map((issue) => issue.message),
-    spaceBefore: evaluation.calculated.spaceBefore,
-    spaceAfterSigning: evaluation.calculated.spaceAfter,
   } satisfies SignAndTradeProvisional;
 }
 

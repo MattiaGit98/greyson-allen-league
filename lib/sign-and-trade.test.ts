@@ -68,6 +68,8 @@ describe("sign and trade", () => {
       moment: "contract_delivery",
     });
     expect(provisional.state.rosterEntries.filter((entry) => entry.teamCode === "AAA" && entry.state === "active" && entry.slot === "regular")).toHaveLength(16);
+    expect(provisional).not.toHaveProperty("capWarnings");
+    expect(provisional).not.toHaveProperty("spaceAfterSigning");
 
     const finalState = applyValidatedTrade(provisional.state, {
       playerMoves: [{ stateIndex: 0, toTeamCode: "BBB", destinationSlot: "regular" }],
@@ -78,6 +80,29 @@ describe("sign and trade", () => {
       cuts: [],
     });
     expect(finalState.rosterEntries.filter((entry) => entry.teamCode === "AAA" && entry.state === "active" && entry.slot === "regular")).toHaveLength(15);
+  });
+
+  it("non valuta il salary cap sulla firma provvisoria", () => {
+    const state = baseState();
+    state.rosterEntries = state.rosterEntries.map((entry) => ({ ...entry, cost: 80 }));
+
+    expect(() => buildSignAndTradeProvisional({
+      state,
+      request: {
+        kind: "free_agent",
+        playerSource: "list",
+        playerName: "Free Agent",
+        playerRole: "",
+        realTeam: "",
+        signerTeamCode: "AAA",
+        price: 20,
+        destinationSlot: "regular",
+        buyoutTopSixConfirmed: false,
+      },
+      seasonName: "2026/27",
+      phase: "regular_season",
+      moment: "contract_delivery",
+    })).not.toThrow();
   });
 
   it("consente di coinvolgere nello scambio proprio il giocatore appena firmato", () => {

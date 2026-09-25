@@ -197,10 +197,6 @@ export default async function TradesPage({
           playerName: signAndTrade.playerName,
           signingEntryId: signAndTrade.signingEntryId,
           label: signAndTrade.label,
-          capWarnings: signAndTrade.capWarnings,
-          warnings: signAndTrade.warnings,
-          spaceBefore: signAndTrade.spaceBefore,
-          spaceAfterSigning: signAndTrade.spaceAfterSigning,
         } : null}
         teams={tradeTeams}
         registerAction={registerTrade}

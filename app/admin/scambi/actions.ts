@@ -469,7 +469,6 @@ export async function registerTrade(formData: FormData) {
   const blockingDpeCut = [...dpeCutTeams].flatMap((teamCode) => actualCapWarningsByTeam.get(teamCode) ?? [])[0];
   if (blockingDpeCut) fail(`Il taglio di un giocatore dalla DPE non può violare il salary cap. ${blockingDpeCut}`);
   const capWarnings = [...new Set([
-    ...(provisionalSignAndTrade?.capWarnings ?? []),
     ...evaluation.warnings
       .filter((warning) => warning.code.includes("CAP"))
       .map((warning) => warning.message),

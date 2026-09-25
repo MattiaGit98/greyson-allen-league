@@ -152,10 +152,6 @@ export function TradeBuilder({
     playerName: string;
     signingEntryId: string;
     label: string;
-    capWarnings: string[];
-    warnings: string[];
-    spaceBefore: number;
-    spaceAfterSigning: number;
   };
   teams: TradeTeam[];
   mode?: "admin" | "simulator";
@@ -256,7 +252,6 @@ export function TradeBuilder({
     promotions,
   }), [cuts, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
   const capWarnings = [...new Set([
-    ...(signAndTrade?.capWarnings ?? []),
     ...evaluation.warnings
       .filter((warning) => warning.code.includes("CAP"))
       .map((warning) => displayIssue(warning.message, teams)),
@@ -335,7 +330,6 @@ export function TradeBuilder({
     ...roleMinimumSlotErrors.map((error) => `Scambio non valido: ${error}`),
   ];
   const validationWarnings = [
-    ...(signAndTrade?.warnings ?? []),
     ...evaluation.warnings
       .filter((warning) => !simulator || !warning.code.includes("CAP"))
       .map((warning) => displayIssue(warning.message, teams)),
@@ -560,11 +554,7 @@ export function TradeBuilder({
             <strong>{signAndTrade.playerName}</strong>
             <small>{signAndTrade.label}</small>
           </div>
-          <div>
-            <span>Spazio alla firma</span>
-            <strong>{formatSpace(signAndTrade.spaceBefore)} → {formatSpace(signAndTrade.spaceAfterSigning)}</strong>
-            <small>Lo slot deve risultare regolare al termine dello scambio.</small>
-          </div>
+          <p>Salary cap e slot vengono verificati sul risultato finale dello scambio.</p>
           <a href="/admin/free-agent">Annulla</a>
         </section>
       )}
@@ -692,8 +682,9 @@ export function TradeBuilder({
         <>
           <button
             className="button primary trade-submit"
-            type="submit"
+            type="button"
             disabled={!simulationValid}
+            onClick={() => setConfirmationOpen(true)}
           >
             {simulationValid ? "Conferma scambio" : "Operazione non disponibile"}
           </button>
