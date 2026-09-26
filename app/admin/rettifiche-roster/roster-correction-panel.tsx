@@ -59,7 +59,7 @@ export function RosterCorrectionPanel({
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
   const teamEntries = entries.filter((entry) => entry.teamCode === team?.code);
   const seasonNames = [0, 1, 2].map((distance) => followingSeasonName(seasonName, distance));
-  const contractOptions = rosterCorrectionContractOptions(seasonName);
+  const contractOptions = rosterCorrectionContractOptions(seasonName, leagueMoment);
 
   const preview = useMemo(() => buildPreview({
     teamEntries,

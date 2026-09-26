@@ -16,7 +16,7 @@ describe("calendario delle fasi", () => {
 
   it("genera tutte le voci, una sola Asta e non mostra l'inizio offseason", () => {
     expect(generatedLeagueCalendar(dates)).toEqual([
-      { key: "team_option_deadline", event: "Scadenza esercizio T.O.", date: "2026-09-20" },
+      { key: "team_option_deadline", event: "Scadenza T.O. e R.E.", date: "2026-09-20" },
       { key: "auction_start", event: "Asta", date: "2026-10-01" },
       { key: "contract_delivery", event: "Consegna contratti", date: "2026-10-11" },
       { key: "regular_season_start", event: "Inizio campionato", date: "2026-10-15" },
@@ -51,7 +51,7 @@ describe("calendario delle fasi", () => {
       previousDates: {},
       currentMoment: "offseason_start",
       today: "2026-09-01",
-    })).toContain("Consegna contratti non può precedere Scadenza esercizio T.O..");
+    })).toContain("Consegna contratti non può precedere Scadenza T.O. e R.E..");
   });
 
   it("consente date uguali e date future non ancora compilate", () => {
@@ -74,13 +74,13 @@ describe("calendario delle fasi", () => {
       previousDates,
       currentMoment: "team_option_deadline",
       today: "2026-09-25",
-    })).toContain("La data già conclusa di Scadenza esercizio T.O. non può essere cancellata.");
+    })).toContain("La data già conclusa di Scadenza T.O. e R.E. non può essere cancellata.");
     expect(phaseCalendarValidationErrors({
       dates: normalizePhaseDates({ team_option_deadline: "2026-09-30" }),
       previousDates,
       currentMoment: "team_option_deadline",
       today: "2026-09-25",
-    })).toContain("La data già conclusa di Scadenza esercizio T.O. non può essere spostata nel futuro.");
+    })).toContain("La data già conclusa di Scadenza T.O. e R.E. non può essere spostata nel futuro.");
   });
 
   it("lascia correggere una data scaduta se la fase non è ancora stata avanzata", () => {

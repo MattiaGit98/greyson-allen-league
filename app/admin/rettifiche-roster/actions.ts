@@ -33,12 +33,14 @@ export async function saveRosterCorrections(formData: FormData) {
   const { data: { user } } = await activeSeason.supabase.auth.getUser();
   if (!user) fail("Sessione scaduta.");
   const state = await loadEditableLeagueState();
+  const leagueMoment = leagueMomentFromSeason(activeSeason.season);
   let applied;
   try {
     applied = applyRosterCorrections({
       state,
       teamCode,
       seasonName: activeSeason.season.name,
+      leagueMoment,
       corrections,
       addition,
     });
@@ -46,9 +48,9 @@ export async function saveRosterCorrections(formData: FormData) {
     fail(error instanceof Error ? error.message : "Rettifiche non valide.");
   }
   const teamRosterAfter = applied.state.rosterEntries.filter((entry) => entry.teamCode === teamCode);
-  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, activeSeason.season.status, leagueMomentFromSeason(activeSeason.season));
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, activeSeason.season.status, leagueMoment);
   if (roleMinimumSlotError) fail(roleMinimumSlotError);
-  if (roleMinimumShortage(teamRosterAfter, activeSeason.season.status, leagueMomentFromSeason(activeSeason.season)).total > 0 && !roleMinimumConfirmed) {
+  if (roleMinimumShortage(teamRosterAfter, activeSeason.season.status, leagueMoment).total > 0 && !roleMinimumConfirmed) {
     fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");
   }
 
@@ -64,7 +66,7 @@ export async function saveRosterCorrections(formData: FormData) {
     after: spacesAfter,
     seasonNames,
     phase: activeSeason.season.status,
-    currentMoment: leagueMomentFromSeason(activeSeason.season),
+    currentMoment: leagueMoment,
   });
   requireCapOverride(capWarnings, forceCap, fail);
 

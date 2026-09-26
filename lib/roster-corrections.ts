@@ -1,5 +1,6 @@
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
+import type { LeagueMoment } from "./league-moments";
 import { seasonEndYear } from "./season-time";
 
 export type RosterCorrectionInput = {
@@ -34,13 +35,13 @@ export function normalizeRosterCorrectionContract(value: string) {
   return match[2] ? `${match[1]} (${match[2]})` : match[1];
 }
 
-export function rosterCorrectionContractOptions(seasonName: string) {
+export function rosterCorrectionContractOptions(seasonName: string, leagueMoment: LeagueMoment) {
   const currentEndYear = seasonEndYear(seasonName);
   if (currentEndYear === null) return [];
-  const options = [
-    { value: "T.O.", label: "T.O." },
-    { value: `${shortYear(currentEndYear - 1)} + R.E.`, label: "R.E." },
-  ];
+  const options = [{ value: "T.O.", label: "T.O." }];
+  if (leagueMoment === "offseason_start") {
+    options.push({ value: `${shortYear(currentEndYear - 1)} + R.E.`, label: "R.E." });
+  }
   for (let distance = 0; distance < 3; distance += 1) {
     const year = shortYear(currentEndYear + distance);
     options.push(
@@ -57,12 +58,14 @@ export function applyRosterCorrections({
   state,
   teamCode,
   seasonName,
+  leagueMoment,
   corrections,
   addition = null,
 }: {
   state: EditableLeagueState;
   teamCode: string;
   seasonName: string;
+  leagueMoment: LeagueMoment;
   corrections: RosterCorrectionInput[];
   addition?: RosterAdditionInput | null;
 }) {
@@ -97,7 +100,7 @@ export function applyRosterCorrections({
     if (contract === "PENDING" && initialContract !== "PENDING") {
       throw new Error(`${entry.name}: PENDING può restare soltanto sui contratti dell'asta ancora da pubblicare.`);
     }
-    if (!isSelectableCorrectionContract(contract, seasonName) && contract !== initialContract) {
+    if (!isSelectableCorrectionContract(contract, seasonName, leagueMoment) && contract !== initialContract) {
       throw new Error(`${entry.name}: seleziona una delle scadenze previste per l'annata attiva.`);
     }
     const after = correctedContractMetadata({ ...entry, cost: correction.cost, contract }, seasonName);
@@ -131,7 +134,7 @@ export function applyRosterCorrections({
     if (!contract || contract === "PENDING") {
       throw new Error(`${player.name}: scadenza non riconosciuta.`);
     }
-    if (!isSelectableCorrectionContract(contract, seasonName)) {
+    if (!isSelectableCorrectionContract(contract, seasonName, leagueMoment)) {
       throw new Error(`${player.name}: seleziona una delle scadenze previste per l'annata attiva.`);
     }
     if (!["regular", "two_way", "g_league", "dpe"].includes(addition.slot)) {
@@ -183,6 +186,6 @@ function shortYear(year: number) {
   return String(year % 100).padStart(2, "0");
 }
 
-function isSelectableCorrectionContract(contract: string, seasonName: string) {
-  return rosterCorrectionContractOptions(seasonName).some((option) => option.value === contract);
+function isSelectableCorrectionContract(contract: string, seasonName: string, leagueMoment: LeagueMoment) {
+  return rosterCorrectionContractOptions(seasonName, leagueMoment).some((option) => option.value === contract);
 }

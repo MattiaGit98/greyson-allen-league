@@ -15,7 +15,7 @@ export type LeagueTransition = LeagueMoment | "season_end";
 
 export const leagueMomentLabels: Record<LeagueTransition, string> = {
   offseason_start: "Inizio offseason",
-  team_option_deadline: "Scadenza esercizio T.O.",
+  team_option_deadline: "Scadenza T.O. e R.E.",
   auction_start: "Inizio asta",
   auction_completed: "Termine asta",
   contract_delivery: "Consegna contratti",
