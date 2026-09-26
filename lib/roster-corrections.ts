@@ -1,5 +1,6 @@
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
+import { seasonEndYear } from "./season-time";
 
 export type RosterCorrectionInput = {
   sourceIndex: number;
@@ -31,6 +32,25 @@ export function normalizeRosterCorrectionContract(value: string) {
   const match = normalized.match(/^(\d{2})(?: \((E|Q)\))?$/);
   if (!match) return null;
   return match[2] ? `${match[1]} (${match[2]})` : match[1];
+}
+
+export function rosterCorrectionContractOptions(seasonName: string) {
+  const currentEndYear = seasonEndYear(seasonName);
+  if (currentEndYear === null) return [];
+  const options = [
+    { value: "T.O.", label: "T.O." },
+    { value: `${shortYear(currentEndYear - 1)} + R.E.`, label: "R.E." },
+  ];
+  for (let distance = 0; distance < 3; distance += 1) {
+    const year = shortYear(currentEndYear + distance);
+    options.push(
+      { value: year, label: year },
+      { value: `${year} + R.E.`, label: `${year} + R.E.` },
+      { value: `${year} (Q)`, label: `${year} → Q.O.` },
+      { value: `${year} (E)`, label: `${year} + EXT` },
+    );
+  }
+  return options;
 }
 
 export function applyRosterCorrections({
@@ -69,9 +89,16 @@ export function applyRosterCorrections({
       throw new Error(`${entry.name}: il costo deve essere un numero intero non negativo.`);
     }
     const contract = normalizeRosterCorrectionContract(correction.contract);
-    if (!contract) throw new Error(`${entry.name}: scadenza non riconosciuta. Usa solo uno dei formati indicati nella legenda.`);
-    if (contract === "PENDING" && normalizeRosterCorrectionContract(entry.contract) !== "PENDING") {
+    if (!contract) throw new Error(`${entry.name}: scadenza non riconosciuta. Seleziona una delle opzioni disponibili.`);
+    const initialContract = normalizeRosterCorrectionContract(entry.contract);
+    if (initialContract === "PENDING" && contract !== "PENDING") {
+      throw new Error(`${entry.name}: il contratto da assegnare non può essere modificato dalle rettifiche roster.`);
+    }
+    if (contract === "PENDING" && initialContract !== "PENDING") {
       throw new Error(`${entry.name}: PENDING può restare soltanto sui contratti dell'asta ancora da pubblicare.`);
+    }
+    if (!isSelectableCorrectionContract(contract, seasonName) && contract !== initialContract) {
+      throw new Error(`${entry.name}: seleziona una delle scadenze previste per l'annata attiva.`);
     }
     const after = correctedContractMetadata({ ...entry, cost: correction.cost, contract }, seasonName);
     if (after.cost === entry.cost && after.contract === entry.contract) continue;
@@ -102,7 +129,10 @@ export function applyRosterCorrections({
     }
     const contract = normalizeRosterCorrectionContract(addition.contract);
     if (!contract || contract === "PENDING") {
-      throw new Error(`${player.name}: scadenza non riconosciuta. Usa solo uno dei formati indicati nella legenda.`);
+      throw new Error(`${player.name}: scadenza non riconosciuta.`);
+    }
+    if (!isSelectableCorrectionContract(contract, seasonName)) {
+      throw new Error(`${player.name}: seleziona una delle scadenze previste per l'annata attiva.`);
     }
     if (!["regular", "two_way", "g_league", "dpe"].includes(addition.slot)) {
       throw new Error("Slot della nuova aggiunta non valido.");
@@ -147,4 +177,12 @@ function correctedContractMetadata(entry: RosterEntry, _seasonName: string): Ros
 
 function normalizeName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
+}
+
+function shortYear(year: number) {
+  return String(year % 100).padStart(2, "0");
+}
+
+function isSelectableCorrectionContract(contract: string, seasonName: string) {
+  return rosterCorrectionContractOptions(seasonName).some((option) => option.value === contract);
 }

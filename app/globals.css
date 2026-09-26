@@ -332,14 +332,15 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .contract-expiry-next { background: #ead49d; color: #705319; }
 .contract-expiry-later { background: #bde0d4; color: #2d675a; }
 .contract-marker { min-height: 21px; display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 99px; font-style: normal; font-size: 9px; font-weight: 900; letter-spacing: .05em; }
-.contract-marker-ext { background: #e2e5f5; color: #4d5880; }
-.contract-marker-qo { background: #dceaf2; color: #275f78; }
+.contract-marker-ext { background: #e2e5e9; color: #414b57; }
+.contract-marker-qo { background: #71584c; color: #fff; }
 .contract-marker-double { background: #eeddea; color: #754a6c; }
 .contract-marker-acquisition-qo { background: #e2eef6; color: #3d6680; }
 .contract-marker-rfa { background: #f3e6d4; color: #825720; }
 .contract-marker-pending-option { background: #e7edf4; color: #4f6680; }
 .contract-pending { color: #8a6840; font-size: 10px; }
 .contract-team-option { min-width: 28px; justify-content: center; padding: 4px 6px; border-radius: 5px; background: #eee5f2; color: #684275; }
+.contract-rookie-extension { background: #dceaf2; color: #275f78; }
 .credit-value { color: #b74d26; font-style: normal; font-weight: 900; }
 .stretch-status { min-width: 34px; display: inline-flex; justify-content: center; padding: 4px 7px; border-radius: 99px; font-style: normal; font-size: 8px; font-weight: 900; }
 .stretch-status.available { background: #eeece4; color: #697069; }
@@ -1923,10 +1924,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .other-operation-summary > div:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; border-top: 1px solid var(--line); }
 .roster-correction-page { max-width: 1280px; margin: 0 auto; }
 .roster-correction-form { display: grid; }
-.contract-format-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 12px; padding: 10px 14px; border: 1px solid #d4d8cd; border-radius: 12px; background: #f0f2e9; color: #596158; font-size: 9px; line-height: 1.35; }
-.contract-format-legend > strong { color: var(--green); font-size: 9px; text-transform: uppercase; letter-spacing: .09em; }
-.contract-format-legend span { white-space: nowrap; }
-.contract-format-legend b { color: #9d3f22; }
 .roster-correction-team-select { margin-bottom: 14px; }
 .roster-correction-content { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
 .roster-correction-section { padding-right: 16px; padding-left: 16px; }
@@ -1940,9 +1937,10 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .roster-correction-row:last-child { border-bottom: 0; }
 .roster-correction-row > strong { min-width: 0; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .roster-correction-row > span { display: grid; place-items: center; }
-.roster-correction-row > input { width: 100%; min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid #ccd1c7; border-radius: 8px; outline: 0; background: white; color: var(--ink); font: inherit; font-size: 11px; font-weight: 800; text-align: center; }
-.roster-correction-row > input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.08); }
-.roster-correction-row > input.invalid { border-color: #b35236; background: #fff2ed; box-shadow: 0 0 0 2px rgba(179,82,54,.08); }
+.roster-correction-row > input, .roster-correction-row > select { width: 100%; min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid #ccd1c7; border-radius: 8px; outline: 0; background: white; color: var(--ink); font: inherit; font-size: 11px; font-weight: 800; text-align: center; }
+.roster-correction-row > input:focus, .roster-correction-row > select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.08); }
+.roster-correction-row > input.invalid, .roster-correction-row > select.invalid { border-color: #b35236; background: #fff2ed; box-shadow: 0 0 0 2px rgba(179,82,54,.08); }
+.roster-correction-row > select:disabled { background: #eceee9; color: #686d67; opacity: 1; }
 .roster-correction-row.removed { background: #f7eae5; opacity: .72; }
 .roster-correction-row.removed > strong { text-decoration: line-through; }
 .roster-correction-remove { width: 31px; height: 31px; display: grid; place-items: center; justify-self: center; padding: 0; border: 1px solid #c8755d; border-radius: 50%; background: white; color: #a34329; font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
@@ -2121,15 +2119,13 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .other-operation-summary > div:last-child:nth-child(odd) { border-top: 0; }
   .other-operation-summary > div:last-child { border-bottom: 0; }
   .roster-correction-page { padding-right: 0; padding-left: 0; }
-  .roster-correction-page > .notice, .contract-format-legend, .roster-correction-team-select { margin-right: 8px; margin-left: 8px; }
-  .contract-format-legend { align-items: flex-start; }
-  .contract-format-legend > strong { width: 100%; }
+  .roster-correction-page > .notice, .roster-correction-team-select { margin-right: 8px; margin-left: 8px; }
   .roster-correction-content { border-right: 0; border-left: 0; border-radius: 0; }
   .roster-correction-section { padding-right: 0; padding-left: 0; }
   .roster-correction-table { border-right: 0; border-left: 0; border-radius: 0; }
   .roster-correction-head, .roster-correction-row { grid-template-columns: minmax(0, 1fr) 30px 78px 58px 34px; gap: 6px; padding: 8px 7px; }
   .roster-correction-head { font-size: 7px; letter-spacing: .03em; }
-  .roster-correction-row > input { padding: 0 4px; font-size: 10px; }
+  .roster-correction-row > input, .roster-correction-row > select { padding: 0 4px; font-size: 9px; }
   .roster-correction-remove { width: 29px; height: 29px; }
   .roster-correction-addition { padding: 14px 8px 0; }
   .roster-correction-add-grid { grid-template-columns: minmax(0, 1fr) 62px; gap: 8px; padding: 10px; }

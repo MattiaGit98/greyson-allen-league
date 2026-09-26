@@ -7,7 +7,7 @@ import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import type { LeaguePhase, PlayerListEntry, RosterEntry } from "@/lib/league-types";
 import { type LeagueMoment } from "@/lib/league-moments";
 import { countActiveRosterSlots, rosterSlotLimits } from "@/lib/roster-slot-limits";
-import { normalizeRosterCorrectionContract } from "@/lib/roster-corrections";
+import { normalizeRosterCorrectionContract, rosterCorrectionContractOptions } from "@/lib/roster-corrections";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
 import { saveRosterCorrections } from "./actions";
@@ -48,7 +48,7 @@ export function RosterCorrectionPanel({
   const [drafts, setDrafts] = useState<Record<number, Draft>>(() => Object.fromEntries(
     entries.map((entry) => [entry.sourceIndex, {
       cost: String(entry.cost),
-      contract: entry.contract,
+      contract: normalizeRosterCorrectionContract(entry.contract) ?? "",
       remove: false,
     }]),
   ));
@@ -59,6 +59,7 @@ export function RosterCorrectionPanel({
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
   const teamEntries = entries.filter((entry) => entry.teamCode === team?.code);
   const seasonNames = [0, 1, 2].map((distance) => followingSeasonName(seasonName, distance));
+  const contractOptions = rosterCorrectionContractOptions(seasonName);
 
   const preview = useMemo(() => buildPreview({
     teamEntries,
@@ -94,16 +95,6 @@ export function RosterCorrectionPanel({
       <input type="hidden" name="force_cap" value={String(forceCap)} />
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
 
-      <div className="contract-format-legend" aria-label="Legenda formati contrattuali">
-        <strong>Legenda</strong>
-        <span><b>XX</b>: scade nel 20XX</span>
-        <span><b>T.O.</b>: team option</span>
-        <span><b>XX (Q)</b>: scadenza con Q.O.</span>
-        <span><b>XX (E)</b>: contratto estendibile</span>
-        <span><b>XX + R.E.</b>: rookie extension applicabile dopo la stagione indicata</span>
-        <span><b>PENDING</b>: stato già presente per un contratto d’asta non pubblicato</span>
-      </div>
-
       <label className="admin-team-select roster-correction-team-select">
         <span>Squadra</span>
         <select value={team.code} onChange={(event) => { setTeamCode(event.target.value); setForceCap(false); setRoleMinimumConfirmed(false); }}>
@@ -138,14 +129,20 @@ export function RosterCorrectionPanel({
                     <div className={`roster-correction-row ${draft.remove ? "removed" : ""}`} key={entry.sourceIndex}>
                       <strong>{entry.name}</strong>
                       <span><i className={`mini-role mini-role-${entry.role?.toLowerCase() ?? "none"}`}>{entry.role ?? "X"}</i></span>
-                      <input
+                      <select
                         className={invalidContract ? "invalid" : ""}
                         value={draft.contract}
-                        disabled={draft.remove}
+                        disabled={draft.remove || draft.contract === "PENDING"}
                         onChange={(event) => updateDraft(entry.sourceIndex, { contract: event.target.value })}
                         aria-label={`Scadenza di ${entry.name}`}
                         aria-invalid={invalidContract}
-                      />
+                      >
+                        {draft.contract === "PENDING"
+                          ? <option value="PENDING">Da assegnare</option>
+                          : correctionOptionsForCurrentValue(contractOptions, draft.contract).map((option) => (
+                            <option value={option.value} key={option.value}>{option.label}</option>
+                          ))}
+                      </select>
                       <input
                         className={invalidCost ? "invalid" : ""}
                         type="number"
@@ -193,7 +190,10 @@ export function RosterCorrectionPanel({
             <label><span>Ruolo</span><strong>{preview.additionPlayer?.role ?? "X"}</strong></label>
             <label>
               <span>Scadenza</span>
-              <input value={addition.contract} onChange={(event) => { setAddition((current) => ({ ...current, contract: event.target.value })); setForceCap(false); setRoleMinimumConfirmed(false); }} />
+              <select value={addition.contract} onChange={(event) => { setAddition((current) => ({ ...current, contract: event.target.value })); setForceCap(false); setRoleMinimumConfirmed(false); }}>
+                <option value="">Seleziona</option>
+                {contractOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+              </select>
             </label>
             <label>
               <span>Costo</span>
@@ -376,6 +376,23 @@ function formatRoles(roles: Record<"G" | "A" | "C", number>) {
 
 function formatSlots(slots: ReturnType<typeof countActiveRosterSlots>) {
   return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`;
+}
+
+function correctionOptionsForCurrentValue(
+  options: ReturnType<typeof rosterCorrectionContractOptions>,
+  currentValue: string,
+) {
+  if (!currentValue) return [{ value: "", label: "Seleziona" }, ...options];
+  if (options.some((option) => option.value === currentValue)) return options;
+  return [{ value: currentValue, label: `${formatContractOptionLabel(currentValue)} · valore esistente` }, ...options];
+}
+
+function formatContractOptionLabel(value: string) {
+  const qualifyingOffer = value.match(/^(\d{2}) \(Q\)$/);
+  if (qualifyingOffer) return `${qualifyingOffer[1]} → Q.O.`;
+  const extension = value.match(/^(\d{2}) \(E\)$/);
+  if (extension) return `${extension[1]} + EXT`;
+  return value;
 }
 
 function normalizeName(value: string) {

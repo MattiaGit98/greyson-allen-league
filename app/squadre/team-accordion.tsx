@@ -9,6 +9,7 @@ import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
 import { isFourthDraftPick } from "@/lib/future-draft-picks";
 import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState as SortState } from "@/lib/roster-display-sort";
+import { isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
 type DataSectionKey = (typeof dataSectionKeys)[number];
@@ -797,12 +798,15 @@ function ContractDisplay({
   }
   if (!value) return <i className="contract-value">—</i>;
   if (value === "T.O.") return <i className="contract-value contract-team-option">T.O.</i>;
+  if (isRookieExtensionDecisionDue({ contract: value }, seasonName)) {
+    return <i className="contract-value contract-team-option contract-rookie-extension">R.E.</i>;
+  }
   const year = value.match(/\d{2}/)?.[0] ?? value;
   const expiryTone = contractExpiryTone(year, seasonName);
   const rookieExtensionTone = contractExpiryTone(nextContractYear(year), seasonName);
   const markers = [
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
-    ...(value.includes("(Q)") ? [{ label: "+ Q.O.", kind: "qo" }] : []),
+    ...(value.includes("(Q)") ? [{ label: "→ Q.O.", kind: "qo" }] : []),
     ...(value.includes("+ R.E.") ? [{ label: "+ R.E.", kind: "re" }] : []),
     ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
     ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),

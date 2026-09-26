@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyLeagueState, type EditableLeagueState } from "./league-state";
-import { applyRosterCorrections, normalizeRosterCorrectionContract } from "./roster-corrections";
+import { applyRosterCorrections, normalizeRosterCorrectionContract, rosterCorrectionContractOptions } from "./roster-corrections";
 
 function state(): EditableLeagueState {
   return {
@@ -30,6 +30,25 @@ describe("rettifiche roster", () => {
     expect(normalizeRosterCorrectionContract("2028")).toBeNull();
     expect(normalizeRosterCorrectionContract("28 + Q.O.")).toBeNull();
     expect(normalizeRosterCorrectionContract("28 (EXT)")).toBeNull();
+  });
+
+  it("propone T.O., R.E. corrente e quattro contratti per ciascuno dei tre anni", () => {
+    expect(rosterCorrectionContractOptions("2026/27")).toEqual([
+      { value: "T.O.", label: "T.O." },
+      { value: "26 + R.E.", label: "R.E." },
+      { value: "27", label: "27" },
+      { value: "27 + R.E.", label: "27 + R.E." },
+      { value: "27 (Q)", label: "27 → Q.O." },
+      { value: "27 (E)", label: "27 + EXT" },
+      { value: "28", label: "28" },
+      { value: "28 + R.E.", label: "28 + R.E." },
+      { value: "28 (Q)", label: "28 → Q.O." },
+      { value: "28 (E)", label: "28 + EXT" },
+      { value: "29", label: "29" },
+      { value: "29 + R.E.", label: "29 + R.E." },
+      { value: "29 (Q)", label: "29 → Q.O." },
+      { value: "29 (E)", label: "29 + EXT" },
+    ]);
   });
 
   it("modifica costo e scadenza e chiude il percorso della rookie extension", () => {
@@ -72,11 +91,27 @@ describe("rettifiche roster", () => {
     })).toThrow("scadenza non riconosciuta");
   });
 
+  it("blocca una nuova scadenza valida come formato ma fuori dai tre anni disponibili", () => {
+    expect(() => applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27",
+      corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 20, contract: "30", remove: false }],
+    })).toThrow("scadenze previste per l'annata attiva");
+  });
+
   it("non permette di trasformare un contratto pubblicato in PENDING", () => {
     expect(() => applyRosterCorrections({
       state: state(), teamCode: "AAA", seasonName: "2026/27",
       corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 20, contract: "PENDING", remove: false }],
     })).toThrow("PENDING può restare soltanto");
+  });
+
+  it("non permette di modificare dalle rettifiche un contratto ancora da assegnare", () => {
+    const current = state();
+    current.rosterEntries[0] = { ...current.rosterEntries[0], contract: "PENDING" };
+    expect(() => applyRosterCorrections({
+      state: current, teamCode: "AAA", seasonName: "2026/27",
+      corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 20, contract: "27", remove: false }],
+    })).toThrow("contratto da assegnare non può essere modificato");
   });
 
   it("può aggiungere come attivo un giocatore già tagliato lasciando intatto il vecchio addebito", () => {
