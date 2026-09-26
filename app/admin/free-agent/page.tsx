@@ -70,8 +70,8 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
         slot: entry.slot,
         cost: entry.cost,
         contract: entry.contract,
-        cuttable: !isUnresolvedTeamOption(entry, leagueMoment),
-        promotionDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment)
+        cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
+        promotionDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment, seasonName)
           ? []
           : legalPromotionDestinations(
             { ...entry, slot: entry.slot as ManagedRosterSlot },

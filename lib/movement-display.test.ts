@@ -5,7 +5,7 @@ describe("visualizzazione sintetica dei movimenti", () => {
   it("abbrevia una team option mantenendo giocatore e squadra", () => {
     expect(conciseMovementDetail(
       "team_option",
-      "Cooper Flagg: T.O. esercitata da CSS; slot Roster; 25 crediti; scadenza 28 (2X)",
+      "Cooper Flagg: T.O. esercitata da CSS; slot Roster; 25 crediti; contratto 27 + R.E.",
     )).toBe("Cooper Flagg: T.O. esercitata da CSS");
   });
 
@@ -56,7 +56,7 @@ describe("visualizzazione sintetica dei movimenti", () => {
       "rettifica_roster_aggiunta",
       "rettifica_admin_scambio",
     ]);
-    expect(movementOperationTypesForFilter("team_option")).toEqual(["team_option", "team_option_playoff"]);
+    expect(movementOperationTypesForFilter("team_option")).toEqual(["team_option", "rookie_extension", "team_option_playoff"]);
     expect(movementOperationTypesForFilter("procedure_stagionali")).toEqual(["ordine_draft_finale", "consegna_contratti"]);
     expect(movementOperationTypesForFilter("inesistente")).toBeNull();
   });

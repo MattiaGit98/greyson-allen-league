@@ -19,7 +19,7 @@ import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/sea
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
-import { slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { contractIncludesTeamOption, slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { applyStandardContractCut } from "@/lib/team-option-contract";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
 import { applyFreeRelease } from "@/lib/release-operations";
@@ -283,14 +283,14 @@ export async function modifyAuctionPlayer(formData: FormData) {
         slot: newSlot,
         contract: isPostAuctionContractAssignmentCandidate(item, season.name)
           ? "PENDING"
-          : newSlot === "regular" ? item.contract : "T.O.",
+          : newSlot === "regular" || contractIncludesTeamOption(item) ? item.contract : "T.O.",
       };
       if (index === exchangeIndex && entry.slot !== "dpe") return {
         ...item,
         slot: entry.slot,
         contract: isPostAuctionContractAssignmentCandidate(item, season.name)
           ? "PENDING"
-          : entry.slot === "regular" ? item.contract : "T.O.",
+          : entry.slot === "regular" || contractIncludesTeamOption(item) ? item.contract : "T.O.",
       };
       return item;
     });

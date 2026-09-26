@@ -36,13 +36,19 @@ describe("logica temporale della stagione", () => {
     expect(calculateCapSpace({ entries, seasonName: "2028/29", optionSeasonName: "2026/27", countTeamOptions: false })).toBe(1000);
   });
 
-  it("raddoppia una team option esercitata soltanto nell'ultimo anno", () => {
+  it("conteggia il secondo anno con R.E. ma non impegna le annate successive", () => {
     const exercisedOption: RosterEntry[] = [
-      { name: "T.O. esercitata", cost: 10, contract: "28 (2X)", role: "G", state: "active", slot: "regular", teamCode: "TST" },
+      { name: "T.O. esercitata", cost: 10, contract: "27 + R.E.", role: "G", state: "active", slot: "regular", teamCode: "TST" },
     ];
     expect(calculateCapSpace({ entries: exercisedOption, seasonName: "2026/27", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(990);
-    expect(calculateCapSpace({ entries: exercisedOption, seasonName: "2027/28", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(980);
-    expect(calculateCapSpace({ entries: exercisedOption, seasonName: "2028/29", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(1000);
+    expect(calculateCapSpace({ entries: exercisedOption, seasonName: "2027/28", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(1000);
+  });
+
+  it("conteggia il terzo anno già raddoppiato dopo l'applicazione della R.E.", () => {
+    const extended: RosterEntry[] = [
+      { name: "R.E. applicata", cost: 20, contract: "28", role: "G", state: "active", slot: "regular", teamCode: "TST" },
+    ];
+    expect(calculateCapSpace({ entries: extended, seasonName: "2027/28", optionSeasonName: "2027/28", countTeamOptions: true })).toBe(980);
   });
 
   it("conteggia un acquisto d'asta in attesa di contratto soltanto nell'annata corrente", () => {

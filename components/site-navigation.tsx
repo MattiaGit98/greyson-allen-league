@@ -20,7 +20,7 @@ const adminLinks = [
   ["Dashboard", "/admin"],
   ["Firma free agent", "/admin/free-agent"],
   ["Scambi", "/admin/scambi"],
-  ["Team option", "/admin/team-option"],
+  ["Contratti da rookie", "/admin/team-option"],
   ["Assegnazione contratti", "/admin/contratti"],
   ["Spostamento slot", "/admin/slot"],
   ["Altre operazioni", "/admin/altre-operazioni"],

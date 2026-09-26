@@ -2,6 +2,10 @@ import type { QualifyingOfferRight, RosterEntry } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { followingSeasonName, seasonEndYear } from "./season-time";
 
+const rookieExtensionPattern = /^(\d{2})\s*\+\s*R\.?E\.?$/i;
+const legacyDoublePattern = /^(\d{2})\s*(?:\((?:2X|X2)\)|(?:2X|X2))$/i;
+const legacyDoubleTextPattern = /(\d{2})\s*(?:\((?:2X|X2)\)|(?:2X|X2))/gi;
+
 export function destinationAfterTeamOptionExercise(
   source: RosterEntry["slot"],
   requestedForGLeague: "regular" | "two_way",
@@ -11,11 +15,47 @@ export function destinationAfterTeamOptionExercise(
   return source;
 }
 
-export function isUnresolvedTeamOption(entry: Pick<RosterEntry, "contract">, moment: LeagueMoment) {
-  return entry.contract === "T.O." && !hasReachedMoment(moment, "team_option_deadline");
+export function isUnresolvedTeamOption(
+  entry: Pick<RosterEntry, "contract">,
+  moment: LeagueMoment,
+  activeSeasonName?: string,
+) {
+  if (hasReachedMoment(moment, "team_option_deadline")) return false;
+  return entry.contract === "T.O."
+    || Boolean(activeSeasonName && isRookieExtensionDecisionDue(entry, activeSeasonName));
 }
 
-export function qualifyingOfferForDeclinedTeamOption(
+export function rookieExtensionExpiryYear(contract: string, referenceYear?: number) {
+  const match = contract.trim().match(rookieExtensionPattern);
+  if (!match) return null;
+  const shortYear = Number(match[1]);
+  if (referenceYear === undefined) return shortYear;
+  const century = Math.floor(referenceYear / 100) * 100;
+  let fullYear = century + shortYear;
+  if (fullYear > referenceYear + 50) fullYear -= 100;
+  if (fullYear < referenceYear - 50) fullYear += 100;
+  return fullYear;
+}
+
+export function isRookieExtensionContract(entry: Pick<RosterEntry, "contract">) {
+  return rookieExtensionExpiryYear(entry.contract) !== null;
+}
+
+export function isRookieExtensionDecisionDue(
+  entry: Pick<RosterEntry, "contract">,
+  activeSeasonName: string,
+) {
+  const activeEndYear = seasonEndYear(activeSeasonName);
+  if (activeEndYear === null) return false;
+  const expiry = rookieExtensionExpiryYear(entry.contract, activeEndYear);
+  return expiry !== null && expiry < activeEndYear;
+}
+
+export function rookieExtensionContract(endYear: number) {
+  return `${String(endYear).slice(-2)} + R.E.`;
+}
+
+export function qualifyingOfferForDeclinedRookieExtension(
   entry: Pick<RosterEntry, "name" | "cost" | "teamCode">,
 ): QualifyingOfferRight {
   return {
@@ -25,78 +65,88 @@ export function qualifyingOfferForDeclinedTeamOption(
   };
 }
 
-export function exercisedTeamOptionTerms(entry: Pick<RosterEntry, "contract" | "cost" | "teamOptionBaseCost" | "teamOptionFinalYear">) {
-  const markerPresent = /\((?:2X|X2)\)/i.test(entry.contract);
-  const contractYear = entry.contract.match(/\d{2}/)?.[0];
-  const inferredFinalYear = contractYear ? 2000 + Number(contractYear) : null;
-  const finalYear = entry.teamOptionFinalYear ?? (markerPresent ? inferredFinalYear : null);
-  const baseCost = entry.teamOptionBaseCost ?? (markerPresent ? entry.cost : null);
-  return finalYear && baseCost !== null ? { baseCost, finalYear, markerPresent } : null;
-}
-
-export function markExercisedTeamOption<T extends RosterEntry>(entry: T, finalYear: number): T {
+export function exerciseOrdinaryTeamOption<T extends RosterEntry>(
+  entry: T,
+  activeSeasonName: string,
+  requestedForGLeague: "regular" | "two_way" = "two_way",
+): T {
+  const activeEndYear = seasonEndYear(activeSeasonName);
+  if (activeEndYear === null) throw new Error("Annata non valida.");
   return {
     ...entry,
-    teamOptionBaseCost: entry.cost,
-    teamOptionFinalYear: finalYear,
+    slot: destinationAfterTeamOptionExercise(entry.slot, requestedForGLeague),
+    contract: rookieExtensionContract(activeEndYear),
+    teamOptionBaseCost: undefined,
+    teamOptionFinalYear: undefined,
+  };
+}
+
+export function applyRookieExtension<T extends RosterEntry>(entry: T, activeSeasonName: string): T {
+  const activeEndYear = seasonEndYear(activeSeasonName);
+  if (activeEndYear === null) throw new Error("Annata non valida.");
+  return {
+    ...entry,
+    cost: entry.cost * 2,
+    contract: String(activeEndYear).slice(-2),
+    slot: "regular",
+    teamOptionBaseCost: undefined,
+    teamOptionFinalYear: undefined,
+    playoffTeamOptionPromotionSeason: undefined,
+    twoWayPromotionLocked: true,
   };
 }
 
 export function exercisePlayoffTeamOption<T extends RosterEntry>(entry: T, activeSeasonName: string): T {
   const activeEndYear = seasonEndYear(activeSeasonName);
   if (activeEndYear === null) throw new Error("Annata non valida.");
-  const finalYear = activeEndYear + 2;
-  return markExercisedTeamOption({
+  return {
     ...entry,
-    contract: `${String(finalYear).slice(-2)} (2X)`,
+    contract: rookieExtensionContract(activeEndYear + 1),
+    teamOptionBaseCost: undefined,
+    teamOptionFinalYear: undefined,
     playoffTeamOptionPromotionSeason: followingSeasonName(activeSeasonName),
-  }, finalYear);
+  };
 }
 
-export function applyTeamOptionFinalYearDoubling<T extends RosterEntry>(entry: T, finalYear: number): T {
-  const terms = exercisedTeamOptionTerms(entry);
-  const baseCost = terms?.baseCost ?? entry.cost;
+export function normalizeLegacyRookieExtensionEntry<T extends RosterEntry>(entry: T): T {
+  const match = entry.contract.trim().match(legacyDoublePattern);
+  if (!match) return entry;
+  const previousShortYear = (Number(match[1]) + 99) % 100;
   return {
     ...entry,
-    cost: baseCost * 2,
-    contract: `${String(finalYear).slice(-2)} (Q)`,
-    teamOptionBaseCost: baseCost,
-    teamOptionFinalYear: finalYear,
+    contract: `${String(previousShortYear).padStart(2, "0")} + R.E.`,
+    teamOptionBaseCost: undefined,
+    teamOptionFinalYear: undefined,
   };
 }
 
-export function teamOptionCutAdjustment<T extends RosterEntry>(
-  entry: T,
-  currentSeasonEndYear: number,
-  moment: LeagueMoment,
-): { entry: T; adjusted: boolean } {
-  const terms = exercisedTeamOptionTerms(entry);
-  if (!terms || terms.finalYear < currentSeasonEndYear) return { entry, adjusted: false };
-  const beforeAuctionStartPrecedingFinalYear = terms.finalYear > currentSeasonEndYear
-    || !hasReachedMoment(moment, "auction_start");
-  if (!beforeAuctionStartPrecedingFinalYear) return { entry, adjusted: false };
+export function normalizeLegacyRookieExtensionText(value: string) {
+  return value.replace(legacyDoubleTextPattern, (_, shortYear: string) => (
+    `${String((Number(shortYear) + 99) % 100).padStart(2, "0")} + R.E.`
+  ));
+}
 
-  const expiry = entry.contract.match(/\d{2}/)?.[0] ?? String(terms.finalYear).slice(-2);
+export function normalizeLegacyRookieExtensionState<T>(value: T): T {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.rosterEntries)) return value;
   return {
-    entry: {
-      ...entry,
-      cost: terms.baseCost,
-      contract: expiry,
-      teamOptionBaseCost: terms.baseCost,
-      teamOptionFinalYear: terms.finalYear,
-    },
-    adjusted: true,
-  };
+    ...record,
+    rosterEntries: record.rosterEntries.map((entry) => (
+      entry && typeof entry === "object" && typeof (entry as Record<string, unknown>).contract === "string"
+        ? normalizeLegacyRookieExtensionEntry(entry as RosterEntry)
+        : entry
+    )),
+  } as T;
 }
 
 export function applyStandardContractCut<T extends RosterEntry>(
   entry: T,
-  currentSeasonEndYear: number,
-  moment: LeagueMoment,
+  _currentSeasonEndYear: number,
+  _moment: LeagueMoment,
 ): T {
-  const adjusted = teamOptionCutAdjustment(entry, currentSeasonEndYear, moment).entry;
   return {
-    ...adjusted,
+    ...entry,
     state: "cut",
     slot: "regular",
   };

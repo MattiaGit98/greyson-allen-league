@@ -19,7 +19,7 @@ export function availableOperationsAt(moment: LeagueMoment): AvailableOperation[
     if (condition) available.push({ label, closesAt });
   };
 
-  add("Esercizio team option", operationWindows.teamOption(moment), "team_option_deadline");
+  add("Contratti da rookie", operationWindows.teamOption(moment), "team_option_deadline");
   add("Asta", operationWindows.auction(moment), "auction_completed");
   add("Assegnazione contratti", operationWindows.contractAssignment(moment), "contract_delivery");
   add("Scambi", operationWindows.trades(moment), "trade_deadline");

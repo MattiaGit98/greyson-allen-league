@@ -13,7 +13,7 @@ import {
   type QualifyingAuctionOutcome,
 } from "@/lib/auction-management";
 import type { AuctionAcquisitionKind } from "@/lib/league-types";
-import { slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { contractIncludesTeamOption, slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
 import { UndoMovementButton } from "@/app/admin/movimenti/undo-movement-button";
@@ -464,11 +464,11 @@ function editSpaces(row: AuctionRow, team: AuctionTeam | undefined, kind: "cut" 
   if (kind === "slot") {
     const after = [...team.spaces] as [number, number, number];
     if (roster.slot === "dpe") after[0] -= roster.charges[0];
-    if (newSlot !== "regular" && !roster.pendingAuctionContract && roster.contract !== "T.O.") {
+    if (newSlot !== "regular" && !roster.pendingAuctionContract && !contractIncludesTeamOption(roster)) {
       after[1] += roster.charges[1];
       after[2] += roster.charges[2];
     }
-    if (exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && exchangePlayer.roster.contract !== "T.O.") {
+    if (exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && !contractIncludesTeamOption(exchangePlayer.roster)) {
       after[1] += exchangePlayer.roster.charges[1];
       after[2] += exchangePlayer.roster.charges[2];
     }
@@ -486,8 +486,8 @@ function modificationDetails(row: AuctionRow, kind: "cut" | "free_release" | "sl
     title: `${row.name}: ${slotLabel(roster.slot)} → ${slotLabel(newSlot)}`,
     lines: [
       ...(exchangePlayer ? [`${exchangePlayer.name}: ${slotLabel(newSlot)} → ${slotLabel(roster.slot)}`] : []),
-      ...(newSlot !== "regular" && !roster.pendingAuctionContract && roster.contract !== "T.O." ? [`Contratto di ${row.name}: ${roster.contract} → T.O.`] : []),
-      ...(exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && exchangePlayer.roster.contract !== "T.O." ? [`Contratto di ${exchangePlayer.name}: ${exchangePlayer.roster.contract} → T.O.`] : []),
+      ...(newSlot !== "regular" && !roster.pendingAuctionContract && !contractIncludesTeamOption(roster) ? [`Contratto di ${row.name}: ${roster.contract} → T.O.`] : []),
+      ...(exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && !contractIncludesTeamOption(exchangePlayer.roster) ? [`Contratto di ${exchangePlayer.name}: ${exchangePlayer.roster.contract} → T.O.`] : []),
       ...lines,
     ],
   };

@@ -12,6 +12,7 @@ import {
   postAuctionContractCandidates,
   type PostAuctionContractDraft,
 } from "./post-auction-contracts";
+import { isRookieExtensionDecisionDue } from "./team-option-contract";
 
 export type LeagueTransitionPreview = {
   transition: LeagueTransition;
@@ -45,7 +46,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.newPossibilities.push("Il Draft diventa accessibile quando sono pronti anche il listone ufficiale e l’ordine definitivo.");
     preview.newPossibilities.push("Si aprono le causali generali di rilascio gratuito previste dal regolamento.");
     preview.newPossibilities.push("Si apre la finestra speciale per spostare verso Two-way e G-League i giocatori al primo anno che rispettano i requisiti.");
-    preview.closedPossibilities.push("Non sarà più possibile esercitare le team option.");
+    preview.closedPossibilities.push("Non sarà più possibile risolvere team option e rookie extension in scadenza.");
   }
 
   if (transition === "auction_start") {
@@ -108,8 +109,7 @@ export function buildLeagueTransitionPreview(input: {
       });
       preview.automaticActions.push(`${advance.expiredContracts} contratti in scadenza saranno rimossi.`);
       preview.automaticActions.push(`${advance.generatedQualifyingOffers} diritti di Q.O. saranno generati.`);
-      preview.automaticActions.push(`${advance.doubledTeamOptions} ex T.O. saranno raddoppiate e marcate + Q.O.`);
-      preview.automaticActions.push(`${advance.promotedSecondYearTwoWayPlayers.length} giocatori al secondo anno nei Two-way saranno promossi negli slot roster.`);
+      preview.automaticActions.push(`${advance.pendingRookieExtensions} contratti resteranno in attesa della decisione sulla rookie extension.`);
       preview.automaticActions.push(`${advance.promotedPlayoffTeamOptionPlayers.length} T.O. esercitate per utilizzo nei playoff saranno promosse negli slot roster.`);
       preview.automaticActions.push(`${advance.reintegratedDpePlayers.length} giocatori in DPE saranno reintegrati negli slot roster.`);
       preview.automaticActions.push(`Il listone attuale diventerà provvisorio: manterrà ${advance.playerList.length} giocatori, ma le squadre NBA saranno azzerate.`);
@@ -136,10 +136,13 @@ export function buildLeagueTransitionPreview(input: {
   return preview;
 }
 
-export function applyTeamOptionDeadline(state: EditableLeagueState) {
+export function applyTeamOptionDeadline(state: EditableLeagueState, seasonName: string) {
   return {
     ...state,
-    rosterEntries: state.rosterEntries.filter((entry) => !(entry.state === "active" && entry.contract === "T.O.")),
+    rosterEntries: state.rosterEntries.filter((entry) => !(
+      entry.state === "active"
+      && (entry.contract === "T.O." || isRookieExtensionDecisionDue(entry, seasonName))
+    )),
   };
 }
 

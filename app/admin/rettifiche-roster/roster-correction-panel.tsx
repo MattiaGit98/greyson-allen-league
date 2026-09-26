@@ -100,7 +100,7 @@ export function RosterCorrectionPanel({
         <span><b>T.O.</b>: team option</span>
         <span><b>XX (Q)</b>: scadenza con Q.O.</span>
         <span><b>XX (E)</b>: contratto estendibile</span>
-        <span><b>XX (2X)</b>: costo raddoppiato nell’ultimo anno</span>
+        <span><b>XX + R.E.</b>: rookie extension applicabile dopo la stagione indicata</span>
         <span><b>PENDING</b>: stato già presente per un contratto d’asta non pubblicato</span>
       </div>
 

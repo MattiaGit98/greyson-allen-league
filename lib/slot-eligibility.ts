@@ -1,6 +1,7 @@
 import type { RosterEntry } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { seasonEndYear } from "./season-time";
+import { isRookieExtensionContract } from "./team-option-contract";
 
 export type ManagedRosterSlot = "regular" | "two_way" | "g_league";
 
@@ -19,7 +20,7 @@ export function hasPendingAuctionContract(entry: Pick<SlotEligibilityEntry, "con
 export function contractIncludesTeamOption(entry: Pick<SlotEligibilityEntry, "contract" | "teamOptionFinalYear">) {
   return entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O."
     || entry.teamOptionFinalYear !== undefined
-    || /\((?:2X|X2)\)/i.test(entry.contract);
+    || isRookieExtensionContract(entry);
 }
 
 export function slotEligibility(entry: SlotEligibilityEntry, seasonName: string) {
@@ -74,6 +75,7 @@ export function isSlotDemotion(source: ManagedRosterSlot, destination: ManagedRo
 }
 
 export function isSecondContractYear(entry: SlotEligibilityEntry, seasonName: string) {
+  if (isRookieExtensionContract(entry)) return true;
   const currentStartYear = Number(seasonName.slice(0, 4));
   const contractStartYear = Number(entry.contractStartSeason?.slice(0, 4));
   if (Number.isInteger(currentStartYear) && Number.isInteger(contractStartYear) && contractStartYear > 0) {

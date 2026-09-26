@@ -4,7 +4,7 @@ import { contractIncludesTeamOption, isSecondContractYear, legalPromotionDestina
 describe("idoneità Two-way e G-League", () => {
   it("riconosce sia una T.O. iniziale sia una già esercitata", () => {
     expect(contractIncludesTeamOption({ contract: "T.O." })).toBe(true);
-    expect(contractIncludesTeamOption({ contract: "28 (2X)" })).toBe(true);
+    expect(contractIncludesTeamOption({ contract: "27 + R.E." })).toBe(true);
     expect(contractIncludesTeamOption({ contract: "28 (Q)", teamOptionFinalYear: 2028 })).toBe(true);
     expect(contractIncludesTeamOption({ contract: "28 (Q)" })).toBe(false);
   });
@@ -46,7 +46,7 @@ describe("idoneità Two-way e G-League", () => {
   });
 
   it("nega la finestra eccezionale al secondo anno e dopo una promozione obbligatoria", () => {
-    const secondYear = { contract: "28 (2X)", cost: 5, slot: "regular" as const, contractStartSeason: "2025/26", teamOptionFinalYear: 2028 };
+    const secondYear = { contract: "27 + R.E.", cost: 5, slot: "regular" as const, contractStartSeason: "2025/26" };
     expect(isSecondContractYear(secondYear, "2026/27")).toBe(true);
     expect(slotMoveTimingErrors(secondYear, "two_way", "2026/27", "team_option_deadline")).toHaveLength(1);
     expect(slotMoveTimingErrors(
@@ -113,13 +113,11 @@ describe("idoneità Two-way e G-League", () => {
   it("lo spostamento non modifica contratto, costo o provenienza", () => {
     const entry = {
       name: "Giocatore",
-      contract: "28 (2X)",
+      contract: "27 + R.E.",
       cost: 5,
       slot: "g_league" as const,
       state: "active" as const,
       teamCode: "AAA",
-      teamOptionBaseCost: 5,
-      teamOptionFinalYear: 2028,
     };
     expect(moveRosterEntryToSlot(entry, "two_way")).toEqual({ ...entry, slot: "two_way" });
   });

@@ -342,8 +342,8 @@ export async function registerTrade(formData: FormData) {
     if (!source || source.entry.teamCode !== requested.teamCode || !participants.has(requested.teamCode)) {
       fail("Un giocatore indicato per il taglio contestuale non è più disponibile.");
     }
-    if (isUnresolvedTeamOption(source.entry, moment)) {
-      fail(`${source.entry.name}: una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.`);
+    if (isUnresolvedTeamOption(source.entry, moment, season.name)) {
+      fail(`${source.entry.name}: un contratto da rookie ancora da risolvere può essere gestito soltanto nel pannello Contratti da rookie.`);
     }
     cutChanges.push({
       stateIndex: source.stateIndex,

@@ -10,7 +10,7 @@ function state(): EditableLeagueState {
       qualifyingOffers: 0, draftAssets: 0, nextSeasonCredits: 0, followingSeasonCredits: 0, slug: "alpha",
     }],
     rosterEntries: [
-      { name: "Attivo", role: "G", cost: 20, contract: "28 (2X)", state: "active", slot: "regular", teamCode: "AAA", teamOptionBaseCost: 20, teamOptionFinalYear: 2028 },
+      { name: "Attivo", role: "G", cost: 20, contract: "27 + R.E.", state: "active", slot: "regular", teamCode: "AAA" },
       { name: "Tagliato", role: "A", cost: 8, contract: "27", state: "cut", slot: "regular", teamCode: "AAA" },
     ],
     playerList: [
@@ -25,13 +25,14 @@ describe("rettifiche roster", () => {
   it("riconosce soltanto le notazioni contrattuali previste", () => {
     expect(normalizeRosterCorrectionContract(" 28 (q) ")).toBe("28 (Q)");
     expect(normalizeRosterCorrectionContract("T.O.")).toBe("T.O.");
+    expect(normalizeRosterCorrectionContract("27 + r.e.")).toBe("27 + R.E.");
     expect(normalizeRosterCorrectionContract("da assegnare")).toBe("PENDING");
     expect(normalizeRosterCorrectionContract("2028")).toBeNull();
     expect(normalizeRosterCorrectionContract("28 + Q.O.")).toBeNull();
     expect(normalizeRosterCorrectionContract("28 (EXT)")).toBeNull();
   });
 
-  it("modifica costo e scadenza e pulisce i metadati di una vecchia team option", () => {
+  it("modifica costo e scadenza e chiude il percorso della rookie extension", () => {
     const result = applyRosterCorrections({
       state: state(), teamCode: "AAA", seasonName: "2026/27",
       corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 25, contract: "29 (E)", remove: false }],

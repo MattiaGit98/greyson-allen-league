@@ -1,6 +1,5 @@
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
-import { seasonEndYear } from "./season-time";
 
 export type RosterCorrectionInput = {
   sourceIndex: number;
@@ -27,7 +26,9 @@ export function normalizeRosterCorrectionContract(value: string) {
   const normalized = value.trim().replace(/\s+/g, " ").toLocaleUpperCase("it-IT");
   if (normalized === "T.O.") return "T.O.";
   if (normalized === "PENDING" || normalized === "DA ASSEGNARE") return "PENDING";
-  const match = normalized.match(/^(\d{2})(?: \((E|Q|2X)\))?$/);
+  const rookieExtension = normalized.match(/^(\d{2}) \+ R\.?E\.?$/);
+  if (rookieExtension) return `${rookieExtension[1]} + R.E.`;
+  const match = normalized.match(/^(\d{2})(?: \((E|Q)\))?$/);
   if (!match) return null;
   return match[2] ? `${match[1]} (${match[2]})` : match[1];
 }
@@ -131,22 +132,16 @@ export function applyRosterCorrections({
   return { state: { ...state, rosterEntries }, changes, addition: addedEntry };
 }
 
-function correctedContractMetadata(entry: RosterEntry, seasonName: string): RosterEntry {
-  const isFutureTeamOption = /\(2X\)/.test(entry.contract);
+function correctedContractMetadata(entry: RosterEntry, _seasonName: string): RosterEntry {
+  const isRookieExtension = /^\d{2} \+ R\.E\.$/.test(entry.contract);
   const keepsTeamOptionHistory = entry.contract === "T.O."
-    || isFutureTeamOption
     || (entry.contract.includes("(Q)") && entry.teamOptionFinalYear !== undefined);
-  const expiry = entry.contract.match(/^\d{2}/)?.[0];
-  const activeEndYear = seasonEndYear(seasonName);
-  const finalYear = expiry && activeEndYear !== null
-    ? Math.floor(activeEndYear / 100) * 100 + Number(expiry)
-    : undefined;
   return {
     ...entry,
     originalContractYears: entry.contract.includes("(E)") ? 3 : entry.originalContractYears,
-    teamOptionBaseCost: isFutureTeamOption ? entry.cost : keepsTeamOptionHistory ? entry.teamOptionBaseCost : undefined,
-    teamOptionFinalYear: isFutureTeamOption ? finalYear : keepsTeamOptionHistory ? entry.teamOptionFinalYear : undefined,
-    playoffTeamOptionPromotionSeason: keepsTeamOptionHistory ? entry.playoffTeamOptionPromotionSeason : undefined,
+    teamOptionBaseCost: keepsTeamOptionHistory ? entry.teamOptionBaseCost : undefined,
+    teamOptionFinalYear: keepsTeamOptionHistory ? entry.teamOptionFinalYear : undefined,
+    playoffTeamOptionPromotionSeason: keepsTeamOptionHistory || isRookieExtension ? entry.playoffTeamOptionPromotionSeason : undefined,
   };
 }
 

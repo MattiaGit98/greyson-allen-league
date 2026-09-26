@@ -42,7 +42,7 @@ describe("pannello asta", () => {
     expect(acquisitionKindForOutcome("qualifying_offer")).toBe("qualifying_offer");
     expect(acquisitionKindForOutcome("restricted_free_agent")).toBe("restricted_free_agent");
     expect(allowedPostAuctionContracts("qualifying_offer")).toEqual(["annual"]);
-    expect(allowedPostAuctionContracts("restricted_free_agent")).toEqual(["annual", "biennial"]);
+    expect(allowedPostAuctionContracts("restricted_free_agent")).toEqual(["annual", "biennial", "triennial"]);
   });
 
   it("blocca una Q.O. accettata con squadra o prezzo diversi e gli slot speciali per Q.O./RFA", () => {

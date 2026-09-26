@@ -180,7 +180,7 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     expect(result.alerts.find((alert) => alert.id === "blocked-offseason-roster-moves")?.tone).toBe("blocker");
   });
 
-  it("blocca la fine della stagione se un Two-way al secondo anno non ha spazio nel roster", () => {
+  it("non promuove automaticamente un Two-way al secondo anno in attesa della decisione", () => {
     const current = state([
       ...Array.from({ length: 15 }, (_, index) => rosterEntry(`Roster ${index}`)),
       rosterEntry("Secondo anno", { slot: "two_way", contractStartSeason: "2025/26" }),
@@ -192,14 +192,13 @@ describe("avvisi prima dell’avanzamento della lega", () => {
       currentHistorySeason: "2026/27",
     });
     const alert = result.alerts.find((item) => item.id === "blocked-offseason-roster-moves");
-    expect(alert?.tone).toBe("blocker");
-    expect(alert?.items?.join(" ")).toContain("Secondo anno (Two-way)");
+    expect(alert).toBeUndefined();
   });
 
   it("blocca la fine della stagione se una T.O. playoff non ha spazio per salire nel roster", () => {
     const exercised = rosterEntry("T.O. playoff", {
       slot: "g_league",
-      contract: "29 (2X)",
+      contract: "28 + R.E.",
       playoffTeamOptionPromotionSeason: "2027/28",
     });
     const seasonEndChecklist = buildPreAdvanceChecklist({

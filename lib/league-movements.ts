@@ -129,16 +129,16 @@ export function movementUndoWindowError({
   if (operationType === "acquisto_asta" && !operationWindows.auction(currentMoment)) {
     return "Un'assegnazione d'asta non può più essere annullata dopo il Termine asta.";
   }
-  const isOrdinaryTeamOption = operationType === "team_option";
-  if (!isOrdinaryTeamOption && undoBeforeMoment !== "team_option_deadline") return null;
-  if (isOrdinaryTeamOption && !movementSeasonName) {
-    return "Questo movimento T.O. non contiene l'annata necessaria per annullarlo in sicurezza.";
+  const isRookieContractDecision = operationType === "team_option" || operationType === "rookie_extension";
+  if (!isRookieContractDecision && undoBeforeMoment !== "team_option_deadline") return null;
+  if (isRookieContractDecision && !movementSeasonName) {
+    return "Questo movimento non contiene l'annata necessaria per annullarlo in sicurezza.";
   }
   if (
     (movementSeasonName && movementSeasonName !== currentSeasonName)
     || hasReachedMoment(currentMoment, "team_option_deadline")
   ) {
-    return "Le decisioni sulle team option non sono più annullabili dopo la scadenza per l'esercizio delle T.O.";
+    return "Le decisioni sui contratti da rookie non sono più annullabili dopo la relativa scadenza.";
   }
   return null;
 }

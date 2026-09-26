@@ -30,7 +30,7 @@ export function acquisitionKindForOutcome(outcome: QualifyingAuctionOutcome): Au
 
 export function allowedPostAuctionContracts(acquisition?: AuctionAcquisitionKind): PostAuctionContractKind[] {
   if (acquisition === "qualifying_offer") return ["annual"];
-  if (acquisition === "restricted_free_agent") return ["annual", "biennial"];
+  if (acquisition === "restricted_free_agent") return ["annual", "biennial", "triennial"];
   return ["annual", "biennial", "triennial", "team_option"];
 }
 

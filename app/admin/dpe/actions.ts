@@ -48,8 +48,8 @@ export async function applyDpeOperation(formData: FormData) {
   ));
   const entry = state.rosterEntries[entryIndex];
   if (!entry) fail("Il giocatore non appartiene più al roster selezionato.");
-  if (isUnresolvedTeamOption(entry, leagueMoment)) {
-    fail("Una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.");
+  if (isUnresolvedTeamOption(entry, leagueMoment, season.data.name)) {
+    fail("Un contratto da rookie ancora da risolvere può essere gestito soltanto nel pannello Contratti da rookie.");
   }
   const teamActive = state.rosterEntries.filter((item) => item.teamCode === teamCode && item.state === "active");
   if (operation === "dpe_activate") {

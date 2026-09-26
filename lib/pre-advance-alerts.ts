@@ -16,6 +16,7 @@ import {
   missingPostAuctionContractDrafts,
   type PostAuctionContractDraft,
 } from "./post-auction-contracts";
+import { isRookieExtensionDecisionDue } from "./team-option-contract";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -57,17 +58,17 @@ export function buildPreAdvanceChecklist(input: {
   addStructuralAlerts(add, currentMoment, seasonName, state);
 
   if (transition === "team_option_deadline") {
-    const pendingOptions = state.rosterEntries.filter(isPendingTeamOption);
+    const pendingOptions = state.rosterEntries.filter((entry) => isPendingRookieContract(entry, seasonName));
     if (pendingOptions.length) {
       add({
         id: "pending-team-options",
         tone: "blocker",
-        title: `${pendingOptions.length} team option da esercitare o rilasciare`,
-        message: "Ogni T.O. deve avere una decisione esplicita prima di poter avanzare.",
+        title: `${pendingOptions.length} contratti da rookie da risolvere`,
+        message: "Ogni T.O. e ogni R.E. in scadenza deve avere una decisione esplicita prima di poter avanzare.",
         items: groupPlayerEntries(pendingOptions),
-        article: "Art. 7(b)",
+        article: "Art. 7(b-c)",
         href: "/admin/team-option",
-        actionLabel: "Gestisci le team option",
+        actionLabel: "Gestisci i contratti da rookie",
       });
     }
 
@@ -319,16 +320,13 @@ export function buildPreAdvanceChecklist(input: {
         playerList: state.playerList,
       });
       const rosterMoveIssues = state.teams.flatMap((team) => {
-        const twoWayPlayers = advance.promotedSecondYearTwoWayPlayers
-          .filter((player) => player.teamCode === team.code)
-          .map((player) => `${player.playerName} (Two-way)`);
         const playoffOptionPlayers = advance.promotedPlayoffTeamOptionPlayers
           .filter((player) => player.teamCode === team.code)
           .map((player) => `${player.playerName} (T.O. playoff)`);
         const dpePlayers = advance.reintegratedDpePlayers
           .filter((player) => player.teamCode === team.code)
           .map((player) => `${player.playerName} (DPE)`);
-        const players = [...twoWayPlayers, ...playoffOptionPlayers, ...dpePlayers];
+        const players = [...playoffOptionPlayers, ...dpePlayers];
         if (!players.length) return [];
         const regularUsed = advance.rosterEntries.filter((entry) => (
           entry.teamCode === team.code && entry.state === "active" && entry.slot === "regular"
@@ -342,7 +340,7 @@ export function buildPreAdvanceChecklist(input: {
           id: "blocked-offseason-roster-moves",
           tone: "blocker",
           title: `${totalShortfall} slot roster mancanti all’inizio dell’offseason`,
-          message: "All’inizio dell’offseason vengono promossi i Two-way al secondo anno e le T.O. esercitate per utilizzo nei playoff; le DPE vengono reintegrate.",
+          message: "All’inizio dell’offseason vengono promosse le T.O. esercitate per utilizzo nei playoff e vengono reintegrate le DPE.",
           items: rosterMoveIssues.map((issue) => (
             `${issue.teamCode}: ${issue.players.join(", ")} · ${issue.overflow} slot mancanti`
           )),
@@ -351,16 +349,6 @@ export function buildPreAdvanceChecklist(input: {
           actionLabel: "Libera gli slot necessari",
         });
       } else {
-        if (advance.promotedSecondYearTwoWayPlayers.length) {
-          add({
-            id: "second-year-two-way-promotions",
-            tone: "info",
-            title: `${advance.promotedSecondYearTwoWayPlayers.length} promozioni Two-way all’inizio dell’offseason`,
-            message: "I giocatori al secondo anno saranno spostati automaticamente negli slot roster con il prossimo avanzamento.",
-            items: advance.promotedSecondYearTwoWayPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
-            article: "Art. 11(i)",
-          });
-        }
         if (advance.promotedPlayoffTeamOptionPlayers.length) {
           add({
             id: "playoff-team-option-promotions",
@@ -588,8 +576,11 @@ function addRoleMinimumAlert(
   });
 }
 
-function isPendingTeamOption(entry: EditableLeagueState["rosterEntries"][number]) {
-  return entry.state === "active" && entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O.";
+function isPendingRookieContract(entry: EditableLeagueState["rosterEntries"][number], seasonName: string) {
+  return entry.state === "active" && (
+    entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O."
+    || isRookieExtensionDecisionDue(entry, seasonName)
+  );
 }
 
 function isPendingContract(contract: string) {

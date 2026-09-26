@@ -98,7 +98,7 @@ export default async function TradeSimulatorPage() {
             return role && role !== "X" ? role : null;
           })(),
           slot: entry.slot,
-          cuttable: !isUnresolvedTeamOption(entry, leagueMoment),
+          cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
           promotionDestinations: entry.slot === "dpe"
             ? []
             : legalPromotionDestinations(

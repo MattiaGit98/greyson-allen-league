@@ -52,7 +52,7 @@ describe("backup importabile della lega", () => {
 
     expect(parsed.payload.activeSeason.timeline_moment).toBe("auction_start");
     expect(parsed.checksum).not.toBe(backup.checksum);
-    expect(parsed.schemaVersion).toBe("202609240036");
+    expect(parsed.schemaVersion).toBe("202609260038");
   });
 
   it("rifiuta un file alterato dopo il download", () => {
@@ -90,6 +90,41 @@ describe("backup importabile della lega", () => {
     expect(parsed.payload.activeSeason.phase_dates).toEqual({});
     expect(parsed.payload.teamRecords).toEqual([]);
     expect(parsed.payload.contractDrafts).toEqual([]);
+  });
+
+  it("converte i contratti X2 anche negli stati storici di un vecchio backup", () => {
+    const source = payload();
+    const legacyEntry = {
+      name: "Rookie",
+      teamCode: "AAA",
+      cost: 7,
+      contract: "28 (2X)",
+      state: "active" as const,
+      slot: "regular" as const,
+    };
+    source.leagueState.rosterEntries = [legacyEntry];
+    source.movements = [{
+      id: "8d45ba5f-fbe1-4d42-b5ef-744eb0a27ace",
+      operation_type: "team_option",
+      summary: "T.O. esercitata; scadenza 28 (2X)",
+      before_state: { rosterEntries: [legacyEntry] },
+      after_state: { rosterEntries: [legacyEntry] },
+      history_category: null,
+      before_history: null,
+      after_history: null,
+      season_name: "2026/27",
+      undo_before_moment: "team_option_deadline",
+      reverts_movement_id: null,
+      created_at: "2026-08-02T12:00:00.000Z",
+      reverted_at: null,
+    }];
+
+    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(createImportableBackupDocument(source))));
+
+    expect(parsed.payload.leagueState.rosterEntries[0].contract).toBe("27 + R.E.");
+    expect(parsed.payload.movements[0].summary).toContain("27 + R.E.");
+    expect((parsed.payload.movements[0].before_state.rosterEntries as Array<{ contract: string }>)[0].contract).toBe("27 + R.E.");
+    expect((parsed.payload.movements[0].after_state.rosterEntries as Array<{ contract: string }>)[0].contract).toBe("27 + R.E.");
   });
 
   it("conserva i dati che collegano un movimento allo storico", () => {

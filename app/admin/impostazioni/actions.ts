@@ -124,7 +124,7 @@ export async function advanceLeaguePhaseStep() {
   }
 
   let nextState = state;
-  if (transition === "team_option_deadline") nextState = applyTeamOptionDeadline(state);
+  if (transition === "team_option_deadline") nextState = applyTeamOptionDeadline(state, season.name);
   if (transition === "auction_completed" && state.qualifyingOfferRights.length) {
     nextState = { ...nextState, qualifyingOfferRights: [] };
   }

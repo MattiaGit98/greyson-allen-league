@@ -17,6 +17,7 @@ import {
   type LeagueMoment,
 } from "./league-moments";
 import { normalizeState, type EditableLeagueState } from "./league-state";
+import { normalizeLegacyRookieExtensionState, normalizeLegacyRookieExtensionText } from "./team-option-contract";
 import {
   datedLeagueTransitions,
   isPhaseDate,
@@ -29,7 +30,7 @@ type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient
 
 export const importableBackupFormat = "greyson-allen-league-importable-backup";
 export const importableBackupFormatVersion = 2;
-export const importableBackupSchemaVersion = "202609240036";
+export const importableBackupSchemaVersion = "202609260038";
 export type ImportableBackupFormatVersion = 1 | typeof importableBackupFormatVersion;
 
 export type ImportableSeason = {
@@ -442,9 +443,9 @@ function parseMovement(input: unknown, formatVersion: ImportableBackupFormatVers
   return {
     id: movement.id,
     operation_type: movement.operation_type.slice(0, 120),
-    summary: movement.summary.slice(0, 1_000),
-    before_state: beforeState,
-    after_state: afterState,
+    summary: normalizeLegacyRookieExtensionText(movement.summary.slice(0, 1_000)),
+    before_state: normalizeLegacyRookieExtensionState(beforeState),
+    after_state: normalizeLegacyRookieExtensionState(afterState),
     history_category: historyCategory,
     before_history: beforeHistory,
     after_history: afterHistory,

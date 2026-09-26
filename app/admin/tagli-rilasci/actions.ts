@@ -17,7 +17,7 @@ import {
   isFreeReleaseReason,
   type FreeReleaseReason,
 } from "@/lib/free-release";
-import { isUnresolvedTeamOption, teamOptionCutAdjustment } from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 
 export async function applyRosterExitOperation(formData: FormData) {
@@ -38,8 +38,8 @@ export async function applyRosterExitOperation(formData: FormData) {
   const entryIndex = state.rosterEntries.findIndex((entry) => entry.teamCode === teamCode && entry.name === playerName);
   const entry = state.rosterEntries[entryIndex];
   if (!entry) operationError(returnPath, "Il giocatore non appartiene alla squadra selezionata.");
-  if (isUnresolvedTeamOption(entry, leagueMoment)) {
-    operationError(returnPath, "Una team option non ancora esercitata può essere risolta soltanto nel pannello Team option.");
+  if (isUnresolvedTeamOption(entry, leagueMoment, season.name)) {
+    operationError(returnPath, "Un contratto da rookie ancora da risolvere può essere gestito soltanto nel pannello Contratti da rookie.");
   }
   if (kind === "cut" && entry.state !== "active") operationError(returnPath, "Puoi tagliare soltanto un giocatore attivo.");
   if (kind === "buyout" && entry.state !== "active") {
@@ -68,21 +68,16 @@ export async function applyRosterExitOperation(formData: FormData) {
   if (currentEndYear === null) operationError(returnPath, "Annata non valida.");
   let rosterEntries: RosterEntry[];
   let buyoutTotalResidual: number | null = null;
-  let optionCutAdjustment: ReturnType<typeof teamOptionCutAdjustment> | null = null;
   if (kind === "free_release") {
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? applyFreeRelease(item) : item);
   } else if (kind === "buyout") {
     if (season.status !== "regular_season") operationError(returnPath, "Il buyout è disponibile soltanto durante la regular season.");
     const remainingYears = charges.filter((charge) => charge > 0).length;
     if (remainingYears <= 1) operationError(returnPath, "Il buyout richiede più di una stagione residua.");
-    const adjustment = teamOptionCutAdjustment(entry, currentEndYear, leagueMoment);
-    optionCutAdjustment = adjustment;
-    const guaranteedEntry = adjustment.adjusted ? adjustment.entry : entry;
-    const guaranteedCharges = playerCharges(guaranteedEntry, season.name, season.status, season.team_options_resolved);
-    const totalResidual = guaranteedCharges.reduce((total, charge) => total + charge, 0);
+    const totalResidual = charges.reduce((total, charge) => total + charge, 0);
     buyoutTotalResidual = totalResidual;
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
-      ...guaranteedEntry,
+      ...entry,
       state: "cut" as const,
       slot: "regular" as const,
       cost: totalResidual,
@@ -90,10 +85,8 @@ export async function applyRosterExitOperation(formData: FormData) {
       buyoutApplied: true,
     } : item);
   } else {
-    const adjustment = teamOptionCutAdjustment(entry, currentEndYear, leagueMoment);
-    optionCutAdjustment = adjustment;
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
-      ...adjustment.entry,
+      ...entry,
       state: "cut" as const,
       slot: "regular" as const,
     } : item);
@@ -107,21 +100,10 @@ export async function applyRosterExitOperation(formData: FormData) {
   }
 
   const spacesBefore = teamCapSpaces(state.rosterEntries, teamCode, season.name, season.status, season.team_options_resolved);
-  const cutEntry = optionCutAdjustment?.adjusted
-    ? { ...optionCutAdjustment.entry, state: "cut" as const, slot: "regular" as const }
-    : null;
-  const cutContractCharges = cutEntry
-    ? playerCharges(cutEntry, season.name, season.status, season.team_options_resolved)
-    : undefined;
-  const adjustedOptionCharges = optionCutAdjustment?.adjusted
-    ? playerCharges(optionCutAdjustment.entry, season.name, season.status, season.team_options_resolved)
-    : undefined;
   const expectedSpaces = releaseCapSpaces({
     kind,
     spacesBefore,
     contractCharges: charges,
-    cutContractCharges,
-    buyoutContractCharges: kind === "buyout" ? adjustedOptionCharges : undefined,
     currentDpeExemption: dpeExemption,
   });
   const spacesAfter = teamCapSpaces(rosterEntries, teamCode, season.name, season.status, season.team_options_resolved);
@@ -150,11 +132,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   const buyoutDetail = buyoutTotalResidual === null
     ? ""
     : ` · costo concentrato ${buyoutTotalResidual}, scadenza ${String(seasonEndYear(season.name)).slice(-2)}`;
-  const changedGuaranteeYear = adjustedOptionCharges?.findIndex((charge, index) => charge !== charges[index]) ?? -1;
-  const optionCutDetail = optionCutAdjustment?.adjusted && changedGuaranteeYear >= 0 && adjustedOptionCharges
-    ? ` · garanzia ultimo anno ex T.O. ${charges[changedGuaranteeYear]} → ${adjustedOptionCharges[changedGuaranteeYear]}`
-    : "";
-  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}${optionCutDetail}`, capWarnings, false));
+  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}`, capWarnings, false));
   if (response.error) operationError(returnPath, response.error.message);
   revalidateOperationPaths();
   redirect(`${returnPath}?updated=${encodeURIComponent(`${label}: ${playerName}.`)}`);

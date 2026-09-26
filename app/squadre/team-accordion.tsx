@@ -802,7 +802,7 @@ function ContractDisplay({
   const markers = [
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "+ Q.O.", kind: "qo" }] : []),
-    ...(/\((?:2X|X2)\)/i.test(value) ? [{ label: "×2", kind: "double" }] : []),
+    ...(value.includes("+ R.E.") ? [{ label: "+ R.E.", kind: "re" }] : []),
     ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
     ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
   ];
@@ -812,8 +812,8 @@ function ContractDisplay({
       {markers.map((marker) => <i
         className={`contract-marker contract-marker-${marker.kind}`}
         key={marker.kind}
-        title={marker.kind === "double"
-          ? "Costo raddoppiato nell’ultimo anno"
+        title={marker.kind === "re"
+          ? "Rookie extension applicabile dopo la stagione indicata"
           : marker.kind === "acquisition-qo"
             ? "Acquistato tramite Q.O. accettata"
             : marker.kind === "rfa" ? "Acquistato come restricted free agent" : undefined}

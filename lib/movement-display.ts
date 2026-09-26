@@ -3,6 +3,7 @@ const operationLabels: Record<string, string> = {
   modifica_asta: "Modifica asta",
   qualifying_offer_non_estesa: "Q.O. non estesa",
   team_option: "Team option",
+  rookie_extension: "Rookie extension",
   team_option_playoff: "Team option playoff",
   firma_free_agent: "Firma free agent",
   estensione_contrattuale: "Estensione contrattuale",
@@ -38,7 +39,7 @@ const movementFilterGroups = [
   { value: "scelte_draft", label: "Scelte draft", operationTypes: ["scelta_draft"] },
   { value: "slot", label: "Spostamenti slot", operationTypes: ["spostamento_slot"] },
   { value: "tagli_rilasci", label: "Tagli e rilasci", operationTypes: ["cut", "free_release", "buyout", "stretch_provision"] },
-  { value: "team_option", label: "Team option", operationTypes: ["team_option", "team_option_playoff"] },
+  { value: "team_option", label: "Contratti da rookie", operationTypes: ["team_option", "rookie_extension", "team_option_playoff"] },
 ] as const;
 
 export const movementFilterOptions = movementFilterGroups
@@ -87,7 +88,7 @@ export function conciseMovementDetail(operationType: string, summary: string) {
   const detail = normalize(summary.replace(/\s*[;·]\s*CAP FORZATO\s*$/i, ""));
   let concise = detail;
 
-  if (["team_option", "team_option_playoff", "estensione_contrattuale"].includes(normalizedType)) {
+  if (["team_option", "rookie_extension", "team_option_playoff", "estensione_contrattuale"].includes(normalizedType)) {
     concise = firstSegment(detail);
   } else if (["acquisto_asta", "firma_free_agent"].includes(normalizedType)) {
     concise = conciseAcquisition(detail);

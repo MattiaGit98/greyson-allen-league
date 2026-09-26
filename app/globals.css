@@ -340,6 +340,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .contract-marker-pending-option { background: #e7edf4; color: #4f6680; }
 .contract-pending { color: #8a6840; font-size: 10px; }
 .contract-team-option { min-width: 28px; justify-content: center; padding: 4px 6px; border-radius: 5px; background: #eee5f2; color: #684275; }
+.contract-marker-re { background: #e7dded; color: #684275; }
 .credit-value { color: #b74d26; font-style: normal; font-weight: 900; }
 .stretch-status { min-width: 34px; display: inline-flex; justify-content: center; padding: 4px 7px; border-radius: 99px; font-style: normal; font-size: 8px; font-weight: 900; }
 .stretch-status.available { background: #eeece4; color: #697069; }
@@ -721,8 +722,13 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .team-option-mode.playoff strong { color: #775325; }
 .team-option-editor > .admin-operation-field { width: min(100%, 360px); margin-bottom: 16px; }
 .team-option-editor > .admin-team-select { width: min(100%, 522px); }
+.team-option-section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 7px; padding: 0 2px; }
+.team-option-section-title span { color: var(--green); font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: .055em; }
+.team-option-section-title strong { color: var(--muted); font-size: 9px; }
+.team-option-section-title.rookie-extension { margin-top: 22px; }
 .team-option-list { overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: white; }
 .team-option-list-head, .team-option-row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(220px, auto) 108px; align-items: center; gap: 10px; padding: 9px 11px; border-bottom: 1px solid var(--line); }
+.rookie-extension-list .team-option-list-head, .rookie-extension-list .team-option-row { grid-template-columns: minmax(150px, 1fr) minmax(220px, 310px); }
 .team-option-list-head { min-height: 35px; background: #f0f1e9; color: var(--muted); font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: .07em; }
 .team-option-list-head > :not(:first-child) { text-align: center; }
 .team-option-row:last-child { border-bottom: 0; }
@@ -1324,6 +1330,10 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .team-option-row { grid-template-columns: minmax(0, 1fr) 92px; gap: 8px; padding: 10px 8px; }
   .team-option-player { grid-column: 1 / -1; }
   .team-option-decisions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rookie-extension-list .team-option-row { grid-template-columns: minmax(0, 1fr); }
+  .rookie-extension-list .team-option-decisions { grid-column: 1 / -1; }
+  .team-option-section-title { padding: 0 8px; }
+  .team-option-section-title strong { font-size: 8px; text-align: right; }
   .team-option-destination { align-self: stretch; }
   .team-option-destination select { height: 100%; min-height: 32px; }
   .team-option-save { width: calc(100% - 12px); justify-content: center; margin-left: 6px; }

@@ -14,7 +14,7 @@ const actionGroups = [
     actions: [
       { href: "/admin/free-agent", title: "Firma free agent" },
       { href: "/admin/scambi", title: "Scambi" },
-      { href: "/admin/team-option", title: "Team option" },
+      { href: "/admin/team-option", title: "Contratti da rookie" },
       { href: "/admin/contratti", title: "Assegnazione contratti" },
       { href: "/admin/slot", title: "Spostamento slot" },
       { href: "/admin/altre-operazioni", title: "Altre operazioni" },

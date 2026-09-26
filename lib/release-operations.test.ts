@@ -31,7 +31,7 @@ describe("tagli e rilasci", () => {
     })).toEqual([80, 100, 100]);
   });
 
-  it("sostituisce sul cap il raddoppio T.O. con la metÃ  garantita", () => {
+  it("usa gli addebiti espliciti quando il taglio modifica il peso residuo", () => {
     expect(releaseCapSpaces({
       kind: "cut",
       spacesBefore: [100, 100, 100],
@@ -59,7 +59,7 @@ describe("tagli e rilasci", () => {
     })).toEqual([80, 120, 100]);
   });
 
-  it("il buyout concentra soltanto la metÃ  garantita dell'ultimo anno ex T.O.", () => {
+  it("il buyout usa gli addebiti espliciti quando il residuo è già stato rettificato", () => {
     expect(releaseCapSpaces({
       kind: "buyout",
       spacesBefore: [100, 100, 100],

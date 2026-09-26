@@ -114,7 +114,7 @@ function validateDraft(
   if (!allowedPostAuctionContracts(entry.auctionAcquisition).includes(draft.contractKind)) {
     throw new Error(entry.auctionAcquisition === "qualifying_offer"
       ? `${entry.name}: una Q.O. accettata richiede il contratto annuale.`
-      : `${entry.name}: un restricted free agent può ricevere soltanto un contratto annuale o biennale.`);
+      : `${entry.name}: un restricted free agent può ricevere soltanto un contratto annuale, biennale o triennale.`);
   }
   if (entry.state === "cut" && draft.slot !== "regular") {
     throw new Error(`${entry.name}: un giocatore già tagliato deve restare fuori dagli slot attivi.`);

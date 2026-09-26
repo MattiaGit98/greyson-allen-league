@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { allowedPostAuctionContracts, auctionAcquisitionLabel, isPostAuctionContractAssignmentCandidate, type PostAuctionContractKind } from "@/lib/auction-management";
 import { assignPostAuctionContracts } from "@/app/admin/contratti/actions";
 import { moveRosterSlot } from "@/app/admin/slot/actions";
-import { exercisePlayoffTeamOptions, saveTeamOptionDecisions } from "@/app/admin/team-option/actions";
+import { exercisePlayoffTeamOptions, saveRookieContractDecisions } from "@/app/admin/team-option/actions";
 import type { AdminRosterPlayer, AdminRosterTeam } from "@/lib/admin-operation-data";
 import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
 import { CapBlocker } from "@/app/admin/cap-force-control";
@@ -109,17 +109,20 @@ export function TeamOptionForm(props: OperationProps) {
   const [decisions, setDecisions] = useState<Record<string, "exercise" | "decline">>({});
   const [gLeagueDestinations, setGLeagueDestinations] = useState<Record<string, "two_way" | "regular">>({});
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
-  const players = (team?.players ?? []).filter((player) => player.state === "active" && player.isTeamOption);
+  const teamOptionPlayers = (team?.players ?? []).filter((player) => player.state === "active" && player.isTeamOption);
+  const rookieExtensionPlayers = (team?.players ?? []).filter((player) => player.state === "active" && player.isRookieExtensionDue);
+  const players = [...teamOptionPlayers, ...rookieExtensionPlayers];
   const before = slotCounts(team);
   const after = { ...before };
   const selectedPlayers = players.filter((player) => decisions[player.id]);
-  const exercisedPlayers = players.filter((player) => decisions[player.id] === "exercise");
+  const exercisedOptions = teamOptionPlayers.filter((player) => decisions[player.id] === "exercise");
+  const appliedExtensions = rookieExtensionPlayers.filter((player) => decisions[player.id] === "exercise");
   const rolesBefore = roleCounts(team);
   const rolesAfter = { ...rolesBefore };
   const destinationFor = (player: AdminRosterPlayer): Slot => {
     return destinationAfterTeamOptionExercise(player.slot, gLeagueDestinations[player.id] ?? "two_way");
   };
-  players.forEach((player) => {
+  teamOptionPlayers.forEach((player) => {
     const decision = decisions[player.id];
     if (decision === "decline") {
       after[player.slot] -= 1;
@@ -133,24 +136,35 @@ export function TeamOptionForm(props: OperationProps) {
       }
     }
   });
-  const exercisedCost = exercisedPlayers.reduce((total, player) => total + player.cost, 0);
-  const doubledCost = exercisedCost * 2;
-  const currentSpaceAfter = (team?.spaceBeforeOptions ?? 0) - exercisedCost;
-  const nextSpaceAfter = (team?.nextSpace ?? 0) - doubledCost;
+  rookieExtensionPlayers.forEach((player) => {
+    const decision = decisions[player.id];
+    if (decision === "decline") {
+      after[player.slot] -= 1;
+      if (player.slot !== "dpe" && player.role) rolesAfter[player.role] -= 1;
+    }
+    if (decision === "exercise" && player.slot !== "regular") {
+      after[player.slot] -= 1;
+      after.regular += 1;
+    }
+  });
+  const exercisedCost = exercisedOptions.reduce((total, player) => total + player.cost, 0);
+  const extensionCost = appliedExtensions.reduce((total, player) => total + player.cost * 2, 0);
+  const currentSpaceAfter = (team?.spaceBeforeOptions ?? 0) - exercisedCost - extensionCost;
+  const nextSpaceAfter = team?.nextSpace ?? 0;
   const followingSpaceAfter = team?.followingSpace ?? 0;
   const nextSeasonName = seasonNameAt(props.seasonName, 1);
   const followingSeasonName = seasonNameAt(props.seasonName, 2);
   const errors = [
     ...(!operationWindows.teamOption(props.leagueMoment)
-      ? ["Le T.O. si possono risolvere soltanto in Offseason — prima delle T.O."]
+      ? ["I contratti da rookie si possono risolvere soltanto in Offseason — prima della relativa scadenza."]
       : []),
-    ...(after.regular > slotLimits.regular ? ["Gli esercizi selezionati superano i 15 slot roster."] : []),
-    ...(after.two_way > slotLimits.two_way ? ["Gli esercizi selezionati superano i 2 slot Two-way."] : []),
+    ...(after.regular > slotLimits.regular ? ["Le decisioni selezionate superano i 15 slot roster."] : []),
+    ...(after.two_way > slotLimits.two_way ? ["Le decisioni selezionate superano i 2 slot Two-way."] : []),
     ...(after.g_league > slotLimits.g_league ? ["Le decisioni selezionate superano i 3 slot G-League."] : []),
   ];
   const capWarnings = [
-    ...(currentSpaceAfter < 0 ? [`Gli esercizi portano il cap libero ${props.seasonName} a ${currentSpaceAfter}.`] : []),
-    ...(nextSpaceAfter < 0 ? [`Il raddoppio porta il cap libero ${nextSeasonName} a ${nextSpaceAfter}.`] : []),
+    ...(currentSpaceAfter < 0 ? [`Le decisioni portano il cap libero ${props.seasonName} a ${currentSpaceAfter}.`] : []),
+    ...(nextSpaceAfter < 0 ? [`Il cap libero ${nextSeasonName} è ${nextSpaceAfter}.`] : []),
     ...(followingSpaceAfter < 0 ? [`Il cap libero ${followingSeasonName} è ${followingSpaceAfter}.`] : []),
   ];
 
@@ -166,22 +180,24 @@ export function TeamOptionForm(props: OperationProps) {
   }
   const serializedDecisions = selectedPlayers.map((player) => ({
     playerName: player.name,
+    kind: player.isTeamOption ? "team_option" : "rookie_extension",
     decision: decisions[player.id],
-    destination: destinationFor(player) === "two_way" ? "two_way" : "regular",
+    destination: player.isTeamOption && destinationFor(player) === "two_way" ? "two_way" : "regular",
   }));
 
   return (
-    <form action={saveTeamOptionDecisions} className="team-option-workspace">
+    <form action={saveRookieContractDecisions} className="team-option-workspace">
       <input type="hidden" name="team_code" value={teamCode} />
       <input type="hidden" name="decisions_json" value={JSON.stringify(serializedDecisions)} />
       <div className="team-option-editor">
         <label className="admin-team-select team-option-team-select">
           <span>Squadra</span>
-          <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); }} />
+          <TeamSelect teams={props.teams} value={teamCode} onChange={(value) => { setTeamCode(value); setDecisions({}); setGLeagueDestinations({}); }} />
         </label>
+        <div className="team-option-section-title"><span>Team option</span><strong>Decisione dopo il primo anno</strong></div>
         <div className="team-option-list">
           <div className="team-option-list-head"><span>Giocatore</span><span>Decisione</span><span>Destinazione</span></div>
-          {players.map((player) => {
+          {teamOptionPlayers.map((player) => {
             const decision = decisions[player.id];
             return (
               <div className="team-option-row" key={player.id}>
@@ -196,7 +212,7 @@ export function TeamOptionForm(props: OperationProps) {
                   </label>
                   <label className={decision === "decline" ? "selected decline" : ""}>
                     <input type="checkbox" checked={decision === "decline"} onChange={(event) => setDecision(player.id, "decline", event.target.checked)} />
-                    Lascia andare
+                    Lascia scadere
                   </label>
                 </div>
                 <div className="team-option-destination">
@@ -209,7 +225,34 @@ export function TeamOptionForm(props: OperationProps) {
               </div>
             );
           })}
-          {!players.length && <p className="team-option-empty">Nessuna team option per questa squadra.</p>}
+          {!teamOptionPlayers.length && <p className="team-option-empty">Nessuna team option da risolvere per questa squadra.</p>}
+        </div>
+
+        <div className="team-option-section-title rookie-extension"><span>Rookie extension</span><strong>Decisione dopo il secondo anno</strong></div>
+        <div className="team-option-list rookie-extension-list">
+          <div className="team-option-list-head"><span>Giocatore</span><span>Decisione</span></div>
+          {rookieExtensionPlayers.map((player) => {
+            const decision = decisions[player.id];
+            return (
+              <div className="team-option-row" key={player.id}>
+                <div className="team-option-player">
+                  <strong>{player.name}</strong>
+                  <span>{player.role ?? "X"} · {slotLabel(player.slot)} · {player.cost} → {player.cost * 2} crediti</span>
+                </div>
+                <div className="team-option-decisions">
+                  <label className={decision === "exercise" ? "selected exercise" : ""}>
+                    <input type="checkbox" checked={decision === "exercise"} onChange={(event) => setDecision(player.id, "exercise", event.target.checked)} />
+                    Applica
+                  </label>
+                  <label className={decision === "decline" ? "selected decline" : ""}>
+                    <input type="checkbox" checked={decision === "decline"} onChange={(event) => setDecision(player.id, "decline", event.target.checked)} />
+                    Non applicare
+                  </label>
+                </div>
+              </div>
+            );
+          })}
+          {!rookieExtensionPlayers.length && <p className="team-option-empty">Nessuna rookie extension da risolvere per questa squadra.</p>}
         </div>
         <button className="button primary team-option-save" type="submit" disabled={Boolean(errors.length) || !selectedPlayers.length || capWarnings.length > 0}>
           Salva decisioni{selectedPlayers.length ? ` (${selectedPlayers.length})` : ""}
@@ -250,14 +293,14 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
   const followingSeasonName = seasonNameAt(props.seasonName, 2);
   const currentSpaceAfter = team?.space ?? 0;
   const nextSpaceAfter = (team?.nextSpace ?? 0) - exercisedCost;
-  const followingSpaceAfter = (team?.followingSpace ?? 0) - exercisedCost * 2;
+  const followingSpaceAfter = team?.followingSpace ?? 0;
   const errors = !operationWindows.playoffTeamOption(props.leagueMoment)
     ? ["L'esercizio anticipato per utilizzo nei playoff è disponibile dopo il termine della free agency."]
     : [];
   const capWarnings = [
     ...(currentSpaceAfter < 0 ? [`Il cap libero ${props.seasonName} è ${currentSpaceAfter}.`] : []),
     ...(nextSpaceAfter < 0 ? [`Gli esercizi portano il cap libero ${nextSeasonName} a ${nextSpaceAfter}.`] : []),
-    ...(followingSpaceAfter < 0 ? [`Il raddoppio porta il cap libero ${followingSeasonName} a ${followingSpaceAfter}.`] : []),
+    ...(followingSpaceAfter < 0 ? [`Il cap libero ${followingSeasonName} è ${followingSpaceAfter}.`] : []),
   ];
 
   return (
@@ -490,7 +533,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
     if (!allowedPostAuctionContracts(player.auctionAcquisition).includes(assignment.contract)) {
       errors.push(player.auctionAcquisition === "qualifying_offer"
         ? `${player.name}: una Q.O. accettata richiede il contratto annuale.`
-        : `${player.name}: un restricted free agent può ricevere soltanto un contratto annuale o biennale.`);
+        : `${player.name}: un restricted free agent può ricevere soltanto un contratto annuale, biennale o triennale.`);
     }
     if (player.auctionAcquisition && assignment.slot !== "regular") errors.push(`${player.name}: deve restare nello slot roster.`);
     if (destinationSpecial && assignment.contract !== "team_option") errors.push(`${player.name}: negli slot speciali è selezionabile soltanto la T.O.`);

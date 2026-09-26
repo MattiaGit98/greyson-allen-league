@@ -4,6 +4,7 @@ import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamO
 import { leagueMomentFromSeason, type LeagueMoment } from "@/lib/league-moments";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { requireActiveSeason } from "@/lib/active-season";
+import { isRookieExtensionContract, isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
 
 export type AdminRosterPlayer = {
   id: string;
@@ -16,6 +17,8 @@ export type AdminRosterPlayer = {
   slot: "regular" | "two_way" | "g_league" | "dpe";
   state: "active" | "cut";
   isTeamOption: boolean;
+  isRookieExtension: boolean;
+  isRookieExtensionDue: boolean;
   hasQualifyingRight: boolean;
   isExtensionEligible: boolean;
   stretchProvisionApplied: boolean;
@@ -129,6 +132,8 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
             slot: entry.slot,
             state: entry.state,
             isTeamOption: entry.contract === "T.O.",
+            isRookieExtension: isRookieExtensionContract(entry),
+            isRookieExtensionDue: isRookieExtensionDecisionDue(entry, seasonName),
             hasQualifyingRight: entry.contract.includes("(Q)"),
             isExtensionEligible: entry.contract.includes("(E)"),
             stretchProvisionApplied: entry.stretchProvisionApplied === true,

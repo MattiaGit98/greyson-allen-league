@@ -1,11 +1,9 @@
 import type { PlayerListEntry, QualifyingOfferRight, RosterEntry } from "@/lib/league-types";
 import { advanceSeasonName, seasonEndYear } from "./season-time";
-import { applyTeamOptionFinalYearDoubling, teamOptionCutAdjustment } from "./team-option-contract";
+import { isRookieExtensionContract } from "./team-option-contract";
 import {
   applyPlayoffTeamOptionPromotion,
-  applySecondYearTwoWayPromotion,
   requiresPlayoffTeamOptionPromotion,
-  requiresSecondYearTwoWayPromotion,
 } from "./two-way-promotions";
 import { orderPlayerListByRole } from "./player-list-order";
 
@@ -23,6 +21,9 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
   const roles = new Map<string, RosterEntry["role"]>();
   input.rosterEntries.forEach((entry) => roles.set(entry.name, entry.role));
 
+  // Restano valide le Q.O. gia previste dai contratti esistenti. Per il
+  // percorso T.O./R.E. il diritto nasce invece dalla decisione esplicita di
+  // non applicare la rookie extension.
   const generatedRights: QualifyingOfferRight[] = input.rosterEntries
     .filter((entry) => entry.state === "active" && contractExpiryYear(entry.contract, expiringYear) === expiringYear && entry.contract.includes("(Q)"))
     .map((entry) => ({
@@ -31,55 +32,34 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
       teamCode: entry.teamCode,
     }));
 
-  const doublingKeys = new Set(input.rosterEntries
-    .filter((entry) => entry.state === "active"
-      && contractExpiryYear(entry.contract, expiringYear) === expiringYear + 1
-      && /\((?:2X|X2)\)/i.test(entry.contract))
-    .map((entry) => `${entry.teamCode}:${entry.name}`));
-
   const retainedBeforeDpeReintegration = input.rosterEntries
     .filter((entry) => {
       const expiry = contractExpiryYear(entry.contract, expiringYear);
-      if (expiry === expiringYear) return false;
-      // Una T.O. non esercitata non ha una scadenza numerica. Se il giocatore
-      // e gia stato tagliato, il contratto termina comunque con la stagione.
+      if (expiry === expiringYear) {
+        return entry.state === "active" && isRookieExtensionContract(entry);
+      }
+      // Una T.O. tagliata termina comunque con la stagione.
       if (entry.state === "cut" && entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O.") return false;
       return true;
     })
-    .map((entry) => {
-      const entryWithSeasonHistory = {
-        ...entry,
-        endedPreviousSeasonInGLeague: entry.state === "active" && entry.slot === "g_league",
-        twoWayPromotionLocked: false,
-        dpeAppliedSeasons: entry.state === "active" && entry.slot === "dpe"
-          ? [input.seasonName]
-          : entry.dpeAppliedSeasons?.includes(input.seasonName) ? [input.seasonName] : undefined,
-      };
-      const expiry = contractExpiryYear(entry.contract, expiringYear);
-      const becomesFinalYearOption = expiry === expiringYear + 1
-        && /\((?:2X|X2)\)/i.test(entry.contract);
-      if (!becomesFinalYearOption) return entryWithSeasonHistory;
-      if (entry.state === "cut") {
-        return teamOptionCutAdjustment(entryWithSeasonHistory, expiringYear + 1, "offseason_start").entry;
-      }
-      return applyTeamOptionFinalYearDoubling(entryWithSeasonHistory, expiry);
-    });
-  const promotedSecondYearTwoWayPlayers = retainedBeforeDpeReintegration
-    .filter((entry) => (
-      requiresSecondYearTwoWayPromotion(entry, input.seasonName)
-      && !requiresPlayoffTeamOptionPromotion(entry, nextSeasonName)
-    ))
-    .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
+    .map((entry) => ({
+      ...entry,
+      endedPreviousSeasonInGLeague: entry.state === "active" && entry.slot === "g_league",
+      twoWayPromotionLocked: false,
+      dpeAppliedSeasons: entry.state === "active" && entry.slot === "dpe"
+        ? [input.seasonName]
+        : entry.dpeAppliedSeasons?.includes(input.seasonName) ? [input.seasonName] : undefined,
+    }));
+
   const promotedPlayoffTeamOptionPlayers = retainedBeforeDpeReintegration
     .filter((entry) => requiresPlayoffTeamOptionPromotion(entry, nextSeasonName))
     .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
-  const retainedBeforeDpeReintegrationAfterTwoWayPromotions = retainedBeforeDpeReintegration
-    .map((entry) => applySecondYearTwoWayPromotion(entry, input.seasonName))
+  const retainedAfterPlayoffPromotions = retainedBeforeDpeReintegration
     .map((entry) => applyPlayoffTeamOptionPromotion(entry, nextSeasonName));
-  const reintegratedDpePlayers = retainedBeforeDpeReintegrationAfterTwoWayPromotions
+  const reintegratedDpePlayers = retainedAfterPlayoffPromotions
     .filter((entry) => entry.state === "active" && entry.slot === "dpe")
     .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
-  const retainedEntries = retainedBeforeDpeReintegrationAfterTwoWayPromotions.map((entry) => (
+  const retainedEntries = retainedAfterPlayoffPromotions.map((entry) => (
     entry.state === "active" && entry.slot === "dpe"
       ? { ...entry, slot: "regular" as const }
       : entry
@@ -116,8 +96,7 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     playerList: orderPlayerListByRole(playerList),
     expiredContracts: input.rosterEntries.length - retainedEntries.length,
     generatedQualifyingOffers: generatedRights.length,
-    doubledTeamOptions: doublingKeys.size,
-    promotedSecondYearTwoWayPlayers,
+    pendingRookieExtensions: retainedEntries.filter((entry) => entry.state === "active" && isRookieExtensionContract(entry)).length,
     promotedPlayoffTeamOptionPlayers,
     reintegratedDpePlayers,
   };

@@ -58,6 +58,7 @@ export async function signFreeAgent(formData: FormData) {
     .maybeSingle();
   if (seasonResponse.error || !seasonResponse.data) fail(seasonResponse.error?.message ?? "Nessuna stagione attiva.");
   const moment = leagueMomentFromSeason(seasonResponse.data);
+  const activeSeasonName = seasonResponse.data.name;
   if (!operationWindows.freeAgency(moment)) fail("La free agency non è aperta in questo momento della lega.");
   const state = await loadEditableLeagueState();
   if (state.playerListStatus !== "published") fail("Il listone ufficiale non è ancora pubblicato.");
@@ -105,12 +106,12 @@ export async function signFreeAgent(formData: FormData) {
     players: managedActiveEntries.map((entry) => ({
       name: entry.name,
       slot: entry.slot as ManagedRosterSlot,
-      cuttable: !isUnresolvedTeamOption(entry, moment),
-      promotionDestinations: isUnresolvedTeamOption(entry, moment)
+      cuttable: !isUnresolvedTeamOption(entry, moment, activeSeasonName),
+      promotionDestinations: isUnresolvedTeamOption(entry, moment, activeSeasonName)
         ? []
         : legalPromotionDestinations(
           { ...entry, slot: entry.slot as ManagedRosterSlot },
-          seasonResponse.data!.name,
+          activeSeasonName,
           moment,
         ),
     })),

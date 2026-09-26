@@ -11,6 +11,7 @@ import type { SavedDraftOrderAssignment } from "./draft-positions";
 import { countTradeEligibleDraftAssets } from "./future-draft-picks";
 import { competitionNames, type CompetitionName } from "./competitions";
 import { orderPlayerListByRole } from "./player-list-order";
+import { normalizeLegacyRookieExtensionState } from "./team-option-contract";
 
 export type EditableLeagueState = {
   teams: TeamSummary[];
@@ -54,7 +55,7 @@ export const loadEditableLeagueState = cache(async function loadEditableLeagueSt
 
 export function normalizeState(value: unknown, fallback = emptyLeagueState()): EditableLeagueState {
   if (!value || typeof value !== "object") return fallback;
-  const input = value as Partial<EditableLeagueState>;
+  const input = normalizeLegacyRookieExtensionState(value) as Partial<EditableLeagueState>;
   const rosterEntries = Array.isArray(input.rosterEntries) ? input.rosterEntries : fallback.rosterEntries;
   const draftAssets = Array.isArray(input.draftAssets) ? input.draftAssets : fallback.draftAssets;
   const qualifyingOfferRights = Array.isArray(input.qualifyingOfferRights)

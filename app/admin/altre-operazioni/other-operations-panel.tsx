@@ -20,7 +20,7 @@ import {
   freeReleaseReasonValues,
   type FreeReleaseReason,
 } from "@/lib/free-release";
-import { isUnresolvedTeamOption, teamOptionCutAdjustment } from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
@@ -188,9 +188,6 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           <Metric label="Ruoli" value={`${formatRoles(preview.rolesBefore)} → ${formatRoles(preview.rolesAfter)}`} />
           {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${Math.ceil(player.cost * 1.25)}`} />}
           {operation === "buyout" && <Metric label="Nuovo contratto" value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
-          {preview.optionGuaranteeChange && (
-            <Metric label="Garanzia ultimo anno ex T.O." value={`${preview.optionGuaranteeChange.before} → ${preview.optionGuaranteeChange.after}`} />
-          )}
           {operation === "stretch" && <Metric label="Rata" value={preview.installment ?? "—"} />}
         </div>
         {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
@@ -209,7 +206,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
 function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, props: AdminOperationContext): OperationChoice[] {
   const choices: OperationChoice[] = [];
   const slots = slotCounts(team);
-  const unresolvedTeamOption = isUnresolvedTeamOption(player, props.leagueMoment);
+  const unresolvedTeamOption = isUnresolvedTeamOption(player, props.leagueMoment, props.seasonName);
   if (player.state === "active" && player.isExtensionEligible && player.expiryYear === props.seasonEndYear && operationWindows.extensions(props.leagueMoment)) choices.push({ value: "extension", label: "Estensione contrattuale" });
   if (player.state === "active" && !unresolvedTeamOption) choices.push({ value: "cut", label: "Taglio" });
   if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player, props.seasonName).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
@@ -232,18 +229,7 @@ function operationPreview(
 ) {
   const spacesBefore: ThreeYearValues = [team.space, team.nextSpace, team.followingSpace];
   const charges = playerCharges(player, props);
-  const optionCutAdjustment = operation === "cut" || operation === "buyout"
-    ? teamOptionCutAdjustment(rosterEntryForPlayer(player), props.seasonEndYear, props.leagueMoment)
-    : null;
-  const adjustedOptionCharges = optionCutAdjustment?.adjusted
-    ? entryCharges(optionCutAdjustment.entry, props)
-    : null;
-  const changedGuaranteeYear = adjustedOptionCharges?.findIndex((charge, index) => charge !== charges[index]) ?? -1;
-  const optionGuaranteeChange = changedGuaranteeYear >= 0 && adjustedOptionCharges
-    ? { before: charges[changedGuaranteeYear], after: adjustedOptionCharges[changedGuaranteeYear] }
-    : null;
-  const buyoutTotalResidual = (operation === "buyout" && adjustedOptionCharges ? adjustedOptionCharges : charges)
-    .reduce((total, charge) => total + charge, 0);
+  const buyoutTotalResidual = charges.reduce((total, charge) => total + charge, 0);
   let spacesAfter: ThreeYearValues = [...spacesBefore];
   let installment: number | undefined;
   if (operation === "extension") {
@@ -260,12 +246,6 @@ function operationPreview(
       kind: operation as "cut" | "free_release" | "buyout",
       spacesBefore,
       contractCharges: charges,
-      cutContractCharges: optionCutAdjustment?.adjusted
-        ? entryCharges({ ...optionCutAdjustment.entry, state: "cut", slot: "regular" }, props)
-        : undefined,
-      buyoutContractCharges: operation === "buyout" && adjustedOptionCharges
-        ? adjustedOptionCharges
-        : undefined,
       currentDpeExemption: player.state === "active" && player.slot === "dpe",
     });
   } else if (operation === "stretch") {
@@ -364,8 +344,6 @@ function operationPreview(
     roleMinimumSlotError,
     installment,
     buyoutTotalResidual,
-    optionCutAdjustment,
-    optionGuaranteeChange,
     errors: [...new Set(errors)],
     warnings: [...new Set(warnings)],
     capWarnings: [...new Set(capWarnings)],

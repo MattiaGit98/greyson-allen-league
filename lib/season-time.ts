@@ -39,9 +39,7 @@ export function contractCostForSeason(entry: RosterEntry, seasonName: string) {
   const targetEndYear = seasonEndYear(seasonName);
   const expiry = Number(entry.contract.match(/\d{2}/)?.[0] ?? 0);
   if (targetEndYear === null || !expiry) return entry.cost;
-  const fullExpiryYear = Math.floor(targetEndYear / 100) * 100 + expiry;
-  const doublesInFinalYear = /\((?:2X|X2)\)/i.test(entry.contract) && fullExpiryYear === targetEndYear;
-  return entry.cost * (doublesInFinalYear ? 2 : 1);
+  return entry.cost;
 }
 
 export function calculateCapSpace({

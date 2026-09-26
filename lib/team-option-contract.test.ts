@@ -1,107 +1,94 @@
 import { describe, expect, it } from "vitest";
 import type { RosterEntry } from "./league-types";
 import {
-  applyTeamOptionFinalYearDoubling,
+  applyRookieExtension,
   applyStandardContractCut,
   destinationAfterTeamOptionExercise,
+  exerciseOrdinaryTeamOption,
   exercisePlayoffTeamOption,
+  isRookieExtensionDecisionDue,
   isUnresolvedTeamOption,
-  markExercisedTeamOption,
-  qualifyingOfferForDeclinedTeamOption,
-  teamOptionCutAdjustment,
+  normalizeLegacyRookieExtensionEntry,
+  normalizeLegacyRookieExtensionText,
+  qualifyingOfferForDeclinedRookieExtension,
 } from "./team-option-contract";
 
 const option: RosterEntry = {
-  name: "T.O.",
+  name: "Rookie",
   cost: 5,
-  contract: "28 (2X)",
+  contract: "T.O.",
   state: "active",
   slot: "regular",
   teamCode: "AAA",
 };
 
-describe("garanzia dell'ultimo anno della team option", () => {
-  it("considera da risolvere solo le T.O. dell'anno precedente, fino alla relativa scadenza", () => {
-    const unresolved = { ...option, contract: "T.O." };
-    expect(isUnresolvedTeamOption(unresolved, "offseason_start")).toBe(true);
-    expect(isUnresolvedTeamOption(unresolved, "team_option_deadline")).toBe(false);
-    expect(isUnresolvedTeamOption(unresolved, "auction_start")).toBe(false);
+describe("contratti da rookie", () => {
+  it("considera da risolvere le T.O. e soltanto le R.E. giunte alla propria offseason", () => {
+    expect(isUnresolvedTeamOption(option, "offseason_start", "2026/27")).toBe(true);
+    expect(isUnresolvedTeamOption(option, "team_option_deadline", "2026/27")).toBe(false);
+    expect(isRookieExtensionDecisionDue({ contract: "26 + R.E." }, "2026/27")).toBe(true);
+    expect(isRookieExtensionDecisionDue({ contract: "27 + R.E." }, "2026/27")).toBe(false);
+    expect(isUnresolvedTeamOption({ contract: "26 + R.E." }, "offseason_start", "2026/27")).toBe(true);
   });
 
-  it("conserva costo base e ultimo anno quando la T.O. viene esercitata", () => {
-    expect(markExercisedTeamOption(option, 2028)).toMatchObject({ teamOptionBaseCost: 5, teamOptionFinalYear: 2028 });
-  });
-
-  it("raddoppia il costo conservando l'origine ex T.O.", () => {
-    expect(applyTeamOptionFinalYearDoubling(option, 2028)).toMatchObject({
-      cost: 10,
-      contract: "28 (Q)",
-      teamOptionBaseCost: 5,
-      teamOptionFinalYear: 2028,
-    });
-  });
-
-  it("annulla il raddoppio se il taglio precede l'asta dell'ultimo anno", () => {
-    const doubled = applyTeamOptionFinalYearDoubling(option, 2028);
-    expect(teamOptionCutAdjustment(doubled, 2028, "team_option_deadline")).toMatchObject({
-      adjusted: true,
-      entry: { cost: 5, contract: "28" },
-    });
-  });
-
-  it("non annulla il raddoppio dall'inizio dell'asta dell'ultimo anno", () => {
-    const doubled = applyTeamOptionFinalYearDoubling(option, 2028);
-    expect(teamOptionCutAdjustment(doubled, 2028, "auction_start").adjusted).toBe(false);
-  });
-
-  it("non annulla il raddoppio dopo la conclusione dell'asta dell'ultimo anno", () => {
-    const doubled = applyTeamOptionFinalYearDoubling(option, 2028);
-    expect(teamOptionCutAdjustment(doubled, 2028, "auction_completed").adjusted).toBe(false);
-  });
-
-  it("applica la garanzia ridotta anche a un taglio contestuale", () => {
-    const doubled = applyTeamOptionFinalYearDoubling(option, 2028);
-    expect(applyStandardContractCut(doubled, 2028, "team_option_deadline")).toMatchObject({
-      state: "cut",
-      slot: "regular",
+  it("esercita la T.O. per il secondo anno allo stesso prezzo e prepara la R.E.", () => {
+    expect(exerciseOrdinaryTeamOption(option, "2026/27")).toMatchObject({
       cost: 5,
-      contract: "28",
+      contract: "27 + R.E.",
+      slot: "regular",
     });
   });
 
-  it("lo annulla anche dopo un'asta precedente, se quella antecedente all'ultimo anno deve ancora arrivare", () => {
-    expect(teamOptionCutAdjustment(option, 2027, "auction_completed")).toMatchObject({
-      adjusted: true,
-      entry: { cost: 5, contract: "28" },
+  it("applica la R.E. per il terzo anno, raddoppia e forza il Roster", () => {
+    expect(applyRookieExtension({ ...option, contract: "26 + R.E.", slot: "two_way" }, "2026/27")).toMatchObject({
+      cost: 10,
+      contract: "27",
+      slot: "regular",
     });
   });
-});
 
-describe("risoluzione della team option", () => {
-  it("assegna al proprietario la Q.O. al prezzo della T.O. non esercitata", () => {
-    const unresolvedOption: RosterEntry = { ...option, contract: "T.O." };
-    expect(qualifyingOfferForDeclinedTeamOption(unresolvedOption)).toEqual({
-      playerName: "T.O.",
+  it("crea la Q.O. al prezzo precedente solo quando la R.E. non viene applicata", () => {
+    expect(qualifyingOfferForDeclinedRookieExtension(option)).toEqual({
+      playerName: "Rookie",
       qualifyingAmount: 5,
       teamCode: "AAA",
     });
   });
+
+  it("converte il vecchio anno X2 nel secondo anno con R.E. senza cambiare costo", () => {
+    expect(normalizeLegacyRookieExtensionEntry({
+      ...option,
+      contract: "28 (2X)",
+      teamOptionBaseCost: 5,
+      teamOptionFinalYear: 2028,
+    })).toEqual(expect.objectContaining({ cost: 5, contract: "27 + R.E." }));
+    expect(normalizeLegacyRookieExtensionText("Scadenza 28 (2X); altro contratto 29 X2"))
+      .toBe("Scadenza 27 + R.E.; altro contratto 28 + R.E.");
+  });
+
+  it("non applica più rettifiche speciali al costo quando il giocatore viene tagliato", () => {
+    const extension = { ...option, contract: "27 + R.E." };
+    expect(applyStandardContractCut(extension, 2027, "offseason_start")).toMatchObject({
+      state: "cut",
+      slot: "regular",
+      cost: 5,
+      contract: "27 + R.E.",
+    });
+  });
 });
 
-describe("destinazione immediata dopo l'esercizio della T.O.", () => {
-  it("richiede la scelta Two-way/roster per la G-League e promuove i Two-way", () => {
+describe("destinazioni dei contratti da rookie", () => {
+  it("promuove la T.O. dalla G-League di uno slot scelto e dal Two-way al Roster", () => {
     expect(destinationAfterTeamOptionExercise("g_league", "two_way")).toBe("two_way");
     expect(destinationAfterTeamOptionExercise("g_league", "regular")).toBe("regular");
     expect(destinationAfterTeamOptionExercise("two_way", "two_way")).toBe("regular");
     expect(destinationAfterTeamOptionExercise("regular", "two_way")).toBe("regular");
   });
 
-  it("l'esercizio playoff conserva lo slot e prepara contratto e promozione per l'annata successiva", () => {
-    expect(exercisePlayoffTeamOption({ ...option, contract: "T.O.", slot: "g_league" }, "2026/27")).toMatchObject({
+  it("l'esercizio playoff prepara il secondo anno con R.E. e la promozione della prossima offseason", () => {
+    expect(exercisePlayoffTeamOption({ ...option, slot: "g_league" }, "2026/27")).toMatchObject({
       slot: "g_league",
-      contract: "29 (2X)",
-      teamOptionBaseCost: 5,
-      teamOptionFinalYear: 2029,
+      contract: "28 + R.E.",
       playoffTeamOptionPromotionSeason: "2027/28",
     });
   });
