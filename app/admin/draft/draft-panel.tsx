@@ -90,7 +90,7 @@ export function DraftPanel({
                     ? <b>#{position}</b>
                     : <b className="unresolved">{pick.originOrOverall}</b>}
                 </div>
-                <div className="draft-panel-owner" title={formatTeamName(pick.ownerName)}><i>{pick.teamCode}</i><strong>{formatTeamName(pick.ownerName)}</strong></div>
+                <div className="draft-panel-owner"><i>{pick.teamCode}</i><strong>{formatTeamName(pick.ownerName)}</strong></div>
               </div>
               <SearchableRookieSelect
                 players={players}

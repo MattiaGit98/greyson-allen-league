@@ -102,7 +102,7 @@ export function FreeAgentPanel({
               <strong className="player-name">{player.name}</strong>
             </span>
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>
-            <span className="free-agent-buyout-cell">{player.buyoutApplied && <strong className="free-agent-buyout-mark" title="Buyout applicato" aria-label="Buyout applicato">X</strong>}</span>
+            <span className="free-agent-buyout-cell">{player.buyoutApplied && <strong className="free-agent-buyout-mark" aria-label="Buyout applicato">X</strong>}</span>
             <button className="auction-row-action bid" type="button" onClick={() => setSelectedName(player.name)}>Firma</button>
           </article>
         ))}

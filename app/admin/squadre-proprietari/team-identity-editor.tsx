@@ -35,7 +35,7 @@ function IdentityForm({ team }: { team: TeamSummary }) {
   return (
     <form action={action} className="team-identity-card">
       <input type="hidden" name="original_code" value={team.code} />
-      <label><span>Sigla</span><input name="code" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={3} pattern="[A-Z]{3}" title="La sigla deve contenere esattamente tre lettere." required /></label>
+      <label><span>Sigla</span><input name="code" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={3} pattern="[A-Z]{3}" required /></label>
       <label><span>Nome squadra</span><input name="name" value={name} onChange={(event) => setName(event.target.value)} /></label>
       <label><span>Proprietari</span><input name="owner" value={owner} onChange={(event) => setOwner(event.target.value)} /></label>
       <div className="team-identity-preview">

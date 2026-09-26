@@ -697,7 +697,7 @@ function PlayerDataRow({
         {shouldShowDpeBadge(entry, seasonName, leagueMoment) && (
           <i
             className="player-flag roster-dpe-flag"
-            title="DPE esercitata: il rilascio per meno della metà delle partite resta bloccato fino all’Inizio asta successivo."
+            aria-label="DPE esercitata"
           >DPE</i>
         )}
       </strong>
@@ -787,11 +787,11 @@ function ContractDisplay({
       ...(teamOptionEligible ? [{ label: "T.O.", kind: "pending-option" }] : []),
     ];
     return <span className="contract-group">
-      <i className="contract-value contract-pending" title="Contratto da assegnare">?</i>
+      <i className="contract-value contract-pending" aria-label="Contratto da assegnare">?</i>
       {pendingMarkers.map((marker) => <i
         className={`contract-marker contract-marker-${marker.kind}`}
         key={marker.kind}
-        title={marker.kind === "pending-option" ? "Idoneo alla team option" : undefined}
+        aria-label={marker.kind === "pending-option" ? "Idoneo alla team option" : undefined}
       >{marker.label}</i>)}
     </span>;
   }
@@ -799,6 +799,7 @@ function ContractDisplay({
   if (value === "T.O.") return <i className="contract-value contract-team-option">T.O.</i>;
   const year = value.match(/\d{2}/)?.[0] ?? value;
   const expiryTone = contractExpiryTone(year, seasonName);
+  const rookieExtensionTone = contractExpiryTone(nextContractYear(year), seasonName);
   const markers = [
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "+ Q.O.", kind: "qo" }] : []),
@@ -810,9 +811,9 @@ function ContractDisplay({
     <span className="contract-group">
       <i className={`contract-value contract-expiry contract-expiry-${expiryTone}`}>{year}</i>
       {markers.map((marker) => <i
-        className={`contract-marker contract-marker-${marker.kind}`}
+        className={`contract-marker contract-marker-${marker.kind}${marker.kind === "re" ? ` contract-expiry-${rookieExtensionTone}` : ""}`}
         key={marker.kind}
-        title={marker.kind === "re"
+        aria-label={marker.kind === "re"
           ? "Rookie extension applicabile dopo la stagione indicata"
           : marker.kind === "acquisition-qo"
             ? "Acquistato tramite Q.O. accettata"
@@ -820,6 +821,11 @@ function ContractDisplay({
       >{marker.label}</i>)}
     </span>
   );
+}
+
+function nextContractYear(year: string) {
+  if (!/^\d{2}$/.test(year)) return year;
+  return String((Number(year) + 1) % 100).padStart(2, "0");
 }
 
 function contractExpiryTone(year: string, seasonName: string) {

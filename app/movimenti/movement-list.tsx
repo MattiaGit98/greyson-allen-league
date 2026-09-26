@@ -27,7 +27,7 @@ export function MovementList({ movements, historyDays, emptyMessage }: { movemen
   return (
     <>
       <div className="movement-list">
-        <div className="movement-list-head"><span>Data e ora</span><span>Operazione</span><span>Dettaglio</span></div>
+        <div className="movement-list-head"><span>Data</span><span>Operazione</span><span>Dettaglio</span></div>
         {movements.map((movement) => (
           <button className="movement-list-row" type="button" key={movement.id} onClick={() => setSelected(movement)} aria-haspopup="dialog">
             <time dateTime={movement.dateTime}>{movement.displayedDate}</time>

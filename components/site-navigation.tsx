@@ -93,7 +93,7 @@ export function SiteNavigation({ seasonName, phaseName }: { seasonName: string; 
           </span>
         </Link>
         </div>
-        <Link className="admin-shortcut" href="/admin" aria-label="Apri amministrazione" title="Amministrazione">⚙</Link>
+        <Link className="admin-shortcut" href="/admin" aria-label="Apri amministrazione">⚙</Link>
       </header>
       {!isLogin && !isAdmin && (
         <>

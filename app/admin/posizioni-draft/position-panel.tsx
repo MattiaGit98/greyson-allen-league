@@ -230,7 +230,6 @@ function DraftRoundTable({
                 type="button"
                 disabled={locked}
                 aria-label={`Rimuovi posizione ${assignment.position}`}
-                title="Rimuovi scelta"
                 onClick={() => removeRow(assignment.position)}
               >Rimuovi</button>
             </div>

@@ -162,7 +162,6 @@ export function RosterCorrectionPanel({
                         type="button"
                         onClick={() => updateDraft(entry.sourceIndex, { remove: !draft.remove })}
                         aria-label={draft.remove ? `Ripristina ${entry.name}` : `Rimuovi ${entry.name}`}
-                        title={draft.remove ? "Annulla rimozione" : "Rimuovi giocatore"}
                       >{draft.remove ? "↶" : "×"}</button>
                     </div>
                   );

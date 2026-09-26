@@ -141,7 +141,7 @@ export function PlayerListEditor({
               <span className="player-list-edit-order">{absoluteIndex + 1}</span>
               {isNew
                 ? <input className="player-list-edit-name" aria-label={`Nome riga ${absoluteIndex + 1}`} value={row.name} onChange={(event) => updateRow(row.rowId, { name: event.target.value })} autoFocus />
-                : <strong className="player-list-edit-name" title={row.name}>{row.name}</strong>}
+                : <strong className="player-list-edit-name">{row.name}</strong>}
               {isNew ? (
                 <select aria-label={`Ruolo di ${row.name || `riga ${absoluteIndex + 1}`}`} value={row.role} onChange={(event) => updateRow(row.rowId, { role: event.target.value as PlayerListEntry["role"] })}>
                   <option value="G">G</option><option value="A">A</option><option value="C">C</option><option value="X">X</option>
@@ -154,7 +154,7 @@ export function PlayerListEditor({
                   {nbaTeams.map((team) => <option value={team.code} key={team.code}>{team.code} · {team.name}</option>)}
                 </select>
               ) : <strong className="player-list-edit-real-team">{row.realTeam || "—"}</strong>)}
-              {isNew ? <label className="compact-check" title="Rookie e U23 sono alternative">
+              {isNew ? <label className="compact-check">
                 <input
                   type="checkbox"
                   checked={row.rookie}
@@ -166,7 +166,7 @@ export function PlayerListEditor({
                 />
                 <span>Rookie</span>
               </label> : <span className={`player-list-edit-boolean${row.rookie ? " active" : ""}`}><small>Rookie</small>{row.rookie ? "✓" : "—"}</span>}
-              {isNew ? <label className="compact-check" title="Rookie e U23 sono alternative">
+              {isNew ? <label className="compact-check">
                 <input
                   type="checkbox"
                   checked={row.under23}

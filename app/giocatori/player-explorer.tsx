@@ -110,7 +110,7 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility 
             {showOrder && <span className="player-order">{row.publicOrder}</span>}
             <span className="player-identity">
               {row.rosterTeamCode
-                ? <Link className="player-name player-team-link" href={`/squadre?team=${encodeURIComponent(row.rosterTeamCode)}&player=${encodeURIComponent(row.name)}`} title={`Vai alla squadra di ${row.name}`}>{row.name}</Link>
+                ? <Link className="player-name player-team-link" href={`/squadre?team=${encodeURIComponent(row.rosterTeamCode)}&player=${encodeURIComponent(row.name)}`}>{row.name}</Link>
                 : <strong className="player-name">{row.name}</strong>}
               <span className="player-flags">
                 {showEligibility && row.rookie && <small className="player-flag player-flag-rookie">Rookie</small>}
