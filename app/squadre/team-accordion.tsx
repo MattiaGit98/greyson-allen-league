@@ -63,17 +63,31 @@ export function TeamAccordion({
   capScaleMaximum: number;
   leagueMoment: LeagueMoment;
 }) {
-  const initialPlayerOnTeam = Boolean(initialTeam && initialPlayer && rosterEntries.some((entry) => (
+  const initialPlayerInRoster = Boolean(initialTeam && initialPlayer && rosterEntries.some((entry) => (
     entry.teamCode === initialTeam
     && entry.state === "active"
     && normalizePlayerName(entry.name) === normalizePlayerName(initialPlayer)
   )));
+  const initialPlayerWithQualifyingOffer = Boolean(
+    showQualifyingOffers
+    && initialTeam
+    && initialPlayer
+    && qualifyingOfferRights.some((right) => (
+      right.teamCode === initialTeam
+      && normalizePlayerName(right.playerName) === normalizePlayerName(initialPlayer)
+    )),
+  );
+  const initialPlayerOnTeam = initialPlayerInRoster || initialPlayerWithQualifyingOffer;
   const [openTeams, setOpenTeams] = useState<string[]>(
     initialTeam && teams.some((team) => team.code === initialTeam) ? [initialTeam] : [],
   );
   const [openSectionsByTeam, setOpenSectionsByTeam] = useState<OpenSectionsByTeam>(() => (
     initialTeam && teams.some((team) => team.code === initialTeam)
-      ? { [initialTeam]: initialPlayerOnTeam ? [...playerSlotSectionKeys] : ["roster"] }
+      ? {
+        [initialTeam]: initialPlayerInRoster
+          ? [...playerSlotSectionKeys]
+          : initialPlayerWithQualifyingOffer ? ["qualifying_offer"] : ["roster"],
+      }
       : {}
   ));
   const [sort, setSort] = useState<SortState>({ key: "cost", direction: "desc" });
@@ -803,7 +817,6 @@ function ContractDisplay({
   }
   const year = value.match(/\d{2}/)?.[0] ?? value;
   const expiryTone = contractExpiryTone(year, seasonName);
-  const rookieExtensionTone = contractExpiryTone(nextContractYear(year), seasonName);
   const markers = [
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "→ Q.O.", kind: "qo" }] : []),
@@ -815,7 +828,7 @@ function ContractDisplay({
     <span className="contract-group">
       <i className={`contract-value contract-expiry contract-expiry-${expiryTone}`}>{year}</i>
       {markers.map((marker) => <i
-        className={`contract-marker contract-marker-${marker.kind}${marker.kind === "re" ? ` contract-expiry-${rookieExtensionTone}` : ""}`}
+        className={`contract-marker contract-marker-${marker.kind}`}
         key={marker.kind}
         aria-label={marker.kind === "re"
           ? "Rookie extension applicabile dopo la stagione indicata"
@@ -825,11 +838,6 @@ function ContractDisplay({
       >{marker.label}</i>)}
     </span>
   );
-}
-
-function nextContractYear(year: string) {
-  if (!/^\d{2}$/.test(year)) return year;
-  return String((Number(year) + 1) % 100).padStart(2, "0");
 }
 
 function contractExpiryTone(year: string, seasonName: string) {
