@@ -675,7 +675,7 @@ describe("trade rules", () => {
         fromTeamCode: "AAA",
         toTeamCode: "CCC",
         year: 2027,
-        round: "1Â° giro",
+        round: "1° giro",
         hasExistingCondition: false,
         clause: "none",
         counterpartyPickId: null,

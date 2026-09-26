@@ -17,7 +17,7 @@ La pagina **Avanzamento della lega** mostra il momento corrente e il passaggio s
 - avvisi espandibili;
 - errori bloccanti da risolvere.
 
-Il passaggio crea un backup della situazione immediatamente precedente. La modifica libera di fase e annata è una rettifica separata e non esegue automatismi.
+Il passaggio crea un backup della situazione immediatamente precedente. Fase e annata cambiano esclusivamente tramite l’avanzamento della lega, che applica anche gli automatismi previsti.
 
 ## Stato corrente
 

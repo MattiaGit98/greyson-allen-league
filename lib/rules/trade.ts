@@ -283,7 +283,7 @@ export function evaluateTrade(input: {
     if (agreement.hasExistingCondition || conditionedPicks.has(agreement.pickId)) {
       errors.push({
         code: "TRADE_PICK_ALREADY_CONDITIONED",
-        message: "La scelta selezionata Ã¨ giÃ  coinvolta in un'altra clausola.",
+        message: "La scelta selezionata è già coinvolta in un'altra clausola.",
       });
     }
     if (agreement.clause === "swap" && !agreement.counterpartyPickId) {
@@ -331,7 +331,7 @@ export function evaluateTrade(input: {
     if (agreement.counterpartyHasExistingCondition) {
       errors.push({
         code: "TRADE_PICK_COUNTERPART_ALREADY_CONDITIONED",
-        message: "La scelta indicata come contropartita Ã¨ giÃ  coinvolta in un altro accordo.",
+        message: "La scelta indicata come contropartita è già coinvolta in un altro accordo.",
       });
     }
     if (
@@ -350,7 +350,7 @@ export function evaluateTrade(input: {
     ) {
       errors.push({
         code: "TRADE_PROTECTION_COUNTERPART_INVALID",
-        message: "La contropartita della protezione non puÃ² appartenere a un draft precedente.",
+        message: "La contropartita della protezione non può appartenere a un draft precedente.",
       });
     }
 
@@ -359,7 +359,7 @@ export function evaluateTrade(input: {
       if (conditionedPicks.has(agreement.counterpartyPickId)) {
         errors.push({
           code: "TRADE_PICK_COUNTERPART_MULTIPLE_CONDITIONS",
-          message: "La scelta indicata come contropartita Ã¨ giÃ  coinvolta in un altro accordo.",
+          message: "La scelta indicata come contropartita è già coinvolta in un altro accordo.",
         });
       }
       conditionedPicks.add(agreement.counterpartyPickId);
@@ -421,7 +421,7 @@ export function evaluateTrade(input: {
     if (seenQualifyingOffers.has(move.id)) {
       errors.push({
         code: "TRADE_QO_DUPLICATE",
-        message: "La stessa qualifying offer non puÃ² essere trasferita due volte.",
+        message: "La stessa qualifying offer non può essere trasferita due volte.",
       });
     }
     seenQualifyingOffers.add(move.id);

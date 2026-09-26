@@ -28,7 +28,7 @@ export async function GET() {
   instructions.getCell("A1").font = { bold: true, size: 18, color: { argb: "FF183F34" } };
   instructions.getCell("A3").value = "Compila il foglio “Listone” rispettando l’ordine ufficiale dei giocatori.";
   instructions.getCell("A4").value = "Non modificare i nomi delle colonne e non lasciare righe vuote tra i giocatori.";
-  instructions.getCell("A5").value = "Ruolo: seleziona G, A, C oppure X. Usa X per chi non ha un ruolo ufficiale Dunkest: non verrÃ  contato nei minimi di ruolo.";
+  instructions.getCell("A5").value = "Ruolo: seleziona G, A, C oppure X. Usa X per chi non ha un ruolo ufficiale Dunkest: non verrà contato nei minimi di ruolo.";
   instructions.getCell("A6").value = "La squadra reale resterà quella indicata in questo file anche in caso di trasferimenti successivi.";
   instructions.getCell("A7").value = "Lo stato fantasy non va inserito: verrà calcolato automaticamente da roster e Q.O.";
 
