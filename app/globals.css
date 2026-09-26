@@ -364,14 +364,12 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .player-list-provisional-notice { margin: 0 0 14px; padding: 12px 14px; border: 1px solid #d9c980; border-radius: 12px; background: #fff8d9; color: #725d18; font-size: 11px; font-weight: 800; }
 .movements-page, .calendar-page { padding-top: 42px; max-width: 1380px; margin: 0 auto; }
 .filter-bar { display: grid; grid-template-columns: minmax(220px, 1fr) 150px 150px auto; gap: 12px; padding: 16px; background: rgba(255,253,247,.9); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 7px 20px rgba(24,63,52,.05); }
-.filter-bar label > span, .filter-bar .search-field > span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; }
+.filter-bar label > span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; }
 .filter-bar input, .filter-bar select { width: 100%; min-height: 42px; border: 1px solid #d2d6c8; border-radius: 10px; outline: 0; background: white; padding: 0 12px; color: var(--ink); transition: border-color .15s, box-shadow .15s; }
 .filter-bar input:focus, .filter-bar select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.08); }
-.player-list-search-control { position: relative; }
-.filter-bar .player-list-search-control input { padding-right: 43px; }
-.player-list-search-control button { position: absolute; top: 50%; right: 7px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: #edf0e8; color: #667269; font: inherit; font-size: 17px; font-weight: 800; line-height: 1; cursor: pointer; transform: translateY(-50%); }
-.player-list-search-control button:hover, .player-list-search-control button:focus-visible { background: #dce8df; color: var(--green); }
 .player-filter-bar { grid-template-columns: minmax(200px, 1fr) max-content max-content max-content auto; align-items: end; }
+.filter-bar .player-list-editor-search > span { margin-bottom: 7px; color: var(--muted); font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.filter-bar .player-list-search-control input:focus { box-shadow: none; }
 .player-check-filter { min-width: 0; margin: 0; padding: 0; border: 0; }
 .player-check-filter legend { height: 19px; padding: 0; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
 .player-check-filter > div { display: flex; gap: 5px; }

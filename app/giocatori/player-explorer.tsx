@@ -66,18 +66,22 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility 
   return (
     <>
       <div className="filter-bar player-filter-bar">
-        <div className="search-field">
-          <span>Cerca</span>
+        <label className="search-field player-list-editor-search">
+          <span>Cerca giocatore</span>
           <div className="player-list-search-control">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="m16 16 4 4" />
+            </svg>
             <input
+              type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Nome del giocatore…"
-              aria-label="Cerca un giocatore"
+              placeholder="Scrivi il nome…"
             />
             {query && <button type="button" onClick={() => setQuery("")} aria-label="Cancella ricerca">×</button>}
           </div>
-        </div>
+        </label>
         <PlayerCheckFilter
           label="Ruolo"
           options={allRoles.map((value) => ({ value, label: value }))}
