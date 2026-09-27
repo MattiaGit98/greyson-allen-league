@@ -1,6 +1,6 @@
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
-import type { LeagueMoment } from "./league-moments";
+import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { seasonEndYear } from "./season-time";
 
 export type RosterCorrectionInput = {
@@ -48,8 +48,10 @@ export function rosterCorrectionContractOptions(seasonName: string, leagueMoment
       { value: year, label: year },
       { value: `${year} + R.E.`, label: `${year} + R.E.` },
       { value: `${year} (Q)`, label: `${year} → Q.O.` },
-      { value: `${year} (E)`, label: `${year} + EXT` },
     );
+    if (distance > 0 || !hasReachedMoment(leagueMoment, "auction_start")) {
+      options.push({ value: `${year} (E)`, label: `${year} + EXT` });
+    }
   }
   return options;
 }

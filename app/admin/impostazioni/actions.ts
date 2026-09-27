@@ -15,7 +15,7 @@ import {
   tradeDeadlineHasPassed,
 } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
-import { applyTeamOptionDeadline, buildLeagueTransitionPreview } from "@/lib/league-transition";
+import { applyTeamOptionDeadline, buildLeagueTransitionPreview, closeCurrentSeasonExtensionWindow } from "@/lib/league-transition";
 import { savePhaseBackup } from "@/lib/phase-backups";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { applyPostAuctionContractDrafts } from "@/lib/post-auction-contracts";
@@ -125,6 +125,7 @@ export async function advanceLeaguePhaseStep() {
 
   let nextState = state;
   if (transition === "team_option_deadline") nextState = applyTeamOptionDeadline(state, season.name);
+  if (transition === "auction_start") nextState = closeCurrentSeasonExtensionWindow(nextState, season.name);
   if (transition === "auction_completed" && state.qualifyingOfferRights.length) {
     nextState = { ...nextState, qualifyingOfferRights: [] };
   }

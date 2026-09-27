@@ -60,6 +60,20 @@ describe("rettifiche roster", () => {
       .toContain("27 + R.E.");
   });
 
+  it("dall'Inizio asta non propone più l'estensione dell'anno corrente", () => {
+    const options = rosterCorrectionContractOptions("2026/27", "auction_start").map((option) => option.value);
+    expect(options).not.toContain("27 (E)");
+    expect(options).toContain("28 (E)");
+    expect(options).toContain("29 (E)");
+  });
+
+  it("dall'Inizio asta impedisce di assegnare l'estensione dell'anno corrente", () => {
+    expect(() => applyRosterCorrections({
+      state: state(), teamCode: "AAA", seasonName: "2026/27", leagueMoment: "auction_start",
+      corrections: [{ sourceIndex: 0, playerName: "Attivo", cost: 20, contract: "27 (E)", remove: false }],
+    })).toThrow("scadenze previste per l'annata attiva");
+  });
+
   it("impedisce di assegnare R.E. pura dopo la relativa scadenza", () => {
     expect(() => applyRosterCorrections({
       state: state(), teamCode: "AAA", seasonName: "2026/27", leagueMoment: "team_option_deadline",

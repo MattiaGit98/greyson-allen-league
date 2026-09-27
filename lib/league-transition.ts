@@ -13,6 +13,7 @@ import {
   type PostAuctionContractDraft,
 } from "./post-auction-contracts";
 import { isRookieExtensionDecisionDue } from "./team-option-contract";
+import { seasonEndYear } from "./season-time";
 
 export type LeagueTransitionPreview = {
   transition: LeagueTransition;
@@ -50,6 +51,10 @@ export function buildLeagueTransitionPreview(input: {
   }
 
   if (transition === "auction_start") {
+    const expiredExtensionMarkers = countCurrentSeasonExtensionMarkers(input.state, input.seasonName);
+    if (expiredExtensionMarkers) {
+      preview.automaticActions.push(`${expiredExtensionMarkers} possibilità di estensione non esercitate saranno rimosse dai contratti in scadenza.`);
+    }
     preview.newPossibilities.push("Si apre il pannello asta.");
     preview.closedPossibilities.push("Si sospende l'esercizio della DPE per tutta la durata dell'asta.");
     preview.closedPossibilities.push("Si sospendono gli scambi fino al termine dell’asta.");
@@ -145,6 +150,28 @@ export function applyTeamOptionDeadline(state: EditableLeagueState, seasonName: 
       && (entry.contract === "T.O." || isRookieExtensionDecisionDue(entry, seasonName))
     )),
   };
+}
+
+export function closeCurrentSeasonExtensionWindow(state: EditableLeagueState, seasonName: string) {
+  const currentEndYear = seasonEndYear(seasonName);
+  if (currentEndYear === null) throw new Error("Annata non valida.");
+  const expiringContract = `${String(currentEndYear).slice(-2)} (E)`;
+  const finalizedContract = String(currentEndYear).slice(-2);
+  return {
+    ...state,
+    rosterEntries: state.rosterEntries.map((entry) => (
+      entry.contract.trim().toLocaleUpperCase("it-IT") === expiringContract
+        ? { ...entry, contract: finalizedContract }
+        : entry
+    )),
+  };
+}
+
+function countCurrentSeasonExtensionMarkers(state: EditableLeagueState, seasonName: string) {
+  const updated = closeCurrentSeasonExtensionWindow(state, seasonName);
+  return updated.rosterEntries.reduce((count, entry, index) => (
+    count + Number(entry.contract !== state.rosterEntries[index]?.contract)
+  ), 0);
 }
 
 function formatChecklistAlert(alert: PreAdvanceAlert) {
