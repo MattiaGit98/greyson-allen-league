@@ -111,6 +111,26 @@ describe("movement reversal", () => {
     expect(movementUndoWindowError({ ...input, currentMoment: "auction_completed" })).toMatch(/Termine asta/);
   });
 
+  it("restores the qualifying offer when its auction assignment is reversed", () => {
+    const before = state("AAA");
+    before.rosterEntries = [];
+    before.qualifyingOfferRights = [{ playerName: "Player", teamCode: "AAA", qualifyingAmount: 7 }];
+    const after = state("AAA");
+    after.rosterEntries[0] = {
+      ...after.rosterEntries[0],
+      cost: 7,
+      contract: "27",
+      auctionAcquisition: "qualifying_offer",
+      auctionPrice: 7,
+      contractStartSeason: "2026/27",
+      originalContractYears: 1,
+    };
+
+    const restored = buildMovementReversal(after, before, after);
+    expect(restored.rosterEntries).toEqual([]);
+    expect(restored.qualifyingOfferRights).toEqual(before.qualifyingOfferRights);
+  });
+
   it("recovers movement undo metadata preserved inside backup snapshots", () => {
     expect(movementUndoMetadataFromState({
       rosterEntries: [],

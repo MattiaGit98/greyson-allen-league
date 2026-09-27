@@ -1,5 +1,6 @@
 import type { AuctionAcquisitionKind, RosterEntry } from "./league-types";
 import type { LeagueMoment } from "./league-moments";
+import { assignedAuctionContract } from "./rules/contracts";
 import {
   isSlotDemotion,
   slotEligibilityErrors,
@@ -20,8 +21,24 @@ export const auctionSlotLimits: AuctionSlotCounts = {
   g_league: 3,
 };
 
-export function auctionContractForSlot(_slot: AuctionSlot, _acquisition?: AuctionAcquisitionKind) {
-  return "PENDING";
+export function auctionContractAtPurchase({
+  price,
+  acquisition,
+  currentSeasonEndYear,
+}: {
+  price: number;
+  acquisition?: AuctionAcquisitionKind;
+  currentSeasonEndYear: number;
+}) {
+  if (acquisition === "qualifying_offer") {
+    return assignedAuctionContract(price, "annual", currentSeasonEndYear);
+  }
+  return {
+    cost: price,
+    contract: "PENDING",
+    auctionPrice: price,
+    originalContractYears: undefined,
+  } as const;
 }
 
 export function acquisitionKindForOutcome(outcome: QualifyingAuctionOutcome): AuctionAcquisitionKind | undefined {
@@ -41,9 +58,12 @@ export function auctionAcquisitionLabel(acquisition?: AuctionAcquisitionKind) {
 }
 
 export function isPostAuctionContractAssignmentCandidate(
-  entry: Pick<RosterEntry, "contract" | "auctionPrice" | "contractStartSeason">,
+  entry: Pick<RosterEntry, "contract" | "auctionPrice" | "contractStartSeason"> & {
+    auctionAcquisition?: RosterEntry["auctionAcquisition"];
+  },
   activeSeasonName: string,
 ) {
+  if (entry.auctionAcquisition === "qualifying_offer") return false;
   const normalized = entry.contract.trim().toLocaleUpperCase("it-IT");
   if (["", "-", "PENDING", "DA ASSEGNARE"].includes(normalized)) return true;
   return entry.auctionPrice !== undefined && entry.contractStartSeason === activeSeasonName;

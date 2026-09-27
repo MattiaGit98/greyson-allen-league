@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  auctionContractForSlot,
+  auctionContractAtPurchase,
   allowedPostAuctionContracts,
   auctionDestinationErrors,
   acquisitionKindForOutcome,
@@ -12,11 +12,22 @@ import {
 } from "./auction-management";
 
 describe("pannello asta", () => {
-  it("lascia il contratto da assegnare in ogni slot dell'asta", () => {
-    expect(auctionContractForSlot("regular")).toBe("PENDING");
-    expect(auctionContractForSlot("two_way")).toBe("PENDING");
-    expect(auctionContractForSlot("g_league")).toBe("PENDING");
-    expect(auctionContractForSlot("regular", "qualifying_offer")).toBe("PENDING");
+  it("assegna subito l'annuale alla Q.O. accettata e lascia pendenti gli altri acquisti", () => {
+    expect(auctionContractAtPurchase({ price: 8, currentSeasonEndYear: 2027 })).toMatchObject({
+      cost: 8,
+      contract: "PENDING",
+      auctionPrice: 8,
+    });
+    expect(auctionContractAtPurchase({
+      price: 7,
+      acquisition: "qualifying_offer",
+      currentSeasonEndYear: 2027,
+    })).toMatchObject({ cost: 7, contract: "27", auctionPrice: 7, originalContractYears: 1 });
+    expect(auctionContractAtPurchase({
+      price: 1,
+      acquisition: "qualifying_offer",
+      currentSeasonEndYear: 2027,
+    })).toMatchObject({ cost: 1, contract: "27 (Q)", auctionPrice: 1, originalContractYears: 1 });
   });
 
   it("include nella consegna contratti gli acquisti dell'asta ancora da definire", () => {
@@ -34,6 +45,18 @@ describe("pannello asta", () => {
       contract: "28 (E)",
       auctionPrice: 200,
       contractStartSeason: "2026/27",
+    }, "2026/27")).toBe(true);
+    expect(isPostAuctionContractAssignmentCandidate({
+      contract: "27",
+      auctionPrice: 7,
+      contractStartSeason: "2026/27",
+      auctionAcquisition: "qualifying_offer",
+    }, "2026/27")).toBe(false);
+    expect(isPostAuctionContractAssignmentCandidate({
+      contract: "PENDING",
+      auctionPrice: 8,
+      contractStartSeason: "2026/27",
+      auctionAcquisition: "restricted_free_agent",
     }, "2026/27")).toBe(true);
   });
 

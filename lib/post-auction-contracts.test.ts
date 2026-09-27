@@ -51,6 +51,36 @@ describe("bozze private dei contratti post asta", () => {
       .toEqual(["Rookie"]);
   });
 
+  it("esclude dalla consegna il contratto annuale già assegnato con una Q.O. accettata", () => {
+    const current = state();
+    current.rosterEntries.push({
+      name: "Q.O. accettata",
+      role: "C",
+      cost: 1,
+      contract: "27 (Q)",
+      state: "active",
+      slot: "regular",
+      teamCode: "AAA",
+      auctionAcquisition: "qualifying_offer",
+      auctionPrice: 1,
+      contractStartSeason: seasonName,
+      originalContractYears: 1,
+    });
+
+    expect(missingPostAuctionContractDrafts(current, [draft("Guardia"), draft("Rookie")], seasonName))
+      .toEqual([]);
+    const published = applyPostAuctionContractDrafts({
+      state: current,
+      drafts: [draft("Guardia"), draft("Rookie")],
+      seasonName,
+    });
+    expect(published.rosterEntries.at(-1)).toMatchObject({
+      name: "Q.O. accettata",
+      contract: "27 (Q)",
+      auctionAcquisition: "qualifying_offer",
+    });
+  });
+
   it("pubblica insieme tutte le bozze senza modificare lo stato di partenza", () => {
     const current = state();
     const published = applyPostAuctionContractDrafts({

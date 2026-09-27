@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   acquisitionKindForOutcome,
-  auctionContractForSlot,
+  auctionContractAtPurchase,
   auctionDestinationErrors,
   isPostAuctionContractAssignmentCandidate,
   legalAuctionPromotionDestinations,
@@ -109,18 +109,21 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   )));
 
   const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
+  const contractAtPurchase = auctionContractAtPurchase({
+    price,
+    acquisition: auctionAcquisition,
+    currentSeasonEndYear: currentEndYear,
+  });
   const rosterEntry: RosterEntry = {
     name: player.name,
     role: player.role === "X" ? undefined : player.role,
-    cost: price,
-    contract: auctionContractForSlot(slot, auctionAcquisition),
+    ...contractAtPurchase,
     state: "active",
     slot,
     teamCode,
     stretchProvisionApplied: false,
     buyoutApplied: false,
     auctionAcquisition,
-    auctionPrice: price,
     contractStartSeason: season.name,
     ...(dpeAppliedSeasons.length ? { dpeAppliedSeasons } : {}),
   };
@@ -152,11 +155,17 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     state,
     nextState,
     "acquisto_asta",
-    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; contratto da assegnare; ${acquisitionSummary(qualifyingOutcome)}${contextualOperationSummary(slotResolution.operations)}`, capWarnings, false),
+    capOverrideSummary(`${playerName}: acquistato da ${teamCode} per ${price} crediti; slot ${slotLabel(slot)}; ${auctionContractSummary(rosterEntry)}; ${acquisitionSummary(qualifyingOutcome)}${contextualOperationSummary(slotResolution.operations)}`, capWarnings, false),
   );
 
   const suffix = contextualOperationSuccessSuffix(slotResolution.operations);
   success(`${playerName} assegnato a ${teamCode} per ${price} crediti.${suffix}`);
+}
+
+function auctionContractSummary(entry: RosterEntry) {
+  return entry.auctionAcquisition === "qualifying_offer"
+    ? `contratto annuale ${entry.contract}`
+    : "contratto da assegnare";
 }
 
 function acquisitionSummary(outcome: QualifyingAuctionOutcome) {

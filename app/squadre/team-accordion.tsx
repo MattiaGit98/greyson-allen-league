@@ -723,7 +723,10 @@ function PlayerDataRow({
         value={entry.contract}
         auctionAcquisition={entry.auctionAcquisition}
         pendingAuctionContract={pendingAuctionContract}
-        teamOptionEligible={Boolean(player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15))}
+        teamOptionEligible={Boolean(
+          entry.auctionAcquisition !== "restricted_free_agent"
+          && (player?.rookie || (player?.under23 && (entry.auctionPrice ?? entry.cost) <= 15)),
+        )}
         seasonName={seasonName}
       /></span>
       <span><strong className="credit-value">{contractCostForSeason(entry, seasonName)}</strong></span>
@@ -780,7 +783,9 @@ function compareDraftAssets(left: DraftAsset, right: DraftAsset) {
 }
 
 function isPendingAuctionContract(entry: RosterEntry, seasonName: string) {
-  return entry.auctionPrice !== undefined && entry.contractStartSeason === seasonName;
+  return entry.auctionAcquisition !== "qualifying_offer"
+    && entry.auctionPrice !== undefined
+    && entry.contractStartSeason === seasonName;
 }
 
 function ContractDisplay({
@@ -797,8 +802,6 @@ function ContractDisplay({
 }) {
   if (pendingAuctionContract) {
     const pendingMarkers = [
-      ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
-      ...(auctionAcquisition === "qualifying_offer" ? [{ label: "Q.O.", kind: "acquisition-qo" }] : []),
       ...(teamOptionEligible ? [{ label: "T.O.", kind: "pending-option" }] : []),
     ];
     return <span className="contract-group">
@@ -822,7 +825,6 @@ function ContractDisplay({
     ...(value.includes("(Q)") ? [{ label: "→ Q.O.", kind: "qo" }] : []),
     ...(value.includes("+ R.E.") ? [{ label: "+ R.E.", kind: "re" }] : []),
     ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
-    ...(auctionAcquisition === "restricted_free_agent" ? [{ label: "RFA", kind: "rfa" }] : []),
   ];
   return (
     <span className="contract-group">
@@ -834,7 +836,7 @@ function ContractDisplay({
           ? "Rookie extension applicabile dopo la stagione indicata"
           : marker.kind === "acquisition-qo"
             ? "Acquistato tramite Q.O. accettata"
-            : marker.kind === "rfa" ? "Acquistato come restricted free agent" : undefined}
+            : undefined}
       >{marker.label}</i>)}
     </span>
   );
