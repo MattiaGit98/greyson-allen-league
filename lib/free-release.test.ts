@@ -65,10 +65,10 @@ describe("causali del rilascio gratuito", () => {
   });
 
   it("limita la causale non garantita alle T.O. da 1 credito dalla relativa scadenza", () => {
-    expect(freeReleaseReasonAvailability("one_credit_team_option", "offseason_start", { cost: 1, contract: "T.O.", state: "active" }, seasonName).available).toBe(false);
-    expect(freeReleaseReasonAvailability("one_credit_team_option", "team_option_deadline", { cost: 1, contract: "T.O.", state: "active" }, seasonName).available).toBe(true);
-    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_completed", { cost: 1, contract: "T.O.", state: "active" }, seasonName).available).toBe(true);
-    expect(freeReleaseReasonAvailability("one_credit_team_option", "contract_delivery", { cost: 1, contract: "T.O.", state: "active" }, seasonName).available).toBe(false);
-    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_completed", { cost: 2, contract: "T.O.", state: "active" }, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "offseason_start", { cost: 1, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "team_option_deadline", { cost: 1, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_completed", { cost: 1, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "contract_delivery", { cost: 1, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_completed", { cost: 2, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(false);
   });
 });

@@ -26,6 +26,7 @@ describe("rettifiche roster", () => {
     expect(normalizeRosterCorrectionContract(" 28 (q) ")).toBe("28 (Q)");
     expect(normalizeRosterCorrectionContract("T.O.")).toBe("T.O.");
     expect(normalizeRosterCorrectionContract("27 + r.e.")).toBe("27 + R.E.");
+    expect(normalizeRosterCorrectionContract("27 + t.o.")).toBe("27 + T.O.");
     expect(normalizeRosterCorrectionContract("da assegnare")).toBe("PENDING");
     expect(normalizeRosterCorrectionContract("2028")).toBeNull();
     expect(normalizeRosterCorrectionContract("28 + Q.O.")).toBeNull();
@@ -37,14 +38,17 @@ describe("rettifiche roster", () => {
       { value: "T.O.", label: "T.O." },
       { value: "26 + R.E.", label: "R.E." },
       { value: "27", label: "27" },
+      { value: "27 + T.O.", label: "27 + T.O." },
       { value: "27 + R.E.", label: "27 + R.E." },
       { value: "27 (Q)", label: "27 → Q.O." },
       { value: "27 (E)", label: "27 + EXT" },
       { value: "28", label: "28" },
+      { value: "28 + T.O.", label: "28 + T.O." },
       { value: "28 + R.E.", label: "28 + R.E." },
       { value: "28 (Q)", label: "28 → Q.O." },
       { value: "28 (E)", label: "28 + EXT" },
       { value: "29", label: "29" },
+      { value: "29 + T.O.", label: "29 + T.O." },
       { value: "29 + R.E.", label: "29 + R.E." },
       { value: "29 (Q)", label: "29 → Q.O." },
       { value: "29 (E)", label: "29 + EXT" },
@@ -58,6 +62,12 @@ describe("rettifiche roster", () => {
       .not.toContain("26 + R.E.");
     expect(rosterCorrectionContractOptions("2026/27", "team_option_deadline").map((option) => option.value))
       .toContain("27 + R.E.");
+  });
+
+  it("propone la T.O. pura soltanto nella finestra delle decisioni", () => {
+    expect(rosterCorrectionContractOptions("2026/27", "offseason_start").map((option) => option.value)).toContain("T.O.");
+    expect(rosterCorrectionContractOptions("2026/27", "team_option_deadline").map((option) => option.value)).not.toContain("T.O.");
+    expect(rosterCorrectionContractOptions("2026/27", "team_option_deadline").map((option) => option.value)).toContain("27 + T.O.");
   });
 
   it("dall'Inizio asta non propone più l'estensione dell'anno corrente", () => {

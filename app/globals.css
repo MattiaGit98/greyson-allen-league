@@ -335,6 +335,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .contract-marker-ext { background: #e2e5e9; color: #414b57; }
 .contract-marker-qo { background: #71584c; color: #fff; }
 .contract-marker-re { background: #dceaf2; color: #275f78; }
+.contract-marker-team-option { background: #eee5f2; color: #684275; }
 .contract-marker-double { background: #eeddea; color: #754a6c; }
 .contract-marker-acquisition-qo { background: #e2eef6; color: #3d6680; }
 .contract-marker-rfa { background: #f3e6d4; color: #825720; }

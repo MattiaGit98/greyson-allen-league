@@ -18,6 +18,7 @@ import { CapBlocker } from "@/app/admin/cap-force-control";
 import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
 import { UndoMovementButton } from "@/app/admin/movimenti/undo-movement-button";
 import { resolveContextualSlots, type ContextualSlotDecision } from "@/lib/contextual-slot-resolution";
+import { annualTeamOptionContract, isAnnualTeamOptionContract } from "@/lib/team-option-contract";
 import { modifyAuctionPlayer, purchaseAuctionPlayer } from "./actions";
 
 type AuctionTeam = {
@@ -384,7 +385,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
               setReviewing(false);
             }}>
               <option value="cut">Taglia</option>
-              {roster.contract === "T.O." && roster.cost === 1 && <option value="free_release">Rilascio gratuito</option>}
+              {isAnnualTeamOptionContract(roster) && roster.cost === 1 && <option value="free_release">Rilascio gratuito</option>}
               {availableSlotDestinations.length > 0 && <option value="slot">Sposta di slot</option>}
             </select>
           </Field>
@@ -486,8 +487,8 @@ function modificationDetails(row: AuctionRow, kind: "cut" | "free_release" | "sl
     title: `${row.name}: ${slotLabel(roster.slot)} → ${slotLabel(newSlot)}`,
     lines: [
       ...(exchangePlayer ? [`${exchangePlayer.name}: ${slotLabel(newSlot)} → ${slotLabel(roster.slot)}`] : []),
-      ...(newSlot !== "regular" && !roster.pendingAuctionContract && !contractIncludesTeamOption(roster) ? [`Contratto di ${row.name}: ${roster.contract} → T.O.`] : []),
-      ...(exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && !contractIncludesTeamOption(exchangePlayer.roster) ? [`Contratto di ${exchangePlayer.name}: ${exchangePlayer.roster.contract} → T.O.`] : []),
+      ...(newSlot !== "regular" && !roster.pendingAuctionContract && !contractIncludesTeamOption(roster) ? [`Contratto di ${row.name}: ${roster.contract} → ${annualTeamOptionContract(Number(seasonName.match(/\/(\d{2})$/)?.[1]))}`] : []),
+      ...(exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && !contractIncludesTeamOption(exchangePlayer.roster) ? [`Contratto di ${exchangePlayer.name}: ${exchangePlayer.roster.contract} → ${annualTeamOptionContract(Number(seasonName.match(/\/(\d{2})$/)?.[1]))}`] : []),
       ...lines,
     ],
   };

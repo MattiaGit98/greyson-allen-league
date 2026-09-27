@@ -283,7 +283,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
   const players = (team?.players ?? []).filter((player) => (
-    player.state === "active" && player.slot === "g_league" && player.isTeamOption
+    player.state === "active" && player.slot === "g_league" && player.hasAnnualTeamOption
   ));
   const selectedPlayers = players.filter((player) => selected[player.id]);
   const before = slotCounts(team);
@@ -583,7 +583,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
     { kind: "annual", label: String(props.seasonEndYear).slice(-2) },
     { kind: "biennial", label: String(props.seasonEndYear + 1).slice(-2) },
     { kind: "triennial", label: String(props.seasonEndYear + 2).slice(-2) },
-    { kind: "team_option", label: "T.O." },
+    { kind: "team_option", label: `${String(props.seasonEndYear).slice(-2)} + T.O.` },
   ];
 
   return (

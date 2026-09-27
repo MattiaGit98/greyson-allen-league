@@ -1,5 +1,6 @@
 import { hasReachedMoment, tradesAreSuspendedForAuction, type LeagueMoment } from "./league-moments";
 import { previousSeasonName } from "./season-time";
+import { isAnnualTeamOptionContract } from "./team-option-contract";
 
 export const freeReleaseReasonValues = [
   "no_nba_roster",
@@ -75,7 +76,7 @@ export function freeReleaseReasonAvailability(
 
   const windowOpen = hasReachedMoment(moment, "team_option_deadline")
     && !hasReachedMoment(moment, "contract_delivery");
-  const eligibleContract = player.cost === 1 && player.contract.trim().toLocaleUpperCase("it-IT") === "T.O.";
+  const eligibleContract = player.cost === 1 && isAnnualTeamOptionContract(player);
   if (!windowOpen) return { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. fino alla Consegna contratti." };
   if (!eligibleContract) return { available: false, unavailableReason: "Richiede una T.O. da 1 credito." };
   return { available: true };

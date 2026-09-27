@@ -17,7 +17,7 @@ import {
   type LeagueMoment,
 } from "./league-moments";
 import { normalizeState, type EditableLeagueState } from "./league-state";
-import { normalizeLegacyRookieExtensionState, normalizeLegacyRookieExtensionText } from "./team-option-contract";
+import { normalizeLegacyAnnualTeamOptionState, normalizeLegacyRookieExtensionState, normalizeLegacyRookieExtensionText } from "./team-option-contract";
 import {
   datedLeagueTransitions,
   isPhaseDate,
@@ -223,13 +223,19 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   ) {
     throw new Error("Fase o annata del backup non valide.");
   }
+  const activeSeasonName = rawSeason.name;
+  const teamOptionsResolved = rawSeason.team_options_resolved;
   const phaseDates = parsePhaseDates(rawSeason.phase_dates, formatVersion);
 
   const rawState = asRecord(rawPayload.leagueState);
   if (!rawState || !requiredStateArrays.every((key) => Array.isArray(rawState[key]))) {
     throw new Error("Stato della lega mancante o incompleto.");
   }
-  const leagueState = normalizeState(rawState);
+  const leagueState = normalizeState(normalizeLegacyAnnualTeamOptionState(
+    rawState,
+    activeSeasonName,
+    teamOptionsResolved,
+  ));
   if (!leagueState.teams.every(validTeam) || !leagueState.rosterEntries.every(validRosterEntry)) {
     throw new Error("Squadre o roster del backup non validi.");
   }
@@ -270,7 +276,15 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   if (!Array.isArray(rawPayload.movements) || rawPayload.movements.length > 50_000) {
     throw new Error("Registro movimenti non valido.");
   }
-  const movements = rawPayload.movements.map((movement) => parseMovement(movement, formatVersion));
+  const movements = rawPayload.movements.map((movement) => parseMovement(movement, formatVersion)).map((movement) => (
+    teamOptionsResolved && movement.season_name === activeSeasonName
+      ? {
+          ...movement,
+          before_state: normalizeLegacyAnnualTeamOptionState(movement.before_state, activeSeasonName, true),
+          after_state: normalizeLegacyAnnualTeamOptionState(movement.after_state, activeSeasonName, true),
+        }
+      : movement
+  ));
   validateMovementReferences(movements);
 
   const payload: ImportableLeaguePayload = {

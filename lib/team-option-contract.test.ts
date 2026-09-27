@@ -3,12 +3,15 @@ import type { RosterEntry } from "./league-types";
 import {
   applyRookieExtension,
   applyStandardContractCut,
+  annualTeamOptionContract,
+  annualTeamOptionExpiryYear,
   destinationAfterTeamOptionExercise,
   exerciseOrdinaryTeamOption,
   exercisePlayoffTeamOption,
   isRookieExtensionDecisionDue,
   isUnresolvedTeamOption,
   normalizeLegacyRookieExtensionEntry,
+  normalizeLegacyAnnualTeamOptionState,
   normalizeLegacyRookieExtensionText,
   qualifyingOfferForDeclinedRookieExtension,
 } from "./team-option-contract";
@@ -29,6 +32,18 @@ describe("contratti da rookie", () => {
     expect(isRookieExtensionDecisionDue({ contract: "26 + R.E." }, "2026/27")).toBe(true);
     expect(isRookieExtensionDecisionDue({ contract: "27 + R.E." }, "2026/27")).toBe(false);
     expect(isUnresolvedTeamOption({ contract: "26 + R.E." }, "offseason_start", "2026/27")).toBe(true);
+  });
+
+  it("distingue l'annuale con T.O. dalla T.O. pura da risolvere", () => {
+    expect(annualTeamOptionContract(2027)).toBe("27 + T.O.");
+    expect(annualTeamOptionExpiryYear("27 + T.O.", 2027)).toBe(2027);
+    expect(isUnresolvedTeamOption({ contract: "27 + T.O." }, "offseason_start", "2026/27")).toBe(false);
+  });
+
+  it("aggiorna le vecchie T.O. annuali nei backup successivi alla scadenza", () => {
+    const state = { rosterEntries: [option] };
+    expect(normalizeLegacyAnnualTeamOptionState(state, "2026/27", true).rosterEntries[0].contract).toBe("27 + T.O.");
+    expect(normalizeLegacyAnnualTeamOptionState(state, "2026/27", false)).toBe(state);
   });
 
   it("esercita la T.O. per il secondo anno allo stesso prezzo e prepara la R.E.", () => {
@@ -86,7 +101,7 @@ describe("destinazioni dei contratti da rookie", () => {
   });
 
   it("l'esercizio playoff prepara il secondo anno con R.E. e la promozione della prossima offseason", () => {
-    expect(exercisePlayoffTeamOption({ ...option, slot: "g_league" }, "2026/27")).toMatchObject({
+    expect(exercisePlayoffTeamOption({ ...option, contract: "27 + T.O.", slot: "g_league" }, "2026/27")).toMatchObject({
       slot: "g_league",
       contract: "28 + R.E.",
       playoffTeamOptionPromotionSeason: "2027/28",

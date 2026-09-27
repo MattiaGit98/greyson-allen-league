@@ -31,7 +31,7 @@ describe("assegnazione draft", () => {
 
     expect(result.price).toBe(10);
     expect(result.state.rosterEntries[0]).toMatchObject({
-      name: "Rookie Uno", teamCode: "AAA", cost: 10, contract: "T.O.", slot: "regular", state: "active",
+      name: "Rookie Uno", teamCode: "AAA", cost: 10, contract: "27 + T.O.", slot: "regular", state: "active",
     });
     expect(result.state.draftAssets).toHaveLength(1);
     const content = result.historyEntries[0].content;

@@ -824,6 +824,7 @@ function ContractDisplay({
     ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "→ Q.O.", kind: "qo" }] : []),
     ...(value.includes("+ R.E.") ? [{ label: "+ R.E.", kind: "re" }] : []),
+    ...(value.includes("+ T.O.") ? [{ label: "+ T.O.", kind: "team-option" }] : []),
     ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
   ];
   return (

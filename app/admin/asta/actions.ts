@@ -20,7 +20,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
 import { contractIncludesTeamOption, slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
-import { applyStandardContractCut } from "@/lib/team-option-contract";
+import { annualTeamOptionContract, applyStandardContractCut } from "@/lib/team-option-contract";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
 import { applyFreeRelease } from "@/lib/release-operations";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
@@ -226,6 +226,8 @@ export async function modifyAuctionPlayer(formData: FormData) {
     }
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? applyFreeRelease(item) : item);
   } else {
+    const currentEndYear = seasonEndYear(season.name);
+    if (currentEndYear === null) fail("Annata non valida.");
     if (!["regular", "two_way", "g_league"].includes(newSlot)) fail("Slot non valido.");
     if (entry.slot === "dpe") fail("Il reintegro dalla DPE va registrato nel blocco Altre operazioni.");
     if (newSlot === entry.slot) fail("Seleziona uno slot diverso da quello attuale.");
@@ -292,14 +294,14 @@ export async function modifyAuctionPlayer(formData: FormData) {
         slot: newSlot,
         contract: isPostAuctionContractAssignmentCandidate(item, season.name)
           ? "PENDING"
-          : newSlot === "regular" || contractIncludesTeamOption(item) ? item.contract : "T.O.",
+          : newSlot === "regular" || contractIncludesTeamOption(item) ? item.contract : annualTeamOptionContract(currentEndYear),
       };
       if (index === exchangeIndex && entry.slot !== "dpe") return {
         ...item,
         slot: entry.slot,
         contract: isPostAuctionContractAssignmentCandidate(item, season.name)
           ? "PENDING"
-          : entry.slot === "regular" || contractIncludesTeamOption(item) ? item.contract : "T.O.",
+          : entry.slot === "regular" || contractIncludesTeamOption(item) ? item.contract : annualTeamOptionContract(currentEndYear),
       };
       return item;
     });

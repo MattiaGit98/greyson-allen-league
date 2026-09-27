@@ -16,7 +16,7 @@ import {
   missingPostAuctionContractDrafts,
   type PostAuctionContractDraft,
 } from "./post-auction-contracts";
-import { isRookieExtensionDecisionDue } from "./team-option-contract";
+import { isAnnualTeamOptionContract, isRookieExtensionDecisionDue } from "./team-option-contract";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -215,7 +215,7 @@ export function buildPreAdvanceChecklist(input: {
     }
 
     const freeOneCreditOptions = deliveryState.rosterEntries.filter((entry) => (
-      entry.state === "active" && entry.contract === "T.O." && entry.cost === 1
+      entry.state === "active" && isAnnualTeamOptionContract(entry) && entry.cost === 1
     ));
     if (freeOneCreditOptions.length) {
       add({
@@ -286,7 +286,7 @@ export function buildPreAdvanceChecklist(input: {
     const playoffOptionCandidates = state.rosterEntries.filter((entry) => (
       entry.state === "active"
       && entry.slot === "g_league"
-      && entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O."
+      && isAnnualTeamOptionContract(entry)
       && !entry.playoffTeamOptionPromotionSeason
     ));
     if (playoffOptionCandidates.length) {

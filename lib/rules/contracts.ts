@@ -1,3 +1,4 @@
+import { annualTeamOptionContract } from "../team-option-contract";
 import { result } from "./types";
 
 export function discountedAuctionContract(price: number, years: 1 | 2 | 3) {
@@ -17,7 +18,7 @@ export function assignedAuctionContract(
   if (kind === "team_option") {
     return {
       cost: auctionPrice,
-      contract: "T.O.",
+      contract: annualTeamOptionContract(currentSeasonEndYear),
       auctionPrice,
       originalContractYears: undefined,
     } as const;

@@ -59,9 +59,18 @@ describe("avanzamento della lega", () => {
     expect(result.qualifyingOfferRights.some((right) => right.playerName === "R.E. da decidere")).toBe(false);
   });
 
+  it("porta l'annuale con T.O. alla decisione estiva senza generare una Q.O.", () => {
+    const entries: RosterEntry[] = [
+      { name: "Opzione futura", cost: 4, contract: "27 + T.O.", role: "G", state: "active", slot: "regular", teamCode: "AAA" },
+    ];
+    const advanced = calculateLeagueAdvance({ seasonName: "2026/27", rosterEntries: entries, qualifyingOfferRights: [], playerList: playerList(entries) });
+    expect(advanced.rosterEntries).toEqual([expect.objectContaining({ name: "Opzione futura", contract: "T.O." })]);
+    expect(advanced.qualifyingOfferRights).toEqual([]);
+  });
+
   it("chiude a fine stagione T.O. e R.E. già tagliate", () => {
     const entries: RosterEntry[] = [
-      { name: "T.O. tagliata", cost: 4, contract: "T.O.", role: "G", state: "cut", slot: "regular", teamCode: "AAA" },
+      { name: "T.O. tagliata", cost: 4, contract: "27 + T.O.", role: "G", state: "cut", slot: "regular", teamCode: "AAA" },
       { name: "R.E. tagliata", cost: 4, contract: "27 + R.E.", role: "A", state: "cut", slot: "regular", teamCode: "AAA" },
     ];
     const advanced = calculateLeagueAdvance({ seasonName: "2026/27", rosterEntries: entries, qualifyingOfferRights: [], playerList: playerList(entries) });

@@ -91,7 +91,7 @@ describe("bozze private dei contratti post asta", () => {
 
     expect(current.rosterEntries[0].contract).toBe("PENDING");
     expect(published.rosterEntries[0]).toMatchObject({ contract: "28", cost: 95, originalContractYears: 2 });
-    expect(published.rosterEntries[1]).toMatchObject({ contract: "T.O.", cost: 5, slot: "g_league" });
+    expect(published.rosterEntries[1]).toMatchObject({ contract: "27 + T.O.", cost: 5, slot: "g_league" });
   });
 
   it("consente gli slot speciali alle sole T.O. idonee prima della consegna", () => {
@@ -101,7 +101,7 @@ describe("bozze private dei contratti post asta", () => {
       seasonName,
     });
     expect(twoWay.rosterEntries.find((entry) => entry.name === "Rookie")).toMatchObject({
-      contract: "T.O.",
+      contract: "27 + T.O.",
       slot: "two_way",
     });
 
@@ -185,7 +185,7 @@ describe("bozze private dei contratti post asta", () => {
       ],
       seasonName,
     });
-    expect(published.rosterEntries.map((entry) => entry.contract)).toEqual(["27", "T.O."]);
+    expect(published.rosterEntries.map((entry) => entry.contract)).toEqual(["27", "27 + T.O."]);
   });
 
   it("azzera soltanto le bozze dei contratti pendenti coinvolti nello scambio", () => {

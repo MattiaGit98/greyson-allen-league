@@ -3,6 +3,7 @@ import type { HistoryCompetitionEntry, HistoryDraftRow } from "./history-competi
 import { compareDraftPicks, draftOverallPosition } from "./draft-rules";
 import { findTeamSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
 import { removeRolelessPlayersByName } from "./roleless-player-list";
+import { annualTeamOptionContract } from "./team-option-contract";
 
 export type DraftRosterSlot = "regular" | "two_way" | "g_league";
 export type DraftDestinationSlot = DraftRosterSlot | "immediate_cut" | "immediate_release";
@@ -136,7 +137,7 @@ export function buildDraftAssignment({
       name: player.name,
       role: player.role === "X" ? undefined : player.role,
       cost: destinationSlot === "immediate_release" ? 0 : price,
-      contract: immediateExit ? String((draftYear + 1) % 100).padStart(2, "0") : "T.O.",
+      contract: immediateExit ? String((draftYear + 1) % 100).padStart(2, "0") : annualTeamOptionContract(draftYear + 1),
       state: immediateExit ? "cut" as const : "active" as const,
       slot: activeSlot as DraftRosterSlot,
       teamCode: pick.teamCode,

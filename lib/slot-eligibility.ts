@@ -1,7 +1,7 @@
 import type { RosterEntry } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { seasonEndYear } from "./season-time";
-import { isRookieExtensionContract } from "./team-option-contract";
+import { isAnnualTeamOptionContract, isRookieExtensionContract } from "./team-option-contract";
 
 export type ManagedRosterSlot = "regular" | "two_way" | "g_league";
 
@@ -19,6 +19,7 @@ export function hasPendingAuctionContract(entry: Pick<SlotEligibilityEntry, "con
 
 export function contractIncludesTeamOption(entry: Pick<SlotEligibilityEntry, "contract" | "teamOptionFinalYear">) {
   return entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O."
+    || isAnnualTeamOptionContract(entry)
     || entry.teamOptionFinalYear !== undefined
     || isRookieExtensionContract(entry);
 }

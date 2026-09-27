@@ -14,6 +14,7 @@ import {
   exerciseOrdinaryTeamOption,
   exercisePlayoffTeamOption,
   isRookieExtensionDecisionDue,
+  isAnnualTeamOptionContract,
   qualifyingOfferForDeclinedRookieExtension,
 } from "@/lib/team-option-contract";
 
@@ -135,7 +136,7 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
   const handled = new Set<string>();
   const rosterEntries = state.rosterEntries.map((entry) => {
     if (entry.teamCode !== teamCode || !selected.has(entry.name)) return entry;
-    if (entry.state !== "active" || entry.slot !== "g_league" || entry.contract !== "T.O.") {
+    if (entry.state !== "active" || entry.slot !== "g_league" || !isAnnualTeamOptionContract(entry)) {
       fail(`${entry.name} non è più una T.O. attiva in G-League.`);
     }
     handled.add(entry.name);

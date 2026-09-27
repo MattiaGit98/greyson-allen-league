@@ -1,6 +1,6 @@
 import type { PlayerListEntry, QualifyingOfferRight, RosterEntry } from "@/lib/league-types";
 import { advanceSeasonName, seasonEndYear } from "./season-time";
-import { isRookieExtensionContract } from "./team-option-contract";
+import { isAnnualTeamOptionContract, isRookieExtensionContract } from "./team-option-contract";
 import {
   applyPlayoffTeamOptionPromotion,
   requiresPlayoffTeamOptionPromotion,
@@ -36,7 +36,7 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     .filter((entry) => {
       const expiry = contractExpiryYear(entry.contract, expiringYear);
       if (expiry === expiringYear) {
-        return entry.state === "active" && isRookieExtensionContract(entry);
+        return entry.state === "active" && (isRookieExtensionContract(entry) || isAnnualTeamOptionContract(entry));
       }
       // Una T.O. tagliata termina comunque con la stagione.
       if (entry.state === "cut" && entry.contract.trim().toLocaleUpperCase("it-IT") === "T.O.") return false;
@@ -44,6 +44,7 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     })
     .map((entry) => ({
       ...entry,
+      contract: isAnnualTeamOptionContract(entry) ? "T.O." : entry.contract,
       endedPreviousSeasonInGLeague: entry.state === "active" && entry.slot === "g_league",
       twoWayPromotionLocked: false,
       dpeAppliedSeasons: entry.state === "active" && entry.slot === "dpe"

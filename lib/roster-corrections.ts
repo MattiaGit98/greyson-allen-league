@@ -2,6 +2,7 @@ import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { seasonEndYear } from "./season-time";
+import { isAnnualTeamOptionContract } from "./team-option-contract";
 
 export type RosterCorrectionInput = {
   sourceIndex: number;
@@ -30,6 +31,8 @@ export function normalizeRosterCorrectionContract(value: string) {
   if (normalized === "PENDING" || normalized === "DA ASSEGNARE") return "PENDING";
   const rookieExtension = normalized.match(/^(\d{2}) \+ R\.?E\.?$/);
   if (rookieExtension) return `${rookieExtension[1]} + R.E.`;
+  const annualTeamOption = normalized.match(/^(\d{2}) \+ T\.?O\.?$/);
+  if (annualTeamOption) return `${annualTeamOption[1]} + T.O.`;
   const match = normalized.match(/^(\d{2})(?: \((E|Q)\))?$/);
   if (!match) return null;
   return match[2] ? `${match[1]} (${match[2]})` : match[1];
@@ -38,14 +41,16 @@ export function normalizeRosterCorrectionContract(value: string) {
 export function rosterCorrectionContractOptions(seasonName: string, leagueMoment: LeagueMoment) {
   const currentEndYear = seasonEndYear(seasonName);
   if (currentEndYear === null) return [];
-  const options = [{ value: "T.O.", label: "T.O." }];
+  const options: { value: string; label: string }[] = [];
   if (leagueMoment === "offseason_start") {
+    options.push({ value: "T.O.", label: "T.O." });
     options.push({ value: `${shortYear(currentEndYear - 1)} + R.E.`, label: "R.E." });
   }
   for (let distance = 0; distance < 3; distance += 1) {
     const year = shortYear(currentEndYear + distance);
     options.push(
       { value: year, label: year },
+      { value: `${year} + T.O.`, label: `${year} + T.O.` },
       { value: `${year} + R.E.`, label: `${year} + R.E.` },
       { value: `${year} (Q)`, label: `${year} → Q.O.` },
     );
@@ -170,6 +175,7 @@ export function applyRosterCorrections({
 function correctedContractMetadata(entry: RosterEntry, _seasonName: string): RosterEntry {
   const isRookieExtension = /^\d{2} \+ R\.E\.$/.test(entry.contract);
   const keepsTeamOptionHistory = entry.contract === "T.O."
+    || isAnnualTeamOptionContract(entry)
     || (entry.contract.includes("(Q)") && entry.teamOptionFinalYear !== undefined);
   return {
     ...entry,
