@@ -6,7 +6,7 @@ import { persistLeagueMovement } from "@/lib/league-movements";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, previousSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { hasReachedMoment, leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
+import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { requireCapCompliance } from "@/lib/cap-override";
 
 const defaultPath = "/admin/altre-operazioni";
@@ -16,7 +16,6 @@ export async function applyContractExtension(formData: FormData) {
   const path = requestedPath === "/admin/asta" ? requestedPath : defaultPath;
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
-  const confirmed = formData.get("requirements_confirmed") === "true";
   if (!teamCode || !playerName) fail(path, "Seleziona un contratto da estendere.");
   const supabase = await createSupabaseServerClient();
   if (!supabase) fail(path, "Supabase non configurato.");
@@ -27,10 +26,7 @@ export async function applyContractExtension(formData: FormData) {
   const activeSeasonName = season.data.name;
   const leagueMoment = leagueMomentFromSeason(season.data);
   const windowOpen = operationWindows.extensions(leagueMoment);
-  if (!windowOpen) fail(path, "Le estensioni sono disponibili fino all'Inizio asta oppure durante la stagione dopo la deadline.");
-  if (season.data.status === "regular_season" && !confirmed) {
-    fail(path, "Conferma di aver verificato che la squadra occupi una delle prime sei posizioni della regular season.");
-  }
+  if (!windowOpen) fail(path, "Le estensioni sono disponibili soltanto in offseason, fino all'Inizio asta.");
   const endYear = seasonEndYear(season.data.name);
   if (!endYear) fail(path, "Annata non valida.");
   const state = await loadEditableLeagueState();
@@ -78,10 +74,7 @@ export async function applyContractExtension(formData: FormData) {
       countTeamOptions,
     });
     if (distance > 0 && space < 0) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
-    if (distance === 0 && season.data.status === "offseason" && !hasReachedMoment(leagueMoment, "auction_start") && space < 0 && space < beforeSpace) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
-    if (distance === 0 && season.data.status === "regular_season" && (space < -100 || (beforeSpace < -100 && space < beforeSpace))) {
-      capWarnings.push(`L'estensione non rispetta il limite del cap durante la stagione (cap libero ${space}).`);
-    }
+    if (distance === 0 && space < 0 && space < beforeSpace) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
   }
   requireCapCompliance(capWarnings, (message) => fail(path, message));
   const nextState = { ...state, rosterEntries };

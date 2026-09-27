@@ -54,6 +54,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.closedPossibilities.push("Si sospende l'esercizio della DPE per tutta la durata dell'asta.");
     preview.closedPossibilities.push("Si sospendono gli scambi fino al termine dell’asta.");
     preview.closedPossibilities.push("Si chiude il Draft.");
+    preview.closedPossibilities.push("Si chiudono le estensioni contrattuali.");
     preview.closedPossibilities.push("Si chiudono i rilasci gratuiti per chi ha disputato meno della metà delle partite NBA.");
   }
 
@@ -66,7 +67,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.newPossibilities.push("Si apre l’assegnazione dei contratti acquistati all’asta.");
     preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla trade deadline.");
     preview.newPossibilities.push("Riaprono gli scambi fino alla trade deadline.");
-    preview.closedPossibilities.push("Si chiudono asta ed estensioni contrattuali dell’offseason.");
+    preview.closedPossibilities.push("Si chiude l’asta.");
   }
 
   if (transition === "contract_delivery") {
@@ -80,7 +81,7 @@ export function buildLeagueTransitionPreview(input: {
   }
 
   if (transition === "trade_deadline") {
-    preview.newPossibilities.push("Si apre la finestra per buyout ed estensioni delle squadre ammesse.");
+    preview.newPossibilities.push("Si apre la finestra per i buyout.");
     preview.newPossibilities.push("I free agent soggetti a buyout stagionale possono essere firmati soltanto dalle prime sei squadre.");
     preview.closedPossibilities.push("Si chiudono gli scambi e l’esercizio della DPE.");
     preview.closedPossibilities.push("Si chiude la causale di rilascio gratuito legata a squalifiche o cause giudiziarie.");
@@ -90,7 +91,7 @@ export function buildLeagueTransitionPreview(input: {
   if (transition === "buyout_end") preview.closedPossibilities.push("Non sarà più possibile applicare il buyout.");
 
   if (transition === "free_agency_end") {
-    preview.closedPossibilities.push("Si chiudono free agency, rilasci gratuiti ed estensioni in-season.");
+    preview.closedPossibilities.push("Si chiudono free agency e rilasci gratuiti.");
     preview.closedPossibilities.push("Si chiude la possibilità di reintegro anticipato dalla DPE.");
     preview.newPossibilities.push("Si apre l'esercizio anticipato delle T.O. in G-League utilizzate nei playoff.");
   }

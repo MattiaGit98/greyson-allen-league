@@ -6,7 +6,7 @@ import {
   tradesAreSuspendedForAuction,
   type LeagueMoment,
   type LeagueTransition,
-} from "@/lib/league-moments";
+} from "./league-moments";
 
 export type AvailableOperation = {
   label: string;
@@ -24,7 +24,7 @@ export function availableOperationsAt(moment: LeagueMoment): AvailableOperation[
   add("Assegnazione contratti", operationWindows.contractAssignment(moment), "contract_delivery");
   add("Scambi", operationWindows.trades(moment), "trade_deadline");
   add("Free agent", operationWindows.freeAgency(moment), hasReachedMoment(moment, "free_agency_reopening") ? "season_end" : "free_agency_end");
-  add("Estensioni contrattuali", operationWindows.extensions(moment), hasReachedMoment(moment, "trade_deadline") ? "free_agency_end" : "auction_start");
+  add("Estensioni contrattuali", operationWindows.extensions(moment), "auction_start");
   add("Buyout", operationWindows.buyout(moment), "buyout_end");
   add("Esercizio DPE", operationWindows.dpeActivation(moment), "trade_deadline");
   add("Reintegro anticipato DPE", operationWindows.dpeReintegration(moment), "free_agency_end");

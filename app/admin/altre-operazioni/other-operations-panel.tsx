@@ -9,7 +9,7 @@ import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
 import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
-import { hasReachedMoment, operationWindows } from "@/lib/league-moments";
+import { operationWindows } from "@/lib/league-moments";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import {
@@ -166,10 +166,10 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
               </div>
             </div>
           )}
-          {requiresConfirmation(operation, props.phase) && (
+          {requiresConfirmation(operation) && (
             <label className="operation-check other-operation-check">
               <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-              {confirmationLabel(operation, props.phase)}
+              {confirmationLabel(operation)}
             </label>
           )}
           {preview.roleMinimumMissing > 0 && !preview.roleMinimumSlotError && (
@@ -280,7 +280,7 @@ function operationPreview(
   const errors: string[] = [];
   const warnings: string[] = [];
   const capWarnings: string[] = [];
-  if (requiresConfirmation(operation, props.phase) && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
+  if (requiresConfirmation(operation) && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
   if (operation === "free_release") {
     const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
     if (!automaticOneCreditRelease) {
@@ -294,8 +294,7 @@ function operationPreview(
   if (operation === "extension") {
     spacesAfter.forEach((space, index) => {
       if (index > 0 && space < 0) capWarnings.push(`L'estensione porta il cap libero ${seasonNameAt(props.seasonName, index)} a ${space}.`);
-      if (index === 0 && props.phase === "offseason" && !hasReachedMoment(props.leagueMoment, "auction_start") && space < 0 && space < spacesBefore[0]) capWarnings.push(`L'estensione porta il cap libero ${props.seasonName} a ${space}.`);
-      if (index === 0 && props.phase === "regular_season" && (space < -100 || (spacesBefore[0] < -100 && space < spacesBefore[0]))) capWarnings.push(`L'estensione non rispetta il limite del cap durante la stagione (cap libero ${space}).`);
+      if (index === 0 && space < 0 && space < spacesBefore[0]) capWarnings.push(`L'estensione porta il cap libero ${props.seasonName} a ${space}.`);
     });
   } else {
     const calculatedCapWarnings = salaryCapWarningsForSpaces({
@@ -388,15 +387,13 @@ function roleCounts(team: AdminRosterTeam) {
   return team.players.filter((player) => player.state === "active" && player.slot !== "dpe").reduce((counts, player) => { if (player.role) counts[player.role] += 1; return counts; }, { G: 0, A: 0, C: 0 });
 }
 
-function requiresConfirmation(operation: Operation, phase: string) {
+function requiresConfirmation(operation: Operation) {
   return operation === "buyout"
     || operation === "dpe_activate"
-    || operation === "dpe_reintegrate"
-    || (operation === "extension" && phase === "regular_season");
+    || operation === "dpe_reintegrate";
 }
 
-function confirmationLabel(operation: Operation, phase: string) {
-  if (operation === "extension") return phase === "regular_season" ? "Ho verificato che la squadra occupi una delle prime sei posizioni della regular season" : "Sono verificati i requisiti originari dell'estensione";
+function confirmationLabel(operation: Operation) {
   if (operation === "buyout") return "Il buyout è stato concordato con il giocatore";
   if (operation === "dpe_activate") return "Ho verificato che NBC Sports riporti l'infortunio certo e che sia raggiunta la soglia regolamentare di assenze";
   if (operation === "dpe_reintegrate") return "Ho verificato il ritorno in campo NBA e il rispetto dei dieci giorni dal rientro";

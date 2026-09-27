@@ -274,8 +274,8 @@ export function buildPreAdvanceChecklist(input: {
       id: "free-agency-closures",
       tone: "info",
       title: "Stanno per chiudersi free agency e operazioni collegate",
-      message: "Termineranno free agency, rilasci gratuiti, estensioni in-season e possibilità di reintegro anticipato dalla DPE.",
-      article: "Art. 3(d); Art. 5(a); Art. 10(c, f); Art. 12(d)",
+      message: "Termineranno free agency, rilasci gratuiti e possibilità di reintegro anticipato dalla DPE.",
+      article: "Art. 5(a); Art. 10(c, f); Art. 12(d)",
       href: "/admin/free-agent",
       actionLabel: "Controlla la free agency",
     });
