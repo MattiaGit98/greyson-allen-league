@@ -8,7 +8,7 @@ import {
   isPostAuctionContractAssignmentCandidate,
   auctionSlotCapacityErrors,
   auctionSlotCountsAfterMove,
-  legalAuctionPromotionDestinations,
+  legalAuctionContextualDestinations,
 } from "./auction-management";
 
 describe("pannello asta", () => {
@@ -143,8 +143,8 @@ describe("pannello asta", () => {
     expect(auctionSlotCapacityErrors(withExchange)).toEqual([]);
   });
 
-  it("propone in asta soltanto le promozioni consentite", () => {
-    expect(legalAuctionPromotionDestinations({
+  it("propone in asta soltanto gli spostamenti contestuali consentiti", () => {
+    expect(legalAuctionContextualDestinations({
       entry: {
         slot: "g_league",
         contract: "PENDING",
@@ -158,7 +158,7 @@ describe("pannello asta", () => {
       moment: "auction_start",
     })).toEqual(["regular", "two_way"]);
 
-    expect(legalAuctionPromotionDestinations({
+    expect(legalAuctionContextualDestinations({
       entry: { slot: "two_way", contract: "28", cost: 8 },
       rookie: false,
       under23: false,
@@ -166,9 +166,65 @@ describe("pannello asta", () => {
       moment: "auction_start",
     })).toEqual(["regular"]);
 
-    expect(legalAuctionPromotionDestinations({
+    expect(legalAuctionContextualDestinations({
       entry: { slot: "regular", contract: "28", cost: 8 },
       rookie: false,
+      under23: false,
+      seasonName: "2026/27",
+      moment: "auction_start",
+    })).toEqual([]);
+
+    expect(legalAuctionContextualDestinations({
+      entry: {
+        slot: "two_way",
+        contract: "PENDING",
+        cost: 3,
+        auctionPrice: 3,
+        contractStartSeason: "2026/27",
+      },
+      rookie: true,
+      under23: false,
+      seasonName: "2026/27",
+      moment: "auction_start",
+    })).toEqual(["regular", "g_league"]);
+
+    expect(legalAuctionContextualDestinations({
+      entry: {
+        slot: "two_way",
+        contract: "PENDING",
+        cost: 3,
+        auctionPrice: 3,
+        contractStartSeason: "2026/27",
+      },
+      rookie: true,
+      under23: false,
+      seasonName: "2026/27",
+      moment: "contract_delivery",
+    })).toEqual(["regular"]);
+
+    expect(legalAuctionContextualDestinations({
+      entry: {
+        slot: "regular",
+        contract: "PENDING",
+        cost: 3,
+        auctionPrice: 3,
+        auctionAcquisition: "restricted_free_agent",
+        contractStartSeason: "2026/27",
+      },
+      rookie: true,
+      under23: false,
+      seasonName: "2026/27",
+      moment: "auction_start",
+    })).toEqual([]);
+
+    expect(legalAuctionContextualDestinations({
+      entry: {
+        slot: "regular",
+        contract: "27 + T.O.",
+        cost: 3,
+        contractStartSeason: "2025/26",
+      },
+      rookie: true,
       under23: false,
       seasonName: "2026/27",
       moment: "auction_start",

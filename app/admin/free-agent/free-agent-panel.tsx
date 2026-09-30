@@ -32,7 +32,7 @@ type TeamOption = {
     cost: number;
     contract: string;
     cuttable: boolean;
-    promotionDestinations: Exclude<Slot, "dpe">[];
+    moveDestinations: Exclude<Slot, "dpe">[];
   }[];
 };
 
@@ -182,7 +182,7 @@ function FreeAgentDialog({
       name: item.name,
       slot: item.slot,
       cuttable: item.cuttable,
-      promotionDestinations: item.promotionDestinations,
+      moveDestinations: item.moveDestinations,
     }]
   ));
   const customReady = outsideName.trim() && outsideRole;
@@ -207,8 +207,8 @@ function FreeAgentDialog({
     const cutPlayer = team?.rosterPlayers.find((item) => item.name === operation.playerName);
     return cutPlayer ? [cutPlayer] : [];
   });
-  const contextualPromotions = slotResolution.operations.flatMap((operation) => (
-    operation.kind === "promote" ? [operation] : []
+  const contextualMoves = slotResolution.operations.flatMap((operation) => (
+    operation.kind === "move" ? [operation] : []
   ));
   const outsideDuplicate = outsideList && allPlayers.some((item) => normalizeName(item.name) === normalizeName(outsideName));
   const preview = evaluateFreeAgentSigning({
@@ -226,9 +226,9 @@ function FreeAgentDialog({
     cutRole: null,
     cutSlot: null,
     contextualCuts: contextualCutPlayers.map((cutPlayer) => ({ role: cutPlayer.role, slot: cutPlayer.slot })),
-    contextualPromotions: contextualPromotions.map((promotion) => ({
-      sourceSlot: promotion.sourceSlot,
-      destinationSlot: promotion.destinationSlot,
+    contextualMoves: contextualMoves.map((move) => ({
+      sourceSlot: move.sourceSlot,
+      destinationSlot: move.destinationSlot,
     })),
   });
   const slotBefore = destination === "regular" ? slots.regular : slots.twoWay;

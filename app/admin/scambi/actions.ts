@@ -26,7 +26,7 @@ import {
   type TradeSlot,
 } from "@/lib/rules/trade";
 import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
-import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildSignAndTradeProvisional, signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { applyStandardContractCut, isUnresolvedTeamOption } from "@/lib/team-option-contract";
@@ -362,18 +362,24 @@ export async function registerTrade(formData: FormData) {
   const promotions: TradePromotion[] = (payload.promotions ?? []).map((requested) => {
     const source = activePlayers.get(requested.id);
     if (!source || source.entry.teamCode !== requested.teamCode || !participants.has(requested.teamCode)) {
-      fail("Un giocatore indicato per la promozione contestuale non è più disponibile.");
+      fail("Un giocatore indicato per lo spostamento contestuale non è più disponibile.");
     }
     if (source.entry.slot === "dpe") {
-      fail(`${source.entry.name}: questo giocatore non può essere promosso in questa fase.`);
+      fail(`${source.entry.name}: questo giocatore non può essere spostato in questa fase.`);
     }
-    const destinations = legalPromotionDestinations(
-      { ...source.entry, slot: source.entry.slot as ManagedRosterSlot },
+    const listedPlayer = playerDetailsByName.get(normalizePlayerName(source.entry.name));
+    const destinations = legalSlotDestinations(
+      {
+        ...source.entry,
+        slot: source.entry.slot as ManagedRosterSlot,
+        rookie: listedPlayer?.rookie ?? false,
+        under23: listedPlayer?.under23 ?? false,
+      },
       season.name,
       moment,
-    );
+    ).filter((destination) => destination !== source.entry.slot);
     if (!destinations.includes(requested.destinationSlot as ManagedRosterSlot)) {
-      fail(`${source.entry.name}: la destinazione della promozione non è consentita.`);
+      fail(`${source.entry.name}: la destinazione dello spostamento non è consentita.`);
     }
     const destinationSlot = requested.destinationSlot as Exclude<TradeSlot, "dpe">;
     promotionChanges.push({ stateIndex: source.stateIndex, destinationSlot });
@@ -382,6 +388,7 @@ export async function registerTrade(formData: FormData) {
       teamCode: requested.teamCode,
       sourceSlot: source.entry.slot as Exclude<TradeSlot, "dpe">,
       destinationSlot,
+      allowedDestinationSlots: destinations,
     };
   });
 
@@ -510,7 +517,7 @@ export async function registerTrade(formData: FormData) {
     }),
     ...promotionChanges.flatMap((change) => {
       const entry = state.rosterEntries[change.stateIndex];
-      return entry ? [`Promozione contestuale: ${entry.name} (${entry.teamCode}); ${tradeSlotLabel(entry.slot)} → ${tradeSlotLabel(change.destinationSlot)}`] : [];
+      return entry ? [`Spostamento contestuale: ${entry.name} (${entry.teamCode}); ${tradeSlotLabel(entry.slot)} → ${tradeSlotLabel(change.destinationSlot)}`] : [];
     }),
     ...roleMinimumRestorations.map((team) => `Ripristino ruoli richiesto: ${team.code}; free agent casuali da 1 credito ${team.requiredRoleFreeAgents}`),
   ];
@@ -658,7 +665,7 @@ function parsePayload(value: FormDataEntryValue | null): TradeTransactionPayload
       !isRecord(promotion)
       || !textFields(promotion, "id", "teamCode", "destinationSlot")
       || !["regular", "two_way", "g_league"].includes(String(promotion.destinationSlot))
-    ) throw new Error("Promozione contestuale non valida.");
+    ) throw new Error("Spostamento contestuale non valido.");
   }
   return payload;
 }

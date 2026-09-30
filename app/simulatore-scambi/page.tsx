@@ -5,7 +5,7 @@ import { fourthDraftVirtualPicks } from "@/lib/future-draft-picks";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
-import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
@@ -99,13 +99,18 @@ export default async function TradeSimulatorPage() {
           })(),
           slot: entry.slot,
           cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
-          promotionDestinations: entry.slot === "dpe"
+          movementDestinations: entry.slot === "dpe"
             ? []
-            : legalPromotionDestinations(
-              { ...entry, slot: entry.slot as ManagedRosterSlot },
+            : legalSlotDestinations(
+              {
+                ...entry,
+                slot: entry.slot as ManagedRosterSlot,
+                rookie: officialPlayers.get(normalizePlayerName(entry.name))?.rookie ?? false,
+                under23: officialPlayers.get(normalizePlayerName(entry.name))?.under23 ?? false,
+              },
               seasonName,
               leagueMoment,
-            ),
+            ).filter((destination) => destination !== entry.slot),
           allowedDestinations: entry.slot === "dpe"
             ? ["dpe" as const]
             : orderCurrentSlotFirst(

@@ -2,7 +2,7 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace } from "@/lib/season-time";
 import { FreeAgentPanel } from "./free-agent-panel";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
-import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
@@ -71,13 +71,13 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
         cost: entry.cost,
         contract: entry.contract,
         cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
-        promotionDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment, seasonName)
+        moveDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment, seasonName)
           ? []
-          : legalPromotionDestinations(
+          : legalSlotDestinations(
             { ...entry, slot: entry.slot as ManagedRosterSlot },
             seasonName,
             leagueMoment,
-          ),
+          ).filter((destination) => destination !== entry.slot),
       }))
       .sort((left, right) => left.name.localeCompare(right.name, "it")),
   }));

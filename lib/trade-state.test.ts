@@ -55,7 +55,7 @@ describe("applicazione di uno scambio", () => {
     });
   });
 
-  it("applica una promozione contestuale senza alterare il contratto", () => {
+  it("applica uno spostamento contestuale senza alterare il contratto", () => {
     const before = state();
     const after = applyValidatedTrade(before, {
       playerMoves: [],

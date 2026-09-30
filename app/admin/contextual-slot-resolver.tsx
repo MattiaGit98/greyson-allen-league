@@ -38,7 +38,7 @@ export function ContextualSlotResolver({
       <div className="contextual-slot-steps">
         {resolution.steps.map((step, index) => {
           const decision = value[index] ?? emptyContextualSlotDecision();
-          const promotionPlayer = step.promotionCandidates.find((candidate) => candidate.name === decision.playerName);
+          const movedPlayer = step.moveCandidates.find((candidate) => candidate.name === decision.playerName);
           return (
             <fieldset className="contextual-slot-step" key={`${index}-${step.slot}`}>
               <legend>
@@ -69,44 +69,44 @@ export function ContextualSlotResolver({
                 </div>
               )}
 
-              {step.promotionCandidates.length > 0 && (
-                <div className={`contextual-slot-choice promotion${decision.kind === "promote" ? " selected" : ""}`}>
+              {step.moveCandidates.length > 0 && (
+                <div className={`contextual-slot-choice movement${decision.kind === "move" ? " selected" : ""}`}>
                   <label className="contextual-slot-radio">
                     <input
                       type="radio"
                       name={`slot-resolution-${index}`}
-                      checked={decision.kind === "promote"}
-                      onChange={() => replaceDecision(index, { kind: "promote", playerName: "", destinationSlot: "" })}
+                      checked={decision.kind === "move"}
+                      onChange={() => replaceDecision(index, { kind: "move", playerName: "", destinationSlot: "" })}
                     />
-                    <span>Promozione contestuale</span>
+                    <span>Spostamento contestuale</span>
                   </label>
                   <select
-                    aria-label={`Giocatore da promuovere dallo slot ${contextualSlotLabel(step.slot)}`}
-                    value={decision.kind === "promote" ? decision.playerName : ""}
-                    disabled={decision.kind !== "promote"}
+                    aria-label={`Giocatore da spostare dallo slot ${contextualSlotLabel(step.slot)}`}
+                    value={decision.kind === "move" ? decision.playerName : ""}
+                    disabled={decision.kind !== "move"}
                     onChange={(event) => {
-                      const candidate = step.promotionCandidates.find((item) => item.name === event.target.value);
+                      const candidate = step.moveCandidates.find((item) => item.name === event.target.value);
                       replaceDecision(index, {
-                        kind: "promote",
+                        kind: "move",
                         playerName: event.target.value,
-                        destinationSlot: candidate?.promotionDestinations[0] ?? "",
+                        destinationSlot: candidate?.moveDestinations[0] ?? "",
                       });
                     }}
                   >
                     <option value="">Seleziona il giocatore</option>
-                    {step.promotionCandidates.map((candidate) => <option value={candidate.name} key={candidate.name}>{candidate.name}</option>)}
+                    {step.moveCandidates.map((candidate) => <option value={candidate.name} key={candidate.name}>{candidate.name}</option>)}
                   </select>
                   <select
-                    aria-label="Slot di destinazione della promozione"
-                    value={decision.kind === "promote" ? decision.destinationSlot : ""}
-                    disabled={decision.kind !== "promote" || !promotionPlayer}
+                    aria-label="Slot di destinazione dello spostamento"
+                    value={decision.kind === "move" ? decision.destinationSlot : ""}
+                    disabled={decision.kind !== "move" || !movedPlayer}
                     onChange={(event) => replaceDecision(index, {
                       ...decision,
                       destinationSlot: event.target.value as ContextualSlotDecision["destinationSlot"],
                     })}
                   >
                     <option value="">Slot di destinazione</option>
-                    {(promotionPlayer?.promotionDestinations ?? []).map((destination) => (
+                    {(movedPlayer?.moveDestinations ?? []).map((destination) => (
                       <option value={destination} key={destination}>{contextualSlotLabel(destination)}</option>
                     ))}
                   </select>

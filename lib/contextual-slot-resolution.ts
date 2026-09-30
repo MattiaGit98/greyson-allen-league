@@ -6,24 +6,24 @@ export type ContextualSlotPlayer = {
   name: string;
   slot: ContextualSlot;
   cuttable: boolean;
-  promotionDestinations: ContextualSlot[];
+  moveDestinations: ContextualSlot[];
 };
 
 export type ContextualSlotDecision = {
-  kind: "cut" | "promote" | "";
+  kind: "cut" | "move" | "";
   playerName: string;
   destinationSlot: ContextualSlot | "";
 };
 
 export type AppliedContextualSlotOperation =
   | { kind: "cut"; playerName: string; sourceSlot: ContextualSlot }
-  | { kind: "promote"; playerName: string; sourceSlot: ContextualSlot; destinationSlot: ContextualSlot };
+  | { kind: "move"; playerName: string; sourceSlot: ContextualSlot; destinationSlot: ContextualSlot };
 
 export type ContextualSlotResolutionStep = {
   slot: ContextualSlot;
   decision: ContextualSlotDecision;
   cutCandidates: ContextualSlotPlayer[];
-  promotionCandidates: ContextualSlotPlayer[];
+  moveCandidates: ContextualSlotPlayer[];
 };
 
 export const contextualSlotLimits: ContextualSlotCounts = {
@@ -64,11 +64,11 @@ export function resolveContextualSlots({
     const slot = overflowingSlots[0]!;
     const availablePlayers = players.filter((player) => currentSlots.get(player.name) === slot && !usedPlayers.has(player.name));
     const cutCandidates = availablePlayers.filter((player) => player.cuttable);
-    const promotionCandidates = availablePlayers.filter((player) => player.promotionDestinations.length > 0);
+    const moveCandidates = availablePlayers.filter((player) => player.moveDestinations.length > 0);
     const decision = decisions[index] ?? emptyContextualSlotDecision();
-    steps.push({ slot, decision, cutCandidates, promotionCandidates });
+    steps.push({ slot, decision, cutCandidates, moveCandidates });
 
-    if (!cutCandidates.length && !promotionCandidates.length) {
+    if (!cutCandidates.length && !moveCandidates.length) {
       errors.push(`Non ci sono operazioni consentite per liberare lo slot ${contextualSlotLabel(slot)}.`);
       return { complete: false, countsAfter, operations, steps, errors };
     }
@@ -92,8 +92,8 @@ export function resolveContextualSlots({
       continue;
     }
 
-    if (!decision.destinationSlot || !selectedPlayer.promotionDestinations.includes(decision.destinationSlot)) {
-      errors.push(`La destinazione della promozione di ${selectedPlayer.name} non è consentita.`);
+    if (!decision.destinationSlot || !selectedPlayer.moveDestinations.includes(decision.destinationSlot)) {
+      errors.push(`La destinazione dello spostamento di ${selectedPlayer.name} non è consentita.`);
       return { complete: false, countsAfter, operations, steps, errors };
     }
     countsAfter[slot] -= 1;
@@ -101,7 +101,7 @@ export function resolveContextualSlots({
     currentSlots.set(selectedPlayer.name, decision.destinationSlot);
     usedPlayers.add(selectedPlayer.name);
     operations.push({
-      kind: "promote",
+      kind: "move",
       playerName: selectedPlayer.name,
       sourceSlot: slot,
       destinationSlot: decision.destinationSlot,
@@ -129,16 +129,16 @@ export function parseContextualSlotDecisions(value: FormDataEntryValue | null) {
     const playerName = typeof decision.playerName === "string" ? decision.playerName.trim() : "";
     const destinationSlot = decision.destinationSlot;
     if (
-      !["cut", "promote"].includes(String(kind))
+      !["cut", "move"].includes(String(kind))
       || !playerName
       || playerName.length > 120
       || (destinationSlot !== "" && !contextualSlotOrder.includes(destinationSlot as ContextualSlot))
       || (kind === "cut" && destinationSlot !== "")
-      || (kind === "promote" && destinationSlot === "")
+      || (kind === "move" && destinationSlot === "")
     ) {
       throw new Error("Operazioni contestuali non valide.");
     }
-    return { kind: kind as "cut" | "promote", playerName, destinationSlot: destinationSlot as ContextualSlot | "" };
+    return { kind: kind as "cut" | "move", playerName, destinationSlot: destinationSlot as ContextualSlot | "" };
   });
 }
 

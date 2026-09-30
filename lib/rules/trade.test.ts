@@ -665,7 +665,7 @@ describe("trade rules", () => {
     expect(result.errors.some((error) => error.code === "TRADE_CUT_CONTRACT_NOT_TRADABLE")).toBe(true);
   });
 
-  it("calcola le promozioni contestuali negli slot finali dello scambio", () => {
+  it("calcola gli spostamenti contestuali negli slot finali dello scambio", () => {
     const result = evaluateTrade({
       phase: "offseason",
       teams: [teams[0], teams[2]],
@@ -695,5 +695,52 @@ describe("trade rules", () => {
     expect(result.valid).toBe(true);
     expect(result.calculated.teamResults.find((team) => team.code === "CCC")?.slots)
       .toEqual({ regular: 15, twoWay: 0, gLeague: 0, dpe: 0 });
+  });
+
+  it("consente un downgrade contestuale soltanto tra le destinazioni autorizzate", () => {
+    const base = {
+      phase: "offseason",
+      teams: [{ ...teams[0], slots: { regular: 14, twoWay: 1, gLeague: 1, dpe: 0 } }, teams[2]],
+      playerMoves: [],
+      pickMoves: [{
+        id: "pick",
+        fromTeamCode: "AAA",
+        toTeamCode: "CCC",
+        year: 2027,
+        round: "1° giro",
+        hasExistingCondition: false,
+        clause: "none" as const,
+        counterpartyPickId: null,
+        counterpartyYear: null,
+        counterpartyRound: null,
+        counterpartyHasExistingCondition: false,
+      }],
+      cuts: [],
+    };
+    const allowed = evaluateTrade({
+      ...base,
+      promotions: [{
+        id: "regular-player",
+        teamCode: "AAA",
+        sourceSlot: "regular",
+        destinationSlot: "two_way",
+        allowedDestinationSlots: ["two_way", "g_league"],
+      }],
+    });
+    const blocked = evaluateTrade({
+      ...base,
+      promotions: [{
+        id: "regular-player",
+        teamCode: "AAA",
+        sourceSlot: "regular",
+        destinationSlot: "two_way",
+        allowedDestinationSlots: [],
+      }],
+    });
+
+    expect(allowed.errors.some((error) => error.code === "TRADE_PROMOTION_INVALID")).toBe(false);
+    expect(allowed.calculated.teamResults.find((team) => team.code === "AAA")?.slots)
+      .toEqual({ regular: 13, twoWay: 2, gLeague: 1, dpe: 0 });
+    expect(blocked.errors.some((error) => error.code === "TRADE_PROMOTION_INVALID")).toBe(true);
   });
 });

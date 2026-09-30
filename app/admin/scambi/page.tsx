@@ -3,7 +3,7 @@ import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "
 import { TradeBuilder } from "./trade-builder";
 import { registerTrade } from "./actions";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction } from "@/lib/league-moments";
-import { legalPromotionDestinations, legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { nextDraftYear } from "@/lib/draft-positions";
 import { fourthDraftVirtualPicks } from "@/lib/future-draft-picks";
@@ -127,13 +127,18 @@ export default async function TradesPage({
         })(),
         slot: entry.slot,
         cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
-        promotionDestinations: entry.slot === "dpe"
+        movementDestinations: entry.slot === "dpe"
           ? []
-          : legalPromotionDestinations(
-            { ...entry, slot: entry.slot as ManagedRosterSlot },
+          : legalSlotDestinations(
+            {
+              ...entry,
+              slot: entry.slot as ManagedRosterSlot,
+              rookie: officialPlayers.get(normalizePlayerName(entry.name))?.rookie ?? false,
+              under23: officialPlayers.get(normalizePlayerName(entry.name))?.under23 ?? false,
+            },
             seasonName,
             leagueMoment,
-          ),
+          ).filter((destination) => destination !== entry.slot),
         allowedDestinations: entry.slot === "dpe"
           ? ["dpe" as const]
           : orderCurrentSlotFirst(

@@ -27,7 +27,7 @@ export function evaluateFreeAgentSigning(input: {
   promotionSourceSlot?: "regular" | "two_way" | "g_league" | null;
   promotionDestinationSlot?: "regular" | "two_way" | "g_league" | null;
   contextualCuts?: { role: "G" | "A" | "C" | null; slot: "regular" | "two_way" | "g_league" | "dpe" }[];
-  contextualPromotions?: { sourceSlot: "regular" | "two_way" | "g_league"; destinationSlot: "regular" | "two_way" | "g_league" }[];
+  contextualMoves?: { sourceSlot: "regular" | "two_way" | "g_league"; destinationSlot: "regular" | "two_way" | "g_league" }[];
 }) {
   const errors = [];
   const warnings = [];
@@ -67,7 +67,7 @@ export function evaluateFreeAgentSigning(input: {
     twoWay: input.slots.twoWay + (input.destination === "two_way" ? 1 : 0),
   };
   const contextualCuts = input.contextualCuts ?? (input.cutSlot ? [{ role: input.cutRole, slot: input.cutSlot }] : []);
-  const contextualPromotions = input.contextualPromotions ?? (
+  const contextualMoves = input.contextualMoves ?? (
     input.promotionSourceSlot && input.promotionDestinationSlot
       ? [{ sourceSlot: input.promotionSourceSlot, destinationSlot: input.promotionDestinationSlot }]
       : []
@@ -78,12 +78,13 @@ export function evaluateFreeAgentSigning(input: {
     if (cut.slot === "g_league") slotsAfter.gLeague -= 1;
     if (cut.slot === "dpe") slotsAfter.dpe -= 1;
   }
-  for (const promotion of contextualPromotions) {
-    if (promotion.sourceSlot === "two_way") slotsAfter.twoWay -= 1;
-    if (promotion.sourceSlot === "g_league") slotsAfter.gLeague -= 1;
-    if (promotion.destinationSlot === "regular") slotsAfter.regular += 1;
-    if (promotion.destinationSlot === "two_way") slotsAfter.twoWay += 1;
-    if (promotion.destinationSlot === "g_league") slotsAfter.gLeague += 1;
+  for (const move of contextualMoves) {
+    if (move.sourceSlot === "regular") slotsAfter.regular -= 1;
+    if (move.sourceSlot === "two_way") slotsAfter.twoWay -= 1;
+    if (move.sourceSlot === "g_league") slotsAfter.gLeague -= 1;
+    if (move.destinationSlot === "regular") slotsAfter.regular += 1;
+    if (move.destinationSlot === "two_way") slotsAfter.twoWay += 1;
+    if (move.destinationSlot === "g_league") slotsAfter.gLeague += 1;
   }
   const slotCheck = validateSlots(slotsAfter);
   const rolesAfter = { ...input.roles };

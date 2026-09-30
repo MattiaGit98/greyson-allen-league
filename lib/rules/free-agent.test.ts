@@ -90,12 +90,25 @@ describe("evaluateFreeAgentSigning", () => {
       destination: "two_way",
       slots: { regular: 15, twoWay: 2, gLeague: 0, dpe: 0 },
       contextualCuts: [{ role: "A", slot: "regular" }],
-      contextualPromotions: [{ sourceSlot: "two_way", destinationSlot: "regular" }],
+      contextualMoves: [{ sourceSlot: "two_way", destinationSlot: "regular" }],
     });
 
     expect(result.valid).toBe(true);
     expect(result.calculated.slotsAfter).toEqual({ regular: 15, twoWay: 2, gLeague: 0, dpe: 0 });
     expect(result.calculated.rolesAfter).toEqual({ G: 6, A: 4, C: 5 });
+  });
+
+  it("calcola correttamente anche uno spostamento contestuale verso uno slot inferiore", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      price: 10,
+      destination: "two_way",
+      slots: { regular: 14, twoWay: 2, gLeague: 2, dpe: 0 },
+      contextualMoves: [{ sourceSlot: "two_way", destinationSlot: "g_league" }],
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.calculated.slotsAfter).toEqual({ regular: 14, twoWay: 2, gLeague: 3, dpe: 0 });
   });
 
   it("rejects a two-way assignment above 10 credits", () => {

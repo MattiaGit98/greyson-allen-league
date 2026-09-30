@@ -16,7 +16,7 @@ import {
   applyStandardContractCut,
   isUnresolvedTeamOption,
 } from "@/lib/team-option-contract";
-import { legalPromotionDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
+import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { roleMinimumChecksApply, roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { orderPlayerListByRole } from "@/lib/player-list-order";
@@ -107,21 +107,21 @@ export async function signFreeAgent(formData: FormData) {
       name: entry.name,
       slot: entry.slot as ManagedRosterSlot,
       cuttable: !isUnresolvedTeamOption(entry, moment, activeSeasonName),
-      promotionDestinations: isUnresolvedTeamOption(entry, moment, activeSeasonName)
+      moveDestinations: isUnresolvedTeamOption(entry, moment, activeSeasonName)
         ? []
-        : legalPromotionDestinations(
+        : legalSlotDestinations(
           { ...entry, slot: entry.slot as ManagedRosterSlot },
           activeSeasonName,
           moment,
-        ),
+        ).filter((destination) => destination !== entry.slot),
     })),
     decisions: slotDecisions,
   });
   if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
   if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
   const contextualCuts = new Set(slotResolution.operations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
-  const contextualPromotions = new Map(slotResolution.operations.flatMap((operation) => (
-    operation.kind === "promote" ? [[operation.playerName, operation.destinationSlot] as const] : []
+  const contextualMoves = new Map(slotResolution.operations.flatMap((operation) => (
+    operation.kind === "move" ? [[operation.playerName, operation.destinationSlot] as const] : []
   )));
   const contextualCutEntries = managedActiveEntries.filter((entry) => contextualCuts.has(entry.name));
   const currentCost = 1000 - calculateCapSpace({
@@ -156,8 +156,8 @@ export async function signFreeAgent(formData: FormData) {
       role: roleByName.get(normalizePlayerName(entry.name)) ?? null,
       slot: entry.slot as ManagedRosterSlot,
     })),
-    contextualPromotions: slotResolution.operations.flatMap((operation) => (
-      operation.kind === "promote" ? [{ sourceSlot: operation.sourceSlot, destinationSlot: operation.destinationSlot }] : []
+    contextualMoves: slotResolution.operations.flatMap((operation) => (
+      operation.kind === "move" ? [{ sourceSlot: operation.sourceSlot, destinationSlot: operation.destinationSlot }] : []
     )),
   });
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
@@ -198,8 +198,8 @@ export async function signFreeAgent(formData: FormData) {
       if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
         return applyStandardContractCut(entry, endYear, moment);
       }
-      const promotionDestination = contextualPromotions.get(entry.name);
-      if (promotionDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: promotionDestination };
+      const moveDestination = contextualMoves.get(entry.name);
+      if (moveDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: moveDestination };
       return entry;
     }),
     rosterEntry,
@@ -266,7 +266,7 @@ function contextualOperationSummary(operations: AppliedContextualSlotOperation[]
   return operations.map((operation) => (
     operation.kind === "cut"
       ? `; taglio contestuale di ${operation.playerName}`
-      : `; promozione contestuale di ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}`
+      : `; spostamento contestuale di ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}`
   )).join("");
 }
 
@@ -274,7 +274,7 @@ function contextualOperationSuccessSuffix(operations: AppliedContextualSlotOpera
   return operations.map((operation) => (
     operation.kind === "cut"
       ? ` Taglio contestuale: ${operation.playerName}.`
-      : ` Promozione contestuale: ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}.`
+      : ` Spostamento contestuale: ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}.`
   )).join("");
 }
 

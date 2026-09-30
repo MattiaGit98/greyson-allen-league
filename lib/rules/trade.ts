@@ -40,6 +40,7 @@ export type TradePromotion = {
   teamCode: string;
   sourceSlot: Exclude<TradeSlot, "dpe">;
   destinationSlot: Exclude<TradeSlot, "dpe">;
+  allowedDestinationSlots?: Exclude<TradeSlot, "dpe">[];
 };
 
 export type TradePickMove = {
@@ -455,18 +456,19 @@ export function evaluateTrade(input: {
     if (seenPromotions.has(promotion.id) || seenPlayers.has(promotion.id) || seenCuts.has(promotion.id)) {
       errors.push({
         code: "TRADE_PROMOTION_DUPLICATE",
-        message: "Un giocatore non può essere contemporaneamente ceduto, tagliato e promosso.",
+        message: "Un giocatore non può essere contemporaneamente ceduto, tagliato e spostato.",
       });
     }
     seenPromotions.add(promotion.id);
+    const permittedDestinations = promotion.allowedDestinationSlots
+      ?? (["regular", "two_way", "g_league"] as Exclude<TradeSlot, "dpe">[]).filter((slot) => slot !== promotion.sourceSlot);
     if (
-      promotion.sourceSlot === "regular"
-      || promotion.sourceSlot === promotion.destinationSlot
-      || !allowedTradeDestinations(promotion.sourceSlot).includes(promotion.destinationSlot)
+      promotion.sourceSlot === promotion.destinationSlot
+      || !permittedDestinations.includes(promotion.destinationSlot)
     ) {
       errors.push({
         code: "TRADE_PROMOTION_INVALID",
-        message: "La promozione contestuale deve avvenire verso uno slot superiore consentito.",
+        message: "Lo spostamento contestuale deve avere una destinazione consentita.",
       });
     }
   }

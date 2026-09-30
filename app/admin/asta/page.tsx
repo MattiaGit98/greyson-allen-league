@@ -8,7 +8,7 @@ import { normalizeState } from "@/lib/league-state";
 import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { conciseMovementDetail } from "@/lib/movement-display";
-import { legalAuctionPromotionDestinations } from "@/lib/auction-management";
+import { legalAuctionContextualDestinations } from "@/lib/auction-management";
 
 export default async function AuctionAdminPage({
   searchParams,
@@ -81,7 +81,7 @@ export default async function AuctionAdminPage({
             contract: entry.contract,
             slot: entry.slot as "regular" | "two_way" | "g_league",
             cuttable: true,
-            promotionDestinations: legalAuctionPromotionDestinations({
+            moveDestinations: legalAuctionContextualDestinations({
               entry,
               rookie: listedPlayer?.rookie ?? false,
               under23: listedPlayer?.under23 ?? false,

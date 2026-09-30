@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { resolveContextualSlots, type ContextualSlotPlayer } from "./contextual-slot-resolution";
 
 const players: ContextualSlotPlayer[] = [
-  { name: "Centro roster", slot: "regular", cuttable: true, promotionDestinations: [] },
-  { name: "Two-way", slot: "two_way", cuttable: true, promotionDestinations: ["regular"] },
-  { name: "G-League", slot: "g_league", cuttable: true, promotionDestinations: ["two_way", "regular"] },
+  { name: "Centro roster", slot: "regular", cuttable: true, moveDestinations: [] },
+  { name: "Two-way", slot: "two_way", cuttable: true, moveDestinations: ["regular", "g_league"] },
+  { name: "G-League", slot: "g_league", cuttable: true, moveDestinations: ["two_way", "regular"] },
 ];
 
 describe("risoluzione contestuale degli slot", () => {
@@ -30,20 +30,20 @@ describe("risoluzione contestuale degli slot", () => {
     expect(result.operations).toEqual([{ kind: "cut", playerName: "Two-way", sourceSlot: "two_way" }]);
   });
 
-  it("gestisce promozione e taglio a cascata", () => {
+  it("gestisce spostamento e taglio a cascata", () => {
     const result = resolveContextualSlots({
       counts: { regular: 15, two_way: 2, g_league: 3 },
       incomingSlot: "two_way",
       players,
       decisions: [
-        { kind: "promote", playerName: "Two-way", destinationSlot: "regular" },
+        { kind: "move", playerName: "Two-way", destinationSlot: "regular" },
         { kind: "cut", playerName: "Centro roster", destinationSlot: "" },
       ],
     });
     expect(result.complete).toBe(true);
     expect(result.countsAfter).toEqual({ regular: 15, two_way: 2, g_league: 3 });
     expect(result.operations).toEqual([
-      { kind: "promote", playerName: "Two-way", sourceSlot: "two_way", destinationSlot: "regular" },
+      { kind: "move", playerName: "Two-way", sourceSlot: "two_way", destinationSlot: "regular" },
       { kind: "cut", playerName: "Centro roster", sourceSlot: "regular" },
     ]);
   });
@@ -54,12 +54,24 @@ describe("risoluzione contestuale degli slot", () => {
       incomingSlot: "g_league",
       players,
       decisions: [
-        { kind: "promote", playerName: "G-League", destinationSlot: "two_way" },
-        { kind: "promote", playerName: "Two-way", destinationSlot: "regular" },
+        { kind: "move", playerName: "G-League", destinationSlot: "two_way" },
+        { kind: "move", playerName: "Two-way", destinationSlot: "regular" },
         { kind: "cut", playerName: "Centro roster", destinationSlot: "" },
       ],
     });
     expect(result.complete).toBe(true);
     expect(result.operations).toHaveLength(3);
+  });
+
+  it("consente anche uno spostamento verso uno slot inferiore quando è tra le destinazioni ammesse", () => {
+    const result = resolveContextualSlots({
+      counts: { regular: 10, two_way: 2, g_league: 2 },
+      incomingSlot: "two_way",
+      players,
+      decisions: [{ kind: "move", playerName: "Two-way", destinationSlot: "g_league" }],
+    });
+
+    expect(result.complete).toBe(true);
+    expect(result.countsAfter).toEqual({ regular: 10, two_way: 2, g_league: 3 });
   });
 });

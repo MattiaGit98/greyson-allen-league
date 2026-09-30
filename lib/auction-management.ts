@@ -2,7 +2,6 @@ import type { AuctionAcquisitionKind, RosterEntry } from "./league-types";
 import type { LeagueMoment } from "./league-moments";
 import { assignedAuctionContract } from "./rules/contracts";
 import {
-  isSlotDemotion,
   slotEligibilityErrors,
   slotMoveTimingErrors,
   type ManagedRosterSlot,
@@ -126,7 +125,7 @@ export function auctionDestinationErrors({
   return errors;
 }
 
-export function legalAuctionPromotionDestinations({
+export function legalAuctionContextualDestinations({
   entry,
   rookie,
   under23,
@@ -143,7 +142,8 @@ export function legalAuctionPromotionDestinations({
   const source = entry.slot as ManagedRosterSlot;
   const pendingAuctionContract = isPostAuctionContractAssignmentCandidate(entry, seasonName);
   return (["regular", "two_way", "g_league"] as AuctionSlot[]).filter((destination) => {
-    if (destination === source || isSlotDemotion(source, destination)) return false;
+    if (destination === source) return false;
+    if (entry.auctionAcquisition && destination !== "regular") return false;
     if (slotMoveTimingErrors({ ...entry, slot: source }, destination, seasonName, moment).length) return false;
     if (pendingAuctionContract) {
       return auctionDestinationErrors({ slot: destination, price: entry.auctionPrice ?? entry.cost, rookie, under23 }).length === 0;

@@ -7,7 +7,7 @@ import {
   auctionContractAtPurchase,
   auctionDestinationErrors,
   isPostAuctionContractAssignmentCandidate,
-  legalAuctionPromotionDestinations,
+  legalAuctionContextualDestinations,
   qualifyingAuctionErrors,
   type AuctionSlot,
   type QualifyingAuctionOutcome,
@@ -90,7 +90,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
         name: entry.name,
         slot: entry.slot as AuctionSlot,
         cuttable: true,
-        promotionDestinations: legalAuctionPromotionDestinations({
+        moveDestinations: legalAuctionContextualDestinations({
           entry,
           rookie: listedPlayer?.rookie ?? false,
           under23: listedPlayer?.under23 ?? false,
@@ -104,8 +104,8 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
   if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
   const contextualCuts = new Set(slotResolution.operations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
-  const contextualPromotions = new Map(slotResolution.operations.flatMap((operation) => (
-    operation.kind === "promote" ? [[operation.playerName, operation.destinationSlot] as const] : []
+  const contextualMoves = new Map(slotResolution.operations.flatMap((operation) => (
+    operation.kind === "move" ? [[operation.playerName, operation.destinationSlot] as const] : []
   )));
 
   const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
@@ -132,8 +132,8 @@ export async function purchaseAuctionPlayer(formData: FormData) {
       if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
         return applyStandardContractCut(entry, currentEndYear, "auction_start");
       }
-      const promotionDestination = contextualPromotions.get(entry.name);
-      if (promotionDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: promotionDestination };
+      const moveDestination = contextualMoves.get(entry.name);
+      if (moveDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: moveDestination };
       return entry;
     }),
     rosterEntry,
@@ -178,7 +178,7 @@ function contextualOperationSummary(operations: AppliedContextualSlotOperation[]
   return operations.map((operation) => (
     operation.kind === "cut"
       ? `; taglio contestuale di ${operation.playerName}`
-      : `; promozione contestuale di ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}`
+      : `; spostamento contestuale di ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}`
   )).join("");
 }
 
@@ -186,7 +186,7 @@ function contextualOperationSuccessSuffix(operations: AppliedContextualSlotOpera
   return operations.map((operation) => (
     operation.kind === "cut"
       ? ` Taglio contestuale: ${operation.playerName}.`
-      : ` Promozione contestuale: ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}.`
+      : ` Spostamento contestuale: ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}.`
   )).join("");
 }
 

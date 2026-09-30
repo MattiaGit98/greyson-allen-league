@@ -34,7 +34,7 @@ type AuctionTeam = {
     contract: string;
     slot: AuctionSlot;
     cuttable: boolean;
-    promotionDestinations: AuctionSlot[];
+    moveDestinations: AuctionSlot[];
   }[];
 };
 
@@ -176,7 +176,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     name: player.name,
     slot: player.slot,
     cuttable: player.cuttable,
-    promotionDestinations: player.promotionDestinations,
+    moveDestinations: player.moveDestinations,
   }));
   const slotResolution = resolveContextualSlots({
     counts: team?.slots ?? { regular: 0, two_way: 0, g_league: 0 },

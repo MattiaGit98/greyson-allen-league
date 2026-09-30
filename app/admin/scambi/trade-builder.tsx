@@ -28,7 +28,7 @@ type RosterPlayer = {
   role: "G" | "A" | "C" | null;
   slot: TradeSlot;
   cuttable: boolean;
-  promotionDestinations: Exclude<TradeSlot, "dpe">[];
+  movementDestinations: Exclude<TradeSlot, "dpe">[];
   allowedDestinations: TradeSlot[];
   newSigning?: boolean;
 };
@@ -925,7 +925,7 @@ function TradeTeamCard({
   const receivedQualifyingOffers = qualifyingOfferMoves.filter((move) => move.toTeamCode === team.code);
   const teamCuts = cuts.filter((cut) => cut.teamCode === team.code);
   const teamPromotions = promotions.filter((promotion) => promotion.teamCode === team.code);
-  const promotionDestinations = selectedPromotion?.promotionDestinations ?? [];
+  const movementDestinations = selectedPromotion?.movementDestinations ?? [];
   const [pickClause, setPickClause] = useState<TradePickClause>("none");
   const [clausePickId, setClausePickId] = useState("");
   const [counterpartyPickId, setCounterpartyPickId] = useState("");
@@ -1034,17 +1034,18 @@ function TradeTeamCard({
   function selectPromotion(nextId: string) {
     setPromotionId(nextId);
     const player = team.players.find((item) => item.id === nextId);
-    setPromotionDestinationSlot(player?.promotionDestinations[0] ?? "regular");
+    setPromotionDestinationSlot(player?.movementDestinations[0] ?? "regular");
   }
 
   function addPromotion() {
-    if (!selectedPromotion || !promotionDestinations.includes(promotionDestinationSlot)) return;
+    if (!selectedPromotion || !movementDestinations.includes(promotionDestinationSlot)) return;
     onAddPromotion({
       id: selectedPromotion.id,
       teamCode: team.code,
       name: selectedPromotion.name,
       sourceSlot: selectedPromotion.slot as Exclude<TradeSlot, "dpe">,
       destinationSlot: promotionDestinationSlot,
+      allowedDestinationSlots: selectedPromotion.movementDestinations,
     });
     setPromotionId("");
     setPromotionDestinationSlot("regular");
@@ -1225,11 +1226,11 @@ function TradeTeamCard({
       </section>
 
       <section className="trade-asset-section cut">
-        <span className="trade-section-label">Promozioni contestuali</span>
+        <span className="trade-section-label">Spostamenti contestuali</span>
         <div className="trade-composer promotion">
           <select value={promotionId} onChange={(event) => selectPromotion(event.target.value)}>
             <option value="">Seleziona giocatore</option>
-            {availableOwnPlayers.filter((player) => player.promotionDestinations.length > 0).map((player) => (
+            {availableOwnPlayers.filter((player) => player.movementDestinations.length > 0).map((player) => (
               <option value={player.id} key={player.id}>
                 {playerOptionLabel(player)}
               </option>
@@ -1239,11 +1240,11 @@ function TradeTeamCard({
             value={promotionDestinationSlot}
             onChange={(event) => setPromotionDestinationSlot(event.target.value as Exclude<TradeSlot, "dpe">)}
             disabled={!selectedPromotion}
-            aria-label="Destinazione della promozione"
+            aria-label="Destinazione dello spostamento"
           >
-            {promotionDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
+            {movementDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
           </select>
-          <button type="button" onClick={addPromotion} disabled={!selectedPromotion}>Promuovi</button>
+          <button type="button" onClick={addPromotion} disabled={!selectedPromotion}>Sposta</button>
         </div>
         <AssetList
           items={teamPromotions.map((promotion) => ({
@@ -1251,7 +1252,7 @@ function TradeTeamCard({
             primary: promotion.name,
             secondary: `${slotLabel(promotion.sourceSlot)} → ${slotLabel(promotion.destinationSlot)}`,
           }))}
-          empty="Nessuna promozione"
+          empty="Nessuno spostamento"
           onRemove={onRemovePromotion}
         />
       </section>
@@ -1434,7 +1435,7 @@ export function tradeSimulationRecap({
         .map((cut) => `Taglio contestuale: ${cut.name}`),
       ...promotions
         .filter((promotion) => promotion.teamCode === teamCode)
-        .map((promotion) => `Promozione: ${promotion.name}, ${slotLabel(promotion.sourceSlot)} -> ${slotLabel(promotion.destinationSlot)}`),
+        .map((promotion) => `Spostamento: ${promotion.name}, ${slotLabel(promotion.sourceSlot)} -> ${slotLabel(promotion.destinationSlot)}`),
     ];
     const clauses = [
       ...pickClauses.flatMap((clause) => {
@@ -1612,13 +1613,13 @@ function hydrateTradeImport(
     return { id: source.player.id, teamCode: cut.teamCode, name: source.player.name, cost: source.player.capCost, contract: source.player.contract, role: source.player.role, slot: source.player.slot };
   });
 
-  ensureUnique(payload.promotions.map((promotion) => promotion.id), "La stessa promozione compare più volte nel testo.");
+  ensureUnique(payload.promotions.map((promotion) => promotion.id), "Lo stesso spostamento compare più volte nel testo.");
   const promotions = payload.promotions.map((promotion): PromotionMove => {
     const source = playerById.get(promotion.id);
-    if (!source || source.team.code !== promotion.teamCode || !participants.has(promotion.teamCode) || source.player.slot === "dpe" || source.player.slot !== promotion.sourceSlot || !source.player.promotionDestinations.includes(promotion.destinationSlot)) {
-      throw new Error("Una promozione contestuale non è più consentita.");
+    if (!source || source.team.code !== promotion.teamCode || !participants.has(promotion.teamCode) || source.player.slot === "dpe" || source.player.slot !== promotion.sourceSlot || !source.player.movementDestinations.includes(promotion.destinationSlot)) {
+      throw new Error("Uno spostamento contestuale non è più consentito.");
     }
-    return { ...promotion, name: source.player.name };
+    return { ...promotion, name: source.player.name, allowedDestinationSlots: source.player.movementDestinations };
   });
 
   const unavailablePlayerIds = new Set([...playerMoves, ...cuts, ...promotions].map((move) => move.id));
