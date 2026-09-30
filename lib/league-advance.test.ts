@@ -78,6 +78,18 @@ describe("avanzamento della lega", () => {
     expect(advanced.generatedQualifyingOffers).toBe(0);
   });
 
+  it("conserva i rilasci gratuiti a costo zero fino alla scadenza originaria", () => {
+    const entries: RosterEntry[] = [
+      { name: "Rilascio ancora valido", cost: 0, contract: "28", role: "G", state: "cut", slot: "regular", teamCode: "AAA" },
+      { name: "Rilascio in scadenza", cost: 0, contract: "27", role: "A", state: "cut", slot: "regular", teamCode: "AAA" },
+    ];
+    const advanced = calculateLeagueAdvance({ seasonName: "2026/27", rosterEntries: entries, qualifyingOfferRights: [], playerList: playerList(entries) });
+
+    expect(advanced.rosterEntries).toEqual([
+      expect.objectContaining({ name: "Rilascio ancora valido", cost: 0, contract: "28", state: "cut" }),
+    ]);
+  });
+
   it("conserva il listone provvisorio e svuota tutte le squadre NBA", () => {
     expect(result.playerList.map((player) => player.name)).toEqual(rosterEntries.map((entry) => entry.name));
     expect(result.playerList.every((player) => player.realTeam === "")).toBe(true);

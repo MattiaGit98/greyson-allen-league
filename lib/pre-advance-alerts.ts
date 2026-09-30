@@ -514,9 +514,11 @@ function addStructuralAlerts(
         id: "season-cap-over-1100",
         tone: "warning",
         title: "Squadre oltre 1100 crediti durante la stagione",
-        message: "Non devono rientrare immediatamente se il superamento deriva dalla fine dell’asta, ma non possono aumentare ulteriormente il cap.",
+        message: hasReachedMoment(currentMoment, "free_agency_reopening")
+          ? "Non devono rientrare immediatamente se erano già oltre soglia alla riapertura della free agency, ma non possono aumentare ulteriormente il cap."
+          : "Non devono rientrare immediatamente se il superamento deriva dalla fine dell’asta, ma non possono aumentare ulteriormente il cap.",
         items: overSeasonLimit.map((issue) => `${issue.teamCode}: ${issue.cost} crediti`),
-        article: "Art. 9(d)",
+        article: hasReachedMoment(currentMoment, "free_agency_reopening") ? "Art. 9(d)" : "Art. 9(c)",
       });
     }
   }

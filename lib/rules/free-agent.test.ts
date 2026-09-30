@@ -122,6 +122,40 @@ describe("evaluateFreeAgentSigning", () => {
     expect(result.errors.some((error) => error.code === "TWO_WAY_PRICE_LIMIT")).toBe(true);
   });
 
+  it("mantiene il limite dei 1000 crediti prima della riapertura della free agency", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      currentCost: 1000,
+      slots: { regular: 14, twoWay: 0, gLeague: 0, dpe: 0 },
+    });
+
+    expect(result.warnings.some((warning) => warning.code === "FREE_AGENT_MAX_ONE")).toBe(true);
+  });
+
+  it("dalla riapertura consente firme oltre 1 credito fino a quota 1100", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      currentCost: 1000,
+      freeAgentThousandLimitApplies: false,
+      slots: { regular: 14, twoWay: 0, gLeague: 0, dpe: 0 },
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.warnings.some((warning) => warning.code === "FREE_AGENT_MAX_ONE")).toBe(false);
+  });
+
+  it("dalla riapertura continua a segnalare il superamento di quota 1100", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      currentCost: 1095,
+      price: 10,
+      freeAgentThousandLimitApplies: false,
+      slots: { regular: 14, twoWay: 0, gLeague: 0, dpe: 0 },
+    });
+
+    expect(result.warnings.some((warning) => warning.code === "IN_SEASON_FROZEN")).toBe(true);
+  });
+
   it("non applica i minimi di ruolo quando la relativa finestra è terminata", () => {
     const result = evaluateFreeAgentSigning({
       ...baseInput,

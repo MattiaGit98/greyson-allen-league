@@ -10,7 +10,7 @@ import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rule
 import { countRosterRoles } from "@/lib/rules/roster";
 import { calculateCapSpace, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
 import { requireCapCompliance } from "@/lib/cap-override";
 import {
   applyStandardContractCut,
@@ -133,6 +133,7 @@ export async function signFreeAgent(formData: FormData) {
   const evaluation = evaluateFreeAgentSigning({
     phase: seasonResponse.data.status,
     enforceRoleMinimums: roleMinimumChecksApply(seasonResponse.data.status, moment),
+    freeAgentThousandLimitApplies: !hasReachedMoment(moment, "free_agency_reopening"),
     currentCost,
     price,
     destination,
@@ -224,7 +225,7 @@ export async function signFreeAgent(formData: FormData) {
     && price === 1
     && afterCost <= currentCost + 1;
   const capWarnings = [
-    ...(afterCost > 1000 && price > 1
+    ...(!hasReachedMoment(moment, "free_agency_reopening") && afterCost > 1000 && price > 1
       ? [`Il free agent può essere acquistato per più di 1 credito soltanto se il cap resta entro quota 1000 (cap libero ${1000 - afterCost}).`]
       : []),
     ...(afterCost > 1100 && (currentCost <= 1100 || afterCost > currentCost) && !roleMinimumCapException

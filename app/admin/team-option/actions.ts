@@ -127,7 +127,7 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
   const season = await supabase.from("seasons").select("name,status,team_options_resolved,trade_deadline_passed,timeline_moment").eq("is_active", true).maybeSingle();
   if (season.error || !season.data) fail(season.error?.message ?? "Nessuna stagione attiva.");
   if (!operationWindows.playoffTeamOption(leagueMomentFromSeason(season.data))) {
-    fail("L'esercizio anticipato per utilizzo nei playoff è disponibile dopo il termine della free agency.");
+    fail("L'esercizio anticipato per utilizzo nei playoff è disponibile dopo la Chiusura free agency.");
   }
   const activeSeasonName = season.data.name;
 

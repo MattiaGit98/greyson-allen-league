@@ -49,7 +49,7 @@ export function freeReleaseReasonAvailability(
       && !tradesAreSuspendedForAuction(moment);
     return available
       ? { available: true }
-      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. al Termine free agency, ma non durante l'asta." };
+      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. alla Chiusura free agency, ma non durante l'asta." };
   }
 
   if (reason === "suspension_or_legal") {

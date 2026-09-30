@@ -21,7 +21,7 @@ export const leagueMomentLabels: Record<LeagueTransition, string> = {
   contract_delivery: "Consegna contratti",
   trade_deadline: "Trade deadline",
   buyout_end: "Termine buyout",
-  free_agency_end: "Termine free agency",
+  free_agency_end: "Chiusura free agency",
   free_agency_reopening: "Riapertura free agency",
   season_end: "Fine stagione",
 };

@@ -36,6 +36,8 @@ describe("cap e roster", () => {
   it("blocca un acquisto d'asta >1 oltre cap", () => expect(validateCapOperation(1000, 2, "auction").valid).toBe(false));
   it("consente acquisto da 1 oltre cap in asta", () => expect(validateCapOperation(1000, 1, "auction").valid).toBe(true));
   it("segnala anche l'operazione che porta il cap stagionale oltre 1100", () => expect(validateCapOperation(1095, 10, "regular_season").valid).toBe(false));
+  it("dopo la riapertura consente una firma oltre 1 credito fra quota 1000 e 1100", () => expect(validateCapOperation(1000, 25, "regular_season", true, false).valid).toBe(true));
+  it("dopo la riapertura continua a bloccare l'aumento oltre quota 1100", () => expect(validateCapOperation(1095, 10, "regular_season", true, false).valid).toBe(false));
   it("blocca slot duplicati e minimi in stagione", () => {
     expect(validateSlots({ regular: 16, twoWay: 0, gLeague: 0, dpe: 0 }).valid).toBe(false);
     expect(validateRoleMinimums({ G: 5, A: 4, C: 3 }, true).valid).toBe(false);

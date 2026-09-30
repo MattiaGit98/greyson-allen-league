@@ -13,6 +13,7 @@ export function automaticFreeAgentContract(seasonName: string, tradeDeadlinePass
 export function evaluateFreeAgentSigning(input: {
   phase: string;
   enforceRoleMinimums?: boolean;
+  freeAgentThousandLimitApplies?: boolean;
   currentCost: number;
   price: number;
   destination: "regular" | "two_way";
@@ -60,7 +61,13 @@ export function evaluateFreeAgentSigning(input: {
     });
   }
 
-  const cap = validateCapOperation(input.currentCost, Math.max(0, input.price), "regular_season", true);
+  const cap = validateCapOperation(
+    input.currentCost,
+    Math.max(0, input.price),
+    "regular_season",
+    true,
+    input.freeAgentThousandLimitApplies ?? true,
+  );
   const slotsAfter = {
     ...input.slots,
     regular: input.slots.regular + (input.destination === "regular" ? 1 : 0),
@@ -108,7 +115,7 @@ export function evaluateFreeAgentSigning(input: {
       slotsAfter,
       rolesAfter,
     },
-    ["2(a)", "5(a)", "5(e)", "9(d)", "11(b-c)"],
+    ["2(a)", "5(a)", "5(e)", (input.freeAgentThousandLimitApplies ?? true) ? "9(c)" : "9(d)", "11(b-c)"],
     errors,
     warnings,
   );

@@ -295,7 +295,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
   const nextSpaceAfter = (team?.nextSpace ?? 0) - exercisedCost;
   const followingSpaceAfter = team?.followingSpace ?? 0;
   const errors = !operationWindows.playoffTeamOption(props.leagueMoment)
-    ? ["L'esercizio anticipato per utilizzo nei playoff è disponibile dopo il termine della free agency."]
+    ? ["L'esercizio anticipato per utilizzo nei playoff è disponibile dopo la Chiusura free agency."]
     : [];
   const capWarnings = [
     ...(currentSpaceAfter < 0 ? [`Il cap libero ${props.seasonName} è ${currentSpaceAfter}.`] : []),

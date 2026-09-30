@@ -93,6 +93,7 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
       <FreeAgentPanel
         phase={freeAgencyOpen ? "regular_season" : "closed"}
         enforceRoleMinimums={roleMinimumChecksApply(activeSeason.season.status, leagueMoment)}
+        freeAgentThousandLimitApplies={!hasReachedMoment(leagueMoment, "free_agency_reopening")}
         seasonName={seasonName}
         tradeDeadlinePassed={tradeDeadlineHasPassed(leagueMoment)}
         signAndTradeOpen={signAndTradeOpen}

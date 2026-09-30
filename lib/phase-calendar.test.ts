@@ -22,7 +22,7 @@ describe("calendario delle fasi", () => {
       { key: "regular_season_start", event: "Inizio campionato", date: "2026-10-15" },
       { key: "trade_deadline", event: "Trade deadline", date: "2027-02-12" },
       { key: "buyout_end", event: "Termine buyout", date: "" },
-      { key: "free_agency_end", event: "Termine free agency", date: "" },
+      { key: "free_agency_end", event: "Chiusura free agency", date: "" },
       { key: "postseason_start", event: "Inizio postseason", date: "" },
       { key: "free_agency_reopening", event: "Riapertura free agency", date: "" },
       { key: "season_end", event: "Fine stagione", date: "" },

@@ -39,6 +39,7 @@ type TeamOption = {
 export function FreeAgentPanel({
   phase,
   enforceRoleMinimums,
+  freeAgentThousandLimitApplies,
   seasonName,
   tradeDeadlinePassed,
   signAndTradeOpen,
@@ -48,6 +49,7 @@ export function FreeAgentPanel({
 }: {
   phase: "regular_season" | "closed";
   enforceRoleMinimums: boolean;
+  freeAgentThousandLimitApplies: boolean;
   seasonName: string;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
@@ -123,6 +125,7 @@ export function FreeAgentPanel({
             teams={teams}
             phase={phase}
             enforceRoleMinimums={enforceRoleMinimums}
+            freeAgentThousandLimitApplies={freeAgentThousandLimitApplies}
             seasonName={seasonName}
             tradeDeadlinePassed={tradeDeadlinePassed}
             signAndTradeOpen={signAndTradeOpen}
@@ -146,6 +149,7 @@ function FreeAgentDialog({
   teams,
   phase,
   enforceRoleMinimums,
+  freeAgentThousandLimitApplies,
   seasonName,
   tradeDeadlinePassed,
   signAndTradeOpen,
@@ -159,6 +163,7 @@ function FreeAgentDialog({
   teams: TeamOption[];
   phase: string;
   enforceRoleMinimums: boolean;
+  freeAgentThousandLimitApplies: boolean;
   seasonName: string;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
@@ -214,6 +219,7 @@ function FreeAgentDialog({
   const preview = evaluateFreeAgentSigning({
     phase,
     enforceRoleMinimums,
+    freeAgentThousandLimitApplies,
     currentCost: team?.currentCost ?? 0,
     price,
     destination,
