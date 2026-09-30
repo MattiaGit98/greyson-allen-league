@@ -1068,10 +1068,11 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .home-public-notice { margin-right: 8px; margin-left: 8px; }
   .home-league-alerts { margin-right: 8px; margin-left: 8px; }
   .home-teams-link { margin-right: 8px; margin-left: 8px; }
-  .home-next-calendar-event { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 9px; margin-right: 8px; margin-left: 8px; padding: 15px 13px; }
-  .home-next-calendar-event span { grid-column: 1 / -1; }
-  .home-next-calendar-event strong { font-size: 13px; }
-  .home-next-calendar-event a { grid-column: 1 / -1; margin-top: 3px; }
+  .home-next-calendar-event { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label date" "title date" "link date"; gap: 5px 10px; margin-right: 8px; margin-left: 8px; padding: 14px 13px; }
+  .home-next-calendar-event span { grid-area: label; align-self: end; }
+  .home-next-calendar-event strong { grid-area: title; font-size: 13px; line-height: 1.2; }
+  .home-next-calendar-event .home-next-calendar-date { grid-area: date; align-self: center; }
+  .home-next-calendar-event a { grid-area: link; align-self: start; margin-top: 2px; }
   .home-season-feature { margin-right: 8px; margin-left: 8px; border-right: 0; border-left: 0; border-radius: 0; }
   .home-season-feature > header { padding-right: 10px; padding-left: 10px; }
   .home-honours-table > div { grid-template-columns: 76px minmax(0, 1fr); gap: 6px 8px; padding: 8px 10px; }
@@ -2340,10 +2341,9 @@ input[type="reset"]:disabled {
   .live-update-notice { flex-wrap: wrap; gap: 7px; }
   .live-update-notice button { margin-left: auto; }
 
-  .home-next-calendar-event { grid-template-columns: 1fr; }
-  .home-next-calendar-event span, .home-next-calendar-event strong, .home-next-calendar-event .home-next-calendar-date, .home-next-calendar-event a { grid-column: 1; }
-  .home-next-calendar-date { justify-items: start; width: max-content; }
-  .home-next-calendar-event time { white-space: normal; }
+  .home-next-calendar-event { grid-template-columns: minmax(0, 1fr) auto; column-gap: 7px; }
+  .home-next-calendar-date { justify-items: end; width: auto; padding-right: 8px; padding-left: 8px; }
+  .home-next-calendar-event time { white-space: nowrap; }
 
   .home-season-feature > header,
   .home-recent-movements > header { align-items: flex-start; flex-wrap: wrap; }
