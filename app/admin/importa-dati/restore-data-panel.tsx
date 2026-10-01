@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 type BackupPreview = {
-  formatVersion: number;
   exportedAt: string;
   seasonName: string;
   moment: string;
@@ -42,10 +41,10 @@ export function RestoreDataPanel({ restored }: { restored: boolean }) {
       if (parsed.format !== "greyson-allen-league-importable-backup" || !payload || !season || !state) {
         throw new Error("Il file non è un backup importabile della Greyson Allen League.");
       }
+      if (parsed.formatVersion !== 2) throw new Error("Versione del backup non supportata.");
       setFileName(file.name);
       setFileText(text);
       setPreview({
-        formatVersion: typeof parsed.formatVersion === "number" ? parsed.formatVersion : 0,
         exportedAt: typeof parsed.exportedAt === "string" ? parsed.exportedAt : "",
         seasonName: typeof season.name === "string" ? season.name : "—",
         moment: typeof season.timeline_moment === "string" ? season.timeline_moment : "—",
@@ -108,12 +107,6 @@ export function RestoreDataPanel({ restored }: { restored: boolean }) {
             <div><span>Movimenti</span><strong>{preview.movements}</strong></div>
             <div><span>Esportato</span><strong>{formatDate(preview.exportedAt)}</strong></div>
           </div>
-        )}
-
-        {preview && preview.formatVersion < 2 && (
-          <p className="notice error">
-            Questo è un backup precedente al formato completo: può ripristinare i dati che contiene, ma non le date delle fasi, le bozze private dei contratti o vecchie modifiche all’anagrafica delle squadre.
-          </p>
         )}
 
         {preview && (

@@ -10,9 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --pool=threads --maxWorkers=2",
     "test:watch": "vitest --pool=threads --maxWorkers=2",
-    "check": "npm run typecheck && npm test",
-    "import:excel": "tsx scripts/import-excel.ts",
-    "seed:generate": "tsx scripts/generate-seed.ts"
+    "check": "npm run typecheck && npm test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -27,7 +25,6 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "supabase": "^2.118.0",
-    "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
   }

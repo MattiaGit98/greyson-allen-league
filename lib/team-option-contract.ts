@@ -4,8 +4,6 @@ import { followingSeasonName, seasonEndYear } from "./season-time";
 
 const rookieExtensionPattern = /^(\d{2})\s*\+\s*R\.?E\.?$/i;
 const annualTeamOptionPattern = /^(\d{2})\s*\+\s*T\.?O\.?$/i;
-const legacyDoublePattern = /^(\d{2})\s*(?:\((?:2X|X2)\)|(?:2X|X2))$/i;
-const legacyDoubleTextPattern = /(\d{2})\s*(?:\((?:2X|X2)\)|(?:2X|X2))/gi;
 
 export function destinationAfterTeamOptionExercise(
   source: RosterEntry["slot"],
@@ -127,58 +125,6 @@ export function exercisePlayoffTeamOption<T extends RosterEntry>(entry: T, activ
     teamOptionFinalYear: undefined,
     playoffTeamOptionPromotionSeason: followingSeasonName(activeSeasonName),
   };
-}
-
-export function normalizeLegacyRookieExtensionEntry<T extends RosterEntry>(entry: T): T {
-  const match = entry.contract.trim().match(legacyDoublePattern);
-  if (!match) return entry;
-  const previousShortYear = (Number(match[1]) + 99) % 100;
-  return {
-    ...entry,
-    contract: `${String(previousShortYear).padStart(2, "0")} + R.E.`,
-    teamOptionBaseCost: undefined,
-    teamOptionFinalYear: undefined,
-  };
-}
-
-export function normalizeLegacyRookieExtensionText(value: string) {
-  return value.replace(legacyDoubleTextPattern, (_, shortYear: string) => (
-    `${String((Number(shortYear) + 99) % 100).padStart(2, "0")} + R.E.`
-  ));
-}
-
-export function normalizeLegacyRookieExtensionState<T>(value: T): T {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = value as Record<string, unknown>;
-  if (!Array.isArray(record.rosterEntries)) return value;
-  return {
-    ...record,
-    rosterEntries: record.rosterEntries.map((entry) => (
-      entry && typeof entry === "object" && typeof (entry as Record<string, unknown>).contract === "string"
-        ? normalizeLegacyRookieExtensionEntry(entry as RosterEntry)
-        : entry
-    )),
-  } as T;
-}
-
-export function normalizeLegacyAnnualTeamOptionState<T>(
-  value: T,
-  activeSeasonName: string,
-  teamOptionsResolved: boolean,
-): T {
-  if (!teamOptionsResolved || !value || typeof value !== "object" || Array.isArray(value)) return value;
-  const activeEndYear = seasonEndYear(activeSeasonName);
-  if (activeEndYear === null) return value;
-  const record = value as Record<string, unknown>;
-  if (!Array.isArray(record.rosterEntries)) return value;
-  return {
-    ...record,
-    rosterEntries: record.rosterEntries.map((entry) => (
-      entry && typeof entry === "object" && (entry as Record<string, unknown>).contract === "T.O."
-        ? { ...entry, contract: annualTeamOptionContract(activeEndYear) }
-        : entry
-    )),
-  } as T;
 }
 
 export function applyStandardContractCut<T extends RosterEntry>(

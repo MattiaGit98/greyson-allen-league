@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { defaultCompetitionMap } from "./competitions";
 import { emptyHistoryCompetitionMap } from "./history-competitions";
@@ -39,20 +38,17 @@ describe("backup importabile della lega", () => {
     expect(parsed.payload.calendar).toEqual([{ event: "Asta", date: "Da definire" }]);
   });
 
-  it("converte il vecchio Inizio rilasci gratuiti in Inizio asta", () => {
+  it("rifiuta una fase non supportata", () => {
     const source = payload();
     source.activeSeason = {
       ...source.activeSeason,
-      timeline_moment: "free_releases_start" as never,
+      timeline_moment: "legacy_phase" as never,
       team_options_resolved: true,
     };
     const backup = createImportableBackupDocument(source, "2026-08-02T12:00:00.000Z");
 
-    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(backup)));
-
-    expect(parsed.payload.activeSeason.timeline_moment).toBe("auction_start");
-    expect(parsed.checksum).not.toBe(backup.checksum);
-    expect(parsed.schemaVersion).toBe("202609260038");
+    expect(() => parseImportableLeagueBackup(JSON.parse(JSON.stringify(backup))))
+      .toThrow(/fase o annata/i);
   });
 
   it("rifiuta un file alterato dopo il download", () => {
@@ -62,69 +58,18 @@ describe("backup importabile della lega", () => {
     expect(() => parseImportableLeagueBackup(backup)).toThrow(/integrità/i);
   });
 
-  it("continua a leggere i backup del formato precedente senza falsi errori di integrità", () => {
+  it("rifiuta i backup del formato precedente", () => {
     const current = payload();
-    const legacyPayload = JSON.parse(JSON.stringify(current)) as Record<string, unknown>;
-    const legacySeason = legacyPayload.activeSeason as Record<string, unknown>;
-    const legacyState = legacyPayload.leagueState as Record<string, unknown>;
-    delete legacySeason.phase_dates;
-    delete legacyPayload.teamRecords;
-    delete legacyPayload.contractDrafts;
-    delete legacyState.publicNotice;
-    delete legacyState.homepageHonoursTable;
-    delete legacyState.homepageCompetition;
-    delete legacyState.draftOrders;
-    delete legacyState.finalizedDraftPositionYears;
     const legacyBackup = {
       format: "greyson-allen-league-importable-backup",
       formatVersion: 1,
       schemaVersion: "202608090022",
       exportedAt: "2026-08-02T12:00:00.000Z",
-      checksum: createHash("sha256").update(stableJson(legacyPayload)).digest("hex"),
-      payload: legacyPayload,
+      checksum: "non-rilevante",
+      payload: current,
     };
 
-    const parsed = parseImportableLeagueBackup(legacyBackup);
-
-    expect(parsed.formatVersion).toBe(1);
-    expect(parsed.payload.activeSeason.phase_dates).toEqual({});
-    expect(parsed.payload.teamRecords).toEqual([]);
-    expect(parsed.payload.contractDrafts).toEqual([]);
-  });
-
-  it("converte i contratti X2 anche negli stati storici di un vecchio backup", () => {
-    const source = payload();
-    const legacyEntry = {
-      name: "Rookie",
-      teamCode: "AAA",
-      cost: 7,
-      contract: "28 (2X)",
-      state: "active" as const,
-      slot: "regular" as const,
-    };
-    source.leagueState.rosterEntries = [legacyEntry];
-    source.movements = [{
-      id: "8d45ba5f-fbe1-4d42-b5ef-744eb0a27ace",
-      operation_type: "team_option",
-      summary: "T.O. esercitata; scadenza 28 (2X)",
-      before_state: { rosterEntries: [legacyEntry] },
-      after_state: { rosterEntries: [legacyEntry] },
-      history_category: null,
-      before_history: null,
-      after_history: null,
-      season_name: "2026/27",
-      undo_before_moment: "team_option_deadline",
-      reverts_movement_id: null,
-      created_at: "2026-08-02T12:00:00.000Z",
-      reverted_at: null,
-    }];
-
-    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(createImportableBackupDocument(source))));
-
-    expect(parsed.payload.leagueState.rosterEntries[0].contract).toBe("27 + R.E.");
-    expect(parsed.payload.movements[0].summary).toContain("27 + R.E.");
-    expect((parsed.payload.movements[0].before_state.rosterEntries as Array<{ contract: string }>)[0].contract).toBe("27 + R.E.");
-    expect((parsed.payload.movements[0].after_state.rosterEntries as Array<{ contract: string }>)[0].contract).toBe("27 + R.E.");
+    expect(() => parseImportableLeagueBackup(legacyBackup)).toThrow(/versione/i);
   });
 
   it("conserva i dati che collegano un movimento allo storico", () => {
@@ -190,14 +135,3 @@ describe("backup importabile della lega", () => {
       .toThrow(/non è un backup importabile/i);
   });
 });
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}

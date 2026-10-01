@@ -10,9 +10,6 @@ import {
   exercisePlayoffTeamOption,
   isRookieExtensionDecisionDue,
   isUnresolvedTeamOption,
-  normalizeLegacyRookieExtensionEntry,
-  normalizeLegacyAnnualTeamOptionState,
-  normalizeLegacyRookieExtensionText,
   qualifyingOfferForDeclinedRookieExtension,
 } from "./team-option-contract";
 
@@ -40,12 +37,6 @@ describe("contratti da rookie", () => {
     expect(isUnresolvedTeamOption({ contract: "27 + T.O." }, "offseason_start", "2026/27")).toBe(false);
   });
 
-  it("aggiorna le vecchie T.O. annuali nei backup successivi alla scadenza", () => {
-    const state = { rosterEntries: [option] };
-    expect(normalizeLegacyAnnualTeamOptionState(state, "2026/27", true).rosterEntries[0].contract).toBe("27 + T.O.");
-    expect(normalizeLegacyAnnualTeamOptionState(state, "2026/27", false)).toBe(state);
-  });
-
   it("esercita la T.O. per il secondo anno allo stesso prezzo e prepara la R.E.", () => {
     expect(exerciseOrdinaryTeamOption(option, "2026/27")).toMatchObject({
       cost: 5,
@@ -68,17 +59,6 @@ describe("contratti da rookie", () => {
       qualifyingAmount: 5,
       teamCode: "AAA",
     });
-  });
-
-  it("converte il vecchio anno X2 nel secondo anno con R.E. senza cambiare costo", () => {
-    expect(normalizeLegacyRookieExtensionEntry({
-      ...option,
-      contract: "28 (2X)",
-      teamOptionBaseCost: 5,
-      teamOptionFinalYear: 2028,
-    })).toEqual(expect.objectContaining({ cost: 5, contract: "27 + R.E." }));
-    expect(normalizeLegacyRookieExtensionText("Scadenza 28 (2X); altro contratto 29 X2"))
-      .toBe("Scadenza 27 + R.E.; altro contratto 28 + R.E.");
   });
 
   it("non applica più rettifiche speciali al costo quando il giocatore viene tagliato", () => {

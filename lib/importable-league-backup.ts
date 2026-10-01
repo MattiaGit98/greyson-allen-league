@@ -17,7 +17,6 @@ import {
   type LeagueMoment,
 } from "./league-moments";
 import { normalizeState, type EditableLeagueState } from "./league-state";
-import { normalizeLegacyAnnualTeamOptionState, normalizeLegacyRookieExtensionState, normalizeLegacyRookieExtensionText } from "./team-option-contract";
 import {
   datedLeagueTransitions,
   isPhaseDate,
@@ -30,8 +29,8 @@ type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient
 
 export const importableBackupFormat = "greyson-allen-league-importable-backup";
 export const importableBackupFormatVersion = 2;
-export const importableBackupSchemaVersion = "202609260038";
-export type ImportableBackupFormatVersion = 1 | typeof importableBackupFormatVersion;
+export const importableBackupSchemaVersion = "20260927140919";
+export type ImportableBackupFormatVersion = typeof importableBackupFormatVersion;
 
 export type ImportableSeason = {
   name: string;
@@ -193,10 +192,9 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   if (!document || document.format !== importableBackupFormat) {
     throw new Error("Il file non è un backup importabile della Greyson Allen League.");
   }
-  if (document.formatVersion !== 1 && document.formatVersion !== importableBackupFormatVersion) {
+  if (document.formatVersion !== importableBackupFormatVersion) {
     throw new Error("Versione del backup non supportata.");
   }
-  const formatVersion = document.formatVersion as ImportableBackupFormatVersion;
   if (typeof document.exportedAt !== "string" || !Number.isFinite(Date.parse(document.exportedAt))) {
     throw new Error("Data di esportazione del backup non valida.");
   }
@@ -208,8 +206,7 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   }
 
   const rawSeason = asRecord(rawPayload.activeSeason);
-  const legacyAuctionStart = rawSeason?.timeline_moment === "free_releases_start";
-  const timelineMoment = legacyAuctionStart ? "auction_start" : rawSeason?.timeline_moment;
+  const timelineMoment = rawSeason?.timeline_moment;
   if (
     !rawSeason
     || typeof rawSeason.name !== "string"
@@ -223,25 +220,19 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   ) {
     throw new Error("Fase o annata del backup non valide.");
   }
-  const activeSeasonName = rawSeason.name;
-  const teamOptionsResolved = rawSeason.team_options_resolved;
-  const phaseDates = parsePhaseDates(rawSeason.phase_dates, formatVersion);
+  const phaseDates = parsePhaseDates(rawSeason.phase_dates);
 
   const rawState = asRecord(rawPayload.leagueState);
   if (!rawState || !requiredStateArrays.every((key) => Array.isArray(rawState[key]))) {
     throw new Error("Stato della lega mancante o incompleto.");
   }
-  const leagueState = normalizeState(normalizeLegacyAnnualTeamOptionState(
-    rawState,
-    activeSeasonName,
-    teamOptionsResolved,
-  ));
+  const leagueState = normalizeState(rawState);
   if (!leagueState.teams.every(validTeam) || !leagueState.rosterEntries.every(validRosterEntry)) {
     throw new Error("Squadre o roster del backup non validi.");
   }
 
-  const teamRecords = parseTeamRecords(rawPayload.teamRecords, formatVersion);
-  if (formatVersion >= 2) validateTeamRecordConsistency(teamRecords, leagueState);
+  const teamRecords = parseTeamRecords(rawPayload.teamRecords);
+  validateTeamRecordConsistency(teamRecords, leagueState);
 
   const rawCompetitions = asRecord(rawPayload.competitions);
   if (!rawCompetitions) throw new Error("Classifiche e tabelloni mancanti.");
@@ -271,20 +262,12 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
     return { event: value.event.slice(0, 500), date: value.date.slice(0, 500) };
   });
 
-  const contractDrafts = parseContractDrafts(rawPayload.contractDrafts, formatVersion);
+  const contractDrafts = parseContractDrafts(rawPayload.contractDrafts);
 
   if (!Array.isArray(rawPayload.movements) || rawPayload.movements.length > 50_000) {
     throw new Error("Registro movimenti non valido.");
   }
-  const movements = rawPayload.movements.map((movement) => parseMovement(movement, formatVersion)).map((movement) => (
-    teamOptionsResolved && movement.season_name === activeSeasonName
-      ? {
-          ...movement,
-          before_state: normalizeLegacyAnnualTeamOptionState(movement.before_state, activeSeasonName, true),
-          after_state: normalizeLegacyAnnualTeamOptionState(movement.after_state, activeSeasonName, true),
-        }
-      : movement
-  ));
+  const movements = rawPayload.movements.map(parseMovement);
   validateMovementReferences(movements);
 
   const payload: ImportableLeaguePayload = {
@@ -307,7 +290,7 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
 
   return {
     format: importableBackupFormat,
-    formatVersion,
+    formatVersion: importableBackupFormatVersion,
     schemaVersion: typeof document.schemaVersion === "string" ? document.schemaVersion : "",
     exportedAt: document.exportedAt,
     checksum: checksumForPayload(payload),
@@ -315,8 +298,7 @@ export function parseImportableLeagueBackup(input: unknown): ImportableLeagueBac
   };
 }
 
-function parsePhaseDates(input: unknown, formatVersion: ImportableBackupFormatVersion) {
-  if (formatVersion === 1 && input === undefined) return {};
+function parsePhaseDates(input: unknown) {
   const rawDates = asRecord(input);
   if (!rawDates) throw new Error("Date delle fasi mancanti o non valide.");
   const allowedKeys = new Set<string>(datedLeagueTransitions);
@@ -328,8 +310,7 @@ function parsePhaseDates(input: unknown, formatVersion: ImportableBackupFormatVe
   return normalizePhaseDates(rawDates);
 }
 
-function parseTeamRecords(input: unknown, formatVersion: ImportableBackupFormatVersion) {
-  if (formatVersion === 1 && input === undefined) return [];
+function parseTeamRecords(input: unknown) {
   if (!Array.isArray(input) || input.length > 100) throw new Error("Archivio delle squadre non valido.");
   const records = input.map(parseTeamRecord);
   for (const key of ["id", "code", "name", "slug"] as const) {
@@ -378,8 +359,7 @@ function validateTeamRecordConsistency(records: ImportableTeamRecord[], state: E
   }
 }
 
-function parseContractDrafts(input: unknown, formatVersion: ImportableBackupFormatVersion) {
-  if (formatVersion === 1 && input === undefined) return [];
+function parseContractDrafts(input: unknown) {
   if (!Array.isArray(input) || input.length > 10_000) throw new Error("Bozze dei contratti non valide.");
   const drafts = input.map(parseContractDraft);
   const keys = drafts.map((draft) => `${draft.season_name}\u0000${draft.team_code}\u0000${draft.player_name}`);
@@ -413,7 +393,7 @@ function parseContractDraft(input: unknown): ImportableContractDraft {
   };
 }
 
-function parseMovement(input: unknown, formatVersion: ImportableBackupFormatVersion): ImportableMovement {
+function parseMovement(input: unknown): ImportableMovement {
   const movement = asRecord(input);
   const beforeState = asRecord(movement?.before_state);
   const afterState = asRecord(movement?.after_state);
@@ -446,20 +426,20 @@ function parseMovement(input: unknown, formatVersion: ImportableBackupFormatVers
     || (movement.reverted_at !== null && (
       typeof movement.reverted_at !== "string" || !Number.isFinite(Date.parse(movement.reverted_at))
     ))
-    || (formatVersion >= 2 && (
+    || (
       !Object.hasOwn(movement, "season_name")
       || !Object.hasOwn(movement, "undo_before_moment")
       || !Object.hasOwn(movement, "reverts_movement_id")
-    ))
+    )
   ) {
     throw new Error("Il registro movimenti contiene una riga non valida.");
   }
   return {
     id: movement.id,
     operation_type: movement.operation_type.slice(0, 120),
-    summary: normalizeLegacyRookieExtensionText(movement.summary.slice(0, 1_000)),
-    before_state: normalizeLegacyRookieExtensionState(beforeState),
-    after_state: normalizeLegacyRookieExtensionState(afterState),
+    summary: movement.summary.slice(0, 1_000),
+    before_state: beforeState,
+    after_state: afterState,
     history_category: historyCategory,
     before_history: beforeHistory,
     after_history: afterHistory,
@@ -490,7 +470,7 @@ async function fetchAllMovements(supabase: Supabase): Promise<ImportableMovement
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);
     if (response.error) throw new Error(`Registro movimenti non disponibile: ${response.error.message}`);
-    const pageRows = (response.data ?? []).map((movement) => parseMovement(movement, importableBackupFormatVersion));
+    const pageRows = (response.data ?? []).map(parseMovement);
     rows.push(...pageRows);
     if (pageRows.length < pageSize) return rows;
   }

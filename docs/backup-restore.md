@@ -4,6 +4,8 @@
 
 La pagina **Importa dati** produce il backup JSON ripristinabile dell’intera lega. Contiene fase e annata, squadre, roster, listone, scelte, Q.O., calendario, classifiche, tabelloni, storico e registro movimenti. Sono conservati anche i collegamenti tra movimenti e storico Draft necessari per un eventuale annullamento. Il file include un controllo di integrità e può essere reimportato soltanto dal pannello dedicato.
 
+Il repository non contiene alcun backup della lega. Sono accettati soltanto i backup completi nel formato corrente; i file devono essere conservati privatamente fuori dalla cartella del progetto.
+
 Prima di ogni avanzamento della lega questo backup viene scaricato automaticamente. Anche ogni ripristino scarica prima un nuovo backup della situazione che sta per essere sostituita; se il download fallisce, l’importazione non comincia.
 
 La pagina amministrativa Backup offre il backup ripristinabile completo e mantiene inoltre due copie limitate a Squadre e Storico:
