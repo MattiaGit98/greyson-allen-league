@@ -96,15 +96,19 @@ export function FreeAgentPanel({
 
       <div className="auction-player-list free-agent-player-list">
         <div className="auction-player-head">
-          <span>Giocatore</span><span>Ruolo</span><span>B.O.</span><span></span>
+          <span>Giocatore</span><span>Ruolo</span><span></span>
         </div>
         {freeAgents.map((player) => (
           <article className="auction-player-row" key={player.listOrder}>
             <span className="player-identity">
               <strong className="player-name">{player.name}</strong>
+              {player.buyoutApplied && (
+                <span className="player-flags">
+                  <small className="player-flag player-flag-buyout">Buyout</small>
+                </span>
+              )}
             </span>
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>
-            <span className="free-agent-buyout-cell">{player.buyoutApplied && <strong className="free-agent-buyout-mark" aria-label="Buyout applicato">X</strong>}</span>
             <button className="auction-row-action bid" type="button" onClick={() => setSelectedName(player.name)}>Firma</button>
           </article>
         ))}
@@ -350,7 +354,7 @@ function FreeAgentDialog({
         {player?.buyoutApplied && (
           <label className="operation-check free-agent-standing-check">
             <input type="checkbox" checked={buyoutTopSixConfirmed} onChange={(event) => setBuyoutTopSixConfirmed(event.target.checked)} />
-            Ho verificato che la squadra occupi una delle prime sei posizioni della regular season
+            Ho verificato che la squadra occupi una delle prime otto posizioni della regular season
           </label>
         )}
         {roleMinimumReplacementAvailable && (

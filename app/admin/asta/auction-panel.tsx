@@ -118,7 +118,7 @@ export function AuctionPanel({
             <span className="player-identity">
               <strong className="player-name">{row.name}</strong>
               <span className="auction-player-subline">
-                {row.realTeam && <small>{row.realTeam}</small>}
+                {row.realTeam && <small className="real-team-text">{row.realTeam}</small>}
                 {row.rookie && <i className="player-flag player-flag-rookie">Rookie</i>}
                 {row.under23 && <i className="player-flag player-flag-u23">U23</i>}
               </span>
@@ -502,7 +502,7 @@ function AuctionStatus({ row }: { row: AuctionRow }) {
 
 function ModalHeader({ row, label, onClose }: { row: AuctionRow; label: string; onClose: () => void }) {
   return <div className="auction-modal-header">
-    <div><span>{label}</span><strong>{row.name}</strong><small>{row.role} · {row.realTeam || "Squadra NBA non indicata"}</small></div>
+    <div><span>{label}</span><strong>{row.name}</strong><small className="real-team-text">{row.role} · {row.realTeam || "Squadra NBA non indicata"}</small></div>
     <button type="button" onClick={onClose} aria-label="Chiudi">×</button>
   </div>;
 }

@@ -94,7 +94,7 @@ function ReconciliationDialog({ preview, showRealTeam }: { preview: NonNullable<
                     <div>
                       <strong>{resolution.kind === "existing" ? resolution.targetName : `Nuovo: ${resolution.targetName}`}</strong>
                       {resolution.kind === "new"
-                        ? <small>X{showRealTeam ? ` · ${resolution.realTeam === "FA" ? "Nessuna squadra NBA" : resolution.realTeam}` : ""}</small>
+                        ? <small className="real-team-text">X{showRealTeam ? ` · ${resolution.realTeam === "FA" ? "Nessuna squadra NBA" : resolution.realTeam}` : ""}</small>
                         : <small>{mismatch.suggestedName === resolution.targetName ? "Corrispondenza consigliata" : "Corrispondenza modificata"}</small>}
                     </div>
                     <button type="button" onClick={() => setEditingSource(mismatch.sourceName)}>Modifica</button>

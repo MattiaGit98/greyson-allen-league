@@ -1258,7 +1258,7 @@ function TradeTeamCard({
       </section>
 
       <section className="trade-asset-section trade-clause-section">
-        <span className="trade-section-label">Clausole a favore della squadra</span>
+        <span className="trade-section-label">Clausole inserite</span>
         <div className="trade-composer clause">
           <select value={pickClause} onChange={(event) => selectClauseType(event.target.value as TradePickClause)} aria-label="Tipo di clausola">
             <option value="none">Seleziona clausola</option>

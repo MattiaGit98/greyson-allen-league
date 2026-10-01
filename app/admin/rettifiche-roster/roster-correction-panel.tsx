@@ -128,7 +128,7 @@ export function RosterCorrectionPanel({
                   return (
                     <div className={`roster-correction-row ${draft.remove ? "removed" : ""}`} key={entry.sourceIndex}>
                       <strong>{entry.name}</strong>
-                      <span><i className={`mini-role mini-role-${entry.role?.toLowerCase() ?? "none"}`}>{entry.role ?? "X"}</i></span>
+                      <span className="roster-correction-role">{entry.role ?? "X"}</span>
                       <select
                         className={invalidContract ? "invalid" : ""}
                         value={draft.contract}

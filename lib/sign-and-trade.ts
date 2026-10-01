@@ -94,7 +94,7 @@ export function buildSignAndTradeProvisional(input: {
     && entry.buyoutApplied === true
   ));
   if (buyoutFreeAgent && !request.buyoutTopSixConfirmed) {
-    throw new Error("Conferma di aver verificato che la squadra firmataria occupi una delle prime sei posizioni della regular season per acquisire questo free agent soggetto a buyout.");
+    throw new Error("Conferma di aver verificato che la squadra firmataria occupi una delle prime otto posizioni della regular season per acquisire questo free agent soggetto a buyout.");
   }
   const contract = automaticFreeAgentContract(input.seasonName, tradeDeadlineHasPassed(input.moment));
   if (!contract) throw new Error("Annata non valida.");

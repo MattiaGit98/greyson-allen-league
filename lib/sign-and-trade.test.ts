@@ -215,7 +215,7 @@ describe("sign and trade", () => {
       seasonName: "2026/27",
       phase: "regular_season",
       moment: "contract_delivery",
-    })).toThrow("prime sei posizioni");
+    })).toThrow("prime otto posizioni");
 
     expect(() => buildSignAndTradeProvisional({
       state,

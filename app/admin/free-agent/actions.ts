@@ -85,7 +85,7 @@ export async function signFreeAgent(formData: FormData) {
     && entry.buyoutApplied === true
   ));
   if (buyoutFreeAgent && !buyoutTopSixConfirmed) {
-    fail("Conferma di aver verificato che la squadra occupi una delle prime sei posizioni della regular season per firmare questo free agent soggetto a buyout.");
+    fail("Conferma di aver verificato che la squadra occupi una delle prime otto posizioni della regular season per firmare questo free agent soggetto a buyout.");
   }
   const activePlayer = state.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedPlayerName && entry.state === "active");
   const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedPlayerName);

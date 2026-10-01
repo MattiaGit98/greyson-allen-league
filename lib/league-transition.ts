@@ -87,7 +87,7 @@ export function buildLeagueTransitionPreview(input: {
 
   if (transition === "trade_deadline") {
     preview.newPossibilities.push("Si apre la finestra per i buyout.");
-    preview.newPossibilities.push("I free agent soggetti a buyout stagionale possono essere firmati soltanto dalle prime sei squadre.");
+    preview.newPossibilities.push("I free agent soggetti a buyout stagionale possono essere firmati soltanto dalle prime otto squadre.");
     preview.closedPossibilities.push("Si chiudono gli scambi e l’esercizio della DPE.");
     preview.closedPossibilities.push("Si chiude la causale di rilascio gratuito legata a squalifiche o cause giudiziarie.");
     preview.automaticActions.push("I nuovi free agent avranno un contratto annuale senza Q.O.");
