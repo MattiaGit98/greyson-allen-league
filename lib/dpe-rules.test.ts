@@ -41,7 +41,7 @@ describe("impatto della disabled player exception", () => {
   });
 
   it("mostra il marchio nella stagione della DPE e fino all'inizio dell'asta successiva", () => {
-    const entry = { dpeAppliedSeasons: ["2026/27"] };
+    const entry = { state: "active" as const, dpeAppliedSeasons: ["2026/27"] };
 
     expect(shouldShowDpeBadge(entry, "2026/27", "free_agency_end")).toBe(true);
     expect(shouldShowDpeBadge(entry, "2027/28", "offseason_start")).toBe(true);
@@ -49,7 +49,11 @@ describe("impatto della disabled player exception", () => {
     expect(shouldShowDpeBadge(entry, "2027/28", "auction_start")).toBe(false);
   });
 
+  it("nasconde il marchio quando il giocatore viene tagliato o rilasciato", () => {
+    expect(shouldShowDpeBadge({ state: "cut", dpeAppliedSeasons: ["2026/27"] }, "2026/27", "free_agency_end")).toBe(false);
+  });
+
   it("non mostra il marchio di una DPE più vecchia", () => {
-    expect(shouldShowDpeBadge({ dpeAppliedSeasons: ["2025/26"] }, "2027/28", "offseason_start")).toBe(false);
+    expect(shouldShowDpeBadge({ state: "active", dpeAppliedSeasons: ["2025/26"] }, "2027/28", "offseason_start")).toBe(false);
   });
 });

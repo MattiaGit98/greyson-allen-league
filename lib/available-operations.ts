@@ -29,7 +29,7 @@ export function availableOperationsAt(moment: LeagueMoment): AvailableOperation[
   add("Esercizio DPE", operationWindows.dpeActivation(moment), "trade_deadline");
   add("Reintegro anticipato DPE", operationWindows.dpeReintegration(moment), "free_agency_end");
   add("T.O. G-League per utilizzo nei playoff", operationWindows.playoffTeamOption(moment), "season_end");
-  add("Rilascio: stagione NBA sotto metà", !hasReachedMoment(moment, "auction_start"), "auction_start");
+  add("Rilascio: meno del 40% della stagione NBA", !hasReachedMoment(moment, "auction_start"), "auction_start");
   add("Rilascio: T.O. da 1 credito", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "contract_delivery"), "contract_delivery");
   add("Rilascio: senza roster NBA", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "free_agency_end") && !tradesAreSuspendedForAuction(moment), "free_agency_end");
   add("Rilascio: squalifica o cause legali", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "trade_deadline") && !tradesAreSuspendedForAuction(moment), "trade_deadline");

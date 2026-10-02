@@ -14,7 +14,7 @@ export type FreeReleaseReason = (typeof freeReleaseReasonValues)[number];
 export const freeReleaseReasonLabels: Record<FreeReleaseReason, string> = {
   no_nba_roster: "Non fa ufficialmente parte di alcun roster NBA da almeno 10 giorni",
   suspension_or_legal: "Squalifica o cause giudiziarie riportate da NBC Sports, con soglia regolamentare raggiunta",
-  under_half_games: "Meno della metà delle partite nella precedente regular season NBA",
+  under_half_games: "Meno del 40% delle partite nella precedente regular season NBA",
   one_credit_team_option: "Team option da 1 credito non ancora garantita",
 };
 

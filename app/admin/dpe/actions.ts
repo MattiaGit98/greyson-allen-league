@@ -37,7 +37,7 @@ export async function applyDpeOperation(formData: FormData) {
   if (operation === "dpe_activate" && !operationWindows.dpeActivation(leagueMoment)) fail("La DPE è disponibile dall'inizio dell'offseason alla trade deadline, ma non durante l'asta.");
   if (operation === "dpe_reintegrate" && !operationWindows.dpeReintegration(leagueMoment)) fail("Il reintegro anticipato è disponibile dalla consegna dei contratti alla Chiusura free agency.");
   if (!confirmed) fail(operation === "dpe_activate"
-    ? "Conferma l'infortunio riportato da NBC Sports e la soglia regolamentare di assenze."
+    ? "Conferma che NBC Sports riporti la certezza o il forte rischio dell'assenza per infortunio e che sia raggiunta la soglia regolamentare."
     : "Conferma il ritorno in campo NBA e il rispetto dei dieci giorni dal rientro.");
 
   const state = await loadEditableLeagueState();

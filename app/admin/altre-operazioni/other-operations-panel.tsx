@@ -395,7 +395,7 @@ function requiresConfirmation(operation: Operation) {
 
 function confirmationLabel(operation: Operation) {
   if (operation === "buyout") return "Il buyout è stato concordato con il giocatore";
-  if (operation === "dpe_activate") return "Ho verificato che NBC Sports riporti l'infortunio certo e che sia raggiunta la soglia regolamentare di assenze";
+  if (operation === "dpe_activate") return "Ho verificato che NBC Sports riporti la certezza o il forte rischio dell'assenza per infortunio e che sia raggiunta la soglia regolamentare";
   if (operation === "dpe_reintegrate") return "Ho verificato il ritorno in campo NBA e il rispetto dei dieci giorni dal rientro";
   return "Sono verificati i requisiti richiesti";
 }

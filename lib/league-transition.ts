@@ -60,7 +60,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.closedPossibilities.push("Si sospendono gli scambi fino al termine dell’asta.");
     preview.closedPossibilities.push("Si chiude il Draft.");
     preview.closedPossibilities.push("Si chiudono le estensioni contrattuali.");
-    preview.closedPossibilities.push("Si chiudono i rilasci gratuiti per chi ha disputato meno della metà delle partite NBA.");
+    preview.closedPossibilities.push("Si chiudono i rilasci gratuiti per chi ha disputato meno del 40% delle partite NBA.");
   }
 
   if (transition === "auction_completed") {

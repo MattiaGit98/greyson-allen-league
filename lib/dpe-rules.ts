@@ -15,7 +15,8 @@ export function inheritedDpeSeasons(entries: RosterEntry[], playerName: string) 
     .flatMap((entry) => entry.dpeAppliedSeasons ?? []))];
 }
 
-export function shouldShowDpeBadge(entry: Pick<RosterEntry, "dpeAppliedSeasons">, seasonName: string, leagueMoment: LeagueMoment) {
+export function shouldShowDpeBadge(entry: Pick<RosterEntry, "state" | "dpeAppliedSeasons">, seasonName: string, leagueMoment: LeagueMoment) {
+  if (entry.state !== "active") return false;
   const appliedSeasons = entry.dpeAppliedSeasons ?? [];
   if (appliedSeasons.includes(seasonName)) return true;
   return !hasReachedMoment(leagueMoment, "auction_start")
