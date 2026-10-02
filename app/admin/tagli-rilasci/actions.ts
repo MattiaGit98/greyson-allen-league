@@ -83,12 +83,14 @@ export async function applyRosterExitOperation(formData: FormData) {
       cost: totalResidual,
       contract: String(currentEndYear).slice(-2),
       buyoutApplied: true,
+      scheduledSeasonEndCut: undefined,
     } : item);
   } else {
     rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
       ...entry,
       state: "cut" as const,
       slot: "regular" as const,
+      scheduledSeasonEndCut: undefined,
     } : item);
   }
 

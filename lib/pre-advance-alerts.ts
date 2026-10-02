@@ -148,7 +148,7 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    addRoleMinimumAlert(add, state, "/admin/asta", "Controlla i ruoli prima di iniziare la stagione", "blocker");
+    addRoleMinimumAlert(add, state, currentMoment, "/admin/asta", "Controlla i ruoli prima di iniziare la stagione", "blocker");
   }
 
   if (transition === "contract_delivery") {
@@ -230,7 +230,7 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    addRoleMinimumAlert(add, deliveryState, "/admin/contratti", "Controlla i minimi di ruolo");
+    addRoleMinimumAlert(add, deliveryState, currentMoment, "/admin/contratti", "Controlla i minimi di ruolo");
     add({
       id: "special-slot-window-closing",
       tone: "info",
@@ -243,7 +243,7 @@ export function buildPreAdvanceChecklist(input: {
   }
 
   if (transition === "trade_deadline") {
-    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo");
+    addRoleMinimumAlert(add, state, currentMoment, "/admin/free-agent", "Controlla i minimi di ruolo");
     add({
       id: "trade-deadline-closures",
       tone: "info",
@@ -256,7 +256,7 @@ export function buildPreAdvanceChecklist(input: {
   }
 
   if (transition === "buyout_end") {
-    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo");
+    addRoleMinimumAlert(add, state, currentMoment, "/admin/free-agent", "Controlla i minimi di ruolo");
     add({
       id: "buyout-window-closing",
       tone: "info",
@@ -269,7 +269,7 @@ export function buildPreAdvanceChecklist(input: {
   }
 
   if (transition === "free_agency_end") {
-    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo");
+    addRoleMinimumAlert(add, state, currentMoment, "/admin/free-agent", "Controlla i minimi di ruolo");
     add({
       id: "free-agency-closures",
       tone: "info",
@@ -282,7 +282,7 @@ export function buildPreAdvanceChecklist(input: {
   }
 
   if (transition === "season_end") {
-    addRoleMinimumAlert(add, state, "/admin/free-agent", "Controlla i minimi di ruolo fino al termine della stagione");
+    addRoleMinimumAlert(add, state, currentMoment, "/admin/free-agent", "Controlla i minimi di ruolo fino al termine della stagione", "blocker");
     const playoffOptionCandidates = state.rosterEntries.filter((entry) => (
       entry.state === "active"
       && entry.slot === "g_league"
@@ -319,6 +319,28 @@ export function buildPreAdvanceChecklist(input: {
         qualifyingOfferRights: state.qualifyingOfferRights,
         playerList: state.playerList,
       });
+      if (advance.invalidScheduledCutPlayers.length) {
+        add({
+          id: "invalid-scheduled-season-end-cuts",
+          tone: "blocker",
+          title: `${advance.invalidScheduledCutPlayers.length} tagli programmati non sono più validi`,
+          message: "I giocatori indicati non libererebbero più uno slot roster nella prossima offseason. Annulla la programmazione prima di avanzare.",
+          items: advance.invalidScheduledCutPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
+          href: "/admin/altre-operazioni",
+          actionLabel: "Controlla i tagli programmati",
+        });
+      }
+      if (advance.excessiveScheduledCutsByTeam.length) {
+        add({
+          id: "excessive-scheduled-season-end-cuts",
+          tone: "blocker",
+          title: "Sono stati programmati più tagli del necessario",
+          message: "Annulla le programmazioni eccedenti: il sistema non sceglierà autonomamente quali giocatori conservare.",
+          items: advance.excessiveScheduledCutsByTeam.map((issue) => `${issue.teamCode}: ${issue.excess} tagli programmati in eccesso`),
+          href: "/admin/altre-operazioni",
+          actionLabel: "Controlla i tagli programmati",
+        });
+      }
       const rosterMoveIssues = state.teams.flatMap((team) => {
         const playoffOptionPlayers = advance.promotedPlayoffTeamOptionPlayers
           .filter((player) => player.teamCode === team.code)
@@ -327,11 +349,7 @@ export function buildPreAdvanceChecklist(input: {
           .filter((player) => player.teamCode === team.code)
           .map((player) => `${player.playerName} (DPE)`);
         const players = [...playoffOptionPlayers, ...dpePlayers];
-        if (!players.length) return [];
-        const regularUsed = advance.rosterEntries.filter((entry) => (
-          entry.teamCode === team.code && entry.state === "active" && entry.slot === "regular"
-        )).length;
-        const overflow = Math.max(0, regularUsed - 15);
+        const overflow = advance.remainingOverflowByTeam[team.code] ?? 0;
         return overflow ? [{ teamCode: team.code, players, overflow }] : [];
       });
       if (rosterMoveIssues.length) {
@@ -342,7 +360,7 @@ export function buildPreAdvanceChecklist(input: {
           title: `${totalShortfall} slot roster mancanti all’inizio dell’offseason`,
           message: "All’inizio dell’offseason vengono promosse le T.O. esercitate per utilizzo nei playoff e vengono reintegrate le DPE.",
           items: rosterMoveIssues.map((issue) => (
-            `${issue.teamCode}: ${issue.players.join(", ")} · ${issue.overflow} slot mancanti`
+            `${issue.teamCode}: ${issue.players.length ? `${issue.players.join(", ")} · ` : ""}${issue.overflow} slot mancanti`
           )),
           article: "Art. 11(i, k); Art. 12(c)",
           href: "/admin/altre-operazioni",
@@ -369,6 +387,21 @@ export function buildPreAdvanceChecklist(input: {
             article: "Art. 12(c)",
           });
         }
+      }
+      if (
+        advance.scheduledCutPlayers.length
+        && !advance.invalidScheduledCutPlayers.length
+        && !advance.excessiveScheduledCutsByTeam.length
+      ) {
+        add({
+          id: "scheduled-season-end-cuts",
+          tone: "info",
+          title: `${advance.scheduledCutPlayers.length} tagli programmati saranno eseguiti a Fine stagione`,
+          message: "I giocatori restano attivi fino all’avanzamento; il taglio sarà applicato automaticamente prima di reintegri e promozioni.",
+          items: advance.scheduledCutPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
+          href: "/admin/altre-operazioni",
+          actionLabel: "Controlla i tagli programmati",
+        });
       }
     } catch (error) {
       add({
@@ -556,17 +589,18 @@ function addStructuralAlerts(
 function addRoleMinimumAlert(
   add: (alert: PreAdvanceAlert) => void,
   state: EditableLeagueState,
+  currentMoment: LeagueMoment,
   href: string,
   actionLabel: string,
   tone: PreAdvanceAlertTone = "warning",
 ) {
-  const teams = buildRoleMinimumAlerts(state);
+  const teams = buildRoleMinimumAlerts(state, currentMoment);
   if (!teams.length) return;
   add({
     id: "role-minimums",
     tone,
     title: `${teams.length} squadre richiedono l’assegnazione regolamentare di un free agent`,
-    message: "Non viene eseguita automaticamente: va assegnato casualmente un free agent fino al termine della stagione, a 1 credito e indipendentemente dal cap; se necessario va liberato uno slot. Ruolo X e DPE non contano.",
+    message: `Non viene eseguita automaticamente: va assegnato casualmente un free agent fino al termine della stagione, a 1 credito e indipendentemente dal cap; se necessario va liberato uno slot. Ruolo X non conta${hasReachedMoment(currentMoment, "free_agency_reopening") ? "; dalla Riapertura free agency la DPE è inclusa" : " e la DPE non conta ancora"}.`,
     items: teams.map((team) => `${team.teamCode}: ${[
       team.missing.G ? `G ${team.counts.G}/5` : "",
       team.missing.A ? `A ${team.counts.A}/5` : "",

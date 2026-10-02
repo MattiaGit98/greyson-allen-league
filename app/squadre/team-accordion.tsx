@@ -10,6 +10,8 @@ import { highlightedDraftYear } from "@/lib/draft-positions";
 import { isFourthDraftPick } from "@/lib/future-draft-picks";
 import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState as SortState } from "@/lib/roster-display-sort";
 import { isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
+import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
+import { shouldShowScheduledCutBadge } from "@/lib/season-end-cuts";
 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
 type DataSectionKey = (typeof dataSectionKeys)[number];
@@ -499,7 +501,7 @@ function TeamDetails({
   const eligibleAssetCount = sortedAssets.filter((asset) => !isFourthDraftPick(asset, allDraftAssets)).length;
   const officialRoles = new Map(playerList.map((player) => [normalizePlayerName(player.name), player.role]));
   const roles = active
-    .filter((entry) => entry.slot !== "dpe")
+    .filter((entry) => entry.slot !== "dpe" || dpeCountsForRoleMinimums(leagueMoment))
     .reduce((counts, entry) => {
       const role = officialRoles.get(normalizePlayerName(entry.name));
       if (role === "G" || role === "A" || role === "C") counts[role] += 1;
@@ -714,6 +716,12 @@ function PlayerDataRow({
             className="player-flag roster-dpe-flag"
             aria-label="DPE esercitata"
           >DPE</i>
+        )}
+        {shouldShowScheduledCutBadge(entry, seasonName, leagueMoment) && (
+          <i
+            className="player-flag roster-scheduled-cut-flag"
+            aria-label="Taglio programmato"
+          >T.P.</i>
         )}
       </strong>
       <span>{cutPlayer

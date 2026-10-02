@@ -136,5 +136,6 @@ export function applyStandardContractCut<T extends RosterEntry>(
     ...entry,
     state: "cut",
     slot: "regular",
+    scheduledSeasonEndCut: undefined,
   };
 }

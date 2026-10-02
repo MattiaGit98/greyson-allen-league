@@ -4,10 +4,11 @@ export type SlotCounts = { regular: number; twoWay: number; gLeague: number; dpe
 export type RoleCounts = { G: number; A: number; C: number };
 
 export function countRosterRoles(
-  players: { role: "G" | "A" | "C" | null | undefined; slot: "regular" | "two_way" | "g_league" | "dpe" }[],
+  players: readonly { role: "G" | "A" | "C" | null | undefined; slot: "regular" | "two_way" | "g_league" | "dpe" }[],
+  includeDpe = false,
 ): RoleCounts {
   return players.reduce<RoleCounts>((counts, player) => {
-    if (player.slot !== "dpe" && player.role) counts[player.role] += 1;
+    if ((includeDpe || player.slot !== "dpe") && player.role) counts[player.role] += 1;
     return counts;
   }, { G: 0, A: 0, C: 0 });
 }

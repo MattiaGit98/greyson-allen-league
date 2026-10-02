@@ -20,15 +20,28 @@ describe("roleMinimumShortage", () => {
     expect(roleMinimumsWorsen(after, after, "regular_season")).toBe(false);
   });
 
-  it("stops applying role minimums from the end of free agency", () => {
+  it("keeps applying role minimums after the first free-agency window", () => {
     const entries = [{ name: "G", role: "G" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA", cost: 1, contract: "27" }];
-    expect(roleMinimumShortage(entries, "regular_season", "free_agency_end").total).toBe(0);
+    expect(roleMinimumShortage(entries, "regular_season", "free_agency_end").total).toBe(12);
   });
 
-  it("applies role minimums only from the auction end through free-agency end", () => {
+  it("applies role minimums from the auction end through the end of the season", () => {
     expect(roleMinimumChecksApply("offseason", "team_option_deadline")).toBe(false);
     expect(roleMinimumChecksApply("regular_season", "auction_completed")).toBe(true);
-    expect(roleMinimumChecksApply("regular_season", "free_agency_end")).toBe(false);
+    expect(roleMinimumChecksApply("regular_season", "free_agency_end")).toBe(true);
+    expect(roleMinimumChecksApply("regular_season", "free_agency_reopening")).toBe(true);
+    expect(roleMinimumChecksApply("offseason", "offseason_start")).toBe(false);
+  });
+
+  it("counts the DPE only from the reopening of free agency", () => {
+    const entries = [
+      ...Array.from({ length: 4 }, (_, index) => ({ name: `G${index}`, role: "G" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA", cost: 1, contract: "28" })),
+      ...Array.from({ length: 5 }, (_, index) => ({ name: `A${index}`, role: "A" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA", cost: 1, contract: "28" })),
+      ...Array.from({ length: 3 }, (_, index) => ({ name: `C${index}`, role: "C" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA", cost: 1, contract: "28" })),
+      { name: "Guardia DPE", role: "G" as const, state: "active" as const, slot: "dpe" as const, teamCode: "AAA", cost: 1, contract: "28" },
+    ];
+    expect(roleMinimumShortage(entries, "regular_season", "free_agency_end").G).toBe(1);
+    expect(roleMinimumShortage(entries, "regular_season", "free_agency_reopening").G).toBe(0);
   });
 
   it("reports when roster and two-way slots cannot cover every missing role", () => {

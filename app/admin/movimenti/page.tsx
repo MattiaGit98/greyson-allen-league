@@ -7,7 +7,7 @@ import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { UndoMovementButton } from "./undo-movement-button";
-import { roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
+import { dpeCountsForRoleMinimums, roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
 import { MovementTextSearch } from "@/components/movement-text-search";
 
 export default async function MovementAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; reverted?: string; q?: string }> }) {
@@ -100,6 +100,7 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
       seasonName: season.name,
       seasonNames: capSeasonNames,
       countTeamOptions,
+      currentMoment,
     }) : [];
     const roleMinimumConfirmationRequired = restored && !auctionAssignmentReversalDuringAuction(movement.operation_type, currentMoment)
       ? roleMinimumsWorsen(current.rosterEntries, restored.rosterEntries, season.status, currentMoment)
@@ -132,12 +133,14 @@ function movementReversalPreview({
   seasonName,
   seasonNames,
   countTeamOptions,
+  currentMoment,
 }: {
   current: Awaited<ReturnType<typeof loadEditableLeagueState>>;
   restored: Awaited<ReturnType<typeof loadEditableLeagueState>>;
   seasonName: string;
   seasonNames: string[];
   countTeamOptions: boolean;
+  currentMoment: ReturnType<typeof leagueMomentFromSeason>;
 }) {
   const teamCodes = new Set([...current.teams, ...restored.teams].map((team) => team.code));
   return [...teamCodes].flatMap((teamCode) => {
@@ -150,8 +153,8 @@ function movementReversalPreview({
       name: team?.name ?? teamCode,
       slotsBefore: countActiveRosterSlots(current.rosterEntries, teamCode),
       slotsAfter: countActiveRosterSlots(restored.rosterEntries, teamCode),
-      rolesBefore: countRoles(currentEntries),
-      rolesAfter: countRoles(entries),
+      rolesBefore: countRoles(currentEntries, currentMoment),
+      rolesAfter: countRoles(entries, currentMoment),
       capSpaces: seasonNames.map((targetSeason, distance) => ({
         seasonName: targetSeason,
         before: calculateCapSpace({
@@ -171,9 +174,9 @@ function movementReversalPreview({
   });
 }
 
-function countRoles(entries: Awaited<ReturnType<typeof loadEditableLeagueState>>["rosterEntries"]) {
+function countRoles(entries: Awaited<ReturnType<typeof loadEditableLeagueState>>["rosterEntries"], currentMoment: ReturnType<typeof leagueMomentFromSeason>) {
   return entries
-    .filter((entry) => entry.state === "active" && entry.slot !== "dpe")
+    .filter((entry) => entry.state === "active" && (entry.slot !== "dpe" || dpeCountsForRoleMinimums(currentMoment)))
     .reduce((roles, entry) => {
       if (entry.role) roles[entry.role] += 1;
       return roles;

@@ -9,7 +9,7 @@ import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
 import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
-import { operationWindows } from "@/lib/league-moments";
+import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import {
@@ -21,10 +21,11 @@ import {
   type FreeReleaseReason,
 } from "@/lib/free-release";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
-import { roleMinimumChecksApply } from "@/lib/role-minimums";
+import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
+import { applyScheduledSeasonEndCut } from "@/app/admin/tagli-programmati/actions";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
-type Operation = "extension" | "cut" | "free_release" | "buyout" | "stretch" | "dpe_activate" | "dpe_reintegrate";
+type Operation = "extension" | "cut" | "free_release" | "buyout" | "stretch" | "dpe_activate" | "dpe_reintegrate" | "schedule_cut" | "cancel_scheduled_cut";
 type OperationChoice = { value: Operation; label: string };
 
 const groups: { key: Slot | "cut"; label: string; limit?: number }[] = [
@@ -113,6 +114,8 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       ? applyStretchProvision
       : operation === "dpe_activate" || operation === "dpe_reintegrate"
         ? applyDpeOperation
+        : operation === "schedule_cut" || operation === "cancel_scheduled_cut"
+          ? applyScheduledSeasonEndCut
         : applyRosterExitOperation;
 
   return (
@@ -122,6 +125,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <input type="hidden" name="player_name" value={player.name} />
       <input type="hidden" name="operation_kind" value={operation} />
       <input type="hidden" name="dpe_operation" value={operation} />
+      <input type="hidden" name="scheduled_cut_operation" value={operation === "schedule_cut" ? "schedule" : operation === "cancel_scheduled_cut" ? "cancel" : ""} />
       <input type="hidden" name="requirements_confirmed" value={String(confirmed)} />
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
       <input type="hidden" name="confirmed" value={String(confirmed)} />
@@ -186,18 +190,26 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
         <div className="auction-modal-summary other-operation-summary">
           <Metric label="Slot" value={`${formatSlots(preview.slotsBefore)} → ${formatSlots(preview.slotsAfter)}`} />
           <Metric label="Ruoli" value={`${formatRoles(preview.rolesBefore)} → ${formatRoles(preview.rolesAfter)}`} />
+          {(operation === "schedule_cut" || operation === "cancel_scheduled_cut") && (
+            <Metric
+              label="Roster a Fine stagione"
+              value={`${team.seasonEndProjectedRegularSlotsAfterScheduledCuts} → ${team.seasonEndProjectedRegularSlotsAfterScheduledCuts + (operation === "schedule_cut" ? -1 : player.seasonEndCutEligible ? 1 : 0)}/15`}
+            />
+          )}
           {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${Math.ceil(player.cost * 1.25)}`} />}
           {operation === "buyout" && <Metric label="Nuovo contratto" value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
           {operation === "stretch" && <Metric label="Rata" value={preview.installment ?? "—"} />}
         </div>
         {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         {preview.warnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
+        {operation === "schedule_cut" && <p className="validation warning">Il giocatore resta attivo nello slot attuale. Il taglio sarà eseguito automaticamente con l’avanzamento a Fine stagione.</p>}
+        {operation === "cancel_scheduled_cut" && <p className="validation warning">Il giocatore non sarà più tagliato automaticamente a Fine stagione.</p>}
         <CapBlocker warnings={preview.capWarnings} />
       </div>
 
       <div className="auction-modal-actions">
         <button className="button secondary" type="button" onClick={onClose}>Annulla</button>
-        <button className="button primary" type="submit" disabled={preview.errors.length > 0 || preview.capWarnings.length > 0}>Registra operazione</button>
+        <button className="button primary" type="submit" disabled={preview.errors.length > 0 || preview.capWarnings.length > 0}>{operation === "schedule_cut" ? "Programma taglio" : operation === "cancel_scheduled_cut" ? "Annulla programmazione" : "Registra operazione"}</button>
       </div>
     </form>
   );
@@ -209,6 +221,16 @@ function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, p
   const unresolvedTeamOption = isUnresolvedTeamOption(player, props.leagueMoment, props.seasonName);
   if (player.state === "active" && player.isExtensionEligible && player.expiryYear === props.seasonEndYear && operationWindows.extensions(props.leagueMoment)) choices.push({ value: "extension", label: "Estensione contrattuale" });
   if (player.state === "active" && !unresolvedTeamOption) choices.push({ value: "cut", label: "Taglio" });
+  if (operationWindows.scheduledCut(props.leagueMoment) && player.scheduledSeasonEndCut) {
+    choices.push({ value: "cancel_scheduled_cut", label: "Annulla taglio programmato" });
+  } else if (
+    operationWindows.scheduledCut(props.leagueMoment)
+    && player.state === "active"
+    && player.seasonEndCutEligible
+    && team.seasonEndRemainingOverflow > 0
+  ) {
+    choices.push({ value: "schedule_cut", label: "Taglio programmato" });
+  }
   if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player, props.seasonName).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
   if (player.state === "active" && operationWindows.buyout(props.leagueMoment) && player.expiryYear && player.expiryYear > props.seasonEndYear) choices.push({ value: "buyout", label: "Buyout" });
   if (canApplyStretchProvision(player, props.seasonEndYear)) choices.push({ value: "stretch", label: "Stretch provision" });
@@ -259,12 +281,12 @@ function operationPreview(
   }
 
   const slotsBefore = slotCounts(team);
-  const rolesBefore = roleCounts(team);
+  const rolesBefore = roleCounts(team, props.leagueMoment);
   const slotsAfter = { ...slotsBefore };
   const rolesAfter = { ...rolesBefore };
   if (["cut", "free_release", "buyout"].includes(operation) && player.state === "active") {
     slotsAfter[player.slot] -= 1;
-    if (player.slot !== "dpe" && player.role) rolesAfter[player.role] -= 1;
+    if ((player.slot !== "dpe" || dpeCountsForRoleMinimums(props.leagueMoment)) && player.role) rolesAfter[player.role] -= 1;
   }
   if (operation === "dpe_activate") {
     slotsAfter[player.slot] -= 1;
@@ -383,8 +405,10 @@ function slotCounts(team: AdminRosterTeam) {
   return team.players.filter((player) => player.state === "active").reduce<Record<Slot, number>>((counts, player) => { counts[player.slot] += 1; return counts; }, { regular: 0, two_way: 0, g_league: 0, dpe: 0 });
 }
 
-function roleCounts(team: AdminRosterTeam) {
-  return team.players.filter((player) => player.state === "active" && player.slot !== "dpe").reduce((counts, player) => { if (player.role) counts[player.role] += 1; return counts; }, { G: 0, A: 0, C: 0 });
+function roleCounts(team: AdminRosterTeam, leagueMoment?: LeagueMoment) {
+  return team.players.filter((player) => (
+    player.state === "active" && (player.slot !== "dpe" || dpeCountsForRoleMinimums(leagueMoment))
+  )).reduce((counts, player) => { if (player.role) counts[player.role] += 1; return counts; }, { G: 0, A: 0, C: 0 });
 }
 
 function requiresConfirmation(operation: Operation) {

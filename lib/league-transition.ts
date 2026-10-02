@@ -116,6 +116,9 @@ export function buildLeagueTransitionPreview(input: {
       preview.automaticActions.push(`${advance.expiredContracts} contratti in scadenza saranno rimossi.`);
       preview.automaticActions.push(`${advance.generatedQualifyingOffers} diritti di Q.O. saranno generati.`);
       preview.automaticActions.push(`${advance.pendingRookieExtensions} contratti resteranno in attesa della decisione sulla rookie extension.`);
+      if (advance.scheduledCutPlayers.length && !advance.invalidScheduledCutPlayers.length && !advance.excessiveScheduledCutsByTeam.length) {
+        preview.automaticActions.push(`${advance.scheduledCutPlayers.length} tagli programmati saranno eseguiti.`);
+      }
       preview.automaticActions.push(`${advance.promotedPlayoffTeamOptionPlayers.length} T.O. esercitate per utilizzo nei playoff saranno promosse negli slot roster.`);
       preview.automaticActions.push(`${advance.reintegratedDpePlayers.length} giocatori in DPE saranno reintegrati negli slot roster.`);
       preview.automaticActions.push(`Il listone attuale diventerà provvisorio: manterrà ${advance.playerList.length} giocatori, ma le squadre NBA saranno azzerate.`);

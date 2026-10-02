@@ -6,9 +6,10 @@ import { countRosterRoles } from "@/lib/rules/roster";
 import { signFreeAgent } from "./actions";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { isCapIssueCode } from "@/lib/cap-override";
-import { roleMinimumRecoverySlotError } from "@/lib/role-minimums";
+import { dpeCountsForRoleMinimums, roleMinimumRecoverySlotError } from "@/lib/role-minimums";
 import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
 import { resolveContextualSlots, type ContextualSlotDecision } from "@/lib/contextual-slot-resolution";
+import type { LeagueMoment } from "@/lib/league-moments";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
 type PlayerOption = {
@@ -41,6 +42,7 @@ export function FreeAgentPanel({
   enforceRoleMinimums,
   freeAgentThousandLimitApplies,
   seasonName,
+  leagueMoment,
   tradeDeadlinePassed,
   signAndTradeOpen,
   listPublished,
@@ -51,6 +53,7 @@ export function FreeAgentPanel({
   enforceRoleMinimums: boolean;
   freeAgentThousandLimitApplies: boolean;
   seasonName: string;
+  leagueMoment: LeagueMoment;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
   listPublished: boolean;
@@ -131,6 +134,7 @@ export function FreeAgentPanel({
             enforceRoleMinimums={enforceRoleMinimums}
             freeAgentThousandLimitApplies={freeAgentThousandLimitApplies}
             seasonName={seasonName}
+            leagueMoment={leagueMoment}
             tradeDeadlinePassed={tradeDeadlinePassed}
             signAndTradeOpen={signAndTradeOpen}
             canSign={canSign}
@@ -155,6 +159,7 @@ function FreeAgentDialog({
   enforceRoleMinimums,
   freeAgentThousandLimitApplies,
   seasonName,
+  leagueMoment,
   tradeDeadlinePassed,
   signAndTradeOpen,
   canSign,
@@ -169,6 +174,7 @@ function FreeAgentDialog({
   enforceRoleMinimums: boolean;
   freeAgentThousandLimitApplies: boolean;
   seasonName: string;
+  leagueMoment: LeagueMoment;
   tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
   canSign: boolean;
@@ -204,7 +210,7 @@ function FreeAgentDialog({
     gLeague: team?.rosterPlayers.filter((item) => item.slot === "g_league").length ?? 0,
     dpe: team?.rosterPlayers.filter((item) => item.slot === "dpe").length ?? 0,
   };
-  const roles = countRosterRoles(team?.rosterPlayers ?? []);
+  const roles = countRosterRoles(team?.rosterPlayers ?? [], dpeCountsForRoleMinimums(leagueMoment));
   const slotResolution = resolveContextualSlots({
     counts: { regular: slots.regular, two_way: slots.twoWay, g_league: slots.gLeague },
     incomingSlot: destination,

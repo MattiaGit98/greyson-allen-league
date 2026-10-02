@@ -8,7 +8,7 @@ import type { LeaguePhase, PlayerListEntry, RosterEntry } from "@/lib/league-typ
 import { type LeagueMoment } from "@/lib/league-moments";
 import { countActiveRosterSlots, rosterSlotLimits } from "@/lib/roster-slot-limits";
 import { normalizeRosterCorrectionContract, rosterCorrectionContractOptions } from "@/lib/roster-corrections";
-import { roleMinimumChecksApply } from "@/lib/role-minimums";
+import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
 import { saveRosterCorrections } from "./actions";
 
@@ -325,8 +325,8 @@ function buildPreview({
   (Object.keys(rosterSlotLimits) as (keyof typeof rosterSlotLimits)[]).forEach((slot) => {
     if (slots[slot] > rosterSlotLimits[slot]) errors.push(`Slot ${slotLabel(slot)} oltre il limite: ${slots[slot]}/${rosterSlotLimits[slot]}.`);
   });
-  const rolesBefore = countRoles(teamEntries);
-  const roles = countRoles(projectedEntries);
+  const rolesBefore = countRoles(teamEntries, leagueMoment);
+  const roles = countRoles(projectedEntries, leagueMoment);
   const roleMinimumsApply = roleMinimumChecksApply(phase, leagueMoment);
   const roleWarnings = roleMinimumsApply
     ? (["G", "A", "C"] as const).flatMap((role) => {
@@ -361,9 +361,9 @@ function buildPreview({
   };
 }
 
-function countRoles(entries: RosterEntry[]) {
+function countRoles(entries: RosterEntry[], leagueMoment: LeagueMoment) {
   return entries
-    .filter((entry) => entry.state === "active" && entry.slot !== "dpe")
+    .filter((entry) => entry.state === "active" && (entry.slot !== "dpe" || dpeCountsForRoleMinimums(leagueMoment)))
     .reduce((counts, entry) => {
       if (entry.role) counts[entry.role] += 1;
       return counts;

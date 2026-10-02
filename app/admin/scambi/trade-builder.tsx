@@ -129,6 +129,7 @@ export function TradeBuilder({
   qualifyingOfferTransfersOpen,
   enforceOffseasonCap,
   enforceRoleMinimums,
+  includeDpeInRoleMinimums,
   tradableDraftYears,
   protectionCounterpartyDraftYears,
   existingClauseAgreements,
@@ -143,6 +144,7 @@ export function TradeBuilder({
   qualifyingOfferTransfersOpen: boolean;
   enforceOffseasonCap: boolean;
   enforceRoleMinimums: boolean;
+  includeDpeInRoleMinimums: boolean;
   tradableDraftYears: number[];
   protectionCounterpartyDraftYears: number[];
   existingClauseAgreements: ExistingTradeClauseAgreement[];
@@ -233,7 +235,7 @@ export function TradeBuilder({
         gLeague: team.players.filter((player) => player.slot === "g_league").length,
         dpe: team.players.filter((player) => player.slot === "dpe").length,
       },
-      roles: countRosterRoles(team.players),
+      roles: countRosterRoles(team.players, includeDpeInRoleMinimums),
     })),
     playerMoves,
     pickMoves: pickMoves.map((move) => ({
@@ -250,7 +252,7 @@ export function TradeBuilder({
     enforceRoleMinimums,
     cuts,
     promotions,
-  }), [cuts, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
+  }), [cuts, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, includeDpeInRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
   const capWarnings = [...new Set([
     ...evaluation.warnings
       .filter((warning) => warning.code.includes("CAP"))
@@ -485,7 +487,7 @@ export function TradeBuilder({
             gLeague: team.players.filter((player) => player.slot === "g_league").length,
             dpe: team.players.filter((player) => player.slot === "dpe").length,
           },
-          roles: countRosterRoles(team.players),
+          roles: countRosterRoles(team.players, includeDpeInRoleMinimums),
         })),
         playerMoves: imported.playerMoves,
         pickMoves: imported.pickMoves,

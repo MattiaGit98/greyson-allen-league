@@ -30,4 +30,11 @@ describe("admin list and roster alerts", () => {
       missing: { G: 4, A: 5, C: 3 },
     });
   });
+
+  it("includes an active DPE after free agency reopens", () => {
+    expect(buildRoleMinimumAlerts(state("published"), "free_agency_reopening")[0]).toMatchObject({
+      counts: { G: 1, A: 0, C: 1 },
+      missing: { G: 4, A: 5, C: 2 },
+    });
+  });
 });

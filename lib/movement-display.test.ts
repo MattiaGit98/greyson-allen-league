@@ -46,6 +46,8 @@ describe("visualizzazione sintetica dei movimenti", () => {
 
   it("formatta il tipo di operazione", () => {
     expect(movementOperationLabel("spostamento_slot")).toBe("Spostamento slot");
+    expect(movementOperationLabel("taglio_programmato")).toBe("Taglio programmato");
+    expect(movementOperationLabel("annulla_taglio_programmato")).toBe("Taglio programmato annullato");
     expect(movementOperationLabel("operazione_personalizzata")).toBe("Operazione personalizzata");
   });
 
@@ -57,6 +59,8 @@ describe("visualizzazione sintetica dei movimenti", () => {
       "rettifica_admin_scambio",
     ]);
     expect(movementOperationTypesForFilter("team_option")).toEqual(["team_option", "rookie_extension", "team_option_playoff"]);
+    expect(movementOperationTypesForFilter("tagli_rilasci")).toContain("taglio_programmato");
+    expect(movementOperationTypesForFilter("tagli_rilasci")).toContain("annulla_taglio_programmato");
     expect(movementOperationTypesForFilter("procedure_stagionali")).toEqual(["ordine_draft_finale", "consegna_contratti"]);
     expect(movementOperationTypesForFilter("inesistente")).toBeNull();
   });

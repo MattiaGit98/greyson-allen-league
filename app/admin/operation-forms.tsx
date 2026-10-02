@@ -12,6 +12,7 @@ import { salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { legalSlotDestinations, slotEligibilityErrors, slotMoveTimingErrors } from "@/lib/slot-eligibility";
 import { destinationAfterTeamOptionExercise } from "@/lib/team-option-contract";
 import type { PostAuctionContractDraft } from "@/lib/post-auction-contracts";
+import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
 
 type OperationProps = {
   phase: string;
@@ -65,9 +66,9 @@ function slotCounts(team?: AdminRosterTeam) {
     }, { regular: 0, two_way: 0, g_league: 0, dpe: 0 });
 }
 
-function roleCounts(team?: AdminRosterTeam) {
+function roleCounts(team: AdminRosterTeam | undefined, leagueMoment: LeagueMoment) {
   return (team?.players ?? [])
-    .filter((player) => player.state === "active" && player.slot !== "dpe")
+    .filter((player) => player.state === "active" && (player.slot !== "dpe" || dpeCountsForRoleMinimums(leagueMoment)))
     .reduce((counts, player) => {
       if (player.role) counts[player.role] += 1;
       return counts;
@@ -117,7 +118,7 @@ export function TeamOptionForm(props: OperationProps) {
   const selectedPlayers = players.filter((player) => decisions[player.id]);
   const exercisedOptions = teamOptionPlayers.filter((player) => decisions[player.id] === "exercise");
   const appliedExtensions = rookieExtensionPlayers.filter((player) => decisions[player.id] === "exercise");
-  const rolesBefore = roleCounts(team);
+  const rolesBefore = roleCounts(team, props.leagueMoment);
   const rolesAfter = { ...rolesBefore };
   const destinationFor = (player: AdminRosterPlayer): Slot => {
     return destinationAfterTeamOptionExercise(player.slot, gLeagueDestinations[player.id] ?? "two_way");
@@ -287,7 +288,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
   ));
   const selectedPlayers = players.filter((player) => selected[player.id]);
   const before = slotCounts(team);
-  const rolesBefore = roleCounts(team);
+  const rolesBefore = roleCounts(team, props.leagueMoment);
   const exercisedCost = selectedPlayers.reduce((total, player) => total + player.cost, 0);
   const nextSeasonName = seasonNameAt(props.seasonName, 1);
   const followingSeasonName = seasonNameAt(props.seasonName, 2);
@@ -399,7 +400,7 @@ export function SlotMoveForm(props: OperationProps) {
     )),
   ];
   const capWarnings = salaryCapWarningsForSpaces({ before: capSpaces, after: capSpaces, seasonNames: capSeasonNames, phase: props.phase, currentMoment: props.leagueMoment });
-  const rolesBefore = roleCounts(team);
+  const rolesBefore = roleCounts(team, props.leagueMoment);
   const slotGroups: { slot: Exclude<Slot, "dpe">; label: string; limit: number }[] = [
     { slot: "regular", label: "Roster", limit: 15 },
     { slot: "two_way", label: "Two-way", limit: 2 },
@@ -554,7 +555,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
   if (slotsAfterAssignments.two_way > 2) errors.push("Gli spostamenti superano i 2 slot Two-way.");
   if (slotsAfterAssignments.g_league > 3) errors.push("Gli spostamenti superano i 3 slot G-League.");
   const slotsBeforeAssignments = slotCounts(team);
-  const rolesBeforeAssignments = roleCounts(team);
+  const rolesBeforeAssignments = roleCounts(team, props.leagueMoment);
   const capWarnings = capSpacesAfter.flatMap((space, index) => (
     index > 0 && space < 0 ? [`I contratti portano il cap libero ${capSeasonNames[index]} a ${space}.`] : []
   ));

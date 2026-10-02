@@ -14,6 +14,8 @@ const operationLabels: Record<string, string> = {
   free_release: "Rilascio gratuito",
   buyout: "Buyout",
   stretch_provision: "Stretch provision",
+  taglio_programmato: "Taglio programmato",
+  annulla_taglio_programmato: "Taglio programmato annullato",
   scambio: "Scambio",
   sign_and_trade: "Sign and trade",
   scelta_draft: "Scelta draft",
@@ -38,7 +40,7 @@ const movementFilterGroups = [
   { value: "scambi", label: "Scambi", operationTypes: ["scambio", "sign_and_trade"] },
   { value: "scelte_draft", label: "Scelte draft", operationTypes: ["scelta_draft"] },
   { value: "slot", label: "Spostamenti slot", operationTypes: ["spostamento_slot"] },
-  { value: "tagli_rilasci", label: "Tagli e rilasci", operationTypes: ["cut", "free_release", "buyout", "stretch_provision"] },
+  { value: "tagli_rilasci", label: "Tagli e rilasci", operationTypes: ["cut", "free_release", "buyout", "stretch_provision", "taglio_programmato", "annulla_taglio_programmato"] },
   { value: "team_option", label: "Contratti da rookie", operationTypes: ["team_option", "rookie_extension", "team_option_playoff"] },
 ] as const;
 
@@ -92,7 +94,7 @@ export function conciseMovementDetail(operationType: string, summary: string) {
     concise = firstSegment(detail);
   } else if (["acquisto_asta", "firma_free_agent"].includes(normalizedType)) {
     concise = conciseAcquisition(detail);
-  } else if (["cut", "free_release", "buyout"].includes(normalizedType)) {
+  } else if (["cut", "free_release", "buyout", "taglio_programmato", "annulla_taglio_programmato"].includes(normalizedType)) {
     concise = firstSegment(detail);
   } else if (normalizedType === "stretch_provision") {
     concise = firstSegment(detail).replace(/\s+da\s+\d+\s+crediti\b.*$/i, "");

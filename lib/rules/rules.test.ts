@@ -43,11 +43,13 @@ describe("cap e roster", () => {
     expect(validateRoleMinimums({ G: 5, A: 4, C: 3 }, true).valid).toBe(false);
   });
   it("somma i ruoli di roster, Two-way e G-League ma esclude la DPE", () => {
-    expect(countRosterRoles([
+    const players = [
       { role: "G", slot: "regular" },
       { role: "G", slot: "two_way" },
       { role: "A", slot: "g_league" },
       { role: "C", slot: "dpe" },
-    ])).toEqual({ G: 2, A: 1, C: 0 });
+    ] as const;
+    expect(countRosterRoles(players)).toEqual({ G: 2, A: 1, C: 0 });
+    expect(countRosterRoles(players, true)).toEqual({ G: 2, A: 1, C: 1 });
   });
 });

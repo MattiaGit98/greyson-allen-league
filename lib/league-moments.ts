@@ -101,4 +101,5 @@ export const operationWindows = {
     hasReachedMoment(moment, "contract_delivery")
     && !hasReachedMoment(moment, "free_agency_end")
   ),
+  scheduledCut: (moment: LeagueMoment) => moment === "free_agency_reopening",
 };

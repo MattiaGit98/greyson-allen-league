@@ -14,7 +14,7 @@ import { persistLeagueMovement } from "@/lib/league-movements";
 import { tradedPostAuctionContractDraftNames } from "@/lib/post-auction-contracts";
 import { removeRolelessPlayersLeavingRosters } from "@/lib/roleless-player-list";
 import { countRosterRoles } from "@/lib/rules/roster";
-import { roleMinimumChecksApply, roleMinimumRecoverySlotError } from "@/lib/role-minimums";
+import { dpeCountsForRoleMinimums, roleMinimumChecksApply, roleMinimumRecoverySlotError } from "@/lib/role-minimums";
 import {
   evaluateTrade,
   type TradeCut,
@@ -421,7 +421,7 @@ export async function registerTrade(formData: FormData) {
       roles: countRosterRoles(activeEntries.map((entry) => ({
         role: rolesByName.get(normalizePlayerName(entry.name)) ?? null,
         slot: entry.slot,
-      }))),
+      })), dpeCountsForRoleMinimums(moment)),
     };
   });
   const evaluation = evaluateTrade({

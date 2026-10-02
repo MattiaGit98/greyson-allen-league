@@ -17,7 +17,7 @@ import {
   isUnresolvedTeamOption,
 } from "@/lib/team-option-contract";
 import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
-import { roleMinimumChecksApply, roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
+import { dpeCountsForRoleMinimums, roleMinimumChecksApply, roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { orderPlayerListByRole } from "@/lib/player-list-order";
 import { parseContextualSlotDecisions, resolveContextualSlots, type AppliedContextualSlotOperation } from "@/lib/contextual-slot-resolution";
@@ -146,10 +146,10 @@ export async function signFreeAgent(formData: FormData) {
     playerSelected: true,
     playerAlreadyOwned: Boolean(activePlayer),
     qualifyingOfferActive: Boolean(qualifyingOffer),
-    roles: countRosterRoles(activeEntries.filter((entry) => entry.slot !== "dpe").map((entry) => ({
+    roles: countRosterRoles(activeEntries.map((entry) => ({
       role: roleByName.get(normalizePlayerName(entry.name)) ?? null,
       slot: entry.slot,
-    }))),
+    })), dpeCountsForRoleMinimums(moment)),
     playerRole: player.role === "X" ? null : player.role,
     cutRole: null,
     cutSlot: null,

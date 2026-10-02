@@ -32,6 +32,7 @@ export type RosterEntry = {
   twoWayPromotionLocked?: boolean;
   playoffTeamOptionPromotionSeason?: string;
   dpeAppliedSeasons?: string[];
+  scheduledSeasonEndCut?: string;
 };
 
 export type QualifyingOfferRight = {

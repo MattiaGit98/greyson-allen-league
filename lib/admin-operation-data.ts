@@ -1,10 +1,11 @@
 import type { AuctionAcquisitionKind } from "@/lib/league-types";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
-import { leagueMomentFromSeason, type LeagueMoment } from "@/lib/league-moments";
+import { leagueMomentFromSeason, operationWindows, type LeagueMoment } from "@/lib/league-moments";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { requireActiveSeason } from "@/lib/active-season";
 import { isAnnualTeamOptionContract, isRookieExtensionContract, isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
+import { buildSeasonEndCutPlan, rosterEntryKey } from "@/lib/league-advance";
 
 export type AdminRosterPlayer = {
   id: string;
@@ -36,6 +37,8 @@ export type AdminRosterPlayer = {
   twoWayPromotionLocked?: boolean;
   playoffTeamOptionPromotionSeason?: string;
   dpeAppliedSeasons?: string[];
+  scheduledSeasonEndCut?: string;
+  seasonEndCutEligible: boolean;
 };
 
 export type AdminRosterTeam = {
@@ -45,6 +48,10 @@ export type AdminRosterTeam = {
   spaceBeforeOptions: number;
   nextSpace: number;
   followingSpace: number;
+  seasonEndProjectedRegularSlots: number;
+  seasonEndProjectedRegularSlotsAfterScheduledCuts: number;
+  seasonEndRemainingOverflow: number;
+  seasonEndScheduledCuts: number;
   players: AdminRosterPlayer[];
 };
 
@@ -70,6 +77,15 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
   const teamOptionsResolved = activeSeason.season.team_options_resolved;
   const tradeDeadlinePassed = activeSeason.season.trade_deadline_passed;
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
+  const seasonEndCutPlan = operationWindows.scheduledCut(leagueMoment)
+    ? buildSeasonEndCutPlan({
+      seasonName,
+      rosterEntries: leagueState.rosterEntries,
+      qualifyingOfferRights: leagueState.qualifyingOfferRights,
+      playerList: leagueState.playerList,
+    })
+    : null;
+  const seasonEndCutEligibleKeys = new Set(seasonEndCutPlan?.projectedRegularKeys ?? []);
   const playerDetails = new Map(leagueState.playerList.map((player) => [
     player.name.trim().toLocaleLowerCase("it-IT"),
     player,
@@ -109,6 +125,10 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
         spaceBeforeOptions: capSpaceBeforeOptions,
         nextSpace: capSpaceFor(nextSeasonName),
         followingSpace: capSpaceFor(followingSeason),
+        seasonEndProjectedRegularSlots: seasonEndCutPlan?.projectedRegularSlotsByTeam[team.code] ?? 0,
+        seasonEndProjectedRegularSlotsAfterScheduledCuts: seasonEndCutPlan?.projectedRegularSlotsAfterScheduledCutsByTeam[team.code] ?? 0,
+        seasonEndRemainingOverflow: seasonEndCutPlan?.remainingOverflowByTeam[team.code] ?? 0,
+        seasonEndScheduledCuts: seasonEndCutPlan?.validScheduledCuts.filter((entry) => entry.teamCode === team.code).length ?? 0,
         players: entries.map((entry, index) => {
           const listPlayer = entry.state === "active"
             ? playerDetails.get(entry.name.trim().toLocaleLowerCase("it-IT"))
@@ -152,6 +172,8 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
             twoWayPromotionLocked: entry.twoWayPromotionLocked,
             playoffTeamOptionPromotionSeason: entry.playoffTeamOptionPromotionSeason,
             dpeAppliedSeasons: entry.dpeAppliedSeasons,
+            scheduledSeasonEndCut: entry.scheduledSeasonEndCut,
+            seasonEndCutEligible: seasonEndCutEligibleKeys.has(rosterEntryKey(entry)),
           };
         }),
       };

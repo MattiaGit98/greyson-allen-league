@@ -198,6 +198,15 @@ async function performLeagueSeasonAdvance(
       qualifyingOfferRights: state.qualifyingOfferRights,
       playerList: state.playerList,
     });
+    if (advance.invalidScheduledCutPlayers.length) {
+      throw new Error("Esistono tagli programmati non più validi: annullali prima di avanzare.");
+    }
+    if (advance.excessiveScheduledCutsByTeam.length) {
+      throw new Error("Sono stati programmati più tagli del necessario: annulla quelli eccedenti prima di avanzare.");
+    }
+    if (Object.keys(advance.remainingOverflowByTeam).length) {
+      throw new Error("Restano slot roster da liberare per la prossima offseason.");
+    }
     const historyPayload = buildAutomaticHistoryArchive(history.competitions, currentHistory);
     const nextState = {
       ...state,

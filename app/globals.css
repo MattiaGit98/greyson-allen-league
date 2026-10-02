@@ -414,6 +414,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .roster-player-identity { min-width: 0; display: flex; align-items: center; gap: 6px; }
 .roster-player-identity > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roster-dpe-flag { flex: 0 0 auto; background: #e7dff1; color: #684c80; font-style: normal; }
+.roster-scheduled-cut-flag { flex: 0 0 auto; background: #f4dfdc; color: #93483f; font-style: normal; }
 .real-team { color: #596158; font-size: 11px; letter-spacing: .04em; }
 .real-team, .real-team-text, .player-list-edit-real-team { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-status { justify-self: center; text-align: center; font-style: normal; }

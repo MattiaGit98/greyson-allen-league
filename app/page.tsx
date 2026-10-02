@@ -6,6 +6,7 @@ import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
 import { availableOperationsAt } from "@/lib/available-operations";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, publicPhaseLabel, type LeagueMoment } from "@/lib/league-moments";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { conciseMovementDetail, movementOperationLabel } from "@/lib/movement-display";
 import { formatHomepageCalendarDate } from "@/lib/calendar-homepage";
 import { nextPhaseDate, normalizePhaseDates } from "@/lib/phase-calendar";
@@ -149,8 +150,8 @@ function homeLeagueAlerts({
 }): HomeLeagueAlert[] {
   const alerts: HomeLeagueAlert[] = [];
 
-  if (hasReachedMoment(moment, "auction_completed") && !hasReachedMoment(moment, "free_agency_end")) {
-    const roleAlerts = buildRoleMinimumAlerts(state);
+  if (roleMinimumChecksApply("regular_season", moment)) {
+    const roleAlerts = buildRoleMinimumAlerts(state, moment);
     if (roleAlerts.length) {
       alerts.push({
         id: "role-minimums",

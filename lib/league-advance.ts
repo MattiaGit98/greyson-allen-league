@@ -15,6 +15,65 @@ export type LeagueAdvanceInput = {
 };
 
 export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
+  const plan = buildSeasonEndCutPlan(input);
+  const scheduledKeys = new Set(plan.validScheduledCuts.map((player) => rosterEntryKey(player)));
+  const preparedEntries = input.rosterEntries.map((entry) => {
+    const scheduled = entry.scheduledSeasonEndCut === input.seasonName && scheduledKeys.has(rosterEntryKey(entry));
+    return {
+      ...entry,
+      scheduledSeasonEndCut: undefined,
+      ...(scheduled ? { state: "cut" as const, slot: "regular" as const } : {}),
+    };
+  });
+  const advance = calculateLeagueAdvanceCore({ ...input, rosterEntries: preparedEntries });
+  const remainingOverflowByTeam = regularRosterOverflowByTeam(advance.rosterEntries);
+  return {
+    ...advance,
+    scheduledCutPlayers: plan.validScheduledCuts.map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode })),
+    invalidScheduledCutPlayers: plan.invalidScheduledCuts.map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode })),
+    excessiveScheduledCutsByTeam: plan.excessiveScheduledCutsByTeam,
+    remainingOverflowByTeam,
+  };
+}
+
+export function buildSeasonEndCutPlan(input: LeagueAdvanceInput) {
+  const rosterEntries = input.rosterEntries.map((entry) => ({ ...entry, scheduledSeasonEndCut: undefined }));
+  const baseline = calculateLeagueAdvanceCore({ ...input, rosterEntries });
+  const projectedRegularKeys = new Set(baseline.rosterEntries
+    .filter((entry) => entry.state === "active" && entry.slot === "regular")
+    .map(rosterEntryKey));
+  const scheduledCuts = input.rosterEntries.filter((entry) => Boolean(entry.scheduledSeasonEndCut));
+  const validScheduledCuts = scheduledCuts.filter((entry) => (
+    entry.scheduledSeasonEndCut === input.seasonName
+    && entry.state === "active"
+    && projectedRegularKeys.has(rosterEntryKey(entry))
+  ));
+  const invalidScheduledCuts = scheduledCuts.filter((entry) => !validScheduledCuts.includes(entry));
+  const projectedRegularSlotsByTeam = regularRosterCountByTeam(baseline.rosterEntries);
+  const overflowBeforeScheduledCuts = regularRosterOverflowByTeam(baseline.rosterEntries);
+  const validCounts = countByTeam(validScheduledCuts);
+  const excessiveScheduledCutsByTeam = Object.entries(validCounts).flatMap(([teamCode, count]) => {
+    const excess = Math.max(0, count - (overflowBeforeScheduledCuts[teamCode] ?? 0));
+    return excess ? [{ teamCode, excess }] : [];
+  });
+  const remainingOverflowByTeam: Record<string, number> = Object.fromEntries(Object.entries(overflowBeforeScheduledCuts)
+    .map(([teamCode, overflow]) => [teamCode, Math.max(0, overflow - (validCounts[teamCode] ?? 0))])
+    .filter((entry): entry is [string, number] => Number(entry[1]) > 0));
+
+  return {
+    projectedRegularKeys: [...projectedRegularKeys],
+    projectedRegularSlotsByTeam,
+    projectedRegularSlotsAfterScheduledCutsByTeam: Object.fromEntries(Object.entries(projectedRegularSlotsByTeam)
+      .map(([teamCode, count]) => [teamCode, count - (validCounts[teamCode] ?? 0)])),
+    validScheduledCuts,
+    invalidScheduledCuts,
+    overflowBeforeScheduledCuts,
+    remainingOverflowByTeam,
+    excessiveScheduledCutsByTeam,
+  };
+}
+
+function calculateLeagueAdvanceCore(input: LeagueAdvanceInput) {
   const expiringYear = seasonEndYear(input.seasonName);
   if (expiringYear === null) throw new Error("Annata non valida.");
   const nextSeasonName = advanceSeasonName(input.seasonName);
@@ -101,6 +160,33 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     promotedPlayoffTeamOptionPlayers,
     reintegratedDpePlayers,
   };
+}
+
+export function rosterEntryKey(entry: Pick<RosterEntry, "teamCode" | "name">) {
+  return `${entry.teamCode}\u0000${normalizePlayerName(entry.name)}`;
+}
+
+function regularRosterOverflowByTeam(entries: RosterEntry[]): Record<string, number> {
+  const counts = regularRosterCountByTeam(entries);
+  return Object.fromEntries(Object.entries(counts)
+    .map(([teamCode, count]) => [teamCode, Math.max(0, count - 15)])
+    .filter((entry): entry is [string, number] => Number(entry[1]) > 0));
+}
+
+function regularRosterCountByTeam(entries: RosterEntry[]) {
+  return entries
+    .filter((entry) => entry.state === "active" && entry.slot === "regular")
+    .reduce<Record<string, number>>((result, entry) => {
+      result[entry.teamCode] = (result[entry.teamCode] ?? 0) + 1;
+      return result;
+    }, {});
+}
+
+function countByTeam(entries: RosterEntry[]) {
+  return entries.reduce<Record<string, number>>((result, entry) => {
+    result[entry.teamCode] = (result[entry.teamCode] ?? 0) + 1;
+    return result;
+  }, {});
 }
 
 function contractExpiryYear(contract: string, referenceYear: number) {

@@ -62,13 +62,15 @@ describe("contratti da rookie", () => {
   });
 
   it("non applica più rettifiche speciali al costo quando il giocatore viene tagliato", () => {
-    const extension = { ...option, contract: "27 + R.E." };
-    expect(applyStandardContractCut(extension, 2027, "offseason_start")).toMatchObject({
+    const extension = { ...option, contract: "27 + R.E.", scheduledSeasonEndCut: "2026/27" };
+    const cut = applyStandardContractCut(extension, 2027, "offseason_start");
+    expect(cut).toMatchObject({
       state: "cut",
       slot: "regular",
       cost: 5,
       contract: "27 + R.E.",
     });
+    expect(cut.scheduledSeasonEndCut).toBeUndefined();
   });
 });
 

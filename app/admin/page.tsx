@@ -2,7 +2,8 @@ import Link from "next/link";
 import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
 import { loadCurrentHistoryImports } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { hasReachedMoment, leagueMomentFromSeason, leagueMomentLabels } from "@/lib/league-moments";
+import { leagueMomentFromSeason, leagueMomentLabels } from "@/lib/league-moments";
+import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { normalizePhaseDates, phaseDateForTransition } from "@/lib/phase-calendar";
 import { buildPreAdvanceChecklist, type PreAdvanceChecklist } from "@/lib/pre-advance-alerts";
 import { requireActiveSeason } from "@/lib/active-season";
@@ -90,8 +91,8 @@ export default async function AdminDashboardPage() {
     alerts: blockingAlerts,
     blockerCount: blockingAlerts.length,
   };
-  const roleMinimumAlerts = hasReachedMoment(leagueMoment, "auction_completed") && !hasReachedMoment(leagueMoment, "free_agency_end")
-    ? buildRoleMinimumAlerts(leagueState)
+  const roleMinimumAlerts = roleMinimumChecksApply(activeSeason.season.status, leagueMoment)
+    ? buildRoleMinimumAlerts(leagueState, leagueMoment)
     : [];
   const nextPhaseDate = phaseDateForTransition(normalizePhaseDates(activeSeason.season.phase_dates), preAdvanceChecklist.transition);
   const dateParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
@@ -105,7 +106,7 @@ export default async function AdminDashboardPage() {
       {roleMinimumAlerts.length > 0 && (
         <section className="admin-role-minimum-alert" role="alert">
           <strong>Intervento richiesto: minimi di ruolo non rispettati</strong>
-          <p>Assegna casualmente un free agent da 1 credito per ogni carenza. Durante l’asta le altre operazioni restano consentite se rispettano gli altri vincoli; la situazione deve però essere regolare prima del Termine asta.</p>
+          <p>Assegna casualmente un free agent da 1 credito per ogni carenza. La situazione deve essere regolarizzata entro la Fine stagione; dalla Riapertura free agency anche la DPE concorre ai minimi.</p>
           <ul>
             {roleMinimumAlerts.map((team) => (
               <li key={team.teamCode}><b>{team.teamName}</b>: {[

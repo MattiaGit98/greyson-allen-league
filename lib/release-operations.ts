@@ -9,6 +9,7 @@ export function applyFreeRelease<T extends RosterEntry>(entry: T): T {
     cost: 0,
     state: "cut",
     slot: "regular",
+    scheduledSeasonEndCut: undefined,
   };
 }
 

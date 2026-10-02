@@ -6,16 +6,20 @@ export type RoleMinimumShortage = { G: number; A: number; C: number; total: numb
 
 export function roleMinimumChecksApply(phase: LeaguePhase, moment?: LeagueMoment) {
   if (moment) {
-    return hasReachedMoment(moment, "auction_completed") && !hasReachedMoment(moment, "free_agency_end");
+    return hasReachedMoment(moment, "auction_completed");
   }
   return phase === "regular_season";
+}
+
+export function dpeCountsForRoleMinimums(moment?: LeagueMoment) {
+  return Boolean(moment && hasReachedMoment(moment, "free_agency_reopening"));
 }
 
 export function roleMinimumShortage(entries: RosterEntry[], phase: LeaguePhase, moment?: LeagueMoment): RoleMinimumShortage {
   if (!roleMinimumChecksApply(phase, moment)) return { G: 0, A: 0, C: 0, total: 0 };
   const roles = countRosterRoles(entries
     .filter((entry) => entry.state === "active")
-    .map((entry) => ({ role: entry.role, slot: entry.slot })));
+    .map((entry) => ({ role: entry.role, slot: entry.slot })), dpeCountsForRoleMinimums(moment));
   const G = Math.max(0, 5 - roles.G);
   const A = Math.max(0, 5 - roles.A);
   const C = Math.max(0, 3 - roles.C);

@@ -180,6 +180,46 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     expect(result.alerts.find((alert) => alert.id === "blocked-offseason-roster-moves")?.tone).toBe("blocker");
   });
 
+  it("consente la Fine stagione quando un taglio programmato risolve l'eccedenza", () => {
+    const current = state([
+      ...Array.from({ length: 15 }, (_, index) => rosterEntry(`Roster ${index}`, index === 0 ? { scheduledSeasonEndCut: "2026/27" } : {})),
+      rosterEntry("In DPE", { slot: "dpe" }),
+    ]);
+    const result = buildPreAdvanceChecklist({
+      currentMoment: "free_agency_reopening",
+      seasonName: "2026/27",
+      state: current,
+      currentHistorySeason: "2026/27",
+    });
+    expect(result.alerts.find((alert) => alert.id === "blocked-offseason-roster-moves")).toBeUndefined();
+    expect(result.alerts.find((alert) => alert.id === "scheduled-season-end-cuts")?.items).toContain("AAA: Roster 0");
+  });
+
+  it("blocca programmazioni divenute inutili o numericamente eccedenti", () => {
+    const invalidState = state([
+      rosterEntry("In scadenza", { contract: "27", scheduledSeasonEndCut: "2026/27" }),
+    ]);
+    const invalid = buildPreAdvanceChecklist({
+      currentMoment: "free_agency_reopening",
+      seasonName: "2026/27",
+      state: invalidState,
+      currentHistorySeason: "2026/27",
+    });
+    expect(invalid.alerts.find((alert) => alert.id === "invalid-scheduled-season-end-cuts")?.tone).toBe("blocker");
+
+    const excessiveState = state([
+      ...Array.from({ length: 15 }, (_, index) => rosterEntry(`Roster ${index}`, index < 2 ? { scheduledSeasonEndCut: "2026/27" } : {})),
+      rosterEntry("In DPE", { slot: "dpe" }),
+    ]);
+    const excessive = buildPreAdvanceChecklist({
+      currentMoment: "free_agency_reopening",
+      seasonName: "2026/27",
+      state: excessiveState,
+      currentHistorySeason: "2026/27",
+    });
+    expect(excessive.alerts.find((alert) => alert.id === "excessive-scheduled-season-end-cuts")?.tone).toBe("blocker");
+  });
+
   it("non promuove automaticamente un Two-way al secondo anno in attesa della decisione", () => {
     const current = state([
       ...Array.from({ length: 15 }, (_, index) => rosterEntry(`Roster ${index}`)),

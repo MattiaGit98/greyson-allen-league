@@ -95,6 +95,7 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
         enforceRoleMinimums={roleMinimumChecksApply(activeSeason.season.status, leagueMoment)}
         freeAgentThousandLimitApplies={!hasReachedMoment(leagueMoment, "free_agency_reopening")}
         seasonName={seasonName}
+        leagueMoment={leagueMoment}
         tradeDeadlinePassed={tradeDeadlineHasPassed(leagueMoment)}
         signAndTradeOpen={signAndTradeOpen}
         listPublished={leagueState.playerListStatus === "published"}
