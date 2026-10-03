@@ -37,10 +37,7 @@ export async function uploadImportableBackup(
     const upload = new Upload(file, {
       endpoint,
       retryDelays: [0, 3_000, 5_000, 10_000, 20_000],
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        "x-upsert": "false",
-      },
+      headers: backupUploadStaticHeaders(),
       metadata: {
         bucketName: backupImportBucket,
         objectName: storagePath,
@@ -65,6 +62,13 @@ export async function uploadImportableBackup(
   });
 
   return storagePath;
+}
+
+export function backupUploadStaticHeaders() {
+  // Authorization viene aggiunto una sola volta in onBeforeRequest, usando la
+  // sessione piu recente. XMLHttpRequest concatena gli header ripetuti e due
+  // Bearer token produrrebbero un JWS non valido per Supabase Storage.
+  return { "x-upsert": "false" } as const;
 }
 
 export async function removeUploadedImportableBackup(storagePath: string) {

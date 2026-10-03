@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { storageResumableUploadEndpoint } from "./upload-importable-backup";
+import {
+  backupUploadStaticHeaders,
+  storageResumableUploadEndpoint,
+} from "./upload-importable-backup";
 
 describe("endpoint diretto per l'upload dei backup", () => {
   it("usa il dominio Storage diretto di Supabase in produzione", () => {
@@ -10,5 +13,10 @@ describe("endpoint diretto per l'upload dei backup", () => {
   it("mantiene l'origine configurata negli ambienti locali", () => {
     expect(storageResumableUploadEndpoint("http://127.0.0.1:54321"))
       .toBe("http://127.0.0.1:54321/storage/v1/upload/resumable");
+  });
+
+  it("non duplica l'header Authorization configurandolo anche staticamente", () => {
+    expect(backupUploadStaticHeaders()).toEqual({ "x-upsert": "false" });
+    expect(backupUploadStaticHeaders()).not.toHaveProperty("authorization");
   });
 });
