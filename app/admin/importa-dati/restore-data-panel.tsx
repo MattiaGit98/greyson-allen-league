@@ -1,6 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import {
+  formatMaximumImportableBackupSize,
+  maximumImportableBackupBytes,
+} from "@/lib/backup-import-storage";
+import { downloadImportableBackup } from "@/lib/download-importable-backup";
+import { executeRestoreImportFlow, type RestoreImportStage } from "@/lib/restore-import-flow";
+import {
+  readRestoreImportResponse,
+  RestoreImportRequestError,
+} from "@/lib/restore-import-response";
+import {
+  removeUploadedImportableBackup,
+  uploadImportableBackup,
+} from "@/lib/upload-importable-backup";
 
 type BackupPreview = {
   exportedAt: string;
@@ -12,29 +26,28 @@ type BackupPreview = {
 };
 
 export function RestoreDataPanel({ restored }: { restored: boolean }) {
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
-  const [fileText, setFileText] = useState("");
   const [preview, setPreview] = useState<BackupPreview | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
-  async function selectFile(file: File | undefined) {
+  async function selectFile(selectedFile: File | undefined) {
+    setFile(null);
     setFileName("");
-    setFileText("");
     setPreview(null);
     setConfirmed(false);
     setError("");
     setStatus("");
-    if (!file) return;
-    if (file.size > 100 * 1024 * 1024) {
-      setError("Il file supera il limite di 100 MB.");
+    if (!selectedFile) return;
+    if (selectedFile.size > maximumImportableBackupBytes) {
+      setError(`Il file supera il limite di ${formatMaximumImportableBackupSize()}.`);
       return;
     }
     try {
-      const text = await file.text();
-      const parsed = JSON.parse(text) as Record<string, unknown>;
+      const parsed = JSON.parse(await selectedFile.text()) as Record<string, unknown>;
       const payload = record(parsed.payload);
       const season = record(payload?.activeSeason);
       const state = record(payload?.leagueState);
@@ -42,8 +55,8 @@ export function RestoreDataPanel({ restored }: { restored: boolean }) {
         throw new Error("Il file non è un backup importabile della Greyson Allen League.");
       }
       if (parsed.formatVersion !== 2) throw new Error("Versione del backup non supportata.");
-      setFileName(file.name);
-      setFileText(text);
+      setFile(selectedFile);
+      setFileName(selectedFile.name);
       setPreview({
         exportedAt: typeof parsed.exportedAt === "string" ? parsed.exportedAt : "",
         seasonName: typeof season.name === "string" ? season.name : "—",
@@ -58,25 +71,60 @@ export function RestoreDataPanel({ restored }: { restored: boolean }) {
   }
 
   async function restore() {
-    if (!fileText || !preview || !confirmed || pending) return;
+    if (!file || !preview || !confirmed || pending) return;
     if (!window.confirm(`Ripristinare l'intera lega al backup ${fileName} (${preview.seasonName})?`)) return;
+
     setPending(true);
     setError("");
+    let cleanupFailed = false;
+    let cleanupSucceeded = false;
+
     try {
-      setStatus("Preparazione e download del backup della situazione attuale…");
-      await downloadCurrentBackup();
-      setStatus("Ripristino della lega in corso…");
-      const response = await fetch("/admin/importa-dati/apply", {
-        method: "POST",
-        body: fileText,
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
+      await executeRestoreImportFlow({
+        downloadCurrentBackup: downloadImportableBackup,
+        uploadBackup: (registerStoragePath) => uploadImportableBackup(
+          file,
+          (uploadedBytes, totalBytes) => {
+            const percentage = totalBytes > 0 ? Math.round((uploadedBytes / totalBytes) * 100) : 0;
+            setStatus(`Caricamento backup… ${percentage}%`);
+          },
+          registerStoragePath,
+        ),
+        async requestRestore(storagePath) {
+          const restoreStatusTimer = window.setTimeout(() => {
+            setStatus("Ripristino della lega…");
+          }, 750);
+          try {
+            const response = await fetch("/admin/importa-dati/apply", {
+              method: "POST",
+              body: JSON.stringify({ storagePath }),
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+            });
+            return await readRestoreImportResponse(response);
+          } finally {
+            window.clearTimeout(restoreStatusTimer);
+          }
+        },
+        async removeTemporaryBackup(storagePath) {
+          await removeUploadedImportableBackup(storagePath);
+          cleanupSucceeded = true;
+        },
+        onStage: (stage) => setStatus(statusForStage(stage)),
+        onCleanupError: () => {
+          cleanupFailed = true;
+        },
       });
-      const result = await response.json() as { ok?: boolean; error?: string };
-      if (!response.ok || !result.ok) throw new Error(result.error ?? "Ripristino non riuscito.");
       window.location.assign("/admin/importa-dati?restored=1");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Ripristino non riuscito.");
+      if (cause instanceof RestoreImportRequestError && cause.restoreCompleted && cleanupSucceeded) {
+        window.location.assign("/admin/importa-dati?restored=1");
+        return;
+      }
+      const baseMessage = cause instanceof Error ? cause.message : "Ripristino non riuscito.";
+      setError(cleanupFailed && !baseMessage.includes("file temporaneo")
+        ? `${baseMessage} Non è stato possibile completare la pulizia del file temporaneo.`
+        : baseMessage);
       setStatus("");
       setPending(false);
     }
@@ -115,8 +163,8 @@ export function RestoreDataPanel({ restored }: { restored: boolean }) {
             <span>Confermo di voler riportare l’intera lega al punto salvato, comprese fase e date, squadre, roster, listone, bozze dei contratti, calendario, classifiche, storico e movimenti.</span>
           </label>
         )}
-        {status && <p className="notice">{status}</p>}
-        {error && <p className="notice error">{error}</p>}
+        {status && <p className="notice" aria-live="polite">{status}</p>}
+        {error && <p className="notice error" role="alert">{error}</p>}
         <button className="button primary import-data-submit" type="button" onClick={restore} disabled={!preview || !confirmed || pending}>
           {pending ? "Ripristino in corso…" : "Ripristina intera lega"}
         </button>
@@ -125,19 +173,11 @@ export function RestoreDataPanel({ restored }: { restored: boolean }) {
   );
 }
 
-async function downloadCurrentBackup() {
-  const response = await fetch("/admin/importa-dati/backup", { cache: "no-store", credentials: "same-origin" });
-  if (!response.ok) throw new Error((await response.text()) || "Backup della situazione attuale non riuscito.");
-  const disposition = response.headers.get("content-disposition") ?? "";
-  const filename = disposition.match(/filename="([^"]+)"/i)?.[1] ?? "greyson-allen-league_ripristino.json";
-  const url = URL.createObjectURL(await response.blob());
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+function statusForStage(stage: RestoreImportStage) {
+  if (stage === "backup") return "Download del backup preventivo…";
+  if (stage === "upload") return "Caricamento backup…";
+  if (stage === "verify") return "Verifica backup…";
+  return "Pulizia file temporaneo…";
 }
 
 function record(value: unknown): Record<string, unknown> | null {

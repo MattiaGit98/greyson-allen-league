@@ -17,7 +17,10 @@ export async function GET() {
     const backup = await buildImportableLeagueBackup(supabase);
     const exportedAt = new Date(backup.exportedAt);
     const filename = `greyson-allen-league_ripristino_${backupFileTimestamp(exportedAt)}.json`;
-    return new Response(JSON.stringify(backup, null, 2), {
+    const body = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json; charset=utf-8",
+    }).stream();
+    return new Response(body, {
       headers: {
         "Cache-Control": "no-store",
         "Content-Disposition": `attachment; filename="${filename}"`,

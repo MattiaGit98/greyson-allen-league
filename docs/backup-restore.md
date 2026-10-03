@@ -15,6 +15,18 @@ La pagina amministrativa Backup offre il backup ripristinabile completo e mantie
 
 Ogni avanzamento della lega salva inoltre in `league_phase_backups` lo stato immediatamente precedente. Un ripristino completo da file invalida questi punti interni, perché appartengono alla situazione sostituita.
 
+## Flusso di importazione
+
+Il browser legge il file localmente soltanto per mostrare l’anteprima. Prima di qualsiasi upload scarica obbligatoriamente un nuovo backup completo della situazione corrente: se questo download preventivo fallisce, il ripristino non comincia. La route di esportazione restituisce questo backup come risposta in streaming, così anche il download non dipende dal limite delle risposte Vercel non trasmesse in streaming.
+
+Il file scelto viene quindi caricato direttamente, con upload riprendibile, nel bucket privato Supabase Storage `league-backup-imports`. Il contenuto completo del backup non attraversa il body di una Vercel Function. Alla route di ripristino viene inviato soltanto il path temporaneo, composto dall’ID dell’admin autenticato e da un UUID casuale.
+
+La route verifica nuovamente sessione, ruolo amministratore e path, scarica il file dal bucket privato, applica il limite di 100 MB e valida formato, versione e checksum con `parseImportableLeagueBackup`. Il ripristino continua a essere eseguito dalla funzione PostgreSQL `restore_importable_league_backup`, quindi la sostituzione dello stato della lega rimane atomica: un errore della RPC annulla l’intera operazione.
+
+Il file temporaneo viene eliminato dopo il tentativo di ripristino, sia in caso di successo sia, per quanto possibile, in caso di errore. Il browser effettua inoltre un secondo tentativo di pulizia come protezione contro errori di rete tra la route e il client. Il bucket non espone URL pubblici e le policy consentono upload, lettura e cancellazione soltanto agli admin autenticati, limitatamente ai file di cui sono proprietari nel proprio prefisso.
+
+Il formato resta `greyson-allen-league-importable-backup`, versione `2`; nessun dato viene rimosso dall’export, compresi tutti i movimenti con `before_state` e `after_state`.
+
 ## Sicurezza
 
 Conservare almeno una copia dei backup fuori dal PC e da Supabase. Prima di migration o rettifiche estese, creare sempre un export manuale. Un HTML o un Excel non sostituiscono il JSON né un backup completo del database offerto dal provider.

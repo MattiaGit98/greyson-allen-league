@@ -93,6 +93,8 @@ describe("backup importabile della lega", () => {
 
     expect(parseImportableLeagueBackup(JSON.parse(JSON.stringify(backup))).payload.movements[0])
       .toMatchObject({
+        before_state: { rosterEntries: [] },
+        after_state: { rosterEntries: [{ name: "Rookie" }] },
         history_category: "Draft",
         after_history: [{ season: "2026/27" }],
         season_name: "2026/27",
