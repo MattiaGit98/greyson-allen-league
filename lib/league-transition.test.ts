@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyLeagueState } from "./league-state";
 import { closeCurrentSeasonExtensionWindow } from "./league-transition";
+import { historyConfirmationForTransition } from "./phase-history-confirmation";
 
 describe("avanzamento a Inizio asta", () => {
   it("rimuove soltanto l'estensione non esercitata del contratto in scadenza", () => {
@@ -14,5 +15,22 @@ describe("avanzamento a Inizio asta", () => {
     expect(closeCurrentSeasonExtensionWindow(state, "2026/27").rosterEntries.map((entry) => entry.contract))
       .toEqual(["27", "28 (E)", "27"]);
     expect(state.rosterEntries[0].contract).toBe("27 (E)");
+  });
+});
+
+describe("conferme dello storico prima dell’avanzamento", () => {
+  it("richiede il Roster vincitore soltanto alla riapertura della free agency", () => {
+    expect(historyConfirmationForTransition("free_agency_reopening")).toMatchObject({
+      field: "winner_roster_history_confirmed",
+      label: expect.stringContaining("Roster vincitore"),
+    });
+    expect(historyConfirmationForTransition("free_agency_end")).toBeNull();
+  });
+
+  it("richiede Albo d’oro e Numero titoli alla fine della stagione", () => {
+    expect(historyConfirmationForTransition("season_end")).toMatchObject({
+      field: "honours_history_confirmed",
+      label: expect.stringContaining("Numero titoli"),
+    });
   });
 });

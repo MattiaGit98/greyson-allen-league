@@ -20,6 +20,10 @@ Il ripristino da file usa la funzione SQL `restore_importable_league_backup`: fa
 
 ## Scritture
 
-Le operazioni amministrative calcolano il nuovo stato sul server e lo salvano tramite funzioni SQL protette. I limiti degli slot sono bloccanti; gli sforamenti del cap previsti dal regolamento vengono mostrati come avvisi forzabili e registrati nel movimento.
+Le operazioni amministrative calcolano il nuovo stato sul server e lo salvano tramite funzioni SQL protette. I salvataggi editoriali confrontano lo stato atteso con quello corrente e rifiutano la scrittura se un'altra sessione lo ha modificato nel frattempo, evitando sovrascritture silenziose.
+
+Gli avanzamenti di fase aggiornano stato e stagione nella stessa transazione; la chiusura della stagione include inoltre archiviazione, nuove competizioni e azzeramento delle date del calendario. Anche la modifica dell'identità di una squadra sincronizza atomicamente stato, tabella `teams`, Draft ancora aperti e competizioni correnti.
+
+I limiti degli slot sono bloccanti; gli sforamenti del cap previsti dal regolamento vengono mostrati come avvisi forzabili e registrati nel movimento.
 
 Le policy RLS consentono la lettura pubblica dei dati necessari alla visualizzazione e riservano le scritture agli utenti presenti in `admin_users`.

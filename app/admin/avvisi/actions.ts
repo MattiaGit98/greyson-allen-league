@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { loadEditableLeagueState } from "@/lib/league-state";
+import { replaceLeagueStateIfUnchanged } from "@/lib/league-state-persistence";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type PublicNoticeSaveState = { message?: string; error?: string };
@@ -21,9 +22,12 @@ export async function savePublicNotice(
   if (!user) return { error: "Sessione scaduta." };
 
   const state = await loadEditableLeagueState();
-  const response = await supabase.rpc("replace_league_state", {
-    state_payload: { ...state, publicNotice },
-  });
+  const response = await replaceLeagueStateIfUnchanged(
+    supabase,
+    state,
+    { ...state, publicNotice },
+    publicNotice ? "Pubblicazione dell'avviso in homepage" : "Rimozione dell'avviso dalla homepage",
+  );
   if (response.error) return { error: response.error.message };
 
   ["/", "/admin", "/admin/avvisi"].forEach((path) => revalidatePath(path));

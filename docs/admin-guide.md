@@ -19,6 +19,8 @@ La pagina **Avanzamento della lega** mostra il momento corrente e il passaggio s
 
 Il passaggio crea un backup della situazione immediatamente precedente. Fase e annata cambiano esclusivamente tramite l’avanzamento della lega, che applica anche gli automatismi previsti.
 
+Le modifiche collegate all'avanzamento vengono confermate dal database come un'unica transazione: se una parte fallisce, nessuna parte dell'avanzamento viene conservata. Se nel frattempo un'altra sessione ha cambiato lo stato o la fase, l'operazione viene rifiutata e la pagina va aggiornata.
+
 ## Stato corrente
 
 Le pagine pubbliche e amministrative leggono lo stesso stato Supabase. Se lo stato non è disponibile, il sito mostra un errore esplicito invece di usare dati iniziali o valori dimostrativi.

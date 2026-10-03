@@ -22,7 +22,6 @@ export function HomeDraftFeature({ year, rows, firstRoundLastPosition }: { year:
     <section className="home-season-feature">
       <header><div><span>Draft {year}</span><h2>Tabellone draft</h2></div><Link href={`/storico?category=Draft&season=${year}`}>Vai allo storico →</Link></header>
       <div className="home-draft-board">
-        <div><span>#</span><span>Squadra</span><span>Giocatore</span></div>
         {rows.map((row, index) => {
           const position = Number(row.pick) || index + 1;
           return <Fragment key={`${row.pick}-${index}`}>

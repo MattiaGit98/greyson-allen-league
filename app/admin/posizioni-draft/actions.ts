@@ -11,6 +11,7 @@ import {
 import { initializeDraftHistory } from "@/lib/draft-history";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
+import { replaceLeagueStateIfUnchanged } from "@/lib/league-state-persistence";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const returnPath = "/admin/posizioni-draft";
@@ -97,7 +98,12 @@ async function saveDraftPositions(formData: FormData, finalize: boolean) {
       movement_summary: `Ordine definitivo Draft ${draftYear}: ${assignments.length} posizioni e ${assignments.filter((assignment) => assignment.isBonus).length} scelte bonus`,
     });
   } else {
-    response = await supabase.rpc("replace_league_state", { state_payload: nextState });
+    response = await replaceLeagueStateIfUnchanged(
+      supabase,
+      state,
+      nextState,
+      `Salvataggio della bozza delle posizioni Draft ${draftYear}`,
+    );
   }
   if (response.error) fail(response.error.message);
   ["/squadre", "/storico", "/movimenti", "/admin", "/admin/draft", "/admin/storico", "/admin/movimenti", returnPath]

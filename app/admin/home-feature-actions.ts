@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { competitionNames } from "@/lib/competitions";
-import { loadEditableLeagueState } from "@/lib/league-state";
+import { competitionNames, type CompetitionName } from "@/lib/competitions";
+import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
+import { replaceLeagueStateIfUnchanged } from "@/lib/league-state-persistence";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function saveHomepageFeatureSelection(kind: "honours" | "competition", value: string | null) {
@@ -18,10 +19,15 @@ export async function saveHomepageFeatureSelection(kind: "honours" | "competitio
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta." };
   const state = await loadEditableLeagueState();
-  const nextState = kind === "honours"
+  const nextState: EditableLeagueState = kind === "honours"
     ? { ...state, homepageHonoursTable: value ?? "" }
-    : { ...state, homepageCompetition: value };
-  const response = await supabase.rpc("replace_league_state", { state_payload: nextState });
+    : { ...state, homepageCompetition: value as CompetitionName | null };
+  const response = await replaceLeagueStateIfUnchanged(
+    supabase,
+    state,
+    nextState,
+    `Selezione del contenuto ${kind === "honours" ? "Albo d'oro" : "Classifiche e tabelloni"} per la homepage`,
+  );
   if (response.error) return { error: response.error.message };
 
   ["/", "/admin/storico", "/admin/contenuti"].forEach((path) => revalidatePath(path));

@@ -224,7 +224,7 @@ export function buildPreAdvanceChecklist(input: {
         title: `${freeOneCreditOptions.length} T.O. da 1 credito stanno per diventare garantite`,
         message: "Dopo la consegna dei contratti non potranno più essere rimosse senza peso sul cap in base a questa eccezione.",
         items: groupPlayerEntries(freeOneCreditOptions),
-        article: "Art. 10(g)",
+        article: "Art. 10(e)",
         href: "/admin/altre-operazioni",
         actionLabel: "Controlla i giocatori",
       });
@@ -236,7 +236,7 @@ export function buildPreAdvanceChecklist(input: {
       tone: "info",
       title: "Si chiude la finestra speciale per gli spostamenti di slot",
       message: "Dopo la consegna non sarà più possibile retrocedere liberamente dal roster a Two-way/G-League o da Two-way a G-League.",
-      article: "Art. 11(c-e, j)",
+      article: "Art. 11(i)",
       href: "/admin/slot",
       actionLabel: "Controlla gli slot",
     });
@@ -249,7 +249,7 @@ export function buildPreAdvanceChecklist(input: {
       tone: "info",
       title: "Il prossimo avanzamento chiude scambi e nuove DPE",
       message: "Dopo la trade deadline si chiudono anche i rilasci gratuiti per squalifica o cause giudiziarie; i nuovi free agent avranno un annuale senza Q.O.",
-      article: "Art. 5(e-f); Art. 10(d); Art. 12(a); Art. 13(a)",
+      article: "Art. 5(d); Art. 10(c); Art. 12(a); Art. 13(a)",
       href: "/admin/scambi",
       actionLabel: "Controlla gli scambi",
     });
@@ -262,7 +262,7 @@ export function buildPreAdvanceChecklist(input: {
       tone: "info",
       title: "Sta per terminare la finestra dei buyout",
       message: "Dopo il prossimo avanzamento non sarà più possibile applicare nuovi buyout.",
-      article: "Art. 10(e); Art. 9(g)",
+      article: "Art. 10(f); Art. 9(c)",
       href: "/admin/altre-operazioni",
       actionLabel: "Controlla i buyout",
     });
@@ -275,7 +275,7 @@ export function buildPreAdvanceChecklist(input: {
       tone: "info",
       title: "Stanno per chiudersi free agency e operazioni collegate",
       message: "Termineranno free agency, rilasci gratuiti e possibilità di reintegro anticipato dalla DPE.",
-      article: "Art. 5(a); Art. 10(c, f); Art. 12(d)",
+      article: "Art. 5(a); Art. 10(b); Art. 12(d)",
       href: "/admin/free-agent",
       actionLabel: "Controlla la free agency",
     });
@@ -306,7 +306,6 @@ export function buildPreAdvanceChecklist(input: {
         tone: "blocker",
         title: "Classifiche pronte per l’archivio riferite a un’altra annata",
         message: `I dati correnti indicano ${input.currentHistorySeason}, mentre la stagione attiva è ${seasonName}.`,
-        article: "Art. 1",
         href: "/admin/contenuti",
         actionLabel: "Controlla classifiche e tabelloni",
       });
@@ -362,7 +361,7 @@ export function buildPreAdvanceChecklist(input: {
           items: rosterMoveIssues.map((issue) => (
             `${issue.teamCode}: ${issue.players.length ? `${issue.players.join(", ")} · ` : ""}${issue.overflow} slot mancanti`
           )),
-          article: "Art. 11(i, k); Art. 12(c)",
+          article: "Art. 11(j); Art. 12(c)",
           href: "/admin/altre-operazioni",
           actionLabel: "Libera gli slot necessari",
         });
@@ -374,7 +373,7 @@ export function buildPreAdvanceChecklist(input: {
             title: `${advance.promotedPlayoffTeamOptionPlayers.length} promozioni T.O. playoff all’inizio dell’offseason`,
             message: "I giocatori saranno spostati automaticamente dalla G-League agli slot roster con il prossimo avanzamento.",
             items: advance.promotedPlayoffTeamOptionPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
-            article: "Art. 11(k)",
+            article: "Art. 11(j)",
           });
         }
         if (advance.reintegratedDpePlayers.length) {
@@ -501,7 +500,7 @@ function addStructuralAlerts(
       title: "Salary cap futuro oltre 1000 crediti",
       message: "Il regolamento non ammette eccezioni; l’avanzamento resta confermabile come forzatura amministrativa.",
       items: futureCapIssues,
-      article: "Art. 9(e-f)",
+      article: "Art. 9(d)",
       href: "/admin/altre-operazioni",
       actionLabel: "Riduci il cap",
     });
@@ -538,7 +537,7 @@ function addStructuralAlerts(
       title: "Squadre oltre 1000 crediti",
       message: "Il superamento dovuto al Draft è ammesso, ma finché permane non sono consentite altre operazioni che aumentino ulteriormente il cap; durante l’asta gli acquisti sono limitati a 1 credito.",
       items: currentCapIssues.map((issue) => `${issue.teamCode}: ${issue.cost} crediti · cap libero ${issue.space}`),
-      article: "Art. 9(b-c)",
+      article: "Art. 9(a-b)",
     });
   } else if (hasReachedMoment(currentMoment, "auction_completed")) {
     const overSeasonLimit = currentCapIssues.filter((issue) => issue.cost > 1100);

@@ -9,6 +9,7 @@ import { normalizePlayerName } from "@/lib/admin-alerts";
 import { requireActiveSeason } from "@/lib/active-season";
 import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
+import { replaceLeagueStateIfUnchanged } from "@/lib/league-state-persistence";
 import { suggestPlayerName } from "@/lib/player-name-matching";
 import { movePlayerToRoleBoundary, orderPlayerListByRole } from "@/lib/player-list-order";
 import { alignActiveRosterEntries, referencedPlayerNames, syncActiveRosterRoles } from "@/lib/player-list-reconciliation";
@@ -96,7 +97,12 @@ export async function savePlayerList(
       playerList: players,
       playerListStatus: status,
     };
-    const response = await supabase.rpc("replace_league_state", { state_payload: nextState });
+    const response = await replaceLeagueStateIfUnchanged(
+      supabase,
+      current,
+      nextState,
+      "Aggiornamento del listone giocatori",
+    );
     if (response.error) return { error: response.error.message };
 
     [
@@ -171,7 +177,12 @@ export async function updatePlayerListEntry(
       rosterEntries: syncActiveRosterRoles(current.rosterEntries, (name) => rolesByName.get(normalizePlayerName(name))),
       playerList: players,
     };
-    const response = await supabase.rpc("replace_league_state", { state_payload: nextState });
+    const response = await replaceLeagueStateIfUnchanged(
+      supabase,
+      current,
+      nextState,
+      `Modifica del giocatore ${player.name} nel listone`,
+    );
     if (response.error) return { error: response.error.message };
 
     revalidatePlayerListPaths();
@@ -296,7 +307,12 @@ export async function confirmPlayerListImport(formData: FormData) {
       playerList: orderedPlayers,
       playerListStatus: "published",
     };
-    const response = await supabase.rpc("replace_league_state", { state_payload: nextState });
+    const response = await replaceLeagueStateIfUnchanged(
+      supabase,
+      current,
+      nextState,
+      "Pubblicazione del listone ufficiale",
+    );
     if (response.error) throw new Error(response.error.message);
     revalidatePlayerListPaths();
     redirect(`/admin/listone?imported=${orderedPlayers.length}&aligned=${requiredSources.length}`);

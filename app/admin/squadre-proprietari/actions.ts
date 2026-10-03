@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
+import { loadEditableLeagueState } from "@/lib/league-state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeHistoryEntries } from "@/lib/history-competitions";
 import { renameOpenDraftHistory, renameTeamIdentity, replaceTeamCodeInContent } from "@/lib/team-identity";
@@ -31,59 +31,48 @@ export async function saveTeamIdentity(
   }
 
   const nextState = renameTeamIdentity(state, originalCode, code, name, owner);
-  const saved = await persistLeagueState(nextState, "Squadra aggiornata.");
-  if (saved.error) return saved;
-  const syncError = await synchronizeTeamIdentity(originalCode, code, name, owner, nextState);
-  revalidatePath("/", "layout");
-  if (syncError) redirect(`/admin/squadre-proprietari?error=${encodeURIComponent(`La squadra è stata aggiornata nello stato della lega, ma non tutti i dati collegati sono stati sincronizzati: ${syncError}`)}`);
-  redirect(`/admin/squadre-proprietari?updated=${encodeURIComponent(saved.message ?? "Squadra aggiornata.")}`);
-}
-
-async function persistLeagueState(state: EditableLeagueState, message: string): Promise<TeamIdentitySaveState> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { error: "Supabase non configurato." };
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta." };
-  const response = await supabase.rpc("replace_league_state", { state_payload: state });
-  if (response.error) return { error: response.error.message };
 
-  return { message };
-}
+  const [draftHistory, competitionContent] = await Promise.all([
+    supabase.from("history_competition_content").select("entries").eq("category", "Draft").maybeSingle(),
+    supabase.from("competition_content").select("season_id,competition_name,content"),
+  ]);
+  if (draftHistory.error) return { error: draftHistory.error.message };
+  if (competitionContent.error) return { error: competitionContent.error.message };
 
-async function synchronizeTeamIdentity(originalCode: string, code: string, name: string, owner: string, state: EditableLeagueState): Promise<string | null> {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return "Supabase non configurato.";
-  const draftHistory = await supabase.from("history_competition_content").select("entries").eq("category", "Draft").maybeSingle();
-  if (draftHistory.error) return draftHistory.error.message;
+  let expectedDraftHistory: unknown = null;
+  let nextDraftHistory: unknown = null;
   if (draftHistory.data) {
     const entries = normalizeHistoryEntries("Draft", draftHistory.data.entries);
-    if (!entries) return "Lo storico del Draft non è valido.";
-    const renamed = renameOpenDraftHistory(entries, state.draftAssets, originalCode, code);
-    if (renamed.changed) {
-      const update = await supabase.rpc("replace_history_competition_content", { target_category: "Draft", payload: renamed.entries });
-      if (update.error) return update.error.message;
-    }
+    if (!entries) return { error: "Lo storico del Draft non è valido." };
+    expectedDraftHistory = draftHistory.data.entries;
+    nextDraftHistory = renameOpenDraftHistory(entries, nextState.draftAssets, originalCode, code).entries;
   }
-  const teamUpdate = await supabase
-    .from("teams")
-    .update({ code, name, owner_name: owner, slug: code.toLocaleLowerCase("it") })
-    .eq("code", originalCode)
-    .select("id");
-  if (teamUpdate.error) return teamUpdate.error.message;
-  if (teamUpdate.data?.length !== 1) return "Squadra non trovata nella tabella delle competizioni.";
+  const competitionUpdates = (competitionContent.data ?? []).map((row) => {
+    const nextContent = replaceTeamCodeInContent(row.content, originalCode, code);
+    return {
+      season_id: row.season_id,
+      competition_name: row.competition_name,
+      expected_content: row.content,
+      next_content: nextContent,
+    };
+  });
+  const response = await supabase.rpc("rename_league_team", {
+    expected_state_payload: state,
+    next_state_payload: nextState,
+    original_code: originalCode,
+    next_code: code,
+    next_name: name,
+    next_owner: owner,
+    expected_draft_history_payload: expectedDraftHistory,
+    next_draft_history_payload: nextDraftHistory,
+    competition_updates: competitionUpdates,
+  });
+  if (response.error) return { error: response.error.message };
 
-  if (originalCode === code) return null;
-  const content = await supabase.from("competition_content").select("season_id,competition_name,content");
-  if (content.error) return content.error.message;
-  for (const row of content.data ?? []) {
-    const replaced = replaceTeamCodeInContent(row.content, originalCode, code);
-    if (JSON.stringify(replaced) === JSON.stringify(row.content)) continue;
-    const result = await supabase
-      .from("competition_content")
-      .update({ content: replaced })
-      .eq("season_id", row.season_id)
-      .eq("competition_name", row.competition_name);
-    if (result.error) return result.error.message;
-  }
-  return null;
+  revalidatePath("/", "layout");
+  redirect(`/admin/squadre-proprietari?updated=${encodeURIComponent("Squadra aggiornata.")}`);
 }

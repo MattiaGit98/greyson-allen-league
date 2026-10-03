@@ -16,6 +16,7 @@ import {
 } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { applyTeamOptionDeadline, buildLeagueTransitionPreview, closeCurrentSeasonExtensionWindow } from "@/lib/league-transition";
+import { historyConfirmationForTransition } from "@/lib/phase-history-confirmation";
 import { savePhaseBackup } from "@/lib/phase-backups";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { applyPostAuctionContractDrafts } from "@/lib/post-auction-contracts";
@@ -33,7 +34,7 @@ import {
 type Supabase = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 const seasonSelection = "id,name,status,team_options_resolved,trade_deadline_passed,timeline_moment,phase_dates";
 
-export async function advanceLeaguePhaseStep() {
+export async function advanceLeaguePhaseStep(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   if (!supabase) phaseError("Supabase non configurato.");
   const { data: { user } } = await supabase.auth.getUser();
@@ -43,6 +44,10 @@ export async function advanceLeaguePhaseStep() {
   const season = seasonResponse.data;
   const currentMoment = leagueMomentFromSeason(season);
   const transition = nextLeagueTransition(currentMoment);
+  const historyConfirmation = historyConfirmationForTransition(transition);
+  if (historyConfirmation && formData.get(historyConfirmation.field) !== "true") {
+    phaseError(historyConfirmation.error);
+  }
   const phaseDates = normalizePhaseDates(season.phase_dates);
   const transitionDate = phaseDateForTransition(phaseDates, transition);
   if (!transitionDate) {
@@ -71,26 +76,15 @@ export async function advanceLeaguePhaseStep() {
   if (backup.error || !backup.data) phaseError(`Backup non riuscito: ${backup.error?.message ?? "errore sconosciuto"}`);
 
   if (transition === "season_end") {
-    const result = await performLeagueSeasonAdvance(supabase, season.name, state, currentHistory);
-    if (result.error) {
-      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
-      phaseError(result.error);
-    }
-    const momentUpdate = await supabase.from("seasons").update({
-      timeline_moment: "offseason_start",
-      team_options_resolved: false,
-      trade_deadline_passed: false,
-      phase_dates: {},
-    }).eq("id", season.id);
-    if (momentUpdate.error) phaseError(momentUpdate.error.message);
-    const calendarReset = await supabase
-      .from("calendar_events")
-      .update({ date_text: "" })
-      .eq("season_id", season.id);
-    if (calendarReset.error) {
-      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
-      phaseError(calendarReset.error.message);
-    }
+    const result = await performLeagueSeasonAdvance(
+      supabase,
+      season.id,
+      season.name,
+      currentMoment,
+      state,
+      currentHistory,
+    );
+    if (result.error) phaseError(result.error);
     revalidateLeaguePages();
     redirect(`/admin/impostazioni?advanced=${encodeURIComponent(result.nextSeasonName ?? "")}`);
   }
@@ -105,7 +99,6 @@ export async function advanceLeaguePhaseStep() {
         requireComplete: true,
       });
     } catch (error) {
-      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
       phaseError(error instanceof Error ? error.message : "Bozze dei contratti non valide.");
     }
     const published = await supabase.rpc("publish_post_auction_contracts", {
@@ -115,10 +108,7 @@ export async function advanceLeaguePhaseStep() {
       requested_season_name: season.name,
       expected_draft_rows: contractDraftRows(contractDrafts),
     });
-    if (published.error) {
-      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
-      phaseError(published.error.message);
-    }
+    if (published.error) phaseError(published.error.message);
     revalidateLeaguePages();
     redirect(`/admin/impostazioni?stepped=${encodeURIComponent(transition)}`);
   }
@@ -129,24 +119,18 @@ export async function advanceLeaguePhaseStep() {
   if (transition === "auction_completed" && state.qualifyingOfferRights.length) {
     nextState = { ...nextState, qualifyingOfferRights: [] };
   }
-  if (nextState !== state) {
-    const savedState = await supabase.rpc("replace_league_state", { state_payload: nextState });
-    if (savedState.error) {
-      await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
-      phaseError(savedState.error.message);
-    }
-  }
-
-  const update = await supabase.from("seasons").update({
-    status: macroPhaseForMoment(transition),
-    timeline_moment: transition,
-    team_options_resolved: teamOptionsAreResolved(transition),
-    trade_deadline_passed: tradeDeadlineHasPassed(transition),
-  }).eq("id", season.id);
-  if (update.error) {
-    await supabase.rpc("restore_league_phase_backup", { requested_backup_id: backup.data.id });
-    phaseError(update.error.message);
-  }
+  const update = await supabase.rpc("advance_league_transition", {
+    expected_state_payload: state,
+    next_state_payload: nextState,
+    requested_season_id: season.id,
+    expected_season_name: season.name,
+    expected_timeline_moment: currentMoment,
+    next_timeline_moment: transition,
+    next_status: macroPhaseForMoment(transition),
+    next_team_options_resolved: teamOptionsAreResolved(transition),
+    next_trade_deadline_passed: tradeDeadlineHasPassed(transition),
+  });
+  if (update.error) phaseError(update.error.message);
 
   revalidateLeaguePages();
   redirect(`/admin/impostazioni?stepped=${encodeURIComponent(transition)}`);
@@ -186,7 +170,9 @@ export async function saveLeaguePhaseDates(formData: FormData) {
 
 async function performLeagueSeasonAdvance(
   supabase: Supabase,
+  seasonId: string,
   seasonName: string,
+  currentMoment: string,
   state: EditableLeagueState,
   currentHistory: Awaited<ReturnType<typeof loadCurrentHistoryImports>>,
 ) {
@@ -216,8 +202,11 @@ async function performLeagueSeasonAdvance(
       playerListStatus: "offseason" as const,
     };
     const response = await supabase.rpc("advance_league_and_archive_competitions", {
+      expected_state_payload: state,
       state_payload: nextState,
+      requested_season_id: seasonId,
       expected_season_name: seasonName,
+      expected_timeline_moment: currentMoment,
       next_season_name: advance.nextSeasonName,
       history_payload: historyPayload,
       competition_payload: defaultCompetitionMap(state.teams.length),

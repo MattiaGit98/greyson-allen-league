@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AvailableOperations } from "@/components/available-operations";
 import { HomeCompetitionFeature, HomeDraftFeature, HomeHonoursFeature } from "@/components/home-season-feature";
+import { HomeMovementList } from "@/components/home-movement-list";
 import { requireActiveSeason } from "@/lib/active-season";
 import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
 import { availableOperationsAt } from "@/lib/available-operations";
@@ -113,14 +114,18 @@ export default async function HomePage() {
               <Link href="/movimenti">Tutti i movimenti →</Link>
             </header>
             {movements.length ? (
-              <div className="home-movement-list">
-                {movements.map((movement) => (
-                  <div className="home-movement" key={movement.id}>
-                    <time dateTime={movement.created_at}>{formatMovementDate(movement.created_at)}</time>
-                    <div><strong>{movementOperationLabel(String(movement.operation_type))}</strong><span>{conciseMovementDetail(String(movement.operation_type), String(movement.summary))}</span></div>
-                  </div>
-                ))}
-              </div>
+              <HomeMovementList movements={movements.map((movement) => {
+                const operationType = String(movement.operation_type);
+                const fullDetail = String(movement.summary);
+                return {
+                  id: String(movement.id),
+                  dateTime: movement.created_at,
+                  displayedDate: formatMovementDate(movement.created_at),
+                  operation: movementOperationLabel(operationType),
+                  conciseDetail: conciseMovementDetail(operationType, fullDetail),
+                  fullDetail,
+                };
+              })} />
             ) : <p className="home-empty">Nessun movimento registrato.</p>}
           </section>
         </div>
