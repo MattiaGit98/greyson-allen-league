@@ -267,6 +267,8 @@ function contextualOperationSummary(operations: AppliedContextualSlotOperation[]
   return operations.map((operation) => (
     operation.kind === "cut"
       ? `; taglio contestuale di ${operation.playerName}`
+      : operation.kind === "free_release"
+        ? `; rilascio gratuito contestuale di ${operation.playerName}`
       : `; spostamento contestuale di ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}`
   )).join("");
 }
@@ -275,6 +277,8 @@ function contextualOperationSuccessSuffix(operations: AppliedContextualSlotOpera
   return operations.map((operation) => (
     operation.kind === "cut"
       ? ` Taglio contestuale: ${operation.playerName}.`
+      : operation.kind === "free_release"
+        ? ` Rilascio gratuito contestuale: ${operation.playerName}.`
       : ` Spostamento contestuale: ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}.`
   )).join("");
 }

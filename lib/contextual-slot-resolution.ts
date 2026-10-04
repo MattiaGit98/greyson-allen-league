@@ -6,23 +6,26 @@ export type ContextualSlotPlayer = {
   name: string;
   slot: ContextualSlot;
   cuttable: boolean;
+  freeReleasable?: boolean;
   moveDestinations: ContextualSlot[];
 };
 
 export type ContextualSlotDecision = {
-  kind: "cut" | "move" | "";
+  kind: "cut" | "free_release" | "move" | "";
   playerName: string;
   destinationSlot: ContextualSlot | "";
 };
 
 export type AppliedContextualSlotOperation =
   | { kind: "cut"; playerName: string; sourceSlot: ContextualSlot }
+  | { kind: "free_release"; playerName: string; sourceSlot: ContextualSlot }
   | { kind: "move"; playerName: string; sourceSlot: ContextualSlot; destinationSlot: ContextualSlot };
 
 export type ContextualSlotResolutionStep = {
   slot: ContextualSlot;
   decision: ContextualSlotDecision;
   cutCandidates: ContextualSlotPlayer[];
+  freeReleaseCandidates: ContextualSlotPlayer[];
   moveCandidates: ContextualSlotPlayer[];
 };
 
@@ -64,11 +67,12 @@ export function resolveContextualSlots({
     const slot = overflowingSlots[0]!;
     const availablePlayers = players.filter((player) => currentSlots.get(player.name) === slot && !usedPlayers.has(player.name));
     const cutCandidates = availablePlayers.filter((player) => player.cuttable);
+    const freeReleaseCandidates = availablePlayers.filter((player) => player.freeReleasable);
     const moveCandidates = availablePlayers.filter((player) => player.moveDestinations.length > 0);
     const decision = decisions[index] ?? emptyContextualSlotDecision();
-    steps.push({ slot, decision, cutCandidates, moveCandidates });
+    steps.push({ slot, decision, cutCandidates, freeReleaseCandidates, moveCandidates });
 
-    if (!cutCandidates.length && !moveCandidates.length) {
+    if (!cutCandidates.length && !freeReleaseCandidates.length && !moveCandidates.length) {
       errors.push(`Non ci sono operazioni consentite per liberare lo slot ${contextualSlotLabel(slot)}.`);
       return { complete: false, countsAfter, operations, steps, errors };
     }
@@ -89,6 +93,16 @@ export function resolveContextualSlots({
       countsAfter[slot] -= 1;
       usedPlayers.add(selectedPlayer.name);
       operations.push({ kind: "cut", playerName: selectedPlayer.name, sourceSlot: slot });
+      continue;
+    }
+    if (decision.kind === "free_release") {
+      if (!selectedPlayer.freeReleasable) {
+        errors.push(`${selectedPlayer.name} non può essere rilasciato gratuitamente in questa operazione.`);
+        return { complete: false, countsAfter, operations, steps, errors };
+      }
+      countsAfter[slot] -= 1;
+      usedPlayers.add(selectedPlayer.name);
+      operations.push({ kind: "free_release", playerName: selectedPlayer.name, sourceSlot: slot });
       continue;
     }
 
@@ -129,16 +143,16 @@ export function parseContextualSlotDecisions(value: FormDataEntryValue | null) {
     const playerName = typeof decision.playerName === "string" ? decision.playerName.trim() : "";
     const destinationSlot = decision.destinationSlot;
     if (
-      !["cut", "move"].includes(String(kind))
+      !["cut", "free_release", "move"].includes(String(kind))
       || !playerName
       || playerName.length > 120
       || (destinationSlot !== "" && !contextualSlotOrder.includes(destinationSlot as ContextualSlot))
-      || (kind === "cut" && destinationSlot !== "")
+      || ((kind === "cut" || kind === "free_release") && destinationSlot !== "")
       || (kind === "move" && destinationSlot === "")
     ) {
       throw new Error("Operazioni contestuali non valide.");
     }
-    return { kind: kind as "cut" | "move", playerName, destinationSlot: destinationSlot as ContextualSlot | "" };
+    return { kind: kind as "cut" | "free_release" | "move", playerName, destinationSlot: destinationSlot as ContextualSlot | "" };
   });
 }
 

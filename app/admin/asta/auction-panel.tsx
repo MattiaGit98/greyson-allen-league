@@ -6,8 +6,6 @@ import {
   auctionDestinationErrors,
   isPostAuctionContractAssignmentCandidate,
   qualifyingAuctionErrors,
-  auctionSlotCapacityErrors,
-  auctionSlotCountsAfterMove,
   auctionSlotLimits,
   type AuctionSlot,
   type QualifyingAuctionOutcome,
@@ -17,7 +15,7 @@ import { contractIncludesTeamOption, slotEligibilityErrors, slotMoveTimingErrors
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
 import { UndoMovementButton } from "@/app/admin/movimenti/undo-movement-button";
-import { resolveContextualSlots, type ContextualSlotDecision } from "@/lib/contextual-slot-resolution";
+import { resolveContextualSlots, type AppliedContextualSlotOperation, type ContextualSlotDecision } from "@/lib/contextual-slot-resolution";
 import { annualTeamOptionContract, isAnnualTeamOptionContract } from "@/lib/team-option-contract";
 import { modifyAuctionPlayer, purchaseAuctionPlayer } from "./actions";
 
@@ -34,6 +32,8 @@ type AuctionTeam = {
     contract: string;
     slot: AuctionSlot;
     cuttable: boolean;
+    freeReleasable: boolean;
+    charges: [number, number, number];
     moveDestinations: AuctionSlot[];
   }[];
 };
@@ -192,6 +192,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     name: player.name,
     slot: player.slot,
     cuttable: player.cuttable,
+    freeReleasable: player.freeReleasable,
     moveDestinations: player.moveDestinations,
   }));
   const slotResolution = resolveContextualSlots({
@@ -214,8 +215,12 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     }),
     ...auctionDestinationErrors({ slot: effectiveSlot, price: effectivePrice, rookie: row.rookie, under23: row.under23 }),
   ];
-  const capWarnings = (team && team.spaces[0] - effectivePrice < 0 && effectivePrice > 1)
-    ? [`L'offerta supera quota 1000: in asta sarebbe consentito soltanto un acquisto da 1 credito (cap libero ${team.spaces[0]} → ${team.spaces[0] - effectivePrice}).`]
+  const releasedCap = slotResolution.operations
+    .filter((operation) => operation.kind === "free_release")
+    .reduce((total, operation) => total + (team?.players.find((player) => player.name === operation.playerName)?.charges[0] ?? 0), 0);
+  const capAfterPurchase = team ? team.spaces[0] - effectivePrice + releasedCap : 0;
+  const capWarnings = (team && capAfterPurchase < 0 && effectivePrice > 1)
+    ? [`L'offerta supera quota 1000: in asta sarebbe consentito soltanto un acquisto da 1 credito (cap libero ${team.spaces[0]} → ${capAfterPurchase}).`]
     : [];
   const afterSlots = team ? slotResolution.countsAfter : null;
   const slotLimit = effectiveSlot === "regular" ? 15 : effectiveSlot === "two_way" ? 2 : 3;
@@ -285,7 +290,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
         />
 
         <div className="auction-modal-summary">
-          <Metric label={`Cap libero ${seasonName}`} value={team ? `${team.spaces[0]} → ${team.spaces[0] - effectivePrice}` : "—"} />
+          <Metric label={`Cap libero ${seasonName}`} value={team ? `${team.spaces[0]} → ${capAfterPurchase}` : "—"} />
           <Metric label="Slot" value={team && afterSlots ? `${team.slots[effectiveSlot]}/${slotLimit} → ${afterSlots[effectiveSlot]}/${slotLimit}` : "—"} />
           <Metric label="Acquisto" value={qualifyingOutcome ? auctionAcquisitionLabel(qualifyingOutcome === "qualifying_offer" || qualifyingOutcome === "restricted_free_agent" ? qualifyingOutcome : undefined) : "Da specificare"} />
         </div>
@@ -306,41 +311,35 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
   const roster = row.roster!;
   const [kind, setKind] = useState<"cut" | "free_release" | "slot">("cut");
   const [newSlot, setNewSlot] = useState<AuctionSlot>(roster.slot === "dpe" ? "regular" : roster.slot);
-  const [exchangePlayerName, setExchangePlayerName] = useState("");
+  const [slotDecisions, setSlotDecisions] = useState<ContextualSlotDecision[]>([]);
   const [reviewing, setReviewing] = useState(false);
   const team = teams.find((item) => item.code === roster.teamCode);
-  const legalSlotDestinations = legalAuctionSlotDestinations(row, seasonName);
-  const availableSlotDestinations = legalSlotDestinations.filter((destination) => {
-    const directCounts = team ? auctionSlotCountsAfterMove({
-      counts: team.slots,
-      fromSlot: roster.slot,
-      toSlot: destination,
-      hasExchange: false,
-    }) : null;
-    if (!directCounts || !auctionSlotCapacityErrors(directCounts).length) return true;
-    return rows.some((item) => (
-      item.name !== row.name
-      && item.roster?.teamCode === roster.teamCode
-      && item.roster.slot === destination
-      && legalAuctionSlotDestinations(item, seasonName).includes(roster.slot as AuctionSlot)
-    ));
+  const availableSlotDestinations = legalAuctionSlotDestinations(row, seasonName);
+  const slotResolutionPlayers = (team?.players ?? []).filter((player) => player.name !== row.name);
+  const slotResolutionBaseCounts = team
+    ? {
+      ...team.slots,
+      ...(roster.slot !== "dpe" ? { [roster.slot]: team.slots[roster.slot] - 1 } : {}),
+    }
+    : { regular: 0, two_way: 0, g_league: 0 };
+  const slotResolution = resolveContextualSlots({
+    counts: slotResolutionBaseCounts,
+    incomingSlot: newSlot,
+    players: slotResolutionPlayers,
+    decisions: slotDecisions,
   });
-  const exchangeCandidates = roster.slot === "dpe" ? [] : rows.filter((item) => (
-    item.name !== row.name
-    && item.roster?.teamCode === roster.teamCode
-    && item.roster.slot === newSlot
-    && legalAuctionSlotDestinations(item, seasonName).includes(roster.slot as AuctionSlot)
-  ));
-  const exchangePlayer = exchangeCandidates.find((item) => item.name === exchangePlayerName);
-  const slotsAfterMove = team && kind === "slot"
-    ? auctionSlotCountsAfterMove({
-      counts: team.slots,
-      fromSlot: roster.slot,
-      toSlot: newSlot,
-      hasExchange: Boolean(exchangePlayer),
-    })
-    : null;
-  const afterSpaces = editSpaces(row, team, kind, newSlot, exchangePlayer);
+  const slotsAfterMove = kind === "slot" ? slotResolution.countsAfter : null;
+  const slotSummarySlots = kind === "slot"
+    ? (["regular", "two_way", "g_league"] as AuctionSlot[]).filter((candidate) => (
+      candidate === roster.slot
+      || candidate === newSlot
+      || slotResolution.operations.some((operation) => (
+        operation.sourceSlot === candidate
+        || (operation.kind === "move" && operation.destinationSlot === candidate)
+      ))
+    ))
+    : [];
+  const afterSpaces = editSpaces(row, rows, team, kind, newSlot, slotResolution.operations);
   const errors = [
     ...(phase !== "auction" ? ["La fase della lega non è impostata su Asta."] : []),
     ...(pendingDraftPicks > 0 ? [`Il Draft dell'annata non è completo: restano ${pendingDraftPicks} scelte.`] : []),
@@ -348,27 +347,20 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
     ...(kind === "slot" && roster.slot === "dpe" ? ["Il reintegro dalla DPE va registrato nel blocco Altre operazioni."] : []),
     ...(kind === "slot" && roster.auctionAcquisition && newSlot !== "regular" ? ["Un acquisto tramite Q.O. o come RFA deve restare nello slot roster."] : []),
     ...(kind === "slot" ? auctionDestinationErrors({ slot: newSlot, price: roster.cost, rookie: row.rookie, under23: row.under23 }) : []),
-    ...(kind === "slot" && exchangePlayerName && !exchangePlayer ? ["Il giocatore scelto per lo scambio di slot non è più disponibile."] : []),
-    ...(kind === "slot" && exchangePlayer?.roster?.auctionAcquisition && roster.slot !== "regular" ? [`${exchangePlayer.name}: un acquisto tramite Q.O. o come RFA deve restare nello slot roster.`] : []),
-    ...(kind === "slot" && exchangePlayer && roster.slot !== "dpe" ? auctionDestinationErrors({
-      slot: roster.slot,
-      price: exchangePlayer.roster!.cost,
-      rookie: exchangePlayer.rookie,
-      under23: exchangePlayer.under23,
-    }).map((error) => `${exchangePlayer.name}: ${error}`) : []),
-    ...(kind === "slot" && slotsAfterMove ? auctionSlotCapacityErrors(slotsAfterMove) : []),
+    ...(kind === "slot" && !availableSlotDestinations.includes(newSlot) ? ["Lo spostamento selezionato non è consentito per questo giocatore."] : []),
+    ...(kind === "slot" ? slotResolution.errors : []),
   ];
   const capWarnings = [
     ...((kind === "cut" && roster.slot === "dpe" && afterSpaces[0] < 0) ? [`Il taglio dalla DPE porta il cap libero a ${afterSpaces[0]}.`] : []),
     ...((kind === "slot" && roster.slot === "dpe" && afterSpaces[0] < 0) ? [`Lo spostamento dalla DPE porta il cap libero a ${afterSpaces[0]}.`] : []),
     ...(afterSpaces.slice(1).some((space) => space < 0) ? ["La modifica porta almeno una stagione futura oltre quota 1000."] : []),
   ];
-  const details = modificationDetails(row, kind, newSlot, team, afterSpaces, seasonName, exchangePlayer);
+  const details = modificationDetails(row, rows, kind, newSlot, team, afterSpaces, seasonName, slotResolution.operations);
 
   if (reviewing) {
     return (
       <form action={modifyAuctionPlayer} className="auction-modal auction-confirm-modal" role="alertdialog" aria-modal="true" aria-label={`Conferma operazione su ${row.name}`}>
-        <EditHiddenFields row={row} kind={kind} newSlot={newSlot} exchangePlayerName={exchangePlayerName} />
+        <EditHiddenFields row={row} kind={kind} newSlot={newSlot} slotDecisions={slotDecisions} />
         <ModalHeader row={row} label="Conferma operazione" onClose={onClose} />
         <div className="auction-confirm-body">
           <p>Stai per applicare questa operazione:</p>
@@ -377,7 +369,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
         </div>
         <div className="auction-modal-actions">
           <button className="button secondary" type="button" onClick={() => setReviewing(false)}>Indietro</button>
-          <button className="button primary danger-button" type="submit" disabled={pendingDraftPicks > 0}>Conferma definitivamente</button>
+          <button className="button primary danger-button" type="submit" disabled={pendingDraftPicks > 0 || errors.length > 0 || capWarnings.length > 0 || (kind === "slot" && !slotResolution.complete)}>Conferma definitivamente</button>
         </div>
       </form>
     );
@@ -397,7 +389,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
               const nextKind = event.target.value as typeof kind;
               setKind(nextKind);
               if (nextKind === "slot") setNewSlot(availableSlotDestinations[0] ?? roster.slot as AuctionSlot);
-              setExchangePlayerName("");
+              setSlotDecisions([]);
               setReviewing(false);
             }}>
               <option value="cut">Taglia</option>
@@ -407,39 +399,39 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
           </Field>
           {kind === "slot" && (
             <Field label="Nuovo slot">
-              <select value={newSlot} onChange={(event) => { setNewSlot(event.target.value as AuctionSlot); setExchangePlayerName(""); }}>
+              <select value={newSlot} onChange={(event) => { setNewSlot(event.target.value as AuctionSlot); setSlotDecisions([]); setReviewing(false); }}>
                 {availableSlotDestinations.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>)}
               </select>
             </Field>
           )}
-          {kind === "slot" && roster.slot !== "dpe" && (
-            <Field label={`Giocatore da spostare in ${slotLabel(roster.slot)}`}>
-              <select value={exchangePlayerName} onChange={(event) => { setExchangePlayerName(event.target.value); }}>
-                <option value="">Nessuno</option>
-                {exchangeCandidates.map((item) => (
-                  <option value={item.name} key={item.name}>{item.name} · {item.roster!.cost} crediti</option>
-                ))}
-              </select>
-            </Field>
-          )}
         </div>
+        {kind === "slot" && (
+          <ContextualSlotResolver
+            counts={slotResolutionBaseCounts}
+            incomingSlot={newSlot}
+            players={slotResolutionPlayers}
+            value={slotDecisions}
+            onChange={(next) => { setSlotDecisions(next); setReviewing(false); }}
+          />
+        )}
         <div className="auction-modal-summary cap-three-years">
           {afterSpaces.map((space, index) => (
             <Metric label={`Cap libero ${seasonLabel(seasonName, index)}`} value={team ? `${team.spaces[index]} → ${space}` : "—"} key={index} />
           ))}
-          {kind === "slot" && team && slotsAfterMove && (
+          {kind === "slot" && team && slotsAfterMove && slotSummarySlots.map((slot) => (
             <Metric
-              label={`Slot ${slotLabel(newSlot)}`}
-              value={`${team.slots[newSlot]}/${auctionSlotLimits[newSlot]} → ${slotsAfterMove[newSlot]}/${auctionSlotLimits[newSlot]}`}
+              label={`Slot ${slotLabel(slot)}`}
+              value={`${team.slots[slot]}/${auctionSlotLimits[slot]} → ${slotsAfterMove[slot]}/${auctionSlotLimits[slot]}`}
+              key={slot}
             />
-          )}
+          ))}
         </div>
         {errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         <CapBlocker warnings={capWarnings} />
       </div>
       <div className="auction-modal-actions">
         <button className="button secondary" type="button" onClick={onClose}>Annulla</button>
-        <button className="button primary" type="button" disabled={errors.length > 0 || capWarnings.length > 0} onClick={() => setReviewing(true)}>Prosegui</button>
+        <button className="button primary" type="button" disabled={errors.length > 0 || capWarnings.length > 0 || (kind === "slot" && !slotResolution.complete)} onClick={() => setReviewing(true)}>Prosegui</button>
       </div>
     </div>
   );
@@ -459,19 +451,26 @@ function legalAuctionSlotDestinations(row: AuctionRow, seasonName: string): Auct
   });
 }
 
-function EditHiddenFields({ row, kind, newSlot, exchangePlayerName }: { row: AuctionRow; kind: string; newSlot: AuctionSlot; exchangePlayerName: string }) {
+function EditHiddenFields({ row, kind, newSlot, slotDecisions }: { row: AuctionRow; kind: string; newSlot: AuctionSlot; slotDecisions: ContextualSlotDecision[] }) {
   return <>
     <input type="hidden" name="player_name" value={row.name} />
     <input type="hidden" name="team_code" value={row.roster?.teamCode ?? ""} />
     <input type="hidden" name="edit_kind" value={kind} />
     <input type="hidden" name="new_slot" value={newSlot} />
-    <input type="hidden" name="exchange_player_name" value={exchangePlayerName} />
+    <input type="hidden" name="slot_resolution_json" value={JSON.stringify(slotDecisions)} />
     <input type="hidden" name="requirements_confirmed" value="true" />
     <input type="hidden" name="return_path" value="/admin/asta" />
   </>;
 }
 
-function editSpaces(row: AuctionRow, team: AuctionTeam | undefined, kind: "cut" | "free_release" | "slot", newSlot: AuctionSlot, exchangePlayer?: AuctionRow): [number, number, number] {
+function editSpaces(
+  row: AuctionRow,
+  rows: AuctionRow[],
+  team: AuctionTeam | undefined,
+  kind: "cut" | "free_release" | "slot",
+  newSlot: AuctionSlot,
+  contextualOperations: AppliedContextualSlotOperation[],
+): [number, number, number] {
   if (!team || !row.roster) return [0, 0, 0];
   const { roster } = row;
   if (kind === "free_release") return team.spaces.map((space, index) => (
@@ -481,30 +480,66 @@ function editSpaces(row: AuctionRow, team: AuctionTeam | undefined, kind: "cut" 
   if (kind === "slot") {
     const after = [...team.spaces] as [number, number, number];
     if (roster.slot === "dpe") after[0] -= roster.charges[0];
-    if (newSlot !== "regular" && !roster.pendingAuctionContract && !contractIncludesTeamOption(roster)) {
-      after[1] += roster.charges[1];
-      after[2] += roster.charges[2];
-    }
-    if (exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && !contractIncludesTeamOption(exchangePlayer.roster)) {
-      after[1] += exchangePlayer.roster.charges[1];
-      after[2] += exchangePlayer.roster.charges[2];
+    releaseFutureCapForSpecialSlot(after, roster, newSlot);
+    for (const operation of contextualOperations) {
+      const movedRoster = rows.find((item) => item.name === operation.playerName)?.roster;
+      if (!movedRoster) continue;
+      if (operation.kind === "free_release") {
+        movedRoster.charges.forEach((charge, index) => { after[index] += charge; });
+      } else if (operation.kind === "move") {
+        releaseFutureCapForSpecialSlot(after, movedRoster, operation.destinationSlot);
+      }
     }
     return after;
   }
   return team.spaces;
 }
 
-function modificationDetails(row: AuctionRow, kind: "cut" | "free_release" | "slot", newSlot: AuctionSlot, team: AuctionTeam | undefined, afterSpaces: [number, number, number], seasonName: string, exchangePlayer?: AuctionRow) {
+function releaseFutureCapForSpecialSlot(
+  spaces: [number, number, number],
+  roster: NonNullable<AuctionRow["roster"]>,
+  destination: AuctionSlot,
+) {
+  if (destination === "regular" || roster.pendingAuctionContract || contractIncludesTeamOption(roster)) return;
+  spaces[1] += roster.charges[1];
+  spaces[2] += roster.charges[2];
+}
+
+function modificationDetails(
+  row: AuctionRow,
+  rows: AuctionRow[],
+  kind: "cut" | "free_release" | "slot",
+  newSlot: AuctionSlot,
+  team: AuctionTeam | undefined,
+  afterSpaces: [number, number, number],
+  seasonName: string,
+  contextualOperations: AppliedContextualSlotOperation[],
+) {
   const roster = row.roster!;
   const lines = team ? afterSpaces.map((space, index) => `Cap libero ${seasonLabel(seasonName, index)}: ${team.spaces[index]} → ${space}`) : [];
   if (kind === "cut") return { title: `${row.name} sarà tagliato da ${roster.teamCode}`, lines: [`Il contratto da ${roster.cost} crediti continuerà a pesare fino alla scadenza ${roster.contract}.`, ...lines] };
   if (kind === "free_release") return { title: `${row.name} sarà rilasciato gratuitamente da ${roster.teamCode}`, lines: ["Resterà tra i tagliati a 0 crediti con la stessa scadenza contrattuale.", ...lines] };
+  const optionContract = annualTeamOptionContract(Number(seasonName.match(/\/(\d{2})$/)?.[1]));
+  const contextualLines = contextualOperations.flatMap((operation) => {
+    if (operation.kind === "cut") {
+      return [`Taglio contestuale: ${operation.playerName} da ${slotLabel(operation.sourceSlot)}`];
+    }
+    if (operation.kind === "free_release") {
+      return [`Rilascio gratuito contestuale: ${operation.playerName} da ${slotLabel(operation.sourceSlot)}`];
+    }
+    const movedRoster = rows.find((item) => item.name === operation.playerName)?.roster;
+    return [
+      `Spostamento contestuale: ${operation.playerName}, ${slotLabel(operation.sourceSlot)} → ${slotLabel(operation.destinationSlot)}`,
+      ...(movedRoster && operation.destinationSlot !== "regular" && !movedRoster.pendingAuctionContract && !contractIncludesTeamOption(movedRoster)
+        ? [`Contratto di ${operation.playerName}: ${movedRoster.contract} → ${optionContract}`]
+        : []),
+    ];
+  });
   return {
     title: `${row.name}: ${slotLabel(roster.slot)} → ${slotLabel(newSlot)}`,
     lines: [
-      ...(exchangePlayer ? [`${exchangePlayer.name}: ${slotLabel(newSlot)} → ${slotLabel(roster.slot)}`] : []),
-      ...(newSlot !== "regular" && !roster.pendingAuctionContract && !contractIncludesTeamOption(roster) ? [`Contratto di ${row.name}: ${roster.contract} → ${annualTeamOptionContract(Number(seasonName.match(/\/(\d{2})$/)?.[1]))}`] : []),
-      ...(exchangePlayer?.roster && roster.slot !== "regular" && !exchangePlayer.roster.pendingAuctionContract && !contractIncludesTeamOption(exchangePlayer.roster) ? [`Contratto di ${exchangePlayer.name}: ${exchangePlayer.roster.contract} → ${annualTeamOptionContract(Number(seasonName.match(/\/(\d{2})$/)?.[1]))}`] : []),
+      ...contextualLines,
+      ...(newSlot !== "regular" && !roster.pendingAuctionContract && !contractIncludesTeamOption(roster) ? [`Contratto di ${row.name}: ${roster.contract} → ${optionContract}`] : []),
       ...lines,
     ],
   };

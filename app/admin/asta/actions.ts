@@ -90,6 +90,12 @@ export async function purchaseAuctionPlayer(formData: FormData) {
         name: entry.name,
         slot: entry.slot as AuctionSlot,
         cuttable: true,
+        freeReleasable: freeReleaseReasonAvailability(
+          "one_credit_team_option",
+          moment,
+          entry,
+          season.name,
+        ).available,
         moveDestinations: legalAuctionContextualDestinations({
           entry,
           rookie: listedPlayer?.rookie ?? false,
@@ -104,6 +110,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
   if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
   const contextualCuts = new Set(slotResolution.operations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
+  const contextualFreeReleases = new Set(slotResolution.operations.filter((operation) => operation.kind === "free_release").map((operation) => operation.playerName));
   const contextualMoves = new Map(slotResolution.operations.flatMap((operation) => (
     operation.kind === "move" ? [[operation.playerName, operation.destinationSlot] as const] : []
   )));
@@ -129,6 +136,9 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   };
   const rosterEntries = [
     ...state.rosterEntries.map((entry) => {
+      if (contextualFreeReleases.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
+        return applyFreeRelease(entry);
+      }
       if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
         return applyStandardContractCut(entry, currentEndYear, "auction_start");
       }
@@ -148,7 +158,9 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   const nextState: EditableLeagueState = {
     ...state,
     rosterEntries,
-    qualifyingOfferRights: state.qualifyingOfferRights.filter((right) => right.playerName !== playerName),
+    qualifyingOfferRights: state.qualifyingOfferRights.filter((right) => (
+      right.playerName !== playerName && !contextualFreeReleases.has(right.playerName)
+    )),
   };
   await persistAuctionState(
     supabase,
@@ -178,6 +190,8 @@ function contextualOperationSummary(operations: AppliedContextualSlotOperation[]
   return operations.map((operation) => (
     operation.kind === "cut"
       ? `; taglio contestuale di ${operation.playerName}`
+      : operation.kind === "free_release"
+        ? `; rilascio gratuito contestuale di ${operation.playerName}`
       : `; spostamento contestuale di ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}`
   )).join("");
 }
@@ -186,6 +200,8 @@ function contextualOperationSuccessSuffix(operations: AppliedContextualSlotOpera
   return operations.map((operation) => (
     operation.kind === "cut"
       ? ` Taglio contestuale: ${operation.playerName}.`
+      : operation.kind === "free_release"
+        ? ` Rilascio gratuito contestuale: ${operation.playerName}.`
       : ` Spostamento contestuale: ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}.`
   )).join("");
 }
@@ -195,8 +211,14 @@ export async function modifyAuctionPlayer(formData: FormData) {
   const requestedTeamCode = cleanText(formData.get("team_code")).toUpperCase();
   const kind = cleanText(formData.get("edit_kind")) as AuctionEditKind;
   const newSlot = cleanText(formData.get("new_slot")) as AuctionSlot;
-  const exchangePlayerName = cleanText(formData.get("exchange_player_name"));
+  let slotDecisions;
+  try {
+    slotDecisions = parseContextualSlotDecisions(formData.get("slot_resolution_json"));
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Operazioni contestuali non valide.");
+  }
   if (!playerName || !requestedTeamCode || !["cut", "free_release", "slot"].includes(kind)) fail("Operazione non valida.");
+  if (kind !== "slot" && slotDecisions.length) fail("Sono state inserite operazioni contestuali non necessarie.");
 
   const { supabase, season } = await auctionContext();
   const state = await loadEditableLeagueState();
@@ -213,7 +235,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
   if (!entry) fail("Il giocatore non appartiene più alla squadra indicata.");
 
   let rosterEntries: RosterEntry[];
-  let exchangeEntry: RosterEntry | undefined;
+  let contextualOperations: AppliedContextualSlotOperation[] = [];
   if (kind === "cut") {
     const currentEndYear = seasonEndYear(season.name);
     if (currentEndYear === null) fail("Annata non valida.");
@@ -234,11 +256,12 @@ export async function modifyAuctionPlayer(formData: FormData) {
     if (entry.auctionAcquisition && newSlot !== "regular") {
       fail("Un giocatore acquistato tramite Q.O. o come RFA deve restare nello slot roster.");
     }
+    const moment = leagueMomentFromSeason(season);
     const timingErrors = slotMoveTimingErrors(
       { ...entry, slot: entry.slot as ManagedRosterSlot },
       newSlot,
       season.name,
-      leagueMomentFromSeason(season),
+      moment,
     );
     if (timingErrors.length) fail(timingErrors.join(" "));
     if (!isPostAuctionContractAssignmentCandidate(entry, season.name)) {
@@ -253,62 +276,64 @@ export async function modifyAuctionPlayer(formData: FormData) {
     });
     if (destinationErrors.length) fail(destinationErrors.join(" "));
 
-    let exchangeIndex = -1;
-    if (exchangePlayerName) {
-      exchangeIndex = state.rosterEntries.findIndex((item) => (
-        item.name === exchangePlayerName
-        && item.teamCode === requestedTeamCode
-        && item.state === "active"
-      ));
-      exchangeEntry = state.rosterEntries[exchangeIndex];
-      if (!exchangeEntry || exchangeIndex === entryIndex) fail("Il giocatore scelto per lo scambio di slot non è disponibile.");
-      if (exchangeEntry.slot !== newSlot) fail(`Il giocatore scelto non occupa lo slot ${slotLabel(newSlot)}.`);
-      if (exchangeEntry.auctionAcquisition && entry.slot !== "regular") {
-        fail(`${exchangeEntry.name}: un acquisto tramite Q.O. o come RFA deve restare nello slot roster.`);
-      }
-      const exchangeTimingErrors = slotMoveTimingErrors(
-        { ...exchangeEntry, slot: exchangeEntry.slot as ManagedRosterSlot },
-        entry.slot as ManagedRosterSlot,
-        season.name,
-        leagueMomentFromSeason(season),
-      );
-      if (exchangeTimingErrors.length) fail(`${exchangeEntry.name}: ${exchangeTimingErrors.join(" ")}`);
-      if (!isPostAuctionContractAssignmentCandidate(exchangeEntry, season.name)) {
-        const eligibilityErrors = slotEligibilityErrors(exchangeEntry, entry.slot as ManagedRosterSlot, season.name);
-        if (eligibilityErrors.length) fail(`${exchangeEntry.name}: ${eligibilityErrors.join(" ")}`);
-      }
-      const exchangePlayer = state.playerList.find((item) => item.name === exchangeEntry?.name);
-      if (!exchangePlayer) fail("Il giocatore scelto per lo scambio non è presente nel listone.");
-      const exchangeErrors = auctionDestinationErrors({
-        slot: entry.slot as AuctionSlot,
-        price: exchangeEntry.cost,
-        rookie: exchangePlayer.rookie,
-        under23: exchangePlayer.under23,
-      });
-      if (exchangeErrors.length) fail(`${exchangeEntry.name}: ${exchangeErrors.join(" ")}`);
-    }
+    const remainingTeamEntries = state.rosterEntries.filter((item, index) => (
+      index !== entryIndex
+      && item.teamCode === requestedTeamCode
+      && item.state === "active"
+      && item.slot !== "dpe"
+    ));
+    const slotResolution = resolveContextualSlots({
+      counts: {
+        regular: remainingTeamEntries.filter((item) => item.slot === "regular").length,
+        two_way: remainingTeamEntries.filter((item) => item.slot === "two_way").length,
+        g_league: remainingTeamEntries.filter((item) => item.slot === "g_league").length,
+      },
+      incomingSlot: newSlot,
+      players: remainingTeamEntries.map((item) => {
+        const listedPlayer = state.playerList.find((candidate) => candidate.name === item.name);
+        return {
+          name: item.name,
+          slot: item.slot as AuctionSlot,
+          cuttable: true,
+          freeReleasable: freeReleaseReasonAvailability(
+            "one_credit_team_option",
+            moment,
+            item,
+            season.name,
+          ).available,
+          moveDestinations: legalAuctionContextualDestinations({
+            entry: item,
+            rookie: listedPlayer?.rookie ?? false,
+            under23: listedPlayer?.under23 ?? false,
+            seasonName: season.name,
+            moment,
+          }),
+        };
+      }),
+      decisions: slotDecisions,
+    });
+    if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
+    if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
+    contextualOperations = slotResolution.operations;
+    const contextualCuts = new Set(contextualOperations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
+    const contextualFreeReleases = new Set(contextualOperations.filter((operation) => operation.kind === "free_release").map((operation) => operation.playerName));
+    const contextualMoves = new Map(contextualOperations.flatMap((operation) => (
+      operation.kind === "move" ? [[operation.playerName, operation.destinationSlot] as const] : []
+    )));
 
     rosterEntries = state.rosterEntries.map((item, index) => {
-      if (index === entryIndex) return {
-        ...item,
-        slot: newSlot,
-        contract: isPostAuctionContractAssignmentCandidate(item, season.name)
-          ? "PENDING"
-          : newSlot === "regular" || contractIncludesTeamOption(item) ? item.contract : annualTeamOptionContract(currentEndYear),
-      };
-      if (index === exchangeIndex && entry.slot !== "dpe") return {
-        ...item,
-        slot: entry.slot,
-        contract: isPostAuctionContractAssignmentCandidate(item, season.name)
-          ? "PENDING"
-          : entry.slot === "regular" || contractIncludesTeamOption(item) ? item.contract : annualTeamOptionContract(currentEndYear),
-      };
+      if (index === entryIndex) return applyAuctionSlotMove(item, newSlot, currentEndYear, season.name);
+      if (item.teamCode !== requestedTeamCode || item.state !== "active") return item;
+      if (contextualFreeReleases.has(item.name)) return applyFreeRelease(item);
+      if (contextualCuts.has(item.name)) return applyStandardContractCut(item, currentEndYear, moment);
+      const moveDestination = contextualMoves.get(item.name);
+      if (moveDestination) return applyAuctionSlotMove(item, moveDestination, currentEndYear, season.name);
       return item;
     });
 
     const overflow = slotOverflow(rosterEntries, requestedTeamCode);
     if (overflow.length) {
-      fail(`Lo spostamento supera i limiti degli slot: ${overflow.join("; ")}. Seleziona un giocatore con cui scambiare lo slot.`);
+      fail(`Lo spostamento supera i limiti degli slot: ${overflow.join("; ")}. Completa la sequenza necessaria per liberarli.`);
     }
   }
 
@@ -326,13 +351,15 @@ export async function modifyAuctionPlayer(formData: FormData) {
   }
   requireCapCompliance(capWarnings, fail);
 
-  const detail = modificationDetail(kind, entry, newSlot, exchangeEntry);
+  const detail = modificationDetail(kind, entry, newSlot, contextualOperations);
+  const contextualFreeReleaseNames = new Set(contextualOperations.filter((operation) => operation.kind === "free_release").map((operation) => operation.playerName));
   const nextState: EditableLeagueState = {
     ...state,
     rosterEntries,
-    qualifyingOfferRights: kind === "free_release"
-      ? state.qualifyingOfferRights.filter((right) => right.teamCode !== requestedTeamCode || right.playerName !== playerName)
-      : state.qualifyingOfferRights,
+    qualifyingOfferRights: state.qualifyingOfferRights.filter((right) => (
+      !(kind === "free_release" && right.teamCode === requestedTeamCode && right.playerName === playerName)
+      && !contextualFreeReleaseNames.has(right.playerName)
+    )),
   };
   await persistAuctionState(
     supabase,
@@ -414,11 +441,29 @@ function slotOverflow(entries: RosterEntry[], teamCode: string) {
     .map((slot) => `${slotLabel(slot)} ${counts[slot]}/${limits[slot]}`);
 }
 
-function modificationDetail(kind: AuctionEditKind, entry: RosterEntry, newSlot: AuctionSlot, exchangeEntry?: RosterEntry) {
+function applyAuctionSlotMove(entry: RosterEntry, destination: AuctionSlot, currentEndYear: number, seasonName: string): RosterEntry {
+  return {
+    ...entry,
+    slot: destination,
+    contract: isPostAuctionContractAssignmentCandidate(entry, seasonName)
+      ? "PENDING"
+      : destination === "regular" || contractIncludesTeamOption(entry)
+        ? entry.contract
+        : annualTeamOptionContract(currentEndYear),
+  };
+}
+
+function modificationDetail(kind: AuctionEditKind, entry: RosterEntry, newSlot: AuctionSlot, contextualOperations: AppliedContextualSlotOperation[]) {
   if (kind === "cut") return `tagliato da ${entry.teamCode}`;
   if (kind === "free_release") return `rilasciato gratuitamente da ${entry.teamCode}`;
-  const exchangeDetail = exchangeEntry ? `; ${exchangeEntry.name} spostato da ${slotLabel(newSlot)} a ${slotLabel(entry.slot)}` : "";
-  return `spostato per ${entry.teamCode} da ${slotLabel(entry.slot)} a ${slotLabel(newSlot)}${exchangeDetail}`;
+  const contextualDetail = contextualOperations.map((operation) => (
+    operation.kind === "cut"
+      ? `; taglio contestuale di ${operation.playerName}`
+      : operation.kind === "free_release"
+        ? `; rilascio gratuito contestuale di ${operation.playerName}`
+      : `; ${operation.playerName} spostato da ${slotLabel(operation.sourceSlot)} a ${slotLabel(operation.destinationSlot)}`
+  )).join("");
+  return `spostato per ${entry.teamCode} da ${slotLabel(entry.slot)} a ${slotLabel(newSlot)}${contextualDetail}`;
 }
 
 function slotLabel(slot: RosterEntry["slot"] | AuctionSlot) {

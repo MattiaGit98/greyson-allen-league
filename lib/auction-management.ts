@@ -9,7 +9,6 @@ import {
 } from "./slot-eligibility";
 
 export type AuctionSlot = "regular" | "two_way" | "g_league";
-export type AuctionRosterSlot = AuctionSlot | "dpe";
 export type AuctionSlotCounts = Record<AuctionSlot, number>;
 export type QualifyingAuctionOutcome = "normal" | AuctionAcquisitionKind;
 export type PostAuctionContractKind = "annual" | "biennial" | "triennial" | "team_option";
@@ -39,7 +38,6 @@ export function auctionContractAtPurchase({
     originalContractYears: undefined,
   } as const;
 }
-
 export function acquisitionKindForOutcome(outcome: QualifyingAuctionOutcome): AuctionAcquisitionKind | undefined {
   return outcome === "qualifying_offer" || outcome === "restricted_free_agent" ? outcome : undefined;
 }
@@ -150,38 +148,4 @@ export function legalAuctionContextualDestinations({
     }
     return slotEligibilityErrors(entry, destination, seasonName).length === 0;
   });
-}
-
-export function auctionSlotCountsAfterMove({
-  counts,
-  fromSlot,
-  toSlot,
-  hasExchange,
-}: {
-  counts: AuctionSlotCounts;
-  fromSlot: AuctionRosterSlot;
-  toSlot: AuctionSlot;
-  hasExchange: boolean;
-}) {
-  const after = { ...counts };
-  if (fromSlot !== "dpe") after[fromSlot] -= 1;
-  after[toSlot] += 1;
-  if (hasExchange && fromSlot !== "dpe") {
-    after[toSlot] -= 1;
-    after[fromSlot] += 1;
-  }
-  return after;
-}
-
-export function auctionSlotCapacityErrors(counts: AuctionSlotCounts) {
-  return (Object.keys(auctionSlotLimits) as AuctionSlot[])
-    .filter((slot) => counts[slot] > auctionSlotLimits[slot])
-    .map((slot) => `Lo slot ${auctionSlotLabel(slot)} è pieno (${counts[slot]}/${auctionSlotLimits[slot]}). Seleziona un giocatore con cui scambiare lo slot.`);
-}
-
-export function auctionSlotLabel(slot: AuctionRosterSlot) {
-  if (slot === "two_way") return "Two-way";
-  if (slot === "g_league") return "G-League";
-  if (slot === "dpe") return "DPE";
-  return "Roster";
 }

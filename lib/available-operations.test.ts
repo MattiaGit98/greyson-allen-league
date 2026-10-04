@@ -9,6 +9,10 @@ describe("operazioni disponibili", () => {
     expect(labelsAt("auction_completed")).not.toContain("Estensioni contrattuali");
     expect(labelsAt("trade_deadline")).not.toContain("Estensioni contrattuali");
   });
+
+  it("non mostra l'asta tra le operazioni disponibili in homepage", () => {
+    expect(labelsAt("auction_start")).not.toContain("Asta");
+  });
 });
 
 function labelsAt(moment: Parameters<typeof availableOperationsAt>[0]) {

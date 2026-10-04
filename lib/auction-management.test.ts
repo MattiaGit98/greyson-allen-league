@@ -6,8 +6,6 @@ import {
   acquisitionKindForOutcome,
   qualifyingAuctionErrors,
   isPostAuctionContractAssignmentCandidate,
-  auctionSlotCapacityErrors,
-  auctionSlotCountsAfterMove,
   legalAuctionContextualDestinations,
 } from "./auction-management";
 
@@ -130,17 +128,6 @@ describe("pannello asta", () => {
     expect(auctionDestinationErrors({ slot: "g_league", price: 5, rookie: false, under23: false })).toHaveLength(1);
     expect(auctionDestinationErrors({ slot: "two_way", price: 10, rookie: false, under23: true })).toEqual([]);
     expect(auctionDestinationErrors({ slot: "two_way", price: 16, rookie: false, under23: true })).toHaveLength(2);
-  });
-
-  it("consente di liberare la destinazione con uno scambio contestuale", () => {
-    const counts = { regular: 15, two_way: 2, g_league: 3 };
-    const withoutExchange = auctionSlotCountsAfterMove({ counts, fromSlot: "two_way", toSlot: "g_league", hasExchange: false });
-    const withExchange = auctionSlotCountsAfterMove({ counts, fromSlot: "two_way", toSlot: "g_league", hasExchange: true });
-
-    expect(withoutExchange).toEqual({ regular: 15, two_way: 1, g_league: 4 });
-    expect(auctionSlotCapacityErrors(withoutExchange)).toHaveLength(1);
-    expect(withExchange).toEqual(counts);
-    expect(auctionSlotCapacityErrors(withExchange)).toEqual([]);
   });
 
   it("propone in asta soltanto gli spostamenti contestuali consentiti", () => {

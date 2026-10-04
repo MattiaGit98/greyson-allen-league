@@ -69,6 +69,29 @@ export function ContextualSlotResolver({
                 </div>
               )}
 
+              {step.freeReleaseCandidates.length > 0 && (
+                <div className={`contextual-slot-choice${decision.kind === "free_release" ? " selected" : ""}`}>
+                  <label className="contextual-slot-radio">
+                    <input
+                      type="radio"
+                      name={`slot-resolution-${index}`}
+                      checked={decision.kind === "free_release"}
+                      onChange={() => replaceDecision(index, { kind: "free_release", playerName: "", destinationSlot: "" })}
+                    />
+                    <span>Rilascio gratuito</span>
+                  </label>
+                  <select
+                    aria-label={`Giocatore da rilasciare gratuitamente dallo slot ${contextualSlotLabel(step.slot)}`}
+                    value={decision.kind === "free_release" ? decision.playerName : ""}
+                    disabled={decision.kind !== "free_release"}
+                    onChange={(event) => replaceDecision(index, { kind: "free_release", playerName: event.target.value, destinationSlot: "" })}
+                  >
+                    <option value="">Seleziona il giocatore</option>
+                    {step.freeReleaseCandidates.map((candidate) => <option value={candidate.name} key={candidate.name}>{candidate.name}</option>)}
+                  </select>
+                </div>
+              )}
+
               {step.moveCandidates.length > 0 && (
                 <div className={`contextual-slot-choice movement${decision.kind === "move" ? " selected" : ""}`}>
                   <label className="contextual-slot-radio">

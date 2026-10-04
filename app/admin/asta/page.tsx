@@ -9,6 +9,7 @@ import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { conciseMovementDetail } from "@/lib/movement-display";
 import { legalAuctionContextualDestinations } from "@/lib/auction-management";
+import { freeReleaseReasonAvailability } from "@/lib/free-release";
 
 export default async function AuctionAdminPage({
   searchParams,
@@ -81,6 +82,18 @@ export default async function AuctionAdminPage({
             contract: entry.contract,
             slot: entry.slot as "regular" | "two_way" | "g_league",
             cuttable: true,
+            freeReleasable: freeReleaseReasonAvailability(
+              "one_credit_team_option",
+              leagueMoment,
+              entry,
+              seasonName,
+            ).available,
+            charges: capSeasons.map((targetSeason) => 1000 - calculateCapSpace({
+              entries: [entry],
+              seasonName: targetSeason,
+              optionSeasonName: seasonName,
+              countTeamOptions,
+            })) as [number, number, number],
             moveDestinations: legalAuctionContextualDestinations({
               entry,
               rookie: listedPlayer?.rookie ?? false,
