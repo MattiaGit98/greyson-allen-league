@@ -12,6 +12,8 @@ import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState 
 import { isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
 import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
 import { shouldShowScheduledCutBadge } from "@/lib/season-end-cuts";
+import { PublicPlayerList } from "@/app/giocatori/player-explorer";
+import type { PublicPlayerListRow } from "@/lib/public-player-list";
 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
 type DataSectionKey = (typeof dataSectionKeys)[number];
@@ -47,6 +49,7 @@ export function TeamAccordion({
   pendingAuctionContracts,
   capScaleMaximum,
   leagueMoment,
+  auctionCalls,
 }: {
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
@@ -64,6 +67,7 @@ export function TeamAccordion({
   pendingAuctionContracts: boolean;
   capScaleMaximum: number;
   leagueMoment: LeagueMoment;
+  auctionCalls: PublicPlayerListRow[];
 }) {
   const initialPlayerInRoster = Boolean(initialTeam && initialPlayer && rosterEntries.some((entry) => (
     entry.teamCode === initialTeam
@@ -100,6 +104,7 @@ export function TeamAccordion({
   const [sectionsToExpand, setSectionsToExpand] = useState<DataSectionKey[]>(["roster"]);
   const [orderDraft, setOrderDraft] = useState<TeamSort>("name");
   const [viewDraft, setViewDraft] = useState<DataSectionKey[]>(["roster"]);
+  const [auctionCallsOpen, setAuctionCallsOpen] = useState(false);
   const teamRefs = useRef(new Map<string, HTMLElement>());
   const explorerRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -365,6 +370,32 @@ export function TeamAccordion({
         </div>
       )}
       <div className={`team-accordion ${explorerOpen ? "explorer-open" : ""}`} ref={accordionRef}>
+      {auctionCalls.length > 0 && (
+        <article className={`team-accordion-item auction-calls-item ${auctionCallsOpen ? "open" : ""}`}>
+          <button
+            className="team-accordion-trigger auction-calls-trigger"
+            type="button"
+            aria-expanded={auctionCallsOpen}
+            onClick={() => setAuctionCallsOpen((current) => !current)}
+          >
+            <b className="team-code-badge auction-calls-badge" aria-label="Quindici prossime chiamate">15</b>
+            <b className="team-code-rail auction-calls-badge" aria-label="Quindici prossime chiamate">
+              <span aria-hidden="true">1</span><span aria-hidden="true">5</span>
+            </b>
+            <span className="team-accordion-identity">
+              <strong>Prossime 15 chiamate</strong>
+              <small>Free agent e qualifying offer</small>
+            </span>
+            <span className="auction-calls-count"><small>Disponibili</small><strong>{auctionCalls.length}</strong></span>
+            <i aria-hidden="true">{auctionCallsOpen ? "−" : "+"}</i>
+          </button>
+          {auctionCallsOpen && (
+            <div className="auction-calls-content">
+              <PublicPlayerList rows={auctionCalls} showOrder showRealTeam showEligibility />
+            </div>
+          )}
+        </article>
+      )}
       {displayedTeams.map((team, index) => {
         const expanded = openTeams.includes(team.code);
         const metrics = teamMetrics.get(team.code)!;

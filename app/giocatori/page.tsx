@@ -2,9 +2,8 @@ import { PlayerExplorer } from "./player-explorer";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { requireActiveSeason } from "@/lib/active-season";
 import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
-import { normalizePlayerName } from "@/lib/admin-alerts";
-import { numberPublicAvailablePlayers } from "@/lib/player-list-public-order";
 import { showPlayerListRealTeam } from "@/lib/player-list-visibility";
+import { buildPublicPlayerListRows } from "@/lib/public-player-list";
 
 export default async function PlayersPage() {
   const [leagueState, activeSeason] = await Promise.all([
@@ -15,23 +14,7 @@ export default async function PlayersPage() {
   const showEligibility = !hasReachedMoment(moment, "contract_delivery");
   const showRealTeam = showPlayerListRealTeam(leagueState.playerListStatus, moment);
   const showOrder = !hasReachedMoment(moment, "auction_completed");
-  const rows = numberPublicAvailablePlayers(leagueState.playerList.map((player, index) => {
-    const normalizedName = normalizePlayerName(player.name);
-    const activeRoster = leagueState.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedName && entry.state === "active");
-    const qualifyingOffer = leagueState.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedName);
-    const buyoutApplied = leagueState.rosterEntries.some((entry) => (
-      normalizePlayerName(entry.name) === normalizedName
-      && entry.state === "cut"
-      && entry.buyoutApplied === true
-    ));
-    return {
-      ...player,
-      listOrder: index + 1,
-      rosterTeamCode: activeRoster?.teamCode ?? null,
-      qualifyingTeamCode: activeRoster ? null : qualifyingOffer?.teamCode ?? null,
-      buyoutApplied,
-    };
-  }));
+  const rows = buildPublicPlayerListRows(leagueState);
   return (
     <section className="section players-page">
       {leagueState.playerListStatus !== "published" && (

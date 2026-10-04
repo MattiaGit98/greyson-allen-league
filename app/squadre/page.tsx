@@ -4,6 +4,7 @@ import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
 import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
+import { buildPublicPlayerListRows } from "@/lib/public-player-list";
 
 export default async function TeamsPage({
   searchParams,
@@ -22,6 +23,11 @@ export default async function TeamsPage({
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
   const pendingAuctionContracts = hasReachedMoment(leagueMoment, "auction_start")
     && !hasReachedMoment(leagueMoment, "contract_delivery");
+  const showAuctionCalls = hasReachedMoment(leagueMoment, "auction_start")
+    && !hasReachedMoment(leagueMoment, "auction_completed");
+  const auctionCalls = showAuctionCalls
+    ? buildPublicPlayerListRows(leagueState).filter((row) => !row.rosterTeamCode).slice(0, 15)
+    : [];
 
   return (
     <section className="section teams-page">
@@ -42,6 +48,7 @@ export default async function TeamsPage({
         pendingAuctionContracts={pendingAuctionContracts}
         capScaleMaximum={hasReachedMoment(leagueMoment, "auction_completed") ? 1100 : 1000}
         leagueMoment={leagueMoment}
+        auctionCalls={auctionCalls}
       />
     </section>
   );

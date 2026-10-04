@@ -2,22 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
+import type { PublicPlayerListRow as Row } from "@/lib/public-player-list";
 
 type PlayerStatus = "roster" | "qo" | "fa";
 type PlayerCategory = "rookie" | "under23" | "veteran";
-type Row = {
-  name: string;
-  role: "G" | "A" | "C" | "X";
-  realTeam: string;
-  rookie: boolean;
-  under23: boolean;
-  listOrder: number;
-  publicOrder: number | null;
-  rosterTeamCode: string | null;
-  qualifyingTeamCode: string | null;
-  buyoutApplied: boolean;
-};
-
 function statusOf(row: Row): PlayerStatus {
   if (row.rosterTeamCode) return "roster";
   if (row.qualifyingTeamCode) return "qo";
@@ -112,37 +100,61 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility 
         <button className="player-filter-reset" type="button" onClick={resetFilters} disabled={!filtersAreActive}>Azzera filtri</button>
       </div>
 
-      <div className={`player-list${showOrder ? "" : " without-order"}${showRealTeam ? "" : " without-real-team"}`}>
-        <div className="player-list-head">
-          {showOrder && <span>#</span>}
-          <span>Giocatore</span>
-          <span>Ruolo</span>
-          {showRealTeam && <span>Squadra NBA</span>}
-          <span>Stato</span>
-        </div>
-        {filtered.map((row) => {
-          const owningTeamCode = row.rosterTeamCode ?? row.qualifyingTeamCode;
-          return (
-            <article className={`player-row ${showRealTeam && row.realTeam ? "has-real-team" : ""} ${showEligibility && row.rookie ? "is-rookie" : ""} ${showEligibility && row.under23 ? "is-under23" : ""}`} key={row.listOrder}>
-              {showOrder && <span className="player-order">{row.publicOrder}</span>}
-              <span className="player-identity">
-                {owningTeamCode
-                  ? <Link className="player-name player-team-link" href={`/squadre?team=${encodeURIComponent(owningTeamCode)}&player=${encodeURIComponent(row.name)}`}>{row.name}</Link>
-                  : <strong className="player-name">{row.name}</strong>}
-                <span className="player-flags">
-                  {showEligibility && row.rookie && <small className="player-flag player-flag-rookie">Rookie</small>}
-                  {showEligibility && row.under23 && <small className="player-flag player-flag-u23">U23</small>}
-                </span>
-              </span>
-              <span><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>
-              {showRealTeam && <strong className="real-team">{row.realTeam}</strong>}
-              <PlayerStatus row={row} />
-            </article>
-          );
-        })}
-        {!filtered.length && <div className="data-empty">{rows.length ? "Nessun giocatore corrisponde ai filtri" : "Listone non ancora pubblicato"}</div>}
-      </div>
+      <PublicPlayerList
+        rows={filtered}
+        showOrder={showOrder}
+        showRealTeam={showRealTeam}
+        showEligibility={showEligibility}
+        emptyLabel={rows.length ? "Nessun giocatore corrisponde ai filtri" : "Listone non ancora pubblicato"}
+      />
     </>
+  );
+}
+
+export function PublicPlayerList({
+  rows,
+  showOrder,
+  showRealTeam,
+  showEligibility,
+  emptyLabel = "Listone non ancora pubblicato",
+}: {
+  rows: Row[];
+  showOrder: boolean;
+  showRealTeam: boolean;
+  showEligibility: boolean;
+  emptyLabel?: string;
+}) {
+  return (
+    <div className={`player-list${showOrder ? "" : " without-order"}${showRealTeam ? "" : " without-real-team"}`}>
+      <div className="player-list-head">
+        {showOrder && <span>#</span>}
+        <span>Giocatore</span>
+        <span>Ruolo</span>
+        {showRealTeam && <span>Squadra NBA</span>}
+        <span>Stato</span>
+      </div>
+      {rows.map((row) => {
+        const owningTeamCode = row.rosterTeamCode ?? row.qualifyingTeamCode;
+        return (
+          <article className={`player-row ${showRealTeam && row.realTeam ? "has-real-team" : ""} ${showEligibility && row.rookie ? "is-rookie" : ""} ${showEligibility && row.under23 ? "is-under23" : ""}`} key={row.listOrder}>
+            {showOrder && <span className="player-order">{row.publicOrder}</span>}
+            <span className="player-identity">
+              {owningTeamCode
+                ? <Link className="player-name player-team-link" href={`/squadre?team=${encodeURIComponent(owningTeamCode)}&player=${encodeURIComponent(row.name)}`}>{row.name}</Link>
+                : <strong className="player-name">{row.name}</strong>}
+              <span className="player-flags">
+                {showEligibility && row.rookie && <small className="player-flag player-flag-rookie">Rookie</small>}
+                {showEligibility && row.under23 && <small className="player-flag player-flag-u23">U23</small>}
+              </span>
+            </span>
+            <span><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>
+            {showRealTeam && <strong className="real-team">{row.realTeam}</strong>}
+            <PlayerStatus row={row} />
+          </article>
+        );
+      })}
+      {!rows.length && <div className="data-empty">{emptyLabel}</div>}
+    </div>
   );
 }
 
