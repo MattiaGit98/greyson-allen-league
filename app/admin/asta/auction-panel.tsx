@@ -62,6 +62,11 @@ type AuctionRow = {
   qualifying: null | { teamCode: string; amount: number };
 };
 
+type AuctionDialogSelection = {
+  name: string;
+  mode: "purchase" | "operations";
+};
+
 export function AuctionPanel({
   rows,
   teams,
@@ -84,20 +89,28 @@ export function AuctionPanel({
   }>;
 }) {
   const [query, setQuery] = useState("");
-  const [selectedName, setSelectedName] = useState<string | null>(null);
-  const selected = rows.find((row) => row.name === selectedName) ?? null;
+  const [dialogSelection, setDialogSelection] = useState<AuctionDialogSelection | null>(null);
+  const selected = rows.find((row) => row.name === dialogSelection?.name) ?? null;
+  const selectedDialogIsValid = Boolean(selected && (
+    (dialogSelection?.mode === "purchase" && !selected.roster)
+    || (dialogSelection?.mode === "operations" && selected.roster)
+  ));
   const filtered = useMemo(() => rows.filter((row) => (
     row.name.toLocaleLowerCase("it").includes(query.trim().toLocaleLowerCase("it"))
   )), [query, rows]);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!dialogSelection) return;
+    if (!selectedDialogIsValid) {
+      setDialogSelection(null);
+      return;
+    }
     const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedName(null);
+      if (event.key === "Escape") setDialogSelection(null);
     };
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
-  }, [selected]);
+  }, [dialogSelection, selectedDialogIsValid]);
 
   return (
     <>
@@ -126,7 +139,10 @@ export function AuctionPanel({
             <span><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>
             <strong className="real-team">{row.realTeam || "—"}</strong>
             <AuctionStatus row={row} />
-            <button className={`auction-row-action ${row.roster ? "edit" : "bid"}`} type="button" onClick={() => setSelectedName(row.name)}>
+            <button className={`auction-row-action ${row.roster ? "edit" : "bid"}`} type="button" onClick={() => setDialogSelection({
+              name: row.name,
+              mode: row.roster ? "operations" : "purchase",
+            })}>
               {row.roster ? "Operazioni" : "Asta"}
             </button>
             {assignmentUndo ? <UndoMovementButton
@@ -148,13 +164,13 @@ export function AuctionPanel({
         {!filtered.length && <div className="data-empty">{rows.length ? "Nessun giocatore trovato" : "Listone non ancora pubblicato"}</div>}
       </div>
 
-      {selected && (
+      {selected && dialogSelection && selectedDialogIsValid && (
         <div className="auction-modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSelectedName(null);
+          if (event.target === event.currentTarget) setDialogSelection(null);
         }}>
-          {selected.roster
-            ? <EditPlayerDialog key={`edit-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setSelectedName(null)} />
-            : <PurchasePlayerDialog key={`buy-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setSelectedName(null)} />}
+          {dialogSelection.mode === "operations"
+            ? <EditPlayerDialog key={`edit-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setDialogSelection(null)} />
+            : <PurchasePlayerDialog key={`buy-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setDialogSelection(null)} />}
         </div>
       )}
     </>
