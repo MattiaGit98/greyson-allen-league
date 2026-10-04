@@ -1,6 +1,6 @@
 import type { PlayerListEntry, QualifyingOfferRight, RosterEntry } from "@/lib/league-types";
 import { advanceSeasonName, seasonEndYear } from "./season-time";
-import { isAnnualTeamOptionContract, isRookieExtensionContract } from "./team-option-contract";
+import { contractAfterRosterExit, isAnnualTeamOptionContract, isRookieExtensionContract } from "./team-option-contract";
 import {
   applyPlayoffTeamOptionPromotion,
   requiresPlayoffTeamOptionPromotion,
@@ -15,6 +15,8 @@ export type LeagueAdvanceInput = {
 };
 
 export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
+  const currentEndYear = seasonEndYear(input.seasonName);
+  if (currentEndYear === null) throw new Error("Annata non valida.");
   const plan = buildSeasonEndCutPlan(input);
   const scheduledKeys = new Set(plan.validScheduledCuts.map((player) => rosterEntryKey(player)));
   const preparedEntries = input.rosterEntries.map((entry) => {
@@ -22,7 +24,11 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     return {
       ...entry,
       scheduledSeasonEndCut: undefined,
-      ...(scheduled ? { state: "cut" as const, slot: "regular" as const } : {}),
+      ...(scheduled ? {
+        state: "cut" as const,
+        slot: "regular" as const,
+        contract: contractAfterRosterExit(entry.contract, currentEndYear),
+      } : {}),
     };
   });
   const advance = calculateLeagueAdvanceCore({ ...input, rosterEntries: preparedEntries });

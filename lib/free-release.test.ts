@@ -71,4 +71,14 @@ describe("causali del rilascio gratuito", () => {
     expect(freeReleaseReasonAvailability("one_credit_team_option", "contract_delivery", { cost: 1, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(false);
     expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_completed", { cost: 2, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(false);
   });
+
+  it("include i contratti da assegnare da 1 credito eleggibili per la T.O.", () => {
+    const pending = { cost: 1, auctionPrice: 1, contract: "PENDING", state: "active" as const, contractStartSeason: seasonName };
+
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_start", { ...pending, rookie: true }, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_completed", { ...pending, under23: true }, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_start", pending, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_start", { ...pending, auctionAcquisition: "restricted_free_agent" }, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("one_credit_team_option", "auction_start", { ...pending, cost: 2, auctionPrice: 2, rookie: true }, seasonName).available).toBe(false);
+  });
 });

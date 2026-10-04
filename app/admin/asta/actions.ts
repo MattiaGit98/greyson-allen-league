@@ -93,7 +93,11 @@ export async function purchaseAuctionPlayer(formData: FormData) {
         freeReleasable: freeReleaseReasonAvailability(
           "one_credit_team_option",
           moment,
-          entry,
+          {
+            ...entry,
+            rookie: listedPlayer?.rookie ?? false,
+            under23: listedPlayer?.under23 ?? false,
+          },
           season.name,
         ).available,
         moveDestinations: legalAuctionContextualDestinations({
@@ -137,7 +141,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   const rosterEntries = [
     ...state.rosterEntries.map((entry) => {
       if (contextualFreeReleases.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
-        return applyFreeRelease(entry);
+        return applyFreeRelease(entry, currentEndYear);
       }
       if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
         return applyStandardContractCut(entry, currentEndYear, "auction_start");
@@ -243,10 +247,19 @@ export async function modifyAuctionPlayer(formData: FormData) {
       ...applyStandardContractCut(item, currentEndYear, "auction_start"),
     } : item);
   } else if (kind === "free_release") {
-    if (!freeReleaseReasonAvailability("one_credit_team_option", leagueMomentFromSeason(season), entry, season.name).available) {
+    const currentEndYear = seasonEndYear(season.name);
+    if (currentEndYear === null) fail("Annata non valida.");
+    const releasePlayer = {
+      ...entry,
+      rookie: player.rookie,
+      under23: player.under23,
+    };
+    if (!freeReleaseReasonAvailability("one_credit_team_option", leagueMomentFromSeason(season), releasePlayer, season.name).available) {
       fail("Questo giocatore non è idoneo al rilascio gratuito durante l'asta.");
     }
-    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? applyFreeRelease(item) : item);
+    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
+      ? applyFreeRelease(item, currentEndYear)
+      : item);
   } else {
     const currentEndYear = seasonEndYear(season.name);
     if (currentEndYear === null) fail("Annata non valida.");
@@ -298,7 +311,11 @@ export async function modifyAuctionPlayer(formData: FormData) {
           freeReleasable: freeReleaseReasonAvailability(
             "one_credit_team_option",
             moment,
-            item,
+            {
+              ...item,
+              rookie: listedPlayer?.rookie ?? false,
+              under23: listedPlayer?.under23 ?? false,
+            },
             season.name,
           ).available,
           moveDestinations: legalAuctionContextualDestinations({
@@ -324,7 +341,9 @@ export async function modifyAuctionPlayer(formData: FormData) {
     rosterEntries = state.rosterEntries.map((item, index) => {
       if (index === entryIndex) return applyAuctionSlotMove(item, newSlot, currentEndYear, season.name);
       if (item.teamCode !== requestedTeamCode || item.state !== "active") return item;
-      if (contextualFreeReleases.has(item.name)) return applyFreeRelease(item);
+      if (contextualFreeReleases.has(item.name)) {
+        return applyFreeRelease(item, currentEndYear);
+      }
       if (contextualCuts.has(item.name)) return applyStandardContractCut(item, currentEndYear, moment);
       const moveDestination = contextualMoves.get(item.name);
       if (moveDestination) return applyAuctionSlotMove(item, moveDestination, currentEndYear, season.name);

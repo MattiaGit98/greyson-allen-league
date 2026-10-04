@@ -4,6 +4,8 @@ import { followingSeasonName, seasonEndYear } from "./season-time";
 
 const rookieExtensionPattern = /^(\d{2})\s*\+\s*R\.?E\.?$/i;
 const annualTeamOptionPattern = /^(\d{2})\s*\+\s*T\.?O\.?$/i;
+const exitOptionalMarkerPattern = /^(\d{2})\s*(?:\+\s*(?:T\.?O\.?|R\.?E\.?|EXT)|\((?:E|Q)\))$/i;
+const pendingContractValues = new Set(["", "-", "PENDING", "DA ASSEGNARE"]);
 
 export function destinationAfterTeamOptionExercise(
   source: RosterEntry["slot"],
@@ -129,13 +131,21 @@ export function exercisePlayoffTeamOption<T extends RosterEntry>(entry: T, activ
 
 export function applyStandardContractCut<T extends RosterEntry>(
   entry: T,
-  _currentSeasonEndYear: number,
+  currentSeasonEndYear: number,
   _moment: LeagueMoment,
 ): T {
   return {
     ...entry,
+    contract: contractAfterRosterExit(entry.contract, currentSeasonEndYear),
     state: "cut",
     slot: "regular",
     scheduledSeasonEndCut: undefined,
   };
+}
+
+export function contractAfterRosterExit(contract: string, currentSeasonEndYear: number) {
+  const normalized = contract.trim().replace(/\s+/g, " ").toLocaleUpperCase("it-IT");
+  if (pendingContractValues.has(normalized)) return String(currentSeasonEndYear).padStart(2, "0").slice(-2);
+  const optionalMarker = normalized.match(exitOptionalMarkerPattern);
+  return optionalMarker?.[1] ?? contract;
 }

@@ -16,7 +16,7 @@ import { CapBlocker } from "@/app/admin/cap-force-control";
 import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
 import { UndoMovementButton } from "@/app/admin/movimenti/undo-movement-button";
 import { resolveContextualSlots, type AppliedContextualSlotOperation, type ContextualSlotDecision } from "@/lib/contextual-slot-resolution";
-import { annualTeamOptionContract, isAnnualTeamOptionContract } from "@/lib/team-option-contract";
+import { annualTeamOptionContract, contractAfterRosterExit } from "@/lib/team-option-contract";
 import { modifyAuctionPlayer, purchaseAuctionPlayer } from "./actions";
 
 type AuctionTeam = {
@@ -57,6 +57,7 @@ type AuctionRow = {
     endedPreviousSeasonInGLeague?: boolean;
     contractStartSeason?: string;
     twoWayPromotionLocked?: boolean;
+    freeReleaseEligible: boolean;
     charges: [number, number, number];
   };
   qualifying: null | { teamCode: string; amount: number };
@@ -393,7 +394,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
               setReviewing(false);
             }}>
               <option value="cut">Taglia</option>
-              {isAnnualTeamOptionContract(roster) && roster.cost === 1 && <option value="free_release">Rilascio gratuito</option>}
+              {roster.freeReleaseEligible && <option value="free_release">Rilascio gratuito</option>}
               {availableSlotDestinations.length > 0 && <option value="slot">Sposta di slot</option>}
             </select>
           </Field>
@@ -517,17 +518,32 @@ function modificationDetails(
 ) {
   const roster = row.roster!;
   const lines = team ? afterSpaces.map((space, index) => `Cap libero ${seasonLabel(seasonName, index)}: ${team.spaces[index]} → ${space}`) : [];
-  if (kind === "cut") return { title: `${row.name} sarà tagliato da ${roster.teamCode}`, lines: [`Il contratto da ${roster.cost} crediti continuerà a pesare fino alla scadenza ${roster.contract}.`, ...lines] };
-  if (kind === "free_release") return { title: `${row.name} sarà rilasciato gratuitamente da ${roster.teamCode}`, lines: ["Resterà tra i tagliati a 0 crediti con la stessa scadenza contrattuale.", ...lines] };
+  const currentEndYear = Number(seasonName.match(/\/(\d{2})$/)?.[1]);
+  const exitContract = contractAfterRosterExit(roster.contract, currentEndYear);
+  if (kind === "cut") return { title: `${row.name} sarà tagliato da ${roster.teamCode}`, lines: [`Il contratto da ${roster.cost} crediti continuerà a pesare fino alla scadenza ${exitContract}.`, ...lines] };
   const optionContract = annualTeamOptionContract(Number(seasonName.match(/\/(\d{2})$/)?.[1]));
+  if (kind === "free_release") return {
+    title: `${row.name} sarà rilasciato gratuitamente da ${roster.teamCode}`,
+    lines: [
+      `Resterà tra i tagliati a 0 crediti con scadenza ${exitContract}.`,
+      ...lines,
+    ],
+  };
   const contextualLines = contextualOperations.flatMap((operation) => {
+    const movedRoster = rows.find((item) => item.name === operation.playerName)?.roster;
+    const normalizedContract = movedRoster ? contractAfterRosterExit(movedRoster.contract, currentEndYear) : null;
     if (operation.kind === "cut") {
-      return [`Taglio contestuale: ${operation.playerName} da ${slotLabel(operation.sourceSlot)}`];
+      return [
+        `Taglio contestuale: ${operation.playerName} da ${slotLabel(operation.sourceSlot)}`,
+        ...(movedRoster && normalizedContract !== movedRoster.contract ? [`Contratto di ${operation.playerName}: ${movedRoster.contract} → ${normalizedContract}`] : []),
+      ];
     }
     if (operation.kind === "free_release") {
-      return [`Rilascio gratuito contestuale: ${operation.playerName} da ${slotLabel(operation.sourceSlot)}`];
+      return [
+        `Rilascio gratuito contestuale: ${operation.playerName} da ${slotLabel(operation.sourceSlot)}`,
+        ...(movedRoster && normalizedContract !== movedRoster.contract ? [`Contratto di ${operation.playerName}: ${movedRoster.contract} → ${normalizedContract}`] : []),
+      ];
     }
-    const movedRoster = rows.find((item) => item.name === operation.playerName)?.roster;
     return [
       `Spostamento contestuale: ${operation.playerName}, ${slotLabel(operation.sourceSlot)} → ${slotLabel(operation.destinationSlot)}`,
       ...(movedRoster && operation.destinationSlot !== "regular" && !movedRoster.pendingAuctionContract && !contractIncludesTeamOption(movedRoster)

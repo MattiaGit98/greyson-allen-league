@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
 
 describe("tagli e rilasci", () => {
-  it("conserva il rilascio gratuito tra i tagliati a costo zero e con lo stesso contratto", () => {
+  it("conserva il rilascio gratuito tra i tagliati a costo zero eliminando le possibilità future", () => {
     const released = applyFreeRelease({
       name: "Giocatore",
       cost: 17,
@@ -12,17 +12,29 @@ describe("tagli e rilasci", () => {
       teamCode: "AAA",
       buyoutApplied: true,
       scheduledSeasonEndCut: "2026/27",
-    });
+    }, 2027);
     expect(released).toMatchObject({
       name: "Giocatore",
       cost: 0,
-      contract: "29 (Q)",
+      contract: "29",
       state: "cut",
       slot: "regular",
       teamCode: "AAA",
       buyoutApplied: true,
     });
     expect(released.scheduledSeasonEndCut).toBeUndefined();
+  });
+
+  it("trasforma un contratto da assegnare in annuale al rilascio", () => {
+    const released = applyFreeRelease({
+      name: "Pending",
+      cost: 1,
+      contract: "PENDING",
+      state: "active",
+      slot: "regular",
+      teamCode: "AAA",
+    }, 2027);
+    expect(released).toMatchObject({ cost: 0, contract: "27", state: "cut" });
   });
 
   it("fa rientrare sul cap corrente un contratto tagliato dalla DPE", () => {

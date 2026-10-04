@@ -17,7 +17,7 @@ import {
   isFreeReleaseReason,
   type FreeReleaseReason,
 } from "@/lib/free-release";
-import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
+import { applyStandardContractCut, isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 
 export async function applyRosterExitOperation(formData: FormData) {
@@ -38,6 +38,12 @@ export async function applyRosterExitOperation(formData: FormData) {
   const entryIndex = state.rosterEntries.findIndex((entry) => entry.teamCode === teamCode && entry.name === playerName);
   const entry = state.rosterEntries[entryIndex];
   if (!entry) operationError(returnPath, "Il giocatore non appartiene alla squadra selezionata.");
+  const listedPlayer = state.playerList.find((player) => player.name === entry.name);
+  const freeReleasePlayer = {
+    ...entry,
+    rookie: listedPlayer?.rookie ?? false,
+    under23: listedPlayer?.under23 ?? false,
+  };
   if (isUnresolvedTeamOption(entry, leagueMoment, season.name)) {
     operationError(returnPath, "Un contratto da rookie ancora da risolvere può essere gestito soltanto nel pannello Contratti da rookie.");
   }
@@ -49,7 +55,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   if (kind === "buyout" && !operationWindows.buyout(leagueMoment)) operationError(returnPath, "La finestra dei buyout non è aperta.");
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
-    const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, entry, season.name);
+    const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, freeReleasePlayer, season.name);
     if (oneCreditTeamOptionRelease.available) {
       releaseReason = "one_credit_team_option";
     } else {
@@ -57,7 +63,7 @@ export async function applyRosterExitOperation(formData: FormData) {
         operationError(returnPath, "Seleziona una e una sola causa di rilascio gratuito.");
       }
       releaseReason = submittedReleaseReasons[0];
-      const availability = freeReleaseReasonAvailability(releaseReason, leagueMoment, entry, season.name);
+      const availability = freeReleaseReasonAvailability(releaseReason, leagueMoment, freeReleasePlayer, season.name);
       if (!availability.available) operationError(returnPath, availability.unavailableReason ?? "Questa causa di rilascio non è disponibile.");
     }
   }
@@ -69,7 +75,9 @@ export async function applyRosterExitOperation(formData: FormData) {
   let rosterEntries: RosterEntry[];
   let buyoutTotalResidual: number | null = null;
   if (kind === "free_release") {
-    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? applyFreeRelease(item) : item);
+    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
+      ? applyFreeRelease(item, currentEndYear)
+      : item);
   } else if (kind === "buyout") {
     if (season.status !== "regular_season") operationError(returnPath, "Il buyout è disponibile soltanto durante la regular season.");
     const remainingYears = charges.filter((charge) => charge > 0).length;
@@ -86,12 +94,9 @@ export async function applyRosterExitOperation(formData: FormData) {
       scheduledSeasonEndCut: undefined,
     } : item);
   } else {
-    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
-      ...entry,
-      state: "cut" as const,
-      slot: "regular" as const,
-      scheduledSeasonEndCut: undefined,
-    } : item);
+    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
+      ? applyStandardContractCut(item, currentEndYear, leagueMoment)
+      : item);
   }
 
   const teamRosterAfter = rosterEntries.filter((item) => item.teamCode === teamCode);

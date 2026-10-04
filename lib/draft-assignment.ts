@@ -11,6 +11,16 @@ export type DraftSlotCounts = Record<DraftRosterSlot | "dpe", number>;
 
 export const draftSlotLimits: DraftSlotCounts = { regular: 15, two_way: 2, g_league: 3, dpe: 1 };
 
+export function draftDestinationsForPrice(price: number | null): DraftRosterSlot[] {
+  if (price === null || price > 10) return ["regular"];
+  if (price > 5) return ["regular", "two_way"];
+  return ["regular", "two_way", "g_league"];
+}
+
+export function defaultDraftDestinationForPrice(price: number | null): DraftRosterSlot {
+  return draftDestinationsForPrice(price).at(-1) ?? "regular";
+}
+
 export type DraftAssignmentResult = {
   state: EditableLeagueState;
   historyEntries: HistoryCompetitionEntry[];

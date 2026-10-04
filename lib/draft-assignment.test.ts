@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditableLeagueState } from "./league-state";
-import { buildDraftAssignment } from "./draft-assignment";
+import { buildDraftAssignment, defaultDraftDestinationForPrice, draftDestinationsForPrice } from "./draft-assignment";
 
 function state(): EditableLeagueState {
   return {
@@ -24,6 +24,14 @@ function state(): EditableLeagueState {
 }
 
 describe("assegnazione draft", () => {
+  it("propone di default lo slot più basso consentito dal prezzo", () => {
+    expect(defaultDraftDestinationForPrice(3)).toBe("g_league");
+    expect(defaultDraftDestinationForPrice(7)).toBe("two_way");
+    expect(defaultDraftDestinationForPrice(12)).toBe("regular");
+    expect(draftDestinationsForPrice(7)).toEqual(["regular", "two_way"]);
+    expect(draftDestinationsForPrice(12)).toEqual(["regular"]);
+  });
+
   it("assegna prezzo e T.O. al roster e salva lo storico senza prezzo", () => {
     const result = buildDraftAssignment({
       state: state(), historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "regular",

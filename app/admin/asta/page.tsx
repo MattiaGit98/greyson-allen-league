@@ -85,7 +85,11 @@ export default async function AuctionAdminPage({
             freeReleasable: freeReleaseReasonAvailability(
               "one_credit_team_option",
               leagueMoment,
-              entry,
+              {
+                ...entry,
+                rookie: listedPlayer?.rookie ?? false,
+                under23: listedPlayer?.under23 ?? false,
+              },
               seasonName,
             ).available,
             charges: capSeasons.map((targetSeason) => 1000 - calculateCapSpace({
@@ -127,6 +131,16 @@ export default async function AuctionAdminPage({
         endedPreviousSeasonInGLeague: roster.endedPreviousSeasonInGLeague,
         contractStartSeason: roster.contractStartSeason,
         twoWayPromotionLocked: roster.twoWayPromotionLocked,
+        freeReleaseEligible: freeReleaseReasonAvailability(
+          "one_credit_team_option",
+          leagueMoment,
+          {
+            ...roster,
+            rookie: player.rookie,
+            under23: player.under23,
+          },
+          seasonName,
+        ).available,
         charges: capSeasons.map((targetSeason) => 1000 - calculateCapSpace({
           entries: [roster],
           seasonName: targetSeason,

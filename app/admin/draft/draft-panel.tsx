@@ -4,6 +4,8 @@ import { Fragment, useId, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { DraftAsset, PlayerListEntry } from "@/lib/league-types";
 import {
+  defaultDraftDestinationForPrice,
+  draftDestinationsForPrice,
   draftSlotAssignmentErrors,
   draftSlotLimits,
   type DraftDestinationSlot,
@@ -61,7 +63,8 @@ export function DraftPanel({
         {picks.map((pick, index) => {
           const selectedPlayer = selections[pick.id] ?? "";
           const immediateExit = immediateExits[pick.id] === true;
-          const requestedDestination = destinations[pick.id] ?? "regular";
+          const plausibleDestinations = draftDestinationsForPrice(pick.price);
+          const requestedDestination = destinations[pick.id] ?? defaultDraftDestinationForPrice(pick.price);
           const destination = immediateExit
             ? pick.price === 1 ? "immediate_release" : "immediate_cut"
             : requestedDestination;
@@ -107,9 +110,11 @@ export function DraftPanel({
               <label className="draft-panel-slot-select">
                 <span>Slot</span>
                 <select value={requestedDestination} onChange={(event) => setDestinations((current) => ({ ...current, [pick.id]: event.target.value as DraftDestinationSlot }))} disabled={!canEdit || immediateExit}>
-                  <option value="regular">Roster ({pick.slots.regular}/{draftSlotLimits.regular})</option>
-                  <option value="two_way">Two-way ({pick.slots.two_way}/{draftSlotLimits.two_way})</option>
-                  <option value="g_league">G-League ({pick.slots.g_league}/{draftSlotLimits.g_league})</option>
+                  {plausibleDestinations.map((destinationSlot) => (
+                    <option value={destinationSlot} key={destinationSlot}>
+                      {draftSlotOptionLabel(destinationSlot)} ({pick.slots[destinationSlot]}/{draftSlotLimits[destinationSlot]})
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="draft-panel-immediate-exit">
@@ -237,4 +242,10 @@ function formatTeamName(name: string) {
   return name
     .toLocaleLowerCase("it-IT")
     .replace(/(^|[\s'-])\p{L}/gu, (letter) => letter.toLocaleUpperCase("it-IT"));
+}
+
+function draftSlotOptionLabel(slot: "regular" | "two_way" | "g_league") {
+  if (slot === "two_way") return "Two-way";
+  if (slot === "g_league") return "G-League";
+  return "Roster";
 }

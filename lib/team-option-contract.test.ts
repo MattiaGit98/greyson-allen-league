@@ -68,9 +68,17 @@ describe("contratti da rookie", () => {
       state: "cut",
       slot: "regular",
       cost: 5,
-      contract: "27 + R.E.",
+      contract: "27",
     });
     expect(cut.scheduledSeasonEndCut).toBeUndefined();
+  });
+
+  it("rimuove tutte le possibilità future senza accorciare la durata garantita", () => {
+    expect(applyStandardContractCut({ ...option, contract: "27 + T.O." }, 2027, "auction_start").contract).toBe("27");
+    expect(applyStandardContractCut({ ...option, contract: "28 (E)" }, 2027, "auction_start").contract).toBe("28");
+    expect(applyStandardContractCut({ ...option, contract: "29 (Q)" }, 2027, "auction_start").contract).toBe("29");
+    expect(applyStandardContractCut({ ...option, contract: "29" }, 2027, "auction_start").contract).toBe("29");
+    expect(applyStandardContractCut({ ...option, contract: "PENDING" }, 2027, "auction_start").contract).toBe("27");
   });
 });
 

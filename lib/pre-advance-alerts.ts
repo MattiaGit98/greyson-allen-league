@@ -17,6 +17,7 @@ import {
   type PostAuctionContractDraft,
 } from "./post-auction-contracts";
 import { isAnnualTeamOptionContract, isRookieExtensionDecisionDue } from "./team-option-contract";
+import { freeReleaseReasonAvailability } from "./free-release";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -214,14 +215,25 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    const freeOneCreditOptions = deliveryState.rosterEntries.filter((entry) => (
-      entry.state === "active" && isAnnualTeamOptionContract(entry) && entry.cost === 1
-    ));
+    const listedPlayers = new Map(state.playerList.map((player) => [player.name, player]));
+    const freeOneCreditOptions = state.rosterEntries.filter((entry) => {
+      const listedPlayer = listedPlayers.get(entry.name);
+      return entry.state === "active" && freeReleaseReasonAvailability(
+        "one_credit_team_option",
+        currentMoment,
+        {
+          ...entry,
+          rookie: listedPlayer?.rookie ?? false,
+          under23: listedPlayer?.under23 ?? false,
+        },
+        seasonName,
+      ).available;
+    });
     if (freeOneCreditOptions.length) {
       add({
         id: "one-credit-options-guarantee",
         tone: "info",
-        title: `${freeOneCreditOptions.length} T.O. da 1 credito stanno per diventare garantite`,
+        title: `${freeOneCreditOptions.length} contratti da 1 credito stanno per diventare garantiti`,
         message: "Dopo la consegna dei contratti non potranno più essere rimosse senza peso sul cap in base a questa eccezione.",
         items: groupPlayerEntries(freeOneCreditOptions),
         article: "Art. 10(e)",

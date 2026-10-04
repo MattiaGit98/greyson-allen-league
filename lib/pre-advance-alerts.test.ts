@@ -150,6 +150,26 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     expect(result.alerts.find((alert) => alert.id === "pending-contracts")).toBeUndefined();
   });
 
+  it("segnala prima della consegna anche il contratto da assegnare da 1 eleggibile per la T.O.", () => {
+    const current = state([
+      rosterEntry("Rookie da liberare", {
+        contract: "PENDING",
+        auctionPrice: 1,
+        contractStartSeason: "2026/27",
+      }),
+    ]);
+    current.playerList = [{ name: "Rookie da liberare", role: "G", realTeam: "", rookie: true, under23: false }];
+
+    const result = buildPreAdvanceChecklist({
+      currentMoment: "auction_completed",
+      seasonName: "2026/27",
+      state: current,
+    });
+
+    expect(result.alerts.find((alert) => alert.id === "one-credit-options-guarantee")?.items)
+      .toContain("AAA: Rookie da liberare");
+  });
+
   it("alla consegna accetta nei Two-way un free agent della stagione ma blocca chi non ha una categoria ammessa", () => {
     const current = state([
       rosterEntry("Free agent idoneo", { slot: "two_way", contract: "27 (Q)", cost: 8, freeAgentSignedSeason: "2026/27" }),
