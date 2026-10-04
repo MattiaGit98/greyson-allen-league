@@ -6,7 +6,7 @@ const migrationPath = join(
   process.cwd(),
   "supabase",
   "migrations",
-  "20261004015804_restore_backup_timeout.sql",
+  "20261004000234_restore_backup_timeout.sql",
 );
 
 describe("timeout del ripristino completo", () => {
