@@ -6,7 +6,7 @@ const migrationPath = join(
   process.cwd(),
   "supabase",
   "migrations",
-  "20261004021000_safe_restore_team_update.sql",
+  "20261004001107_safe_restore_team_update.sql",
 );
 
 describe("compatibilita del ripristino con safeupdate", () => {
