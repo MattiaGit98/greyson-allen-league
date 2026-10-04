@@ -378,15 +378,9 @@ export function TeamAccordion({
             aria-expanded={auctionCallsOpen}
             onClick={() => setAuctionCallsOpen((current) => !current)}
           >
-            <b className="team-code-badge auction-calls-badge" aria-label="Quindici prossime chiamate">15</b>
-            <b className="team-code-rail auction-calls-badge" aria-label="Quindici prossime chiamate">
-              <span aria-hidden="true">1</span><span aria-hidden="true">5</span>
-            </b>
             <span className="team-accordion-identity">
               <strong>Prossime 15 chiamate</strong>
-              <small>Free agent e qualifying offer</small>
             </span>
-            <span className="auction-calls-count"><small>Disponibili</small><strong>{auctionCalls.length}</strong></span>
             <i aria-hidden="true">{auctionCallsOpen ? "−" : "+"}</i>
           </button>
           {auctionCallsOpen && (

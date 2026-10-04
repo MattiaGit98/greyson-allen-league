@@ -245,12 +245,8 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .team-accordion-item:hover { border-color: #bdb9ac; transform: translateY(-1px); box-shadow: 0 9px 24px rgba(24,63,52,.07); }
 .team-accordion-item.open { overflow: visible; border-color: #a9b9ae; box-shadow: 0 16px 38px rgba(24,63,52,.09); }
 .team-accordion-item.open:hover { transform: none; }
-.auction-calls-trigger { background: linear-gradient(90deg, #eadfc4, #f5eddc 76%); }
-.auction-calls-trigger:hover, .team-accordion-item.open > .auction-calls-trigger { background: linear-gradient(90deg, #dfcfaa, #f1e5ce 76%); }
-.auction-calls-badge { background: #8a682c; color: #fff8df; }
-.auction-calls-count { min-width: 0; display: grid; justify-items: center; gap: 2px; }
-.auction-calls-count small { color: #6e5a32; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
-.auction-calls-count strong { color: #60491f; font-size: 16px; }
+.team-accordion-trigger.auction-calls-trigger, .public-navigation.is-open ~ main .team-accordion-trigger.auction-calls-trigger { grid-template-columns: minmax(0, 1fr) 30px; grid-template-areas: "identity toggle"; background: linear-gradient(90deg, #c9e4ed, #e9f4f7 76%); }
+.team-accordion-trigger.auction-calls-trigger:hover, .team-accordion-item.open > .team-accordion-trigger.auction-calls-trigger { background: linear-gradient(90deg, #b8dce8, #deeff4 76%); }
 .auction-calls-content { overflow: hidden; border-top: 1px solid var(--line); }
 .auction-calls-content .player-list { border: 0; border-radius: 0; box-shadow: none; }
 .team-accordion-item.player-search-team { border-color: #87ab95; box-shadow: 0 0 0 3px rgba(68,125,83,.12), 0 12px 28px rgba(24,63,52,.08); }
@@ -259,7 +255,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .public-navigation.is-open ~ main .team-accordion-trigger .team-code-badge { grid-area: badge; }
 .public-navigation.is-open ~ main .team-accordion-trigger .team-accordion-identity { grid-area: identity; }
 .public-navigation.is-open ~ main .team-accordion-trigger .team-current-cap { grid-area: cap; }
-.public-navigation.is-open ~ main .team-accordion-trigger .auction-calls-count { grid-area: cap; }
 .public-navigation.is-open ~ main .team-accordion-trigger > i { grid-area: toggle; }
 .team-accordion-trigger:hover, .team-accordion-item.open > .team-accordion-trigger { background: linear-gradient(90deg, #a4c9af, #d1e5d2 76%); }
 .team-accordion-item.open > .team-accordion-trigger { position: sticky; z-index: 4; top: calc(var(--team-sticky-offset) - 1px); border-bottom: 1px solid #88b493; border-radius: 0; background: linear-gradient(90deg, #a4c9af, #d1e5d2 76%); box-shadow: 0 8px 18px rgba(24,63,52,.10); }
@@ -1164,9 +1159,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .team-current-cap small { font-size: 7px; }
   .team-current-cap strong { font-size: 17px; line-height: 1; }
   .team-accordion-trigger > i { grid-area: toggle; width: 25px; height: 25px; font-size: 18px; }
-  .auction-calls-count { grid-area: cap; }
-  .auction-calls-count small { font-size: 7px; }
-  .auction-calls-count strong { font-size: 13px; }
+  .team-accordion-trigger.auction-calls-trigger, .public-navigation.is-open ~ main .team-accordion-trigger.auction-calls-trigger { grid-template-columns: minmax(0, 1fr) 26px; grid-template-areas: "identity toggle"; padding-left: 9px; }
   .team-accordion-content { padding: 10px 0 0; }
   .team-accordion-content > .team-summary-strip { margin: -10px 0 0; }
   .team-accordion-content > .team-role-minimum-warning { margin-right: 6px; margin-left: 6px; }
