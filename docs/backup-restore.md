@@ -23,6 +23,8 @@ Il file scelto viene quindi caricato direttamente, con upload riprendibile, nel 
 
 La route verifica nuovamente sessione, ruolo amministratore e path, scarica il file dal bucket privato, applica il limite di 100 MB e valida formato, versione e checksum con `parseImportableLeagueBackup`. Il ripristino continua a essere eseguito dalla funzione PostgreSQL `restore_importable_league_backup`, quindi la sostituzione dello stato della lega rimane atomica: un errore della RPC annulla l’intera operazione.
 
+La sola RPC di ripristino dispone di un timeout dedicato di 60 secondi, necessario per elaborare anche il registro completo dei movimenti. Il limite generale delle altre richieste autenticate non viene modificato.
+
 Il file temporaneo viene eliminato dopo il tentativo di ripristino, sia in caso di successo sia, per quanto possibile, in caso di errore. Il browser effettua inoltre un secondo tentativo di pulizia come protezione contro errori di rete tra la route e il client. Il bucket non espone URL pubblici e le policy consentono upload, lettura e cancellazione soltanto agli admin autenticati, limitatamente ai file di cui sono proprietari nel proprio prefisso.
 
 Il formato resta `greyson-allen-league-importable-backup`, versione `2`; nessun dato viene rimosso dall’export, compresi tutti i movimenti con `before_state` e `after_state`.
