@@ -26,7 +26,7 @@ export default async function TeamsPage({
   const showAuctionCalls = hasReachedMoment(leagueMoment, "auction_start")
     && !hasReachedMoment(leagueMoment, "auction_completed");
   const auctionCalls = showAuctionCalls
-    ? buildPublicPlayerListRows(leagueState).filter((row) => !row.rosterTeamCode).slice(0, 15)
+    ? buildPublicPlayerListRows(leagueState).filter((row) => !row.rosterTeamCode).slice(0, 30)
     : [];
 
   return (

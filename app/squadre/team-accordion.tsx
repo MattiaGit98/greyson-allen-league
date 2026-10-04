@@ -379,7 +379,7 @@ export function TeamAccordion({
             onClick={() => setAuctionCallsOpen((current) => !current)}
           >
             <span className="team-accordion-identity">
-              <strong>Prossime 15 chiamate</strong>
+              <strong>Prossime 30 chiamate</strong>
             </span>
             <i aria-hidden="true">{auctionCallsOpen ? "−" : "+"}</i>
           </button>
