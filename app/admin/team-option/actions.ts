@@ -75,7 +75,7 @@ export async function saveRookieContractDecisions(formData: FormData) {
       optionSeasonName: activeSeasonName,
       countTeamOptions: false,
     });
-    return space < 0 ? [`Le decisioni porterebbero il cap ${targetSeason} oltre 1000 crediti (cap libero ${space}).`] : [];
+    return space < 0 ? [`Le decisioni porterebbero il team salary ${targetSeason} oltre il salary cap di 1000 crediti (cap libero ${space}).`] : [];
   });
   requireCapCompliance(capWarnings, fail);
 
@@ -156,7 +156,7 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
       optionSeasonName: activeSeasonName,
       countTeamOptions: true,
     });
-    return space < 0 ? [`L'esercizio anticipato porterebbe il cap ${targetSeason} oltre 1000 crediti (cap libero ${space}).`] : [];
+    return space < 0 ? [`L'esercizio anticipato porterebbe il team salary ${targetSeason} oltre il salary cap di 1000 crediti (cap libero ${space}).`] : [];
   });
   requireCapCompliance(capWarnings, fail);
 

@@ -226,10 +226,10 @@ export async function signFreeAgent(formData: FormData) {
     && afterCost <= currentCost + 1;
   const capWarnings = [
     ...(!hasReachedMoment(moment, "free_agency_reopening") && afterCost > 1000 && price > 1
-      ? [`Il free agent può essere acquistato per più di 1 credito soltanto se il cap resta entro quota 1000 (cap libero ${1000 - afterCost}).`]
+      ? [`Il free agent può essere acquistato per più di 1 credito soltanto se il team salary resta entro quota 1000 (cap libero ${1000 - afterCost}).`]
       : []),
     ...(afterCost > 1100 && (currentCost <= 1100 || afterCost > currentCost) && !roleMinimumCapException
-      ? [`La firma aumenterebbe il cap oltre quota 1100 (cap libero ${1000 - afterCost}).`]
+      ? [`La firma porterebbe il team salary oltre quota 1100 (cap libero ${1000 - afterCost}).`]
       : []),
   ];
   requireCapCompliance(capWarnings, fail);

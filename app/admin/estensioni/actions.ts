@@ -73,8 +73,8 @@ export async function applyContractExtension(formData: FormData) {
       optionSeasonName: season.data.name,
       countTeamOptions,
     });
-    if (distance > 0 && space < 0) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
-    if (distance === 0 && space < 0 && space < beforeSpace) capWarnings.push(`L'estensione porterebbe il cap ${target} oltre 1000 crediti (cap libero ${space}).`);
+    if (distance > 0 && space < 0) capWarnings.push(`L'estensione porterebbe il team salary ${target} oltre il salary cap di 1000 crediti (cap libero ${space}).`);
+    if (distance === 0 && space < 0 && space < beforeSpace) capWarnings.push(`L'estensione porterebbe il team salary ${target} oltre il salary cap di 1000 crediti (cap libero ${space}).`);
   }
   requireCapCompliance(capWarnings, (message) => fail(path, message));
   const nextState = { ...state, rosterEntries };

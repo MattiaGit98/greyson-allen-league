@@ -532,7 +532,7 @@ export function evaluateTrade(input: {
     ) {
       warnings.push({
         code: `TRADE_REGULAR_SEASON_CAP_${team.code}`,
-        message: `${team.code}: lo scambio aumenta il salary cap oltre il limite consentito.`,
+        message: `${team.code}: lo scambio porta il team salary oltre il salary cap consentito.`,
       });
     }
 

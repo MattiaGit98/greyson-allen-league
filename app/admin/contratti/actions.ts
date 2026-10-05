@@ -77,7 +77,7 @@ export async function assignPostAuctionContracts(formData: FormData) {
       optionSeasonName: activeSeasonName,
       countTeamOptions: true,
     });
-    return space < 0 ? [`I contratti porterebbero il cap ${targetSeason} oltre 1000 crediti (cap libero ${space}).`] : [];
+    return space < 0 ? [`I contratti porterebbero il team salary ${targetSeason} oltre il salary cap di 1000 crediti (cap libero ${space}).`] : [];
   });
   requireCapCompliance(capWarnings, fail);
 

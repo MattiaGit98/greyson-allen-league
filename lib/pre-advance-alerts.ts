@@ -490,7 +490,7 @@ function addStructuralAlerts(
     add({
       id: "future-cap-overflow",
       tone: "warning",
-      title: "Salary cap futuro oltre 1000 crediti",
+      title: "Team salary futuro oltre 1000 crediti",
       message: "Il regolamento non ammette eccezioni; l’avanzamento resta confermabile come forzatura amministrativa.",
       items: futureCapIssues,
       article: "Art. 9(d)",
@@ -516,7 +516,7 @@ function addStructuralAlerts(
     add({
       id: "strict-offseason-cap",
       tone: "warning",
-      title: "Salary cap corrente oltre 1000 crediti",
+      title: "Team salary corrente oltre 1000 crediti",
       message: "Fino all’inizio dell’asta il limite è 1000; l’avanzamento resta confermabile come forzatura amministrativa.",
       items: currentCapIssues.map((issue) => `${issue.teamCode}: ${issue.cost} crediti · cap libero ${issue.space}`),
       article: "Art. 9(a)",

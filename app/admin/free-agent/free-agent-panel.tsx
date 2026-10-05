@@ -362,7 +362,7 @@ function FreeAgentDialog({
           </label>
         )}
         {roleMinimumReplacement && roleMinimumReplacementAvailable && capWarnings.length > 0 && (
-          <p className="validation warning">L’assegnazione obbligatoria da 1 credito può superare il salary cap; il credito continua comunque a pesare sul cap della squadra.</p>
+          <p className="validation warning">L’assegnazione obbligatoria da 1 credito può portare il team salary oltre il salary cap; il credito continua comunque a pesare sul team salary della squadra.</p>
         )}
         {roleMinimumSlotError && <p className="validation error">{roleMinimumSlotError}</p>}
         {roleMinimumConfirmationRequired && !roleMinimumSlotError && (

@@ -249,7 +249,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .team-accordion-trigger.auction-calls-trigger:hover, .team-accordion-item.open > .team-accordion-trigger.auction-calls-trigger { background: linear-gradient(90deg, #b8dce8, #deeff4 76%); }
 .auction-calls-content { overflow: hidden; border-top: 1px solid var(--line); }
 .auction-calls-content .player-list { border: 0; border-radius: 0; box-shadow: none; }
-.recent-auction-calls-table .data-head, .recent-auction-calls-table .data-row { grid-template-columns: minmax(0, 1fr) 54px 72px 76px; }
 .recent-auction-calls-table .data-head > :not(:first-child), .recent-auction-calls-table .data-row > :not(:first-child) { justify-self: center; text-align: center; }
 .auction-call-team { color: var(--green); font-size: 10px; letter-spacing: .06em; }
 .team-accordion-item.player-search-team { border-color: #87ab95; box-shadow: 0 0 0 3px rgba(68,125,83,.12), 0 12px 28px rgba(24,63,52,.08); }
@@ -311,7 +310,8 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .accordion-data-section.open:not(:last-child) > .data-table { margin-bottom: 9px; }
 .data-table { overflow: hidden; border: 1px solid var(--line); border-top: 2px solid var(--green); border-radius: 12px; background: rgba(255,255,255,.9); box-shadow: 0 4px 14px rgba(24,63,52,.035); }
 .data-head, .data-row { display: grid; align-items: center; gap: 14px; min-height: 42px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
-.roster-data-table .data-head, .roster-data-table .data-row { grid-template-columns: 1.5fr .45fr .68fr .45fr; }
+.roster-data-table .data-head, .roster-data-table .data-row,
+.recent-auction-calls-table .data-head, .recent-auction-calls-table .data-row { grid-template-columns: 1.5fr .45fr .68fr .45fr; }
 .cut-player-table .data-head, .cut-player-table .data-row { grid-template-columns: 1.5fr .8fr .68fr .45fr; }
 .draft-data-table .data-head, .draft-data-table .data-row { grid-template-columns: .35fr .55fr .75fr 1.7fr; }
 .draft-data-table .data-head > :nth-child(3) { white-space: nowrap; }
@@ -1166,7 +1166,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .team-current-cap strong { font-size: 17px; line-height: 1; }
   .team-accordion-trigger > i { grid-area: toggle; width: 25px; height: 25px; font-size: 18px; }
   .team-accordion-trigger.auction-calls-trigger, .public-navigation.is-open ~ main .team-accordion-trigger.auction-calls-trigger { grid-template-columns: minmax(0, 1fr) 26px; grid-template-areas: "identity toggle"; padding-left: 9px; }
-  .recent-auction-calls-table .data-head, .recent-auction-calls-table .data-row { min-width: 0; grid-template-columns: minmax(0, 1fr) 34px 48px 52px; gap: 6px; padding-right: 7px; padding-left: 7px; }
   .team-accordion-content { padding: 10px 0 0; }
   .team-accordion-content > .auction-role-status { margin: -10px 0 0; padding-right: 8px; padding-left: 8px; }
   .team-accordion-content > .team-summary-strip { margin: -10px 0 0; }
@@ -1181,7 +1180,8 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .accordion-data-section > .data-table { width: 100%; margin-right: 0; margin-left: 0; }
   .data-table { width: 100%; overflow: hidden; border-radius: 10px; }
   .data-head, .data-row { min-width: 0; gap: 6px; padding: 8px 7px; }
-  .roster-data-table .data-head, .roster-data-table .data-row { grid-template-columns: minmax(0, 1fr) 40px 76px 56px; gap: 7px; }
+  .roster-data-table .data-head, .roster-data-table .data-row,
+  .recent-auction-calls-table .data-head, .recent-auction-calls-table .data-row { min-width: 0; grid-template-columns: minmax(0, 1fr) 40px 76px 56px; gap: 7px; }
   .roster-data-table .data-head .sort-direction { display: none; }
   .cut-player-table .data-head, .cut-player-table .data-row { grid-template-columns: minmax(0, 1fr) 66px 76px 56px; }
   .roster-data-table .data-head > :nth-child(n+2), .roster-data-table .data-row > :nth-child(n+2) { justify-self: center; white-space: nowrap; }
