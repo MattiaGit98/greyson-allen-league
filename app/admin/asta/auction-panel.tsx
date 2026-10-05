@@ -75,12 +75,14 @@ export function AuctionPanel({
   seasonName,
   pendingDraftPicks,
   assignmentUndos,
+  initialOnlyAuctionable,
 }: {
   rows: AuctionRow[];
   teams: AuctionTeam[];
   phase: string;
   seasonName: string;
   pendingDraftPicks: number;
+  initialOnlyAuctionable: boolean;
   assignmentUndos: Record<string, {
     movementId: string;
     summary: string;
@@ -90,6 +92,7 @@ export function AuctionPanel({
   }>;
 }) {
   const [query, setQuery] = useState("");
+  const [onlyAuctionable, setOnlyAuctionable] = useState(initialOnlyAuctionable);
   const [dialogSelection, setDialogSelection] = useState<AuctionDialogSelection | null>(null);
   const selected = rows.find((row) => row.name === dialogSelection?.name) ?? null;
   const selectedDialogIsValid = Boolean(selected && (
@@ -97,8 +100,16 @@ export function AuctionPanel({
     || (dialogSelection?.mode === "operations" && selected.roster)
   ));
   const filtered = useMemo(() => rows.filter((row) => (
-    row.name.toLocaleLowerCase("it").includes(query.trim().toLocaleLowerCase("it"))
-  )), [query, rows]);
+    (!onlyAuctionable || !row.roster)
+    && row.name.toLocaleLowerCase("it").includes(query.trim().toLocaleLowerCase("it"))
+  )), [onlyAuctionable, query, rows]);
+
+  useEffect(() => {
+    if (!initialOnlyAuctionable) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("onlyAstabili");
+    window.history.replaceState(window.history.state, "", url);
+  }, [initialOnlyAuctionable]);
 
   useEffect(() => {
     if (!dialogSelection) return;
@@ -115,10 +126,20 @@ export function AuctionPanel({
 
   return (
     <>
-      <label className="auction-search search-field">
-        <span>Cerca</span>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome del giocatore…" />
-      </label>
+      <div className="auction-list-toolbar">
+        <label className="auction-search search-field">
+          <span>Cerca</span>
+          <input value={query} onChange={(event) => {
+            const nextQuery = event.target.value;
+            setQuery(nextQuery);
+            if (nextQuery) setOnlyAuctionable(false);
+          }} placeholder="Nome del giocatore…" />
+        </label>
+        <label className="auction-only-auctionable">
+          <input type="checkbox" checked={onlyAuctionable} onChange={(event) => setOnlyAuctionable(event.target.checked)} />
+          <span>Solo astabili</span>
+        </label>
+      </div>
 
       <div className="auction-player-list">
         <div className="auction-player-head">
@@ -170,15 +191,15 @@ export function AuctionPanel({
           if (event.target === event.currentTarget) setDialogSelection(null);
         }}>
           {dialogSelection.mode === "operations"
-            ? <EditPlayerDialog key={`edit-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setDialogSelection(null)} />
-            : <PurchasePlayerDialog key={`buy-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onClose={() => setDialogSelection(null)} />}
+            ? <EditPlayerDialog key={`edit-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onlyAuctionable={onlyAuctionable} onClose={() => setDialogSelection(null)} />
+            : <PurchasePlayerDialog key={`buy-${selected.name}`} row={selected} rows={rows} teams={teams} phase={phase} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} onlyAuctionable={onlyAuctionable} onClose={() => setDialogSelection(null)} />}
         </div>
       )}
     </>
   );
 }
 
-function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks = 0, onClose }: DialogProps & { pendingDraftPicks?: number }) {
+function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks = 0, onlyAuctionable, onClose }: DialogProps & { pendingDraftPicks?: number }) {
   const [teamCode, setTeamCode] = useState(teams[0]?.code ?? "");
   const [price, setPrice] = useState(1);
   const [slot, setSlot] = useState<AuctionSlot>("regular");
@@ -236,6 +257,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
       <input type="hidden" name="slot" value={effectiveSlot} />
       <input type="hidden" name="slot_resolution_json" value={JSON.stringify(slotDecisions)} />
       <input type="hidden" name="qualifying_outcome" value={qualifyingOutcome} />
+      <input type="hidden" name="only_auctionable" value={onlyAuctionable ? "1" : "0"} />
       <ModalHeader row={row} label="Asta" onClose={onClose} />
 
       <div className="auction-modal-body">
@@ -308,7 +330,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   );
 }
 
-function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPicks = 0, onClose }: DialogProps & { pendingDraftPicks?: number }) {
+function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPicks = 0, onlyAuctionable, onClose }: DialogProps & { pendingDraftPicks?: number }) {
   const roster = row.roster!;
   const [kind, setKind] = useState<"cut" | "free_release" | "slot">("cut");
   const [newSlot, setNewSlot] = useState<AuctionSlot>(roster.slot === "dpe" ? "regular" : roster.slot);
@@ -361,7 +383,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
   if (reviewing) {
     return (
       <form action={modifyAuctionPlayer} className="auction-modal auction-confirm-modal" role="alertdialog" aria-modal="true" aria-label={`Conferma operazione su ${row.name}`}>
-        <EditHiddenFields row={row} kind={kind} newSlot={newSlot} slotDecisions={slotDecisions} />
+        <EditHiddenFields row={row} kind={kind} newSlot={newSlot} slotDecisions={slotDecisions} onlyAuctionable={onlyAuctionable} />
         <ModalHeader row={row} label="Conferma operazione" onClose={onClose} />
         <div className="auction-confirm-body">
           <p>Stai per applicare questa operazione:</p>
@@ -452,7 +474,7 @@ function legalAuctionSlotDestinations(row: AuctionRow, seasonName: string): Auct
   });
 }
 
-function EditHiddenFields({ row, kind, newSlot, slotDecisions }: { row: AuctionRow; kind: string; newSlot: AuctionSlot; slotDecisions: ContextualSlotDecision[] }) {
+function EditHiddenFields({ row, kind, newSlot, slotDecisions, onlyAuctionable }: { row: AuctionRow; kind: string; newSlot: AuctionSlot; slotDecisions: ContextualSlotDecision[]; onlyAuctionable: boolean }) {
   return <>
     <input type="hidden" name="player_name" value={row.name} />
     <input type="hidden" name="team_code" value={row.roster?.teamCode ?? ""} />
@@ -461,6 +483,7 @@ function EditHiddenFields({ row, kind, newSlot, slotDecisions }: { row: AuctionR
     <input type="hidden" name="slot_resolution_json" value={JSON.stringify(slotDecisions)} />
     <input type="hidden" name="requirements_confirmed" value="true" />
     <input type="hidden" name="return_path" value="/admin/asta" />
+    <input type="hidden" name="only_auctionable" value={onlyAuctionable ? "1" : "0"} />
   </>;
 }
 
@@ -610,5 +633,6 @@ type DialogProps = {
   teams: AuctionTeam[];
   phase: string;
   seasonName: string;
+  onlyAuctionable: boolean;
   onClose: () => void;
 };

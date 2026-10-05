@@ -77,12 +77,13 @@ export function rookieExtensionContract(endYear: number) {
 }
 
 export function qualifyingOfferForDeclinedRookieExtension(
-  entry: Pick<RosterEntry, "name" | "cost" | "teamCode">,
+  entry: Pick<RosterEntry, "name" | "cost" | "teamCode" | "role">,
 ): QualifyingOfferRight {
   return {
     playerName: entry.name,
     qualifyingAmount: entry.cost,
     teamCode: entry.teamCode,
+    role: entry.role,
   };
 }
 

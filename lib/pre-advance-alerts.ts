@@ -18,6 +18,7 @@ import {
 } from "./post-auction-contracts";
 import { isAnnualTeamOptionContract, isRookieExtensionDecisionDue } from "./team-option-contract";
 import { freeReleaseReasonAvailability } from "./free-release";
+import { incompleteAuctionRosterLabels } from "./auction-roster-completion";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -130,12 +131,7 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
 
-    const incompleteRosters = state.teams.flatMap((team) => {
-      const regular = state.rosterEntries.filter((entry) => (
-        entry.teamCode === team.code && entry.state === "active" && entry.slot === "regular"
-      )).length;
-      return regular < 13 ? [`${team.code}: ${regular}/13 slot roster occupati`] : [];
-    });
+    const incompleteRosters = incompleteAuctionRosterLabels(state);
     if (incompleteRosters.length) {
       add({
         id: "auction-rosters-incomplete",

@@ -39,6 +39,7 @@ export type QualifyingOfferRight = {
   playerName: string;
   qualifyingAmount: number;
   teamCode: string;
+  role?: PlayerListEntry["role"];
 };
 
 export type DraftClauseResolution = {

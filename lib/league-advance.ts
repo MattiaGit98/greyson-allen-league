@@ -95,6 +95,7 @@ function calculateLeagueAdvanceCore(input: LeagueAdvanceInput) {
       playerName: entry.name,
       qualifyingAmount: entry.cost,
       teamCode: entry.teamCode,
+      role: entry.role ?? input.playerList.find((player) => normalizePlayerName(player.name) === normalizePlayerName(entry.name))?.role,
     }));
 
   const retainedBeforeDpeReintegration = input.rosterEntries

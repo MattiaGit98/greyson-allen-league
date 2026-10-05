@@ -14,6 +14,9 @@ import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
 import { shouldShowScheduledCutBadge } from "@/lib/season-end-cuts";
 import { PublicPlayerList } from "@/app/giocatori/player-explorer";
 import type { PublicPlayerListRow } from "@/lib/public-player-list";
+import { qualifyingOfferDisplayRole } from "@/lib/qualifying-offer-role";
+import { teamPlayerSearchMatches, type TeamPlayerSearchMatch } from "@/lib/team-player-search";
+import type { RecentAuctionCall } from "@/lib/auction-call-feed";
 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
 type DataSectionKey = (typeof dataSectionKeys)[number];
@@ -50,6 +53,8 @@ export function TeamAccordion({
   capScaleMaximum,
   leagueMoment,
   auctionCalls,
+  recentAuctionCalls,
+  showAuctionCallPanels,
 }: {
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
@@ -68,6 +73,8 @@ export function TeamAccordion({
   capScaleMaximum: number;
   leagueMoment: LeagueMoment;
   auctionCalls: PublicPlayerListRow[];
+  recentAuctionCalls: RecentAuctionCall[];
+  showAuctionCallPanels: boolean;
 }) {
   const initialPlayerInRoster = Boolean(initialTeam && initialPlayer && rosterEntries.some((entry) => (
     entry.teamCode === initialTeam
@@ -105,6 +112,10 @@ export function TeamAccordion({
   const [orderDraft, setOrderDraft] = useState<TeamSort>("name");
   const [viewDraft, setViewDraft] = useState<DataSectionKey[]>(["roster"]);
   const [auctionCallsOpen, setAuctionCallsOpen] = useState(false);
+  const [recentAuctionCallsOpen, setRecentAuctionCallsOpen] = useState(false);
+  const visibleDataSectionKeys: readonly DataSectionKey[] = showQualifyingOffers
+    ? dataSectionKeys
+    : dataSectionKeys.filter((section) => section !== "qualifying_offer");
   const teamRefs = useRef(new Map<string, HTMLElement>());
   const explorerRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -136,12 +147,13 @@ export function TeamAccordion({
       return left.name.localeCompare(right.name, "it");
     }), [teamMetrics, teamSort, teams]);
   const playerSearchMatches = useMemo(() => {
-    if (normalizedPlayerSearchQuery.length < 3) return [];
-    return rosterEntries
-      .filter((entry) => entry.state === "active" && normalizePlayerName(entry.name).includes(normalizedPlayerSearchQuery))
-      .slice()
-      .sort((left, right) => left.name.localeCompare(right.name, "it") || left.teamCode.localeCompare(right.teamCode));
-  }, [normalizedPlayerSearchQuery, rosterEntries]);
+    return teamPlayerSearchMatches({
+      query: normalizedPlayerSearchQuery,
+      rosterEntries,
+      qualifyingOfferRights,
+      includeQualifyingOffers: showQualifyingOffers,
+    });
+  }, [normalizedPlayerSearchQuery, qualifyingOfferRights, rosterEntries, showQualifyingOffers]);
 
   useEffect(() => {
     if (!initialTeam || !initialPlayerOnTeam) return;
@@ -172,7 +184,7 @@ export function TeamAccordion({
   }, []);
   const allExpanded = teams.length > 0
     && openTeams.length === teams.length
-    && teams.every((team) => dataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
+    && teams.every((team) => visibleDataSectionKeys.every((section) => openSectionsByTeam[team.code]?.includes(section)));
   const rosterOnlyExpanded = teams.length > 0
     && openTeams.length === teams.length
     && teams.every((team) => {
@@ -194,7 +206,7 @@ export function TeamAccordion({
     }
     setOpenTeams(teams.map((team) => team.code));
     setOpenSectionsByTeam(Object.fromEntries(
-      teams.map((team) => [team.code, [...dataSectionKeys]]),
+      teams.map((team) => [team.code, [...visibleDataSectionKeys]]),
     ));
   };
 
@@ -246,12 +258,13 @@ export function TeamAccordion({
   };
 
   const applyView = () => {
-    setSectionsToExpand(viewDraft);
+    const selectedSections = viewDraft.filter((section) => visibleDataSectionKeys.includes(section));
+    setSectionsToExpand(selectedSections);
     const visibleTeamCodes = displayedTeams.map((team) => team.code);
     setOpenTeams((current) => [...new Set([...current, ...visibleTeamCodes])]);
     setOpenSectionsByTeam((current) => ({
       ...current,
-      ...Object.fromEntries(visibleTeamCodes.map((code) => [code, viewDraft])),
+      ...Object.fromEntries(visibleTeamCodes.map((code) => [code, selectedSections])),
     }));
     setExplorerDialog(null);
   };
@@ -261,10 +274,13 @@ export function TeamAccordion({
     setExplorerDialog("search");
   };
 
-  const focusPlayerTeam = (entry: RosterEntry) => {
+  const focusPlayerTeam = (entry: TeamPlayerSearchMatch) => {
     setExplorerDialog(null);
     setOpenTeams((current) => current.includes(entry.teamCode) ? current : [...current, entry.teamCode]);
-    setOpenSectionsByTeam((current) => ({ ...current, [entry.teamCode]: [...playerSlotSectionKeys] }));
+    setOpenSectionsByTeam((current) => ({
+      ...current,
+      [entry.teamCode]: entry.section === "qualifying_offer" ? ["qualifying_offer"] : [...playerSlotSectionKeys],
+    }));
     window.requestAnimationFrame(() => teamRefs.current.get(entry.teamCode)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
@@ -338,9 +354,9 @@ export function TeamAccordion({
                 <label className="team-player-search-dialog-input"><span>Nome giocatore</span><input autoFocus value={playerSearchQuery} onChange={(event) => setPlayerSearchQuery(event.target.value)} placeholder="Almeno 3 caratteri..." /></label>
                 <div className="team-player-search-results" aria-live="polite">
                   {normalizedPlayerSearchQuery.length < 3 ? <p>Scrivi almeno 3 caratteri.</p>
-                    : playerSearchMatches.length ? playerSearchMatches.map((entry) => <button type="button" key={`${entry.teamCode}-${entry.name}-${entry.slot}`} onClick={() => focusPlayerTeam(entry)}>
-                      <strong>{entry.name}</strong><span className="team-player-search-result-meta"><small>{entry.teamCode}</small><small>{slotLabel(entry.slot)}</small></span><i aria-hidden="true">›</i>
-                    </button>) : <p>Nessun giocatore assegnato corrisponde alla ricerca.</p>}
+                    : playerSearchMatches.length ? playerSearchMatches.map((entry) => <button type="button" key={`${entry.teamCode}-${entry.name}-${entry.section}`} onClick={() => focusPlayerTeam(entry)}>
+                      <strong>{entry.name}</strong><span className="team-player-search-result-meta"><small>{entry.teamCode}</small><small>{entry.slotLabel}</small></span><i aria-hidden="true">›</i>
+                    </button>) : <p>Nessun giocatore o Q.O. corrisponde alla ricerca.</p>}
                 </div>
               </div>
               <footer><button className="button secondary" type="button" onClick={() => setExplorerDialog(null)}>Chiudi</button></footer>
@@ -360,7 +376,7 @@ export function TeamAccordion({
               <div className="team-explorer-dialog-body">
                 <fieldset className="team-explorer-fieldset">
                   <div className="team-explorer-checks">
-                    {dataSectionKeys.map((section) => <label key={section}><input type="checkbox" checked={viewDraft.includes(section)} onChange={() => toggleDraftSection(section)} /> {sectionLabels[section]}</label>)}
+                    {visibleDataSectionKeys.map((section) => <label key={section}><input type="checkbox" checked={viewDraft.includes(section)} onChange={() => toggleDraftSection(section)} /> {sectionLabels[section]}</label>)}
                   </div>
                 </fieldset>
               </div>
@@ -370,7 +386,37 @@ export function TeamAccordion({
         </div>
       )}
       <div className={`team-accordion ${explorerOpen ? "explorer-open" : ""}`} ref={accordionRef}>
-      {auctionCalls.length > 0 && (
+      {showAuctionCallPanels && (
+        <article className={`team-accordion-item recent-auction-calls-item ${recentAuctionCallsOpen ? "open" : ""}`}>
+          <button
+            className="team-accordion-trigger auction-calls-trigger"
+            type="button"
+            aria-expanded={recentAuctionCallsOpen}
+            onClick={() => setRecentAuctionCallsOpen((current) => !current)}
+          >
+            <span className="team-accordion-identity">
+              <strong>Ultime 10 chiamate</strong>
+            </span>
+            <i aria-hidden="true">{recentAuctionCallsOpen ? "−" : "+"}</i>
+          </button>
+          {recentAuctionCallsOpen && recentAuctionCalls.length > 0 && (
+            <div className="auction-calls-content">
+              <div className="data-table recent-auction-calls-table">
+                <div className="data-head"><span>Giocatore</span><span>Ruolo</span><span>Costo</span><span>Squadra</span></div>
+                {recentAuctionCalls.map((call) => (
+                  <div className="data-row" key={call.id}>
+                    <strong>{call.playerName}</strong>
+                    <span><i className={`mini-role mini-role-${call.role.toLowerCase()}`}>{call.role}</i></span>
+                    <strong className="credit-value">{call.cost}</strong>
+                    <strong className="auction-call-team">{call.teamCode}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </article>
+      )}
+      {showAuctionCallPanels && auctionCalls.length > 0 && (
         <article className={`team-accordion-item auction-calls-item ${auctionCallsOpen ? "open" : ""}`}>
           <button
             className="team-accordion-trigger auction-calls-trigger"
@@ -460,13 +506,6 @@ function teamCapSpaces(entries: RosterEntry[], capSeasonName: string, countTeamO
     optionSeasonName: capSeasonName,
     countTeamOptions,
   }));
-}
-
-function slotLabel(slot: RosterEntry["slot"]) {
-  if (slot === "two_way") return "Two-way";
-  if (slot === "g_league") return "G-League";
-  if (slot === "dpe") return "DPE";
-  return "Roster";
 }
 
 function CapCurrent({ value, scale }: { value: number; scale: number }) {
@@ -580,7 +619,7 @@ function TeamDetails({
       </DataSection>
 
       <DataSection tone="draft" label={`Scelte (${eligibleAssetCount})`} expanded={openSections.includes("draft")} onToggle={() => toggleSection("draft")}>
-        <div className="data-table draft-data-table">
+        {sortedAssets.length > 0 && <div className="data-table draft-data-table">
           <div className="data-head"><span>Anno</span><span>Giro</span><span>SQ / POS</span><span>Clausola</span></div>
           {sortedAssets.map((asset, index) => {
             const numericalPosition = numericValue(asset.originOrOverall);
@@ -598,8 +637,7 @@ function TeamDetails({
               <span>{isNonTradableFuturePick ? `Non scambiabile · ${draftCondition(asset.label)}` : draftCondition(asset.label)}</span>
             </div>
           )})}
-          {!sortedAssets.length && <EmptyRow />}
-        </div>
+        </div>}
       </DataSection>
 
       <DataSection tone="cut" label={`Tagliati (${cut.length})`} expanded={openSections.includes("cut")} onToggle={() => toggleSection("cut")}>
@@ -608,13 +646,19 @@ function TeamDetails({
 
       {showQualifyingOffers && (
         <DataSection tone="qualifying_offer" label={`Qualifying offer (${rights.length})`} expanded={openSections.includes("qualifying_offer")} onToggle={() => toggleSection("qualifying_offer")}>
-          <div className="data-table qo-data-table">
-            <div className="data-head"><span>Giocatore</span><span>Importo</span></div>
-            {rights.map((right) => (
-              <div className="data-row" key={right.playerName}><strong>{right.playerName}</strong><strong className="credit-value">{right.qualifyingAmount}</strong></div>
-            ))}
-            {!rights.length && <EmptyRow />}
-          </div>
+          {rights.length > 0 && <div className="data-table qo-data-table">
+            <div className="data-head"><span>Giocatore</span><span>Ruolo</span><span>Importo</span></div>
+            {rights.map((right) => {
+              const role = qualifyingOfferDisplayRole(right, playerList, playerListPublished);
+              return (
+                <div className="data-row" key={right.playerName}>
+                  <strong>{right.playerName}</strong>
+                  <span><i className={`mini-role mini-role-${role.toLowerCase()}`}>{role}</i></span>
+                  <strong className="credit-value">{right.qualifyingAmount}</strong>
+                </div>
+              );
+            })}
+          </div>}
         </DataSection>
       )}
     </div>
@@ -680,6 +724,7 @@ function SimplePlayerTable({
   sort?: SortState;
   onSort?: (key: SortKey) => void;
 }) {
+  if (!entries.length) return null;
   const sortedEntries = sort
     ? sortPlayerEntries(entries, seasonName, sort)
     : [...entries].sort((left, right) => (
@@ -710,7 +755,6 @@ function SimplePlayerTable({
         cutPlayer={cutPlayers}
         key={`${entry.name}-${entry.state}`}
       />)}
-      {!sortedEntries.length && <EmptyRow />}
     </div>
   );
 }
@@ -765,10 +809,6 @@ function PlayerDataRow({
       <span><strong className="credit-value">{contractCostForSeason(entry, seasonName)}</strong></span>
     </div>
   );
-}
-
-function EmptyRow() {
-  return <div className="data-empty">—</div>;
 }
 
 function normalizePlayerName(value: string) {

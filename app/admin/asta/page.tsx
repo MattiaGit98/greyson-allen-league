@@ -10,11 +10,12 @@ import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { conciseMovementDetail } from "@/lib/movement-display";
 import { legalAuctionContextualDestinations } from "@/lib/auction-management";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
+import { incompleteAuctionRosterLabels } from "@/lib/auction-roster-completion";
 
 export default async function AuctionAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; updated?: string; reverted?: string }>;
+  searchParams: Promise<{ error?: string; updated?: string; reverted?: string; onlyAstabili?: string }>;
 }) {
   const query = await searchParams;
   const [activeSeason, leagueState] = await Promise.all([
@@ -25,6 +26,7 @@ export default async function AuctionAdminPage({
   const phase = activeSeason.season.status;
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
   const auctionOpen = operationWindows.auction(leagueMoment) && leagueState.playerListStatus === "published";
+  const incompleteRosters = incompleteAuctionRosterLabels(leagueState);
   const currentDraftYear = Number(seasonName.slice(0, 4));
   const pendingDraftPicks = Number.isInteger(currentDraftYear)
     ? leagueState.draftAssets.filter((asset) => asset.year === currentDraftYear).length
@@ -160,12 +162,24 @@ export default async function AuctionAdminPage({
       {query.updated && <p className="notice success">{query.updated}</p>}
       {query.reverted && <p className="notice success">Assegnazione d’asta annullata e situazione precedente ripristinata.</p>}
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
+      {auctionOpen && incompleteRosters.length > 0 && (
+        <section className="notice error auction-roster-completion" role="alert">
+          <strong>{incompleteRosters.length} squadre sotto il minimo d’asta</strong>
+          <p>Per concludere l’asta ogni squadra deve avere almeno i 13 giocatori obbligatori negli slot roster.</p>
+          <ul>{incompleteRosters.map((item) => <li key={item}>{item}</li>)}</ul>
+        </section>
+      )}
+      {auctionOpen && incompleteRosters.length === 0 && (
+        <p className="notice success auction-roster-completion" role="status">
+          <strong>Tutte le squadre hanno completato il roster minimo per l’asta.</strong>
+        </p>
+      )}
       {leagueState.playerListStatus !== "published" && <p className="notice">Pubblica il listone ufficiale per rendere operativo il pannello asta.</p>}
       {leagueState.playerListStatus === "published" && !auctionOpen && <p className="notice">Il pannello è operativo da Inizio asta fino a Termine asta.</p>}
       {auctionOpen && pendingDraftPicks > 0 && (
         <p className="notice error">Concludi prima il Draft {currentDraftYear}: restano {pendingDraftPicks} scelte da assegnare. Il pannello resta consultabile, ma tutte le operazioni sono bloccate.</p>
       )}
-      <AuctionPanel rows={rows} teams={teams} phase={auctionOpen ? "auction" : "closed"} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} assignmentUndos={assignmentUndos} />
+      <AuctionPanel rows={rows} teams={teams} phase={auctionOpen ? "auction" : "closed"} seasonName={seasonName} pendingDraftPicks={pendingDraftPicks} assignmentUndos={assignmentUndos} initialOnlyAuctionable={query.onlyAstabili === "1"} />
     </section>
   );
 }

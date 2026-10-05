@@ -5,6 +5,7 @@ import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { buildPublicPlayerListRows } from "@/lib/public-player-list";
+import { recentAuctionCallsFromFeed, type AuctionCallFeedRow } from "@/lib/auction-call-feed";
 
 export default async function TeamsPage({
   searchParams,
@@ -28,6 +29,23 @@ export default async function TeamsPage({
   const auctionCalls = showAuctionCalls
     ? buildPublicPlayerListRows(leagueState).filter((row) => !row.rosterTeamCode).slice(0, 30)
     : [];
+  const recentAuctionCallResponse = showAuctionCalls
+    ? await activeSeason.supabase
+      .from("league_movement_feed")
+      .select("id,created_at,auction_player_name,auction_team_code,auction_cost,auction_role")
+      .eq("operation_type", "acquisto_asta")
+      .eq("reverted", false)
+      .eq("auction_season_name", activeSeason.season.name)
+      .order("created_at", { ascending: false })
+      .limit(10)
+    : null;
+  if (recentAuctionCallResponse?.error) {
+    throw new Error(`Ultime chiamate dell'asta non disponibili: ${recentAuctionCallResponse.error.message}`);
+  }
+  const recentAuctionCalls = recentAuctionCallsFromFeed(
+    (recentAuctionCallResponse?.data ?? []) as AuctionCallFeedRow[],
+    leagueState.playerList,
+  );
 
   return (
     <section className="section teams-page">
@@ -49,6 +67,8 @@ export default async function TeamsPage({
         capScaleMaximum={hasReachedMoment(leagueMoment, "auction_completed") ? 1100 : 1000}
         leagueMoment={leagueMoment}
         auctionCalls={auctionCalls}
+        recentAuctionCalls={recentAuctionCalls}
+        showAuctionCallPanels={showAuctionCalls}
       />
     </section>
   );

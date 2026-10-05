@@ -38,7 +38,7 @@ describe("avanzamento della lega", () => {
 
   it("genera soltanto le Q.O. già previste dai contratti in scadenza", () => {
     expect(result.qualifyingOfferRights).toEqual([
-      { playerName: "Scadenza Q.O.", qualifyingAmount: 7, teamCode: "AAA" },
+      { playerName: "Scadenza Q.O.", qualifyingAmount: 7, teamCode: "AAA", role: "A" },
     ]);
   });
 
@@ -50,8 +50,8 @@ describe("avanzamento della lega", () => {
     ];
     const advanced = calculateLeagueAdvance({ seasonName: "2026/27", rosterEntries: entries, qualifyingOfferRights: [], playerList: playerList(entries) });
     expect(advanced.qualifyingOfferRights).toEqual([
-      { playerName: "Asta annuale da 1", qualifyingAmount: 1, teamCode: "AAA" },
-      { playerName: "Free agent pre-deadline", qualifyingAmount: 27, teamCode: "BBB" },
+      { playerName: "Asta annuale da 1", qualifyingAmount: 1, teamCode: "AAA", role: "G" },
+      { playerName: "Free agent pre-deadline", qualifyingAmount: 27, teamCode: "BBB", role: "A" },
     ]);
   });
 

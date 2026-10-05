@@ -17,6 +17,7 @@ const option: RosterEntry = {
   name: "Rookie",
   cost: 5,
   contract: "T.O.",
+  role: "G",
   state: "active",
   slot: "regular",
   teamCode: "AAA",
@@ -58,6 +59,7 @@ describe("contratti da rookie", () => {
       playerName: "Rookie",
       qualifyingAmount: 5,
       teamCode: "AAA",
+      role: "G",
     });
   });
 

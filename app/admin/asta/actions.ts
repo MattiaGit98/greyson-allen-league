@@ -30,6 +30,7 @@ const auctionPath = "/admin/asta";
 type AuctionEditKind = "cut" | "free_release" | "slot";
 
 export async function purchaseAuctionPlayer(formData: FormData) {
+  const onlyAuctionable = formData.get("only_auctionable") === "1";
   const playerName = cleanText(formData.get("player_name"));
   const teamCode = cleanText(formData.get("team_code")).toUpperCase();
   const price = Number(formData.get("price"));
@@ -175,7 +176,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   );
 
   const suffix = contextualOperationSuccessSuffix(slotResolution.operations);
-  success(`${playerName} assegnato a ${teamCode} per ${price} crediti.${suffix}`);
+  success(`${playerName} assegnato a ${teamCode} per ${price} crediti.${suffix}`, onlyAuctionable);
 }
 
 function auctionContractSummary(entry: RosterEntry) {
@@ -211,6 +212,7 @@ function contextualOperationSuccessSuffix(operations: AppliedContextualSlotOpera
 }
 
 export async function modifyAuctionPlayer(formData: FormData) {
+  const onlyAuctionable = formData.get("only_auctionable") === "1";
   const playerName = cleanText(formData.get("player_name"));
   const requestedTeamCode = cleanText(formData.get("team_code")).toUpperCase();
   const kind = cleanText(formData.get("edit_kind")) as AuctionEditKind;
@@ -388,7 +390,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
     capOverrideSummary(`${playerName}: ${detail}`, capWarnings, false),
   );
   const overflow = slotOverflow(rosterEntries, requestedTeamCode);
-  success(`${playerName}: ${detail}.${overflow.length ? ` Attenzione: ${overflow.join("; ")}.` : ""}`);
+  success(`${playerName}: ${detail}.${overflow.length ? ` Attenzione: ${overflow.join("; ")}.` : ""}`, onlyAuctionable);
 }
 
 async function auctionContext() {
@@ -505,6 +507,8 @@ function fail(message: string): never {
   redirect(`${auctionPath}?error=${encodeURIComponent(message)}`);
 }
 
-function success(message: string): never {
-  redirect(`${auctionPath}?updated=${encodeURIComponent(message)}`);
+function success(message: string, onlyAuctionable = false): never {
+  const params = new URLSearchParams({ updated: message });
+  if (onlyAuctionable) params.set("onlyAstabili", "1");
+  redirect(`${auctionPath}?${params.toString()}`);
 }
