@@ -137,7 +137,7 @@ export function buildPreAdvanceChecklist(input: {
         id: "auction-rosters-incomplete",
         tone: "blocker",
         title: `${incompleteRosters.length} squadre sotto il minimo d’asta`,
-        message: "Per concludere l’asta ogni squadra deve avere almeno i 13 giocatori obbligatori negli slot roster.",
+        message: "Per concludere l’asta ogni squadra deve avere almeno 13 giocatori attivi complessivi tra Roster, Two-way e G-League.",
         items: incompleteRosters,
         article: "Art. 4(c)",
         href: "/admin/asta",

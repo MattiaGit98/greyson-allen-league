@@ -1,6 +1,7 @@
 import type { EditableLeagueState } from "./league-state";
 import type { LeagueMoment } from "./league-moments";
 import { dpeCountsForRoleMinimums } from "./role-minimums";
+import { countRosterRoles } from "./rules/roster";
 
 export type RoleMinimumAlert = {
   teamCode: string;
@@ -20,17 +21,15 @@ export function buildRoleMinimumAlerts(state: EditableLeagueState, moment?: Leag
   );
 
   return state.teams.flatMap((team) => {
-    const counts = state.rosterEntries
-      .filter((entry) => (
-        entry.teamCode === team.code
-        && entry.state === "active"
-        && (entry.slot !== "dpe" || dpeCountsForRoleMinimums(moment))
-      ))
-      .reduce((result, entry) => {
+    const counts = countRosterRoles(state.rosterEntries
+      .filter((entry) => entry.teamCode === team.code && entry.state === "active")
+      .map((entry) => {
         const role = roles.get(normalizePlayerName(entry.name));
-        if (role === "G" || role === "A" || role === "C") result[role] += 1;
-        return result;
-      }, { G: 0, A: 0, C: 0 });
+        return {
+          slot: entry.slot,
+          role: role === "G" || role === "A" || role === "C" ? role : null,
+        };
+      }), dpeCountsForRoleMinimums(moment));
     const missing = {
       G: Math.max(0, 5 - counts.G),
       A: Math.max(0, 5 - counts.A),

@@ -478,6 +478,7 @@ export function TeamAccordion({
                 playerList={playerList}
                 playerListPublished={playerListPublished}
                 inSeason={inSeason}
+                duringAuction={showAuctionCallPanels}
                 highlightedDraftYear={highlightedYear}
                 showQualifyingOffers={showQualifyingOffers}
                 capSeasonName={capSeasonName}
@@ -524,6 +525,7 @@ function TeamDetails({
   playerList,
   playerListPublished,
   inSeason,
+  duringAuction,
   showQualifyingOffers,
   capSeasonName,
   countTeamOptions,
@@ -542,6 +544,7 @@ function TeamDetails({
   playerList: PlayerListEntry[];
   playerListPublished: boolean;
   inSeason: boolean;
+  duringAuction: boolean;
   showQualifyingOffers: boolean;
   capSeasonName: string;
   countTeamOptions: boolean;
@@ -581,6 +584,13 @@ function TeamDetails({
   const capSpaces = teamCapSpaces(entries, capSeasonName, countTeamOptions);
   return (
     <div className="team-accordion-content">
+      {duringAuction && playerListPublished && (
+        <div className={`auction-role-status ${roleMinimumMissing ? "incomplete" : "complete"}`}>
+          {roleMinimumMissing
+            ? <>Da acquistare: {[missingRoles.G ? `${missingRoles.G} G` : "", missingRoles.A ? `${missingRoles.A} A` : "", missingRoles.C ? `${missingRoles.C} C` : ""].filter(Boolean).join(" - ")}</>
+            : <>Minimo giocatori raggiunto</>}
+        </div>
+      )}
       <div className="team-summary-strip">
         <SummaryValue label="Ruoli" value={`${roles.G} G / ${roles.A} A / ${roles.C} C`} kind="roles" />
         <SummaryValue label={`Cap libero ${capSeasons[1]}`} shortLabel={`Cap ${capSeasons[1].slice(2)}`} value={`${capSpaces[1]}`} />

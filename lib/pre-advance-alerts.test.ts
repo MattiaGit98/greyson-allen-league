@@ -111,6 +111,21 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     expect(result.alerts.map((alert) => alert.id)).not.toContain("qualifying-offers-unresolved");
   });
 
+  it("per i 13 giocatori obbligatori conta anche Two-way e G-League", () => {
+    const current = state([
+      ...Array.from({ length: 11 }, (_, index) => rosterEntry(`Roster ${index}`)),
+      rosterEntry("Two-way", { slot: "two_way" }),
+      rosterEntry("G-League", { slot: "g_league" }),
+    ]);
+    const result = buildPreAdvanceChecklist({
+      currentMoment: "auction_start",
+      seasonName: "2026/27",
+      state: current,
+    });
+
+    expect(result.alerts.map((alert) => alert.id)).not.toContain("auction-rosters-incomplete");
+  });
+
   it("blocca la consegna se restano contratti dell’asta da assegnare", () => {
     const current = state([
       rosterEntry("Da firmare", { contract: "PENDING" }),

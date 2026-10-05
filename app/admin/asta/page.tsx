@@ -10,7 +10,7 @@ import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { conciseMovementDetail } from "@/lib/movement-display";
 import { legalAuctionContextualDestinations } from "@/lib/auction-management";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
-import { incompleteAuctionRosterLabels } from "@/lib/auction-roster-completion";
+import { auctionTeamCompletionLabels } from "@/lib/auction-roster-completion";
 
 export default async function AuctionAdminPage({
   searchParams,
@@ -26,7 +26,7 @@ export default async function AuctionAdminPage({
   const phase = activeSeason.season.status;
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
   const auctionOpen = operationWindows.auction(leagueMoment) && leagueState.playerListStatus === "published";
-  const incompleteRosters = incompleteAuctionRosterLabels(leagueState);
+  const incompleteRosters = auctionTeamCompletionLabels(leagueState, leagueMoment);
   const currentDraftYear = Number(seasonName.slice(0, 4));
   const pendingDraftPicks = Number.isInteger(currentDraftYear)
     ? leagueState.draftAssets.filter((asset) => asset.year === currentDraftYear).length
@@ -164,14 +164,14 @@ export default async function AuctionAdminPage({
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
       {auctionOpen && incompleteRosters.length > 0 && (
         <section className="notice error auction-roster-completion" role="alert">
-          <strong>{incompleteRosters.length} squadre sotto il minimo d’asta</strong>
-          <p>Per concludere l’asta ogni squadra deve avere almeno i 13 giocatori obbligatori negli slot roster.</p>
+          <strong>{incompleteRosters.length} squadre non complete</strong>
+          <p>Per concludere l’asta ogni squadra deve avere almeno 13 giocatori tra Roster, Two-way e G-League e rispettare i minimi di 5 guardie, 5 ali e 3 centri.</p>
           <ul>{incompleteRosters.map((item) => <li key={item}>{item}</li>)}</ul>
         </section>
       )}
       {auctionOpen && incompleteRosters.length === 0 && (
         <p className="notice success auction-roster-completion" role="status">
-          <strong>Tutte le squadre hanno completato il roster minimo per l’asta.</strong>
+          <strong>Tutte le squadre hanno almeno 13 giocatori e rispettano i minimi di ruolo.</strong>
         </p>
       )}
       {leagueState.playerListStatus !== "published" && <p className="notice">Pubblica il listone ufficiale per rendere operativo il pannello asta.</p>}

@@ -44,6 +44,25 @@ describe("roleMinimumShortage", () => {
     expect(roleMinimumShortage(entries, "regular_season", "free_agency_reopening").G).toBe(0);
   });
 
+  it("counts regular, Two-way and G-League together for a 7-4-6 roster", () => {
+    const roles = [
+      ...Array.from({ length: 7 }, () => "G" as const),
+      ...Array.from({ length: 4 }, () => "A" as const),
+      ...Array.from({ length: 6 }, () => "C" as const),
+    ];
+    const entries = roles.map((role, index) => ({
+      name: `Player ${index}`,
+      role,
+      state: "active" as const,
+      slot: index < 12 ? "regular" as const : index < 14 ? "two_way" as const : "g_league" as const,
+      teamCode: "AAA",
+      cost: 1,
+      contract: "28",
+    }));
+
+    expect(roleMinimumShortage(entries, "regular_season", "auction_completed")).toEqual({ G: 0, A: 1, C: 0, total: 1 });
+  });
+
   it("reports when roster and two-way slots cannot cover every missing role", () => {
     expect(roleMinimumRecoverySlotError({ G: 1, A: 1, C: 0, total: 2 }, { regular: 15, twoWay: 1 })).toMatch(/Servono 2 slot/);
     expect(roleMinimumRecoverySlotError({ G: 1, A: 0, C: 0, total: 1 }, { regular: 15, twoWay: 1 })).toBeNull();

@@ -37,4 +37,28 @@ describe("admin list and roster alerts", () => {
       missing: { G: 4, A: 5, C: 2 },
     });
   });
+
+  it("counts roster, Two-way and G-League together and reports only the missing role", () => {
+    const current = state("published");
+    const roles = [
+      ...Array.from({ length: 7 }, () => "G" as const),
+      ...Array.from({ length: 4 }, () => "A" as const),
+      ...Array.from({ length: 6 }, () => "C" as const),
+    ];
+    current.playerList = roles.map((role, index) => ({ name: `Player ${index}`, role, realTeam: "", rookie: false, under23: false }));
+    current.rosterEntries = roles.map((role, index) => ({
+      name: `Player ${index}`,
+      teamCode: "AAA",
+      role,
+      cost: 1,
+      contract: "27",
+      state: "active" as const,
+      slot: index < 12 ? "regular" as const : index < 14 ? "two_way" as const : "g_league" as const,
+    }));
+
+    expect(buildRoleMinimumAlerts(current, "auction_start")[0]).toMatchObject({
+      counts: { G: 7, A: 4, C: 6 },
+      missing: { G: 0, A: 1, C: 0 },
+    });
+  });
 });
