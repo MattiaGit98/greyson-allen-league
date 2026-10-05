@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
-import { countRosterRoles } from "@/lib/rules/roster";
+import { countRosterRoles, roleMinimumDeficits } from "@/lib/rules/roster";
 import { signFreeAgent } from "./actions";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { isCapIssueCode } from "@/lib/cap-override";
@@ -253,16 +253,8 @@ function FreeAgentDialog({
   const capWarnings = preview.warnings.filter((warning) => isCapIssueCode(warning.code));
   const otherWarnings = preview.warnings.filter((warning) => !isCapIssueCode(warning.code));
   const roleMinimumConfirmationRequired = otherWarnings.some((warning) => warning.code.startsWith("ROLE_"));
-  const roleMinimumShortageBefore = {
-    G: Math.max(0, 5 - roles.G),
-    A: Math.max(0, 5 - roles.A),
-    C: Math.max(0, 3 - roles.C),
-  };
-  const roleMinimumShortageAfter = {
-    G: Math.max(0, 5 - preview.calculated.rolesAfter.G),
-    A: Math.max(0, 5 - preview.calculated.rolesAfter.A),
-    C: Math.max(0, 3 - preview.calculated.rolesAfter.C),
-  };
+  const roleMinimumShortageBefore = roleMinimumDeficits(roles);
+  const roleMinimumShortageAfter = roleMinimumDeficits(preview.calculated.rolesAfter);
   const roleMinimumReplacementAvailable = enforceRoleMinimums
     && price === 1
     && Boolean(player)

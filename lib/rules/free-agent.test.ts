@@ -30,6 +30,19 @@ describe("evaluateFreeAgentSigning", () => {
     expect(result.calculated.slotsAfter.regular).toBe(16);
   });
 
+  it("keeps a role shortage visible even when the team already has more than 13 players", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      enforceRoleMinimums: true,
+      roles: { G: 7, A: 4, C: 6 },
+      slots: { regular: 14, twoWay: 2, gLeague: 1, dpe: 0 },
+      playerRole: "G",
+    });
+
+    expect(result.calculated.rolesAfter).toEqual({ G: 8, A: 4, C: 6 });
+    expect(result.warnings.some((warning) => warning.code === "ROLE_A_MINIMUM")).toBe(true);
+  });
+
   it("keeps the roster at 15 and does not recover cap space from the cut", () => {
     const result = evaluateFreeAgentSigning({
       ...baseInput,

@@ -72,6 +72,26 @@ describe("trade rules", () => {
     expect(result.warnings.some((warning) => warning.code === "TRADE_REGULAR_SEASON_CAP_AAA")).toBe(true);
   });
 
+  it("detects a role shortage even when the team has well over 13 players", () => {
+    const result = evaluateTrade({
+      phase: "regular_season",
+      enforceRoleMinimums: true,
+      teams: [{
+        ...teams[0],
+        slots: { regular: 15, twoWay: 2, gLeague: 0, dpe: 0 },
+        roles: { G: 7, A: 4, C: 6 },
+      }],
+      playerMoves: [],
+      pickMoves: [],
+      cuts: [],
+    });
+
+    expect(result.calculated.teamResults[0]).toMatchObject({
+      missingRoles: { G: 0, A: 1, C: 0 },
+      requiredRoleFreeAgents: 1,
+    });
+  });
+
   it("allows the destinations required for Two-way and G-League players", () => {
     expect(allowedTradeDestinations("two_way")).toEqual(["two_way", "regular"]);
     expect(allowedTradeDestinations("g_league")).toEqual(["g_league", "two_way", "regular"]);

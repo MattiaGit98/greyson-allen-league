@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoleMinimumAlerts } from "./admin-alerts";
+import { buildRoleMinimumAlerts, formatRoleMinimumMissing } from "./admin-alerts";
 import type { EditableLeagueState } from "./league-state";
 
 function state(status: EditableLeagueState["playerListStatus"]): EditableLeagueState {
@@ -56,9 +56,11 @@ describe("admin list and roster alerts", () => {
       slot: index < 12 ? "regular" as const : index < 14 ? "two_way" as const : "g_league" as const,
     }));
 
-    expect(buildRoleMinimumAlerts(current, "auction_start")[0]).toMatchObject({
+    const alert = buildRoleMinimumAlerts(current, "auction_start")[0];
+    expect(alert).toMatchObject({
       counts: { G: 7, A: 4, C: 6 },
       missing: { G: 0, A: 1, C: 0 },
     });
+    expect(formatRoleMinimumMissing(alert)).toBe("1 A");
   });
 });

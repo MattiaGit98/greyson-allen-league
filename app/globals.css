@@ -287,12 +287,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .team-summary-strip span em { font-style: normal; }
 .summary-label-short { display: none; }
 .team-summary-strip strong { margin-top: 4px; color: var(--green); font-size: 14px; letter-spacing: -.02em; white-space: nowrap; }
-.team-role-minimum-warning { display: grid; grid-template-columns: minmax(190px, .7fr) minmax(0, 1.3fr) auto; align-items: center; gap: 14px; margin-top: 12px; padding: 13px 15px; border: 1px solid #d6ab9b; border-left: 4px solid #aa6249; border-radius: 12px; background: #faece7; color: #743f30; }
-.team-role-minimum-warning > div { display: grid; gap: 4px; }
-.team-role-minimum-warning span { font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-.team-role-minimum-warning strong { font-size: 15px; }
-.team-role-minimum-warning p { margin: 0; font-size: 12px; line-height: 1.45; }
-.team-role-minimum-warning small { white-space: nowrap; font-size: 10px; font-weight: 800; }
 .accordion-data-section { --section-rgb: 47 115 113; --section-heading-rgb: 171 116 81; margin-top: 0; }
 .accordion-data-section.section-roster { --section-rgb: 47 115 113; }
 .accordion-data-section.section-two_way { --section-rgb: 62 104 153; }
@@ -302,7 +296,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .accordion-data-section.section-cut { --section-rgb: 159 74 63; }
 .accordion-data-section.section-qualifying_offer { --section-rgb: 43 115 143; }
 .team-summary-strip + .accordion-data-section { margin-top: 6px; }
-.team-role-minimum-warning + .accordion-data-section { margin-top: 0; }
 .accordion-data-section-trigger { width: calc(100% + 44px); min-height: 42px; display: flex; align-items: center; gap: 10px; margin-right: -22px; margin-left: -22px; padding: 10px 13px; border: 1px solid rgb(var(--section-heading-rgb) / .4); border-left: 4px solid rgb(var(--section-heading-rgb) / .9); border-radius: 0; background: linear-gradient(90deg, rgb(var(--section-heading-rgb) / .22), rgba(255,255,255,.68) 52%); color: var(--ink); text-align: left; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
 .accordion-data-section-trigger:hover { border-color: rgb(var(--section-heading-rgb) / .65); background: linear-gradient(90deg, rgb(var(--section-heading-rgb) / .3), rgba(255,255,255,.92) 58%); }
 .accordion-data-section.open > .accordion-data-section-trigger { position: sticky; z-index: 3; top: calc(var(--team-sticky-offset) + var(--team-header-height)); border-color: rgb(var(--section-heading-rgb) / .68); background: linear-gradient(90deg, #e8d8d0, #fffdf7 60%); box-shadow: 0 3px 10px rgb(var(--section-heading-rgb) / .1); }
@@ -1178,7 +1171,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .team-accordion-content > .auction-role-status { margin: -10px 0 0; padding-right: 8px; padding-left: 8px; }
   .team-accordion-content > .team-summary-strip { margin: -10px 0 0; }
   .team-accordion-content > .auction-role-status + .team-summary-strip { margin-top: 0; }
-  .team-accordion-content > .team-role-minimum-warning { margin-right: 6px; margin-left: 6px; }
   .accordion-data-section-trigger { width: 100%; min-height: 40px; margin-right: 0; margin-left: 0; padding: 9px 8px; border-right: 0; border-left: 0; border-radius: 0; }
   .team-summary-strip { grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr)); }
   .team-summary-strip > .summary-value { padding: 8px 4px; }
@@ -1186,7 +1178,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .team-summary-strip strong { margin-top: 3px; font-size: 11px; }
   .summary-label-full { display: none; }
   .summary-label-short { display: inline; }
-  .team-role-minimum-warning { grid-template-columns: 1fr; gap: 8px; }
   .accordion-data-section > .data-table { width: 100%; margin-right: 0; margin-left: 0; }
   .data-table { width: 100%; overflow: hidden; border-radius: 10px; }
   .data-head, .data-row { min-width: 0; gap: 6px; padding: 8px 7px; }

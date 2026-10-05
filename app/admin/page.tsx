@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
+import { buildRoleMinimumAlerts, formatRoleMinimumMissing } from "@/lib/admin-alerts";
 import { loadCurrentHistoryImports } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { leagueMomentFromSeason, leagueMomentLabels } from "@/lib/league-moments";
@@ -83,17 +83,17 @@ export default async function AdminDashboardPage() {
     currentHistorySeason: currentHistory.season,
     contractDrafts,
   });
+  const roleMinimumAlerts = roleMinimumChecksApply(activeSeason.season.status, leagueMoment)
+    ? buildRoleMinimumAlerts(leagueState, leagueMoment)
+    : [];
   const blockingAlerts = preAdvanceChecklist.alerts.filter((alert) => (
-    alert.tone === "blocker" && alert.id !== "role-minimums"
+    alert.tone === "blocker" && (alert.id !== "role-minimums" || roleMinimumAlerts.length === 0)
   ));
   const blockingChecklist = {
     ...preAdvanceChecklist,
     alerts: blockingAlerts,
     blockerCount: blockingAlerts.length,
   };
-  const roleMinimumAlerts = roleMinimumChecksApply(activeSeason.season.status, leagueMoment)
-    ? buildRoleMinimumAlerts(leagueState, leagueMoment)
-    : [];
   const nextPhaseDate = phaseDateForTransition(normalizePhaseDates(activeSeason.season.phase_dates), preAdvanceChecklist.transition);
   const dateParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
     .formatToParts(new Date()).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
@@ -105,15 +105,10 @@ export default async function AdminDashboardPage() {
       {nextPhaseDate && nextPhaseDate < today && <p className="notice error">La data di {preAdvanceChecklist.transition === "auction_completed" ? "Asta" : leagueMomentLabels[preAdvanceChecklist.transition]} è trascorsa e la lega non è stata ancora avanzata.</p>}
       {roleMinimumAlerts.length > 0 && (
         <section className="admin-role-minimum-alert" role="alert">
-          <strong>Intervento richiesto: minimi di ruolo non rispettati</strong>
-          <p>Assegna casualmente un free agent da 1 credito per ogni carenza. La situazione deve essere regolarizzata entro la Fine stagione; dalla Riapertura free agency anche la DPE concorre ai minimi.</p>
+          <strong>{roleMinimumAlerts.length} {roleMinimumAlerts.length === 1 ? "squadra con carenze di ruolo" : "squadre con carenze di ruolo"}</strong>
           <ul>
             {roleMinimumAlerts.map((team) => (
-              <li key={team.teamCode}><b>{team.teamName}</b>: {[
-                team.missing.G ? `${team.missing.G} G` : "",
-                team.missing.A ? `${team.missing.A} A` : "",
-                team.missing.C ? `${team.missing.C} C` : "",
-              ].filter(Boolean).join(" · ")}</li>
+              <li key={team.teamCode}><b>{team.teamCode}</b>: {formatRoleMinimumMissing(team)}</li>
             ))}
           </ul>
           <Link href="/admin/free-agent">Vai ai free agent →</Link>

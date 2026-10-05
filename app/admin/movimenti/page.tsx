@@ -7,7 +7,7 @@ import { countActiveRosterSlots } from "@/lib/roster-slot-limits";
 import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { UndoMovementButton } from "./undo-movement-button";
-import { dpeCountsForRoleMinimums, roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
+import { dpeCountsForRoleMinimums, roleMinimumAffectedTeamCodes, roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
 import { MovementTextSearch } from "@/components/movement-text-search";
 
 export default async function MovementAdminPage({ searchParams }: { searchParams: Promise<{ error?: string; reverted?: string; q?: string }> }) {
@@ -79,7 +79,7 @@ export default async function MovementAdminPage({ searchParams }: { searchParams
             reason = `${capErrors.join(" ")} L'annullamento non rispetterebbe il salary cap.`;
           }
           const restoredState = restored;
-          const roleMinimumSlotErrors = [...new Set(restoredState.rosterEntries.map((entry) => entry.teamCode))]
+          const roleMinimumSlotErrors = roleMinimumAffectedTeamCodes(current.rosterEntries, restoredState.rosterEntries)
             .flatMap((teamCode) => {
               const error = roleMinimumRecoverySlotErrorForEntries(restoredState.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, currentMoment);
               return error ? [`${teamCode}: ${error}`] : [];

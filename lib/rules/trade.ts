@@ -1,4 +1,4 @@
-import { validateSlots, type SlotCounts } from "./roster";
+import { roleMinimumDeficits, validateSlots, type SlotCounts } from "./roster";
 import { result } from "./types";
 
 export type TradeSlot = "regular" | "two_way" | "g_league" | "dpe";
@@ -511,12 +511,8 @@ export function evaluateTrade(input: {
       message: `${team.code}: ${error.message}`,
     })));
 
-    const minimums: Record<TradeRole, number> = { G: 5, A: 5, C: 3 };
     const missingRoles = (input.enforceRoleMinimums ?? input.phase === "regular_season")
-      ? (Object.keys(minimums) as TradeRole[]).reduce((result, role) => ({
-        ...result,
-        [role]: Math.max(0, minimums[role] - roles[role]),
-      }), { G: 0, A: 0, C: 0 })
+      ? roleMinimumDeficits(roles)
       : { G: 0, A: 0, C: 0 };
     const requiredRoleFreeAgents = missingRoles.G + missingRoles.A + missingRoles.C;
     const projectedCostAfter = costAfter + requiredRoleFreeAgents;
@@ -565,7 +561,7 @@ export function evaluateTrade(input: {
       };
     });
 
-    for (const role of Object.keys(minimums) as TradeRole[]) {
+    for (const role of ["G", "A", "C"] as TradeRole[]) {
       if (missingRoles[role]) {
         warnings.push({
           code: `TRADE_ROLE_MINIMUM_${team.code}_${role}`,

@@ -105,25 +105,42 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     });
     expect(result.alerts.filter((alert) => alert.tone === "blocker").map((alert) => alert.id)).toEqual(expect.arrayContaining([
       "draft-not-completed",
-      "auction-rosters-incomplete",
       "role-minimums",
     ]));
+    expect(result.alerts.find((alert) => alert.id === "role-minimums")).toMatchObject({
+      title: "1 squadra non completa",
+    });
     expect(result.alerts.map((alert) => alert.id)).not.toContain("qualifying-offers-unresolved");
   });
 
-  it("per i 13 giocatori obbligatori conta anche Two-way e G-League", () => {
-    const current = state([
-      ...Array.from({ length: 11 }, (_, index) => rosterEntry(`Roster ${index}`)),
-      rosterEntry("Two-way", { slot: "two_way" }),
-      rosterEntry("G-League", { slot: "g_league" }),
-    ]);
+  it("blocca il Termine asta anche con almeno 13 giocatori se manca un ruolo", () => {
+    const roles = [
+      ...Array.from({ length: 7 }, () => "G" as const),
+      ...Array.from({ length: 4 }, () => "A" as const),
+      ...Array.from({ length: 6 }, () => "C" as const),
+    ];
+    const current = state(roles.map((role, index) => rosterEntry(`Player ${index}`, {
+      role,
+      slot: index < 12 ? "regular" : index < 14 ? "two_way" : "g_league",
+    })));
+    current.playerList = roles.map((role, index) => ({
+      name: `Player ${index}`,
+      role,
+      realTeam: "",
+      rookie: false,
+      under23: false,
+    }));
+
     const result = buildPreAdvanceChecklist({
       currentMoment: "auction_start",
       seasonName: "2026/27",
       state: current,
     });
 
-    expect(result.alerts.map((alert) => alert.id)).not.toContain("auction-rosters-incomplete");
+    expect(result.alerts.find((alert) => alert.id === "role-minimums")).toMatchObject({
+      tone: "blocker",
+      items: ["AAA: 1 A"],
+    });
   });
 
   it("blocca la consegna se restano contratti dell’asta da assegnare", () => {

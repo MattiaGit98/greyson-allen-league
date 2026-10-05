@@ -1,4 +1,4 @@
-import { buildRoleMinimumAlerts } from "./admin-alerts";
+import { buildRoleMinimumAlerts, formatRoleMinimumMissing } from "./admin-alerts";
 import { calculateLeagueAdvance } from "./league-advance";
 import type { EditableLeagueState } from "./league-state";
 import {
@@ -18,7 +18,6 @@ import {
 } from "./post-auction-contracts";
 import { isAnnualTeamOptionContract, isRookieExtensionDecisionDue } from "./team-option-contract";
 import { freeReleaseReasonAvailability } from "./free-release";
-import { incompleteAuctionRosterLabels } from "./auction-roster-completion";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -128,20 +127,6 @@ export function buildPreAdvanceChecklist(input: {
         article: "Art. 6(a)",
         href: "/admin/draft",
         actionLabel: "Continua il draft",
-      });
-    }
-
-    const incompleteRosters = incompleteAuctionRosterLabels(state);
-    if (incompleteRosters.length) {
-      add({
-        id: "auction-rosters-incomplete",
-        tone: "blocker",
-        title: `${incompleteRosters.length} squadre sotto il minimo d’asta`,
-        message: "Per concludere l’asta ogni squadra deve avere almeno 13 giocatori attivi complessivi tra Roster, Two-way e G-League.",
-        items: incompleteRosters,
-        article: "Art. 4(c)",
-        href: "/admin/asta",
-        actionLabel: "Completa i roster",
       });
     }
 
@@ -603,16 +588,17 @@ function addRoleMinimumAlert(
 ) {
   const teams = buildRoleMinimumAlerts(state, currentMoment);
   if (!teams.length) return;
+  const duringAuction = currentMoment === "auction_start";
   add({
     id: "role-minimums",
     tone,
-    title: `${teams.length} squadre richiedono l’assegnazione regolamentare di un free agent`,
-    message: `Non viene eseguita automaticamente: va assegnato casualmente un free agent fino al termine della stagione, a 1 credito e indipendentemente dal cap; se necessario va liberato uno slot. Ruolo X non conta${hasReachedMoment(currentMoment, "free_agency_reopening") ? "; dalla Riapertura free agency la DPE è inclusa" : " e la DPE non conta ancora"}.`,
-    items: teams.map((team) => `${team.teamCode}: ${[
-      team.missing.G ? `G ${team.counts.G}/5` : "",
-      team.missing.A ? `A ${team.counts.A}/5` : "",
-      team.missing.C ? `C ${team.counts.C}/3` : "",
-    ].filter(Boolean).join(" · ")}`),
+    title: duringAuction
+      ? `${teams.length} ${teams.length === 1 ? "squadra non completa" : "squadre non complete"}`
+      : `${teams.length} ${teams.length === 1 ? "squadra con carenze di ruolo" : "squadre con carenze di ruolo"}`,
+    message: duringAuction
+      ? "L’asta può terminare soltanto quando ogni squadra raggiunge 5 G, 5 A e 3 C."
+      : `Le carenze di ruolo devono essere colmate con l’assegnazione regolamentare di free agent${hasReachedMoment(currentMoment, "free_agency_reopening") ? "; dalla Riapertura free agency la DPE concorre al conteggio" : ""}.`,
+    items: teams.map((team) => `${team.teamCode}: ${formatRoleMinimumMissing(team)}`),
     article: "Art. 2(b-c)",
     href,
     actionLabel,

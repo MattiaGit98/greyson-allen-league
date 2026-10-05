@@ -11,6 +11,7 @@ import { normalizeRosterCorrectionContract, rosterCorrectionContractOptions } fr
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
 import { saveRosterCorrections } from "./actions";
+import { roleMinimumDeficits, roleMinimums } from "@/lib/rules/roster";
 
 type CorrectionEntry = RosterEntry & { sourceIndex: number };
 type Draft = { cost: string; contract: string; remove: boolean };
@@ -328,14 +329,14 @@ function buildPreview({
   const rolesBefore = countRoles(teamEntries, leagueMoment);
   const roles = countRoles(projectedEntries, leagueMoment);
   const roleMinimumsApply = roleMinimumChecksApply(phase, leagueMoment);
+  const missingRoles = roleMinimumDeficits(roles);
   const roleWarnings = roleMinimumsApply
     ? (["G", "A", "C"] as const).flatMap((role) => {
-      const minimum = role === "C" ? 3 : 5;
-      return roles[role] < minimum ? [`Minimo di ruolo ${role} non rispettato: ${roles[role]}/${minimum}.`] : [];
+      return missingRoles[role] > 0 ? [`Minimo di ruolo ${role} non rispettato: ${roles[role]}/${roleMinimums[role]}.`] : [];
     })
     : [];
   const roleMinimumMissing = roleMinimumsApply
-    ? Math.max(0, 5 - roles.G) + Math.max(0, 5 - roles.A) + Math.max(0, 3 - roles.C)
+    ? missingRoles.G + missingRoles.A + missingRoles.C
     : 0;
   const freeRoleRecoverySlots = Math.max(0, 15 - slots.regular) + Math.max(0, 2 - slots.two_way);
   const roleMinimumSlotError = roleMinimumMissing > freeRoleRecoverySlots

@@ -1,7 +1,7 @@
 import type { EditableLeagueState } from "./league-state";
 import type { LeagueMoment } from "./league-moments";
 import { dpeCountsForRoleMinimums } from "./role-minimums";
-import { countRosterRoles } from "./rules/roster";
+import { countRosterRoles, roleMinimumDeficits } from "./rules/roster";
 
 export type RoleMinimumAlert = {
   teamCode: string;
@@ -9,6 +9,14 @@ export type RoleMinimumAlert = {
   counts: { G: number; A: number; C: number };
   missing: { G: number; A: number; C: number };
 };
+
+export function formatRoleMinimumMissing(alert: Pick<RoleMinimumAlert, "missing">) {
+  return [
+    alert.missing.G ? `${alert.missing.G} G` : "",
+    alert.missing.A ? `${alert.missing.A} A` : "",
+    alert.missing.C ? `${alert.missing.C} C` : "",
+  ].filter(Boolean).join(" - ");
+}
 
 export function normalizePlayerName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
@@ -30,11 +38,7 @@ export function buildRoleMinimumAlerts(state: EditableLeagueState, moment?: Leag
           role: role === "G" || role === "A" || role === "C" ? role : null,
         };
       }), dpeCountsForRoleMinimums(moment));
-    const missing = {
-      G: Math.max(0, 5 - counts.G),
-      A: Math.max(0, 5 - counts.A),
-      C: Math.max(0, 3 - counts.C),
-    };
+    const missing = roleMinimumDeficits(counts);
     return missing.G || missing.A || missing.C
       ? [{ teamCode: team.code, teamName: team.name, counts, missing }]
       : [];

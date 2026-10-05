@@ -2,6 +2,15 @@ import { result } from "./types";
 
 export type SlotCounts = { regular: number; twoWay: number; gLeague: number; dpe: number };
 export type RoleCounts = { G: number; A: number; C: number };
+export const roleMinimums: RoleCounts = { G: 5, A: 5, C: 3 };
+
+export function roleMinimumDeficits(roles: RoleCounts): RoleCounts {
+  return {
+    G: Math.max(0, roleMinimums.G - roles.G),
+    A: Math.max(0, roleMinimums.A - roles.A),
+    C: Math.max(0, roleMinimums.C - roles.C),
+  };
+}
 
 export function countRosterRoles(
   players: readonly { role: "G" | "A" | "C" | null | undefined; slot: "regular" | "two_way" | "g_league" | "dpe" }[],
@@ -23,9 +32,9 @@ export function validateSlots(slots: SlotCounts) {
 
 export function validateRoleMinimums(roles: RoleCounts, inSeason: boolean) {
   if (!inSeason) return result({ missing: 0 }, ["2(b)"]);
-  const minimums = { G: 5, A: 5, C: 3 };
-  const errors = (Object.keys(minimums) as (keyof typeof minimums)[])
-    .filter((role) => roles[role] < minimums[role])
-    .map((role) => ({ code: `ROLE_${role}_MINIMUM`, message: `Servono almeno ${minimums[role]} giocatori di ruolo ${role}.` }));
-  return result({ missing: errors.length }, ["2(b)"], errors);
+  const deficits = roleMinimumDeficits(roles);
+  const errors = (Object.keys(roleMinimums) as (keyof RoleCounts)[])
+    .filter((role) => deficits[role] > 0)
+    .map((role) => ({ code: `ROLE_${role}_MINIMUM`, message: `Servono almeno ${roleMinimums[role]} giocatori di ruolo ${role}.` }));
+  return result({ missing: deficits.G + deficits.A + deficits.C }, ["2(b)"], errors);
 }

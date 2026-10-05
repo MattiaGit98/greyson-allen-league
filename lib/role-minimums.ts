@@ -1,6 +1,6 @@
 import type { LeaguePhase, RosterEntry } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
-import { countRosterRoles } from "./rules/roster";
+import { countRosterRoles, roleMinimumDeficits } from "./rules/roster";
 
 export type RoleMinimumShortage = { G: number; A: number; C: number; total: number };
 
@@ -20,9 +20,7 @@ export function roleMinimumShortage(entries: RosterEntry[], phase: LeaguePhase, 
   const roles = countRosterRoles(entries
     .filter((entry) => entry.state === "active")
     .map((entry) => ({ role: entry.role, slot: entry.slot })), dpeCountsForRoleMinimums(moment));
-  const G = Math.max(0, 5 - roles.G);
-  const A = Math.max(0, 5 - roles.A);
-  const C = Math.max(0, 3 - roles.C);
+  const { G, A, C } = roleMinimumDeficits(roles);
   return { G, A, C, total: G + A + C };
 }
 
@@ -34,9 +32,18 @@ export function roleMinimumShortageMessage(shortage: RoleMinimumShortage) {
 }
 
 export function roleMinimumsWorsen(before: RosterEntry[], after: RosterEntry[], phase: LeaguePhase, moment?: LeagueMoment) {
-  const previous = roleMinimumShortage(before, phase, moment);
-  const next = roleMinimumShortage(after, phase, moment);
-  return next.G > previous.G || next.A > previous.A || next.C > previous.C;
+  return roleMinimumAffectedTeamCodes(before, after).some((teamCode) => {
+    const previous = roleMinimumShortage(before.filter((entry) => entry.teamCode === teamCode), phase, moment);
+    const next = roleMinimumShortage(after.filter((entry) => entry.teamCode === teamCode), phase, moment);
+    return next.G > previous.G || next.A > previous.A || next.C > previous.C;
+  });
+}
+
+export function roleMinimumAffectedTeamCodes(before: RosterEntry[], after: RosterEntry[]) {
+  const teamCodes = new Set([...before, ...after].map((entry) => entry.teamCode));
+  return [...teamCodes].filter((teamCode) => (
+    activeRoleRosterSnapshot(before, teamCode) !== activeRoleRosterSnapshot(after, teamCode)
+  ));
 }
 
 export function roleMinimumRecoverySlotError(shortage: RoleMinimumShortage, slots: { regular: number; twoWay: number }) {
@@ -54,4 +61,12 @@ export function roleMinimumRecoverySlotErrorForEntries(entries: RosterEntry[], p
       twoWay: counts.twoWay + Number(entry.slot === "two_way"),
     }), { regular: 0, twoWay: 0 });
   return roleMinimumRecoverySlotError(roleMinimumShortage(entries, phase, moment), slots);
+}
+
+function activeRoleRosterSnapshot(entries: RosterEntry[], teamCode: string) {
+  return entries
+    .filter((entry) => entry.teamCode === teamCode && entry.state === "active")
+    .map((entry) => `${entry.name}\u0000${entry.role ?? ""}\u0000${entry.slot}`)
+    .sort()
+    .join("\u0001");
 }

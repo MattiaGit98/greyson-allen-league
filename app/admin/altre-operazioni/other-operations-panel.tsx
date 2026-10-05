@@ -23,6 +23,7 @@ import {
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { applyScheduledSeasonEndCut } from "@/app/admin/tagli-programmati/actions";
+import { roleMinimumDeficits, roleMinimums } from "@/lib/rules/roster";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
 type Operation = "extension" | "cut" | "free_release" | "buyout" | "stretch" | "dpe_activate" | "dpe_reintegrate" | "schedule_cut" | "cancel_scheduled_cut";
@@ -339,11 +340,11 @@ function operationPreview(
   let roleMinimumMissing = 0;
   if (slotsAfter.dpe > 1) errors.push("Lo slot DPE è già occupato.");
   if (roleMinimumChecksApply(props.phase as LeaguePhase, props.leagueMoment) && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
+    const missingRoles = roleMinimumDeficits(rolesAfter);
     for (const role of ["G", "A", "C"] as const) {
-      const minimum = role === "C" ? 3 : 5;
-      roleMinimumMissing += Math.max(0, minimum - rolesAfter[role]);
-      if (rolesAfter[role] < minimum) warnings.push(
-        `Dopo l'operazione restano ${rolesAfter[role]}/${minimum} giocatori di ruolo ${role}: sarà necessaria l'assegnazione casuale prevista dall'Art. 2(c).`,
+      roleMinimumMissing += missingRoles[role];
+      if (missingRoles[role] > 0) warnings.push(
+        `Dopo l'operazione restano ${rolesAfter[role]}/${roleMinimums[role]} giocatori di ruolo ${role}: sarà necessaria l'assegnazione casuale prevista dall'Art. 2(c).`,
       );
     }
   }

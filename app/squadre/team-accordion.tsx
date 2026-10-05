@@ -11,6 +11,7 @@ import { isFourthDraftPick } from "@/lib/future-draft-picks";
 import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState as SortState } from "@/lib/roster-display-sort";
 import { isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
 import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
+import { roleMinimumDeficits } from "@/lib/rules/roster";
 import { shouldShowScheduledCutBadge } from "@/lib/season-end-cuts";
 import { PublicPlayerList } from "@/app/giocatori/player-explorer";
 import type { PublicPlayerListRow } from "@/lib/public-player-list";
@@ -574,17 +575,13 @@ function TeamDetails({
       if (role === "G" || role === "A" || role === "C") counts[role] += 1;
       return counts;
     }, { G: 0, A: 0, C: 0 });
-  const missingRoles = {
-    G: Math.max(0, 5 - roles.G),
-    A: Math.max(0, 5 - roles.A),
-    C: Math.max(0, 3 - roles.C),
-  };
+  const missingRoles = roleMinimumDeficits(roles);
   const roleMinimumMissing = missingRoles.G > 0 || missingRoles.A > 0 || missingRoles.C > 0;
   const capSeasons = [capSeasonName, followingSeasonName(capSeasonName), followingSeasonName(capSeasonName, 2)];
   const capSpaces = teamCapSpaces(entries, capSeasonName, countTeamOptions);
   return (
     <div className="team-accordion-content">
-      {duringAuction && playerListPublished && (
+      {playerListPublished && ((duringAuction && !roleMinimumMissing) || ((duringAuction || inSeason) && roleMinimumMissing)) && (
         <div className={`auction-role-status ${roleMinimumMissing ? "incomplete" : "complete"}`}>
           {roleMinimumMissing
             ? <>Da acquistare: {[missingRoles.G ? `${missingRoles.G} G` : "", missingRoles.A ? `${missingRoles.A} A` : "", missingRoles.C ? `${missingRoles.C} C` : ""].filter(Boolean).join(" - ")}</>
@@ -596,21 +593,6 @@ function TeamDetails({
         <SummaryValue label={`Cap libero ${capSeasons[1]}`} shortLabel={`Cap ${capSeasons[1].slice(2)}`} value={`${capSpaces[1]}`} />
         <SummaryValue label={`Cap libero ${capSeasons[2]}`} shortLabel={`Cap ${capSeasons[2].slice(2)}`} value={`${capSpaces[2]}`} />
       </div>
-
-      {inSeason && playerListPublished && roleMinimumMissing && (
-        <section className="team-role-minimum-warning">
-          <div>
-            <span>Minimi di ruolo non rispettati</span>
-            <strong>{[
-              missingRoles.G ? `G ${roles.G}/5` : "",
-              missingRoles.A ? `A ${roles.A}/5` : "",
-              missingRoles.C ? `C ${roles.C}/3` : "",
-            ].filter(Boolean).join(" · ")}</strong>
-          </div>
-          <p>Serve l’assegnazione casuale di un free agent fino al termine della stagione, a 1 credito e indipendentemente dal salary cap; se necessario va liberato uno slot.</p>
-          <small>Art. 2(b-c)</small>
-        </section>
-      )}
 
       <DataSection tone="roster" label={`Roster (${regular.length}/15)`} expanded={openSections.includes("roster")} onToggle={() => toggleSection("roster")}>
         <SimplePlayerTable entries={regular} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />

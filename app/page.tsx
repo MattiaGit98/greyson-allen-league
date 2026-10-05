@@ -3,7 +3,7 @@ import { AvailableOperations } from "@/components/available-operations";
 import { HomeCompetitionFeature, HomeDraftFeature, HomeHonoursFeature } from "@/components/home-season-feature";
 import { HomeMovementList } from "@/components/home-movement-list";
 import { requireActiveSeason } from "@/lib/active-season";
-import { buildRoleMinimumAlerts } from "@/lib/admin-alerts";
+import { buildRoleMinimumAlerts, formatRoleMinimumMissing } from "@/lib/admin-alerts";
 import { availableOperationsAt } from "@/lib/available-operations";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, publicPhaseLabel, type LeagueMoment } from "@/lib/league-moments";
@@ -160,12 +160,8 @@ function homeLeagueAlerts({
     if (roleAlerts.length) {
       alerts.push({
         id: "role-minimums",
-        title: "Carenze di ruolo da colmare",
-        items: roleAlerts.map((team) => `${team.teamName}: ${[
-          team.missing.G ? `${team.missing.G} G` : "",
-          team.missing.A ? `${team.missing.A} A` : "",
-          team.missing.C ? `${team.missing.C} C` : "",
-        ].filter(Boolean).join(" · ")}`),
+        title: `${roleAlerts.length} ${roleAlerts.length === 1 ? "squadra con carenze di ruolo" : "squadre con carenze di ruolo"}`,
+        items: roleAlerts.map((team) => `${team.teamCode}: ${formatRoleMinimumMissing(team)}`),
       });
     }
   }

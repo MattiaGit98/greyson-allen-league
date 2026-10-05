@@ -7,7 +7,7 @@ import { auctionAssignmentReversalDuringAuction, buildMovementReversal, draftCho
 import { loadEditableLeagueState, normalizeState } from "@/lib/league-state";
 import { movementOperationLabel } from "@/lib/movement-display";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
+import { roleMinimumAffectedTeamCodes, roleMinimumRecoverySlotErrorForEntries, roleMinimumsWorsen } from "@/lib/role-minimums";
 
 const defaultPath = "/admin/movimenti";
 
@@ -63,7 +63,7 @@ export async function revertMovement(formData: FormData) {
   }
   const isAuctionAssignmentUndo = auctionAssignmentReversalDuringAuction(response.data.operation_type, currentMoment);
   if (!isAuctionAssignmentUndo) {
-  const roleMinimumSlotErrors = [...new Set(restored.rosterEntries.map((entry) => entry.teamCode))]
+  const roleMinimumSlotErrors = roleMinimumAffectedTeamCodes(current.rosterEntries, restored.rosterEntries)
     .flatMap((teamCode) => {
       const error = roleMinimumRecoverySlotErrorForEntries(restored.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, currentMoment);
       return error ? [`${teamCode}: ${error}`] : [];
