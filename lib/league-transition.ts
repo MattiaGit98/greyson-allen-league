@@ -81,12 +81,12 @@ export function buildLeagueTransitionPreview(input: {
       - missingPostAuctionContractDrafts(input.state, contractDrafts, input.seasonName).length;
     preview.automaticActions.push(`${assignedContracts} contratti in bozza saranno pubblicati insieme.`);
     preview.newPossibilities.push("Si apre la free agency.");
-    preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE per i giocatori tornati in campo.");
     preview.closedPossibilities.push("Si chiudono l’assegnazione dei contratti e la finestra speciale per gli spostamenti verso Two-way e G-League.");
   }
 
   if (transition === "trade_deadline") {
     preview.newPossibilities.push("Si apre la finestra per i buyout.");
+    preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE per i giocatori tornati in campo.");
     preview.newPossibilities.push("I free agent soggetti a buyout stagionale possono essere firmati soltanto dalle prime otto squadre.");
     preview.closedPossibilities.push("Si chiudono gli scambi e l’esercizio della DPE.");
     preview.closedPossibilities.push("Si chiude la causale di rilascio gratuito legata a squalifiche o cause giudiziarie.");
