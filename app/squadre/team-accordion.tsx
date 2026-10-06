@@ -790,7 +790,6 @@ function PlayerDataRow({
         : entry.role ? <i className={`mini-role mini-role-${entry.role.toLowerCase()}`}>{entry.role}</i> : "X"}</span>
       <span><ContractDisplay
         value={entry.contract}
-        auctionAcquisition={entry.auctionAcquisition}
         pendingAuctionContract={pendingAuctionContract}
         teamOptionEligible={Boolean(
           entry.auctionAcquisition !== "restricted_free_agent"
@@ -855,11 +854,10 @@ function isPendingAuctionContract(entry: RosterEntry, seasonName: string) {
 
 function ContractDisplay({
   value,
-  auctionAcquisition,
   pendingAuctionContract,
   teamOptionEligible,
   seasonName,
-}: Pick<RosterEntry, "auctionAcquisition"> & {
+}: {
   value: string;
   pendingAuctionContract: boolean;
   teamOptionEligible: boolean;
@@ -890,7 +888,6 @@ function ContractDisplay({
     ...(value.includes("(Q)") ? [{ label: "→ Q.O.", kind: "qo" }] : []),
     ...(value.includes("+ R.E.") ? [{ label: "+ R.E.", kind: "re" }] : []),
     ...(value.includes("+ T.O.") ? [{ label: "+ T.O.", kind: "team-option" }] : []),
-    ...(auctionAcquisition === "qualifying_offer" ? [{ label: "ACQ. Q.O.", kind: "acquisition-qo" }] : []),
   ];
   return (
     <span className="contract-group">
@@ -898,11 +895,7 @@ function ContractDisplay({
       {markers.map((marker) => <i
         className={`contract-marker contract-marker-${marker.kind}`}
         key={marker.kind}
-        aria-label={marker.kind === "re"
-          ? "Rookie extension applicabile dopo la stagione indicata"
-          : marker.kind === "acquisition-qo"
-            ? "Acquistato tramite Q.O. accettata"
-            : undefined}
+        aria-label={marker.kind === "re" ? "Rookie extension applicabile dopo la stagione indicata" : undefined}
       >{marker.label}</i>)}
     </span>
   );
