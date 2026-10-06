@@ -8,10 +8,9 @@ Il repository non contiene alcun backup della lega. Sono accettati soltanto i ba
 
 Prima di ogni avanzamento della lega questo backup viene scaricato automaticamente. Anche ogni ripristino scarica prima un nuovo backup della situazione che sta per essere sostituita; se il download fallisce, l’importazione non comincia.
 
-La pagina amministrativa Backup offre il backup ripristinabile completo e mantiene inoltre due copie limitate a Squadre e Storico:
+La pagina amministrativa Backup offre il backup ripristinabile completo e una copia HTML statica di sola consultazione, non utilizzabile per ripristinare il database.
 
-- Excel: copia leggibile dei dati;
-- HTML statico: sola consultazione, non utilizzabile per ripristinare il database.
+La stessa pagina offre anche l'**Excel di emergenza asta**, scaricabile manualmente in qualsiasi momento. Il file contiene una fotografia essenziale dei dati correnti: squadre con cap libero, giocatori di roster/two-way/G-League, tagliati e Q.O.; in un secondo foglio il listone con ruolo e stato. Non include lo slot DPE tra i giocatori attivi né proprietari, sigle, scadenze o dati storici. Dopo un avanzamento riuscito a **Inizio asta** il browser tenta automaticamente di scaricarlo dallo stato appena aggiornato; se il download fallisce, l'avanzamento resta valido e compare un comando per riprovare. Questo Excel serve soltanto per consultazione di emergenza e **non è ripristinabile**: il backup JSON completo scaricato prima dell'avanzamento resta indispensabile.
 
 Ogni avanzamento della lega salva inoltre in `league_phase_backups` lo stato immediatamente precedente. Un ripristino completo da file invalida questi punti interni, perché appartengono alla situazione sostituita.
 

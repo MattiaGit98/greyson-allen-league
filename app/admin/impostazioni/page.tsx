@@ -12,10 +12,11 @@ import { buildLeagueTransitionPreview } from "@/lib/league-transition";
 import { phaseStepLabels } from "@/lib/phase-backups";
 import { requireActiveSeason } from "@/lib/active-season";
 import { PhaseAdvanceButton } from "./phase-advance-button";
+import { AuctionEmergencyAutoDownload } from "./auction-emergency-auto-download";
 import { loadPostAuctionContractDrafts } from "@/lib/post-auction-contract-store";
 import { formatPhaseDate, normalizePhaseDates, phaseDateForTransition, todayInRome } from "@/lib/phase-calendar";
 
-export default async function LeagueSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; advanced?: string; stepped?: string }> }) {
+export default async function LeagueSettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; advanced?: string; stepped?: string; auction_export?: string }> }) {
   const [query, activeSeason, state, currentHistory] = await Promise.all([
     searchParams,
     requireActiveSeason(),
@@ -42,6 +43,9 @@ export default async function LeagueSettingsPage({ searchParams }: { searchParam
   return (
     <section className="section page-top admin-settings">
       {query.stepped && <p className="notice success">Passaggio completato: {phaseStepLabels[query.stepped] ?? query.stepped}.</p>}
+      {query.stepped === "auction_start" && currentMoment === "auction_start" && query.auction_export && (
+        <AuctionEmergencyAutoDownload exportId={query.auction_export} />
+      )}
       {query.advanced && <p className="notice success">Stagione conclusa. La lega è ora nell’offseason {query.advanced}.</p>}
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}
       {seasonError && <p className="notice error">Aggiornamento SQL dei momenti della lega non ancora applicato: {seasonError.message}</p>}

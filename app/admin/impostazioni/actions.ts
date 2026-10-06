@@ -133,7 +133,7 @@ export async function advanceLeaguePhaseStep(formData: FormData) {
   if (update.error) phaseError(update.error.message);
 
   revalidateLeaguePages();
-  redirect(`/admin/impostazioni?stepped=${encodeURIComponent(transition)}`);
+  redirect(`/admin/impostazioni?stepped=${encodeURIComponent(transition)}${transition === "auction_start" ? `&auction_export=${crypto.randomUUID()}` : ""}`);
 }
 
 export async function saveLeaguePhaseDates(formData: FormData) {
