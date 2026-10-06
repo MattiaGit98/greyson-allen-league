@@ -25,6 +25,20 @@ describe("movement reversal", () => {
     expect(buildMovementReversal(current, before, after).qualifyingOfferRights).toHaveLength(1);
   });
 
+  it("reverses compact snapshots without touching unrelated players or losing the second reversal", () => {
+    const before = state("AAA");
+    const after = state("BBB");
+    const unrelated = { name: "Other", teamCode: "CCC", cost: 8, contract: "28", state: "active" as const, slot: "regular" as const };
+    const current = { ...after, rosterEntries: [...after.rosterEntries, unrelated] };
+    const compactBefore = { ...before, rosterEntries: [before.rosterEntries[0]] };
+    const compactAfter = { ...after, rosterEntries: [after.rosterEntries[0]] };
+
+    const restored = buildMovementReversal(current, compactBefore, compactAfter);
+    expect(restored.rosterEntries).toContainEqual(before.rosterEntries[0]);
+    expect(restored.rosterEntries).toContainEqual(unrelated);
+    expect(buildMovementReversal(restored, compactAfter, compactBefore).rosterEntries).toEqual(current.rosterEntries);
+  });
+
   it("allows an ordinary team-option reversal only before its deadline", () => {
     const input = {
       operationType: "team_option",
