@@ -17,6 +17,7 @@ import {
   type LeagueMoment,
 } from "./league-moments";
 import { normalizeState, type EditableLeagueState } from "./league-state";
+import { compactMovementSnapshotsForBackup } from "./movement-snapshot-compaction";
 import {
   datedLeagueTransitions,
   isPhaseDate,
@@ -470,7 +471,7 @@ async function fetchAllMovements(supabase: Supabase): Promise<ImportableMovement
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);
     if (response.error) throw new Error(`Registro movimenti non disponibile: ${response.error.message}`);
-    const pageRows = (response.data ?? []).map(parseMovement);
+    const pageRows = (response.data ?? []).map((row) => compactMovementSnapshotsForBackup(parseMovement(row)));
     rows.push(...pageRows);
     if (pageRows.length < pageSize) return rows;
   }

@@ -7,6 +7,7 @@ import {
   type ImportableLeaguePayload,
 } from "./importable-league-backup";
 import { emptyLeagueState } from "./league-state";
+import { compactMovementSnapshotsForBackup } from "./movement-snapshot-compaction";
 
 function payload(): ImportableLeaguePayload {
   return {
@@ -101,6 +102,32 @@ describe("backup importabile della lega", () => {
         undo_before_moment: "team_option_deadline",
         reverts_movement_id: null,
       });
+  });
+
+  it("accetta un registro compatto senza cambiare formato o checksum", () => {
+    const source = payload();
+    source.movements = [compactMovementSnapshotsForBackup({
+      id: "8d45ba5f-fbe1-4d42-b5ef-744eb0a27ace",
+      operation_type: "scambio",
+      summary: "Scambio di prova",
+      before_state: { rosterEntries: [{ name: "Moved", teamCode: "AAA" }, { name: "Other", teamCode: "CCC" }] },
+      after_state: { rosterEntries: [{ name: "Moved", teamCode: "BBB" }, { name: "Other", teamCode: "CCC" }] },
+      history_category: null,
+      before_history: null,
+      after_history: null,
+      season_name: "2026/27",
+      undo_before_moment: null,
+      reverts_movement_id: null,
+      created_at: "2026-08-02T12:00:00.000Z",
+      reverted_at: null,
+    })];
+    const backup = createImportableBackupDocument(source);
+    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(backup)));
+
+    expect(parsed.formatVersion).toBe(2);
+    expect(parsed.payload.movements).toHaveLength(1);
+    expect(parsed.payload.movements[0].before_state.rosterEntries).toEqual([{ name: "Moved", teamCode: "AAA" }]);
+    expect(parsed.payload.movements[0].after_state.rosterEntries).toEqual([{ name: "Moved", teamCode: "BBB" }]);
   });
 
   it("conserva bozze private dei contratti e anagrafica fisica delle squadre", () => {

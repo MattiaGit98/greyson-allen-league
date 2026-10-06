@@ -2,7 +2,7 @@
 
 ## Backup disponibili
 
-La pagina **Importa dati** produce il backup JSON ripristinabile dell’intera lega. Contiene fase e annata, squadre, roster, listone, scelte, Q.O., calendario, classifiche, tabelloni, storico e registro movimenti. Sono conservati anche i collegamenti tra movimenti e storico Draft necessari per un eventuale annullamento. Il file include un controllo di integrità e può essere reimportato soltanto dal pannello dedicato.
+La pagina **Importa dati** produce il backup JSON ripristinabile dell’intera lega. Contiene fase e annata, squadre, roster, listone, scelte, Q.O., calendario, classifiche, tabelloni, storico e registro movimenti. Sono conservati anche i collegamenti tra movimenti e storico Draft necessari per un eventuale annullamento. Per evitare di ripetere l'intero roster in ogni movimento, l'export include negli snapshot dei movimenti soltanto le voci effettivamente coinvolte; lo stato corrente completo resta nel backup. I movimenti storici nel database non vengono riscritti da questa ottimizzazione. Il file include un controllo di integrità e può essere reimportato soltanto dal pannello dedicato.
 
 Il repository non contiene alcun backup della lega. Sono accettati soltanto i backup completi nel formato corrente; i file devono essere conservati privatamente fuori dalla cartella del progetto.
 
@@ -27,7 +27,7 @@ La sola RPC di ripristino dispone di un timeout dedicato di 60 secondi, necessar
 
 Il file temporaneo viene eliminato dopo il tentativo di ripristino, sia in caso di successo sia, per quanto possibile, in caso di errore. Il browser effettua inoltre un secondo tentativo di pulizia come protezione contro errori di rete tra la route e il client. Il bucket non espone URL pubblici e le policy consentono upload, lettura e cancellazione soltanto agli admin autenticati, limitatamente ai file di cui sono proprietari nel proprio prefisso.
 
-Il formato resta `greyson-allen-league-importable-backup`, versione `2`; nessun dato viene rimosso dall’export, compresi tutti i movimenti con `before_state` e `after_state`.
+Il formato resta `greyson-allen-league-importable-backup`, versione `2`: tutti i movimenti restano nell'export con `before_state` e `after_state`, sufficienti per gli annullamenti. Le voci non modificate e ripetute in ciascuno snapshot non vengono esportate; il backup conserva separatamente lo stato completo della lega.
 
 ## Sicurezza
 
