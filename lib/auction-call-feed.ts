@@ -39,7 +39,7 @@ export function recentAuctionCallsFromFeed(
       createdAt,
       role: rolesByName.get(normalizePlayerName(playerName)) ?? storedRole ?? "X",
     }];
-  }).reverse();
+  });
 }
 
 function isRole(value: unknown): value is PlayerListEntry["role"] {

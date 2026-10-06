@@ -56,10 +56,12 @@ export function auctionAcquisitionLabel(acquisition?: AuctionAcquisitionKind) {
 
 export function isPostAuctionContractAssignmentCandidate(
   entry: Pick<RosterEntry, "contract" | "auctionPrice" | "contractStartSeason"> & {
+    state?: RosterEntry["state"];
     auctionAcquisition?: RosterEntry["auctionAcquisition"];
   },
   activeSeasonName: string,
 ) {
+  if (entry.state === "cut") return false;
   if (entry.auctionAcquisition === "qualifying_offer") return false;
   const normalized = entry.contract.trim().toLocaleUpperCase("it-IT");
   if (["", "-", "PENDING", "DA ASSEGNARE"].includes(normalized)) return true;

@@ -28,7 +28,13 @@ function toggleSelection<T>(selected: T[], value: T): T[] {
   return selected.filter((item) => item !== value);
 }
 
-export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility }: { rows: Row[]; showOrder: boolean; showRealTeam: boolean; showEligibility: boolean }) {
+export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility, showQualifyingOfferFilter }: {
+  rows: Row[];
+  showOrder: boolean;
+  showRealTeam: boolean;
+  showEligibility: boolean;
+  showQualifyingOfferFilter: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [roles, setRoles] = useState<Row["role"][]>(allRoles);
   const [statuses, setStatuses] = useState<PlayerStatus[]>(allStatuses);
@@ -80,7 +86,7 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility 
           label="Stato"
           options={[
             { value: "fa", label: "FA" },
-            { value: "qo", label: "Q.O." },
+            ...(showQualifyingOfferFilter ? [{ value: "qo" as const, label: "Q.O." }] : []),
             { value: "roster", label: "A roster" },
           ]}
           selected={statuses}

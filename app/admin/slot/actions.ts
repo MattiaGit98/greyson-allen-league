@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { persistLeagueMovement } from "@/lib/league-movements";
 import { findTeamSlotOverflows, slotOverflowMessage } from "@/lib/roster-slot-limits";
 import { legalSlotDestinations, moveRosterEntryToSlot, slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -72,15 +71,19 @@ export async function moveRosterSlot(formData: FormData) {
   if (slotErrors.length) fail(slotErrors.join(" "));
 
   const nextState = { ...state, rosterEntries };
-  const response = await persistLeagueMovement(
-    supabase,
-    state,
-    nextState,
-    "spostamento_slot",
-    changes.map((change) => `${change.playerName} (${teamCode}): ${slotLabel(change.sourceSlot)} → ${slotLabel(change.destination)}`).join("; "),
-  );
+  const response = await supabase.rpc("apply_slot_movement", {
+    expected_before_state: state,
+    next_state: nextState,
+    requested_season_name: season.name,
+    reset_contract_drafts: changes.map((change) => ({
+      team_code: teamCode,
+      player_name: change.playerName,
+    })),
+    movement_type: "spostamento_slot",
+    movement_summary: changes.map((change) => `${change.playerName} (${teamCode}): ${slotLabel(change.sourceSlot)} → ${slotLabel(change.destination)}`).join("; "),
+  });
   if (response.error) fail(response.error.message);
-  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/altre-operazioni"]
+  ["/squadre", "/giocatori", "/movimenti", "/admin", path, "/admin/altre-operazioni", "/admin/contratti"]
     .forEach((route) => revalidatePath(route));
   const updateMessage = changes.length === 1
     ? `${changes[0].playerName}: ${slotLabel(changes[0].sourceSlot)} → ${slotLabel(changes[0].destination)}.`

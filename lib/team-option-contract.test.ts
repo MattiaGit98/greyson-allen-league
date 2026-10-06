@@ -80,7 +80,11 @@ describe("contratti da rookie", () => {
     expect(applyStandardContractCut({ ...option, contract: "28 (E)" }, 2027, "auction_start").contract).toBe("28");
     expect(applyStandardContractCut({ ...option, contract: "29 (Q)" }, 2027, "auction_start").contract).toBe("29");
     expect(applyStandardContractCut({ ...option, contract: "29" }, 2027, "auction_start").contract).toBe("29");
-    expect(applyStandardContractCut({ ...option, contract: "PENDING" }, 2027, "auction_start").contract).toBe("27");
+    expect(applyStandardContractCut({ ...option, contract: "PENDING" }, 2027, "auction_start")).toMatchObject({
+      contract: "27",
+      originalContractYears: 1,
+      state: "cut",
+    });
   });
 });
 

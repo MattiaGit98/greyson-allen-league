@@ -154,7 +154,28 @@ describe("avvisi prima dell’avanzamento della lega", () => {
       state: current,
     });
     expect(result.alerts.find((alert) => alert.id === "pending-contracts")?.tone).toBe("blocker");
-    expect(result.alerts.find((alert) => alert.id === "pending-contracts")?.items?.join(" ")).toContain("Tagliato da firmare");
+    expect(result.alerts.find((alert) => alert.id === "pending-contracts")?.items?.join(" ")).toContain("Da firmare");
+    expect(result.alerts.find((alert) => alert.id === "pending-contracts")?.items?.join(" ")).not.toContain("Tagliato da firmare");
+  });
+
+  it("non conta due volte come non idoneo chi attende ancora il contratto in uno slot speciale", () => {
+    const current = state([
+      rosterEntry("Two-way da firmare", {
+        contract: "PENDING",
+        slot: "two_way",
+        auctionPrice: 5,
+        contractStartSeason: "2026/27",
+      }),
+    ]);
+    const result = buildPreAdvanceChecklist({
+      currentMoment: "auction_completed",
+      seasonName: "2026/27",
+      state: current,
+    });
+
+    expect(result.alerts.find((alert) => alert.id === "pending-contracts")?.items)
+      .toContain("AAA: Two-way da firmare");
+    expect(result.alerts.find((alert) => alert.id === "invalid-special-slot-contracts")).toBeUndefined();
   });
 
   it("considera assegnato un contratto soltanto quando esiste la bozza privata", () => {

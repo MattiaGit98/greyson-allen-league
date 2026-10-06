@@ -146,6 +146,7 @@ export function buildPreAdvanceChecklist(input: {
       });
     }
     const pendingContracts = missingPostAuctionContractDrafts(state, contractDrafts, seasonName);
+    const pendingContractKeys = new Set(pendingContracts.map((entry) => `${entry.teamCode}\u0000${entry.name}`));
     if (pendingContracts.length) {
       add({
         id: "pending-contracts",
@@ -181,6 +182,7 @@ export function buildPreAdvanceChecklist(input: {
     const invalidSpecialSlots = deliveryState.rosterEntries.filter((entry) => (
       entry.state === "active"
       && (entry.slot === "two_way" || entry.slot === "g_league")
+      && !pendingContractKeys.has(`${entry.teamCode}\u0000${entry.name}`)
       && slotEligibilityErrors(entry, entry.slot, seasonName).length > 0
     ));
     if (invalidSpecialSlots.length) {

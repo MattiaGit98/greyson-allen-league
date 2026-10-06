@@ -498,18 +498,27 @@ export function SlotMoveForm(props: OperationProps) {
 export function PostAuctionContractForm(props: OperationProps & { contractDrafts: PostAuctionContractDraft[] }) {
   const [teamCode, setTeamCode] = useState(props.teams[0]?.code ?? "");
   type ContractKind = PostAuctionContractKind;
-  type ContractSlot = "regular" | "two_way" | "g_league";
-  type ContractAssignment = { contract: ContractKind; slot: ContractSlot };
+  type ContractAssignment = { contract: ContractKind };
   const [assignments, setAssignments] = useState<Record<string, ContractAssignment>>(() => Object.fromEntries(
     props.teams.flatMap((team) => team.players.flatMap((player) => {
       const draft = props.contractDrafts.find((item) => item.teamCode === team.code && item.playerName === player.name);
-      return draft ? [[player.id, { contract: draft.contractKind, slot: draft.slot }]] : [];
+      return draft ? [[player.id, { contract: draft.contractKind }]] : [];
     })),
   ));
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
-  const players = (team?.players ?? []).filter((player) => {
-    return isPostAuctionContractAssignmentCandidate(player, props.seasonName);
-  });
+  const contractSlotOrder: Record<AdminRosterPlayer["slot"], number> = {
+    regular: 0,
+    two_way: 1,
+    g_league: 2,
+    dpe: 3,
+  };
+  const players = (team?.players ?? [])
+    .filter((player) => isPostAuctionContractAssignmentCandidate(player, props.seasonName))
+    .sort((left, right) => (
+      contractSlotOrder[left.slot] - contractSlotOrder[right.slot]
+      || (right.auctionPrice ?? right.cost) - (left.auctionPrice ?? left.cost)
+      || left.name.localeCompare(right.name, "it")
+    ));
   const selectedAssignments = players.flatMap((player) => {
     const assignment = assignments[player.id];
     return assignment ? [{ player, assignment }] : [];
@@ -528,34 +537,21 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
   ];
   selectedAssignments.forEach(({ player, assignment }) => {
     const auctionPrice = player.auctionPrice ?? player.cost;
-    const destinationSpecial = assignment.slot === "two_way" || assignment.slot === "g_league";
+    const currentSpecialSlot = player.slot === "two_way" || player.slot === "g_league";
     const optionEligible = player.rookie || (player.under23 && auctionPrice <= 15);
-    if (player.state === "cut" && assignment.slot !== "regular") errors.push(`${player.name}: un giocatore tagliato deve restare fuori dagli slot attivi.`);
     if (!allowedPostAuctionContracts(player.auctionAcquisition).includes(assignment.contract)) {
       errors.push(player.auctionAcquisition === "qualifying_offer"
         ? `${player.name}: una Q.O. accettata richiede il contratto annuale.`
         : `${player.name}: un restricted free agent può ricevere soltanto un contratto annuale, biennale o triennale.`);
     }
-    if (player.auctionAcquisition && assignment.slot !== "regular") errors.push(`${player.name}: deve restare nello slot roster.`);
-    if (destinationSpecial && assignment.contract !== "team_option") errors.push(`${player.name}: negli slot speciali è selezionabile soltanto la T.O.`);
+    if (player.auctionAcquisition && player.slot !== "regular") errors.push(`${player.name}: deve restare nello slot roster.`);
+    if (currentSpecialSlot && assignment.contract !== "team_option") errors.push(`${player.name}: negli slot speciali è selezionabile soltanto la T.O.`);
     if (assignment.contract === "team_option" && !optionEligible) {
       errors.push(`${player.name}: la T.O. richiede un rookie oppure un U23 acquistato a massimo 15.`);
     }
-    if (assignment.slot === "two_way" && auctionPrice > 10) errors.push(`${player.name}: il Two-way richiede un costo massimo di 10.`);
-    if (assignment.slot === "g_league" && auctionPrice > 5) errors.push(`${player.name}: la G-League richiede un costo massimo di 5.`);
+    if (player.slot === "two_way" && auctionPrice > 10) errors.push(`${player.name}: il Two-way richiede un costo massimo di 10.`);
+    if (player.slot === "g_league" && auctionPrice > 5) errors.push(`${player.name}: la G-League richiede un costo massimo di 5.`);
   });
-  const slotsAfterAssignments = selectedAssignments.reduce((counts, { player, assignment }) => {
-    if (player.slot !== assignment.slot) {
-      if (player.slot !== "dpe") counts[player.slot] -= 1;
-      counts[assignment.slot] += 1;
-    }
-    return counts;
-  }, slotCounts(team));
-  if (slotsAfterAssignments.regular > 15) errors.push("Gli spostamenti superano i 15 slot roster.");
-  if (slotsAfterAssignments.two_way > 2) errors.push("Gli spostamenti superano i 2 slot Two-way.");
-  if (slotsAfterAssignments.g_league > 3) errors.push("Gli spostamenti superano i 3 slot G-League.");
-  const slotsBeforeAssignments = slotCounts(team);
-  const rolesBeforeAssignments = roleCounts(team, props.leagueMoment);
   const capWarnings = capSpacesAfter.flatMap((space, index) => (
     index > 0 && space < 0 ? [`I contratti portano il cap libero ${capSeasonNames[index]} a ${space}.`] : []
   ));
@@ -563,22 +559,11 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
   function setAssignment(player: AdminRosterPlayer, contract?: ContractKind) {
     setAssignments((current) => {
       const next = { ...current };
-      if (contract) next[player.id] = { contract, slot: current[player.id]?.slot ?? (player.slot === "dpe" ? "regular" : player.slot) };
+      if (contract) next[player.id] = { contract };
       else delete next[player.id];
       return next;
     });
   }
-  function setContractSlot(player: AdminRosterPlayer, slot: ContractSlot) {
-    if (player.state === "cut" && slot !== "regular") return;
-    setAssignments((current) => ({
-      ...current,
-      [player.id]: {
-        contract: (slot === "regular" && player.slot === "regular" ? current[player.id]?.contract : "team_option") ?? "team_option",
-        slot,
-      },
-    }));
-  }
-
   const serializedAssignments = selectedAssignments.map(({ player, assignment }) => ({ playerName: player.name, ...assignment }));
   const contractChoices: { kind: ContractKind; label: string }[] = [
     { kind: "annual", label: String(props.seasonEndYear).slice(-2) },
@@ -600,12 +585,10 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
         </div>
 
         <div className="contract-assignment-list">
-          <div className="contract-assignment-head"><span>Giocatore</span><span>Prezzo</span><span>Contratto</span><span>Slot</span></div>
+          <div className="contract-assignment-head"><span>Giocatore</span><span>Prezzo</span><span>Contratto</span></div>
           {players.map((player) => {
             const assignment = assignments[player.id];
             const auctionPrice = player.auctionPrice ?? player.cost;
-            const selectedSlot = assignment?.slot ?? player.slot;
-            const destinationRequiresOption = selectedSlot === "two_way" || selectedSlot === "g_league";
             const startsInSpecialSlot = player.slot === "two_way" || player.slot === "g_league";
             const optionEligible = player.rookie || (player.under23 && auctionPrice <= 15);
             const allowedContracts = allowedPostAuctionContracts(player.auctionAcquisition);
@@ -617,25 +600,23 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
                   {contractChoices.map((choice) => {
                     const disabled = !allowedContracts.includes(choice.kind)
                       || (startsInSpecialSlot && choice.kind !== "team_option")
-                      || (destinationRequiresOption
-                        ? choice.kind !== "team_option" || !optionEligible
-                        : choice.kind === "team_option" && !optionEligible);
+                      || (choice.kind === "team_option" && !optionEligible);
                     const finalCost = contractAnnualCost(auctionPrice, choice.kind);
+                    const choiceLabel = choice.kind === "annual" && finalCost === 1
+                      ? `${choice.label} → Q.O.`
+                      : choice.kind === "triennial" && auctionPrice >= 200
+                        ? `${choice.label} + EXT`
+                        : choice.label;
                     return (
                       <label className={assignment?.contract === choice.kind ? "selected" : ""} key={choice.kind}>
                         <input type="radio" name={`contract-${player.id}`} checked={assignment?.contract === choice.kind} disabled={disabled} onChange={() => setAssignment(player, choice.kind)} />
-                        <span>{choice.label}</span>
+                        <span>{choiceLabel}</span>
                         <small>{finalCost}</small>
                       </label>
                     );
                   })}
                   {assignment && <button type="button" onClick={() => setAssignment(player)}>Rimuovi bozza</button>}
                 </div>
-                <select className="contract-slot-select" value={assignment?.slot ?? (player.state === "cut" || player.slot === "dpe" ? "regular" : player.slot)} onChange={(event) => setContractSlot(player, event.target.value as ContractSlot)} disabled={player.state === "cut"}>
-                  <option value="regular">Roster</option>
-                  <option value="two_way" disabled={Boolean(player.auctionAcquisition) || auctionPrice > 10 || !optionEligible}>Two-way</option>
-                  <option value="g_league" disabled={Boolean(player.auctionAcquisition) || auctionPrice > 5 || !optionEligible}>G-League</option>
-                </select>
               </div>
             );
           })}
@@ -650,10 +631,6 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
           {capSeasonNames.map((seasonName, index) => (
             <Metric label={`Spazio ${seasonName}`} value={`${formatSpace(capSpacesBefore[index])} → ${formatSpace(capSpacesAfter[index])}`} key={seasonName} />
           ))}
-          </div>
-          <div className="auction-modal-summary operation-comparison-summary">
-            <Metric label="Slot" value={`${formatSlots(slotsBeforeAssignments)} → ${formatSlots(slotsAfterAssignments)}`} />
-            <Metric label="Ruoli" value={`${formatRoles(rolesBeforeAssignments)} → ${formatRoles(rolesBeforeAssignments)}`} />
           </div>
         </>}
         <Validation errors={errors} />

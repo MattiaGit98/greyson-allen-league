@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { PostAuctionContractKind } from "@/lib/auction-management";
+import { isPostAuctionContractAssignmentCandidate, type PostAuctionContractKind } from "@/lib/auction-management";
 import { requireCapCompliance } from "@/lib/cap-override";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { loadEditableLeagueState } from "@/lib/league-state";
@@ -17,7 +17,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 type Assignment = {
   playerName: string;
   contract: PostAuctionContractKind;
-  slot: PostAuctionContractSlot;
 };
 
 const path = "/admin/contratti";
@@ -49,13 +48,21 @@ export async function assignPostAuctionContracts(formData: FormData) {
 
   const state = await loadEditableLeagueState();
   if (!state.teams.some((team) => team.code === teamCode)) fail("Squadra non valida.");
-  const contractDrafts: PostAuctionContractDraft[] = assignments.map((assignment) => ({
-    seasonName: activeSeasonName,
-    teamCode,
-    playerName: assignment.playerName,
-    contractKind: assignment.contract,
-    slot: assignment.slot,
-  }));
+  const contractDrafts: PostAuctionContractDraft[] = assignments.map((assignment) => {
+    const entry = state.rosterEntries.find((item) => (
+      item.teamCode === teamCode
+      && item.name === assignment.playerName
+      && isPostAuctionContractAssignmentCandidate(item, activeSeasonName)
+    ));
+    if (!entry) fail(`${assignment.playerName} non ha più un contratto dell'asta da assegnare.`);
+    return {
+      seasonName: activeSeasonName,
+      teamCode,
+      playerName: assignment.playerName,
+      contractKind: assignment.contract,
+      slot: currentContractSlot(entry.slot),
+    };
+  });
   let projectedState;
   try {
     projectedState = applyPostAuctionContractDrafts({
@@ -105,7 +112,7 @@ function parseAssignments(value: FormDataEntryValue | null): Assignment[] {
     const playerName = String(row.playerName ?? "").trim();
     if (!playerName
       || !["annual", "biennial", "triennial", "team_option"].includes(String(row.contract))
-      || !["regular", "two_way", "g_league"].includes(String(row.slot))) {
+      ) {
       throw new Error("Assegnazione non valida.");
     }
     if (names.has(playerName)) throw new Error(`${playerName} compare più di una volta.`);
@@ -113,9 +120,13 @@ function parseAssignments(value: FormDataEntryValue | null): Assignment[] {
     return {
       playerName,
       contract: row.contract as PostAuctionContractKind,
-      slot: row.slot as PostAuctionContractSlot,
     };
   });
+}
+
+function currentContractSlot(slot: string): PostAuctionContractSlot {
+  if (slot === "regular" || slot === "two_way" || slot === "g_league") return slot;
+  fail("Un giocatore nello slot DPE non può ricevere il contratto da questo pannello.");
 }
 
 function clean(value: FormDataEntryValue | null) {

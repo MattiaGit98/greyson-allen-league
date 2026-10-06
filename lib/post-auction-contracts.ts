@@ -88,7 +88,6 @@ export function applyPostAuctionContractDrafts({
     return {
       ...entry,
       ...assignedAuctionContract(entry.auctionPrice ?? entry.cost, draft.contractKind, endYear),
-      slot: draft.slot,
       contractStartSeason: entry.contractStartSeason ?? seasonName,
     };
   });
@@ -116,29 +115,25 @@ function validateDraft(
       ? `${entry.name}: una Q.O. accettata richiede il contratto annuale.`
       : `${entry.name}: un restricted free agent può ricevere soltanto un contratto annuale, biennale o triennale.`);
   }
-  if (entry.state === "cut" && draft.slot !== "regular") {
+  if (entry.state === "cut" && entry.slot !== "regular") {
     throw new Error(`${entry.name}: un giocatore già tagliato deve restare fuori dagli slot attivi.`);
   }
-  if (entry.auctionAcquisition && draft.slot !== "regular") {
+  if (entry.auctionAcquisition && entry.slot !== "regular") {
     throw new Error(`${entry.name}: un acquisto tramite Q.O. o come RFA deve restare nel roster.`);
   }
   const auctionPrice = entry.auctionPrice ?? entry.cost;
   const startsInSpecialSlot = entry.slot === "two_way" || entry.slot === "g_league";
-  const destinationRequiresTeamOption = draft.slot === "two_way" || draft.slot === "g_league";
   if (startsInSpecialSlot && draft.contractKind !== "team_option") {
     throw new Error(`${entry.name}: un giocatore in Two-way o G-League può ricevere soltanto la T.O.`);
-  }
-  if (destinationRequiresTeamOption && draft.contractKind !== "team_option") {
-    throw new Error(`${entry.name}: negli slot speciali è selezionabile soltanto la T.O.`);
   }
   const teamOptionEligible = player.rookie || (player.under23 && auctionPrice <= 15);
   if (draft.contractKind === "team_option" && !teamOptionEligible) {
     throw new Error(`${entry.name} non rispetta i requisiti per la T.O.`);
   }
-  if (draft.slot === "two_way" && auctionPrice > 10) {
+  if (entry.slot === "two_way" && auctionPrice > 10) {
     throw new Error(`${entry.name}: il Two-way richiede un costo massimo di 10.`);
   }
-  if (draft.slot === "g_league" && auctionPrice > 5) {
+  if (entry.slot === "g_league" && auctionPrice > 5) {
     throw new Error(`${entry.name}: la G-League richiede un costo massimo di 5.`);
   }
 }

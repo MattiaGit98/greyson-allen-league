@@ -11,9 +11,9 @@ export default async function PlayersPage() {
     requireActiveSeason(),
   ]);
   const moment = leagueMomentFromSeason(activeSeason.season);
-  const showEligibility = !hasReachedMoment(moment, "contract_delivery");
+  const showPreAuctionDetails = !hasReachedMoment(moment, "auction_completed");
   const showRealTeam = showPlayerListRealTeam(leagueState.playerListStatus, moment);
-  const showOrder = !hasReachedMoment(moment, "auction_completed");
+  const showOrder = showPreAuctionDetails;
   const rows = buildPublicPlayerListRows(leagueState);
   return (
     <section className="section players-page">
@@ -24,7 +24,8 @@ export default async function PlayersPage() {
         rows={rows}
         showOrder={showOrder}
         showRealTeam={showRealTeam}
-        showEligibility={showEligibility}
+        showEligibility={showPreAuctionDetails}
+        showQualifyingOfferFilter={showPreAuctionDetails}
       />
     </section>
   );

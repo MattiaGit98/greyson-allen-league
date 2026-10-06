@@ -7,6 +7,10 @@ const annualTeamOptionPattern = /^(\d{2})\s*\+\s*T\.?O\.?$/i;
 const exitOptionalMarkerPattern = /^(\d{2})\s*(?:\+\s*(?:T\.?O\.?|R\.?E\.?|EXT)|\((?:E|Q)\))$/i;
 const pendingContractValues = new Set(["", "-", "PENDING", "DA ASSEGNARE"]);
 
+export function isPendingContractAssignment(contract: string) {
+  return pendingContractValues.has(contract.trim().replace(/\s+/g, " ").toLocaleUpperCase("it-IT"));
+}
+
 export function destinationAfterTeamOptionExercise(
   source: RosterEntry["slot"],
   requestedForGLeague: "regular" | "two_way",
@@ -135,9 +139,11 @@ export function applyStandardContractCut<T extends RosterEntry>(
   currentSeasonEndYear: number,
   _moment: LeagueMoment,
 ): T {
+  const pendingContract = isPendingContractAssignment(entry.contract);
   return {
     ...entry,
     contract: contractAfterRosterExit(entry.contract, currentSeasonEndYear),
+    originalContractYears: pendingContract ? 1 : entry.originalContractYears,
     state: "cut",
     slot: "regular",
     scheduledSeasonEndCut: undefined,
@@ -146,7 +152,7 @@ export function applyStandardContractCut<T extends RosterEntry>(
 
 export function contractAfterRosterExit(contract: string, currentSeasonEndYear: number) {
   const normalized = contract.trim().replace(/\s+/g, " ").toLocaleUpperCase("it-IT");
-  if (pendingContractValues.has(normalized)) return String(currentSeasonEndYear).padStart(2, "0").slice(-2);
+  if (isPendingContractAssignment(normalized)) return String(currentSeasonEndYear).padStart(2, "0").slice(-2);
   const optionalMarker = normalized.match(exitOptionalMarkerPattern);
   return optionalMarker?.[1] ?? contract;
 }

@@ -34,7 +34,7 @@ describe("tagli e rilasci", () => {
       slot: "regular",
       teamCode: "AAA",
     }, 2027);
-    expect(released).toMatchObject({ cost: 0, contract: "27", state: "cut" });
+    expect(released).toMatchObject({ cost: 0, contract: "27", originalContractYears: 1, state: "cut" });
   });
 
   it("fa rientrare sul cap corrente un contratto tagliato dalla DPE", () => {

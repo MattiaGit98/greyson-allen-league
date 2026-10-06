@@ -94,22 +94,38 @@ describe("bozze private dei contratti post asta", () => {
     expect(published.rosterEntries[1]).toMatchObject({ contract: "27 + T.O.", cost: 5, slot: "g_league" });
   });
 
-  it("consente gli slot speciali alle sole T.O. idonee prima della consegna", () => {
-    const twoWay = applyPostAuctionContractDrafts({
-      state: state(),
-      drafts: [draft("Guardia"), draft("Rookie", { slot: "two_way" })],
-      seasonName,
-    });
-    expect(twoWay.rosterEntries.find((entry) => entry.name === "Rookie")).toMatchObject({
-      contract: "27 + T.O.",
-      slot: "two_way",
-    });
+  it("esclude sempre i tagliati, anche se conservano i metadati dell'acquisto all'asta", () => {
+    const current = state();
+    current.rosterEntries[0] = {
+      ...current.rosterEntries[0],
+      state: "cut",
+      slot: "regular",
+      contract: "27",
+      originalContractYears: 1,
+    };
 
+    expect(missingPostAuctionContractDrafts(current, [draft("Rookie")], seasonName)).toEqual([]);
     expect(() => applyPostAuctionContractDrafts({
-      state: state(),
-      drafts: [draft("Guardia", { slot: "two_way" }), draft("Rookie")],
+      state: current,
+      drafts: [draft("Rookie")],
       seasonName,
-    })).toThrow("slot speciali");
+    })).not.toThrow();
+  });
+
+  it("mantiene lo slot corrente e ignora quello storico della bozza", () => {
+    const published = applyPostAuctionContractDrafts({
+      state: state(),
+      drafts: [draft("Guardia", { slot: "two_way" }), draft("Rookie", { slot: "two_way" })],
+      seasonName,
+    });
+    expect(published.rosterEntries.find((entry) => entry.name === "Guardia")).toMatchObject({
+      contract: "27",
+      slot: "regular",
+    });
+    expect(published.rosterEntries.find((entry) => entry.name === "Rookie")).toMatchObject({
+      contract: "27 + T.O.",
+      slot: "g_league",
+    });
 
     expect(() => applyPostAuctionContractDrafts({
       state: state(),
