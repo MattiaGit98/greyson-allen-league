@@ -615,27 +615,28 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
                       </label>
                     );
                   })}
-                  {assignment && <button type="button" onClick={() => setAssignment(player)}>Rimuovi bozza</button>}
+                  <button type="button" disabled={!assignment} onClick={() => setAssignment(player)}>Rimuovi bozza</button>
                 </div>
               </div>
             );
           })}
           {!players.length && <p className="team-option-empty">Nessun giocatore con contratto da assegnare.</p>}
         </div>
+        {(selectedAssignments.length > 0 || errors.length > 0 || capWarnings.length > 0) && (
+          <div className="contract-assignment-recap">
+            {selectedAssignments.length > 0 && (
+              <div className="auction-modal-summary cap-three-years">
+                {capSeasonNames.map((seasonName, index) => (
+                  <Metric label={`Spazio ${seasonName}`} value={`${formatSpace(capSpacesBefore[index])} → ${formatSpace(capSpacesAfter[index])}`} key={seasonName} />
+                ))}
+              </div>
+            )}
+            <Validation errors={errors} />
+            <CapBlocker warnings={capWarnings} />
+          </div>
+        )}
         <button className="button primary guided-operation-save" type="submit" disabled={errors.length > 0 || capWarnings.length > 0}>Salva bozza privata ({selectedAssignments.length})</button>
       </div>
-
-      <aside className="guided-operation-recap contract-assignment-recap">
-        {selectedAssignments.length > 0 && <>
-          <div className="auction-modal-summary cap-three-years">
-          {capSeasonNames.map((seasonName, index) => (
-            <Metric label={`Spazio ${seasonName}`} value={`${formatSpace(capSpacesBefore[index])} → ${formatSpace(capSpacesAfter[index])}`} key={seasonName} />
-          ))}
-          </div>
-        </>}
-        <Validation errors={errors} />
-        <CapBlocker warnings={capWarnings} />
-      </aside>
     </form>
   );
 }

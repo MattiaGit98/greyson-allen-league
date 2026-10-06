@@ -782,7 +782,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .guided-operation-save:disabled { opacity: .45; cursor: not-allowed; }
 .guided-operation-recap { min-width: 0; padding: 24px; border-left: 1px solid var(--line); background: #e7eadf; }
 .guided-operation-recap .preview-metrics { margin: 0 0 16px; }
-.contract-assignment-workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .45fr); overflow: hidden; margin-top: 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
+.contract-assignment-workspace { overflow: hidden; margin-top: 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
 .contract-assignment-editor { min-width: 0; padding: 24px; }
 .contract-draft-notice { margin: 0 0 16px; }
 .contract-assignment-list { overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: white; }
@@ -797,7 +797,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .contract-assignment-row input:focus, .contract-assignment-row select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.07); }
 .contract-assignment-row input:disabled, .contract-assignment-row select:disabled { background: #efeee8; color: #999d96; }
 .contract-assignment-row label small { display: block; overflow: hidden; margin-top: 3px; color: var(--muted); font-size: 8px; font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-.contract-assignment-recap { border-left: 1px solid var(--line); }
+.contract-assignment-recap { margin-top: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #e7eadf; }
 .draft-panel { max-width: 1380px; margin: 28px auto 0; }
 .draft-panel-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
 .draft-panel-summary span { padding: 14px; border-right: 1px solid var(--line); color: var(--muted); font-size: 8px; font-weight: 900; text-align: center; text-transform: uppercase; letter-spacing: .07em; }
@@ -1331,8 +1331,8 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .team-option-workspace { grid-template-columns: 1fr; border-right: 0; border-left: 0; border-radius: 0; }
   .team-option-recap { border-top: 1px solid var(--line); border-left: 0; }
   .guided-operation-recap { border-top: 1px solid var(--line); border-left: 0; }
-  .contract-assignment-workspace { grid-template-columns: 1fr; border-right: 0; border-left: 0; border-radius: 0; }
-  .contract-assignment-recap { border-top: 1px solid var(--line); border-left: 0; }
+  .contract-assignment-workspace { border-right: 0; border-left: 0; border-radius: 0; }
+  .contract-assignment-recap { padding: 14px 8px; }
   .trade-team-grid { grid-template-columns: 1fr; gap: 8px; }
   .trade-team-card { border-right: 0; border-left: 0; border-radius: 0; }
   .trade-toolbar, .trade-import-panel, .trade-summary-grid, .trade-clause-workspace, .trade-validation, .trade-submit { margin-right: 8px; margin-left: 8px; }
@@ -1768,6 +1768,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .contract-choice-list span { font-size: 10px; font-weight: 900; }
 .contract-choice-list small { color: var(--orange); font-size: 8px; font-weight: 900; }
 .contract-choice-list > button { padding: 0 7px; border: 0; background: transparent; color: #8d432f; font-size: 8px; font-weight: 900; cursor: pointer; }
+.contract-choice-list > button:disabled { color: var(--muted); opacity: .45; cursor: not-allowed; }
 .auction-context-cut { display: grid; gap: 3px; margin: 0; padding: 11px 13px; border: 1px solid #d9b7aa; border-radius: 9px; background: #f8e5df; }
 .auction-context-cut span { color: #8d432f; font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .auction-context-cut strong { font-size: 12px; }
