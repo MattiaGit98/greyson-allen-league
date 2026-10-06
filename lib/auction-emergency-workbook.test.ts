@@ -37,7 +37,17 @@ describe("Excel di emergenza asta", () => {
     expect(loaded.worksheets.map((sheet) => sheet.name)).toEqual(["Squadre", "Listone"]);
 
     const teams = rows(loaded.getWorksheet("Squadre")!);
-    expect(teams).toContainEqual(["Squadra Alfa", "Cap libero", 975]);
+    const teamsSheet = loaded.getWorksheet("Squadre")!;
+    expect(teamsSheet.getCell("A5").value).toBe("Roster");
+    expect(teamsSheet.getCell("A21").value).toBe("Two-way");
+    expect(teamsSheet.getCell("A24").value).toBe("G-League");
+    expect(teamsSheet.getCell("A28").value).toBe("Tagliati");
+    expect(teamsSheet.getCell("A36").value).toBe("Q.O.");
+    for (const row of [7, 20, 23, 26, 27, 31, 35]) {
+      expect(teamsSheet.getRow(row).getCell(1).value).toBeNull();
+      expect(teamsSheet.getRow(row).getCell(1).border?.bottom).toBeDefined();
+    }
+    expect(teams).toContainEqual(["Squadra Alfa", "Cap libero: 975", "Ruoli: 1 G - 1 A - 1 C"]);
     expect(teams).toContainEqual(["Giocatore roster", "G", 10]);
     expect(teams).toContainEqual(["Giocatore two-way", "A", 2]);
     expect(teams).toContainEqual(["Giocatore G-League", "C", 1]);
@@ -53,6 +63,25 @@ describe("Excel di emergenza asta", () => {
     expect(list).toContainEqual(["Giocatore QO", "A", "Q.O. · Squadra Alfa"]);
     expect(list).toContainEqual(["Giocatore libero", "C", "FA"]);
     expect(list).toContainEqual(["Giocatore buyout", "G", "FA B.O."]);
+  });
+
+  it("non tronca uno slot che contiene più giocatori delle righe di riferimento", () => {
+    const state = emptyLeagueState();
+    state.teams = [{
+      code: "ABC", name: "Squadra Alfa", owner: "", slug: "alfa",
+      credits: 0, cost: 0, players: 0, cutPlayers: 0, qualifyingOffers: 0, draftAssets: 0,
+      nextSeasonCredits: 0, followingSeasonCredits: 0,
+    }];
+    state.rosterEntries = Array.from({ length: 16 }, (_, index) => ({
+      name: `Giocatore ${index + 1}`, role: "G" as const, cost: 1, contract: "27",
+      state: "active" as const, slot: "regular" as const, teamCode: "ABC",
+    }));
+    const workbook = buildAuctionEmergencyWorkbook({
+      state, seasonName: "2026/27", exportedAt: new Date("2026-10-06T08:00:00Z"), countTeamOptions: true,
+    });
+    const sheet = workbook.getWorksheet("Squadre")!;
+    expect(sheet.getCell("A21").value).toBe("Giocatore 16");
+    expect(sheet.getCell("A22").value).toBe("Two-way");
   });
 });
 

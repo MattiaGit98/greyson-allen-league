@@ -11,7 +11,7 @@ export default function BackupAdminPage() {
           <a className="button primary backup-download" href="/admin/importa-dati/backup">
             Backup ripristinabile
           </a>
-          <a className="button backup-download" href="/admin/backup/asta">
+          <a className="button backup-download backup-html-download" href="/admin/backup/asta">
             Excel di emergenza asta
           </a>
           <a className="button backup-download backup-html-download" href="/admin/backup/visualizzazione">

@@ -20,7 +20,6 @@ export function availableOperationsAt(moment: LeagueMoment): AvailableOperation[
   };
 
   add("Contratti da rookie", operationWindows.teamOption(moment), "team_option_deadline");
-  add("Assegnazione contratti", operationWindows.contractAssignment(moment), "contract_delivery");
   add("Scambi", operationWindows.trades(moment), "trade_deadline");
   add("Free agent", operationWindows.freeAgency(moment), hasReachedMoment(moment, "free_agency_reopening") ? "season_end" : "free_agency_end");
   add("Estensioni contrattuali", operationWindows.extensions(moment), "auction_start");

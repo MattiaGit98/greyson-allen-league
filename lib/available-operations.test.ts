@@ -13,6 +13,10 @@ describe("operazioni disponibili", () => {
   it("non mostra l'asta tra le operazioni disponibili in homepage", () => {
     expect(labelsAt("auction_start")).not.toContain("Asta");
   });
+
+  it("non mostra l'assegnazione contratti nella homepage", () => {
+    expect(labelsAt("auction_completed")).not.toContain("Assegnazione contratti");
+  });
 });
 
 function labelsAt(moment: Parameters<typeof availableOperationsAt>[0]) {

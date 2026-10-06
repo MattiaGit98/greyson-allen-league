@@ -21,7 +21,7 @@ export function buildAuctionEmergencyWorkbook({ state, seasonName, exportedAt, c
   workbook.created = exportedAt;
 
   const teamsSheet = workbook.addWorksheet("Squadre", { views: [{ state: "frozen", ySplit: 2, showGridLines: false }] });
-  teamsSheet.columns = [{ width: 36 }, { width: 16 }, { width: 16 }];
+  teamsSheet.columns = [{ width: 36 }, { width: 21 }, { width: 28 }];
   addTitle(teamsSheet, "Asta · squadre", seasonName, exportedAt, 3);
 
   const listRoleByName = new Map(state.playerList.map((player) => [nameKey(player.name), player.role]));
@@ -34,25 +34,37 @@ export function buildAuctionEmergencyWorkbook({ state, seasonName, exportedAt, c
       optionSeasonName: seasonName,
       countTeamOptions,
     });
+    const active = teamEntries.filter((entry) => entry.state === "active");
+    const roles = active.reduce((counts, entry) => {
+      if (entry.slot === "dpe") return counts;
+      const role = listRoleByName.get(nameKey(entry.name)) ?? entry.role ?? "X";
+      if (role === "G" || role === "A" || role === "C") counts[role] += 1;
+      return counts;
+    }, { G: 0, A: 0, C: 0 });
     const teamRow = teamsSheet.getRow(rowNumber++);
-    teamRow.values = [team.name, "Cap libero", capSpace];
+    teamRow.values = [team.name, `Cap libero: ${capSpace}`, `Ruoli: ${roles.G} G - ${roles.A} A - ${roles.C} C`];
     teamRow.height = 24;
     teamRow.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
     teamRow.fill = solid(ink);
-    teamRow.getCell(3).numFmt = "0";
-
-    const active = teamEntries.filter((entry) => entry.state === "active");
+    teamRow.getCell(3).alignment = { horizontal: "right", vertical: "middle" };
     for (const [slot, label] of [
       ["regular", "Roster"],
       ["two_way", "Two-way"],
       ["g_league", "G-League"],
     ] as const) {
       rowNumber = addSection(teamsSheet, rowNumber, label);
-      rowNumber = addRosterEntries(teamsSheet, rowNumber, active.filter((entry) => entry.slot === slot), listRoleByName);
+      rowNumber = addRosterEntries(
+        teamsSheet,
+        rowNumber,
+        active.filter((entry) => entry.slot === slot),
+        listRoleByName,
+        slot === "regular" ? 15 : slot === "two_way" ? 2 : 3,
+      );
     }
 
     rowNumber = addSection(teamsSheet, rowNumber, "Tagliati");
-    rowNumber = addRosterEntries(teamsSheet, rowNumber, teamEntries.filter((entry) => entry.state === "cut"));
+    const cutEntries = teamEntries.filter((entry) => entry.state === "cut");
+    rowNumber = addRosterEntries(teamsSheet, rowNumber, cutEntries, undefined, cutEntries.length + 5);
 
     rowNumber = addSection(teamsSheet, rowNumber, "Q.O.");
     for (const right of state.qualifyingOfferRights.filter((item) => item.teamCode === team.code)) {
@@ -115,10 +127,17 @@ function addSection(sheet: ExcelJS.Worksheet, rowNumber: number, label: string) 
   return rowNumber + 1;
 }
 
-function addRosterEntries(sheet: ExcelJS.Worksheet, start: number, entries: RosterEntry[], roles?: Map<string, PlayerListEntry["role"]>) {
+function addRosterEntries(sheet: ExcelJS.Worksheet, start: number, entries: RosterEntry[], roles?: Map<string, PlayerListEntry["role"]>, minimumRows = 0) {
   let rowNumber = start;
   for (const entry of entries) {
     addDetailRow(sheet, rowNumber++, entry.name, roles?.get(nameKey(entry.name)) ?? entry.role ?? "X", entry.cost);
+  }
+  for (let index = entries.length; index < minimumRows; index += 1) {
+    const row = sheet.getRow(rowNumber++);
+    row.height = 18;
+    for (let column = 1; column <= 3; column += 1) {
+      row.getCell(column).border = { bottom: { style: "hair", color: { argb: "FFDCE8E1" } } };
+    }
   }
   return rowNumber;
 }
