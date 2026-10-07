@@ -6,7 +6,7 @@ La pagina **Importa dati** produce il backup JSON ripristinabile dell’intera l
 
 Il repository non contiene alcun backup della lega. Sono accettati soltanto i backup completi nel formato corrente; i file devono essere conservati privatamente fuori dalla cartella del progetto.
 
-Prima di ogni avanzamento della lega questo backup viene scaricato automaticamente. Anche ogni ripristino scarica prima un nuovo backup della situazione che sta per essere sostituita; se il download fallisce, l’importazione non comincia.
+Prima di ogni avanzamento della lega questo backup viene scaricato automaticamente. Anche ogni ripristino scarica prima un nuovo backup della situazione che sta per essere sostituita; se il download fallisce, l’operazione non comincia. Dopo l'avvio del download viene chiesta una conferma esplicita che il file sia stato salvato sul dispositivo: in caso contrario l'operazione si ferma. Il browser non può verificare direttamente la presenza del file nella cartella dei download, quindi questa conferma richiede un controllo dell'admin.
 
 La pagina amministrativa Backup offre il backup ripristinabile completo e una copia HTML statica di sola consultazione, non utilizzabile per ripristinare il database.
 

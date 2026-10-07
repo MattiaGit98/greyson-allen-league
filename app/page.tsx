@@ -33,11 +33,11 @@ export default async function HomePage() {
   ]);
   const [movementResponse] = await Promise.all([
     supabase
-      ? supabase.from("league_movement_feed").select("id,operation_type,summary,created_at,reverted").order("created_at", { ascending: false }).limit(12)
+      ? supabase.from("league_movement_feed").select("id,operation_type,summary,created_at,reverted").order("created_at", { ascending: false }).limit(5)
       : null,
   ]);
   if (movementResponse?.error) throw new Error(`Movimenti recenti non disponibili: ${movementResponse.error.message}`);
-  const movements = (movementResponse?.data ?? []).filter((movement) => !movement.reverted).slice(0, 5);
+  const movements = movementResponse?.data ?? [];
   const moment = leagueMomentFromSeason(activeSeason.season);
   const [historyState, competitionState] = await Promise.all([loadHistoryCompetitionState(), loadCompetitionState()]);
   const todayParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
@@ -121,9 +121,9 @@ export default async function HomePage() {
                   id: String(movement.id),
                   dateTime: movement.created_at,
                   displayedDate: formatMovementDate(movement.created_at),
-                  operation: movementOperationLabel(operationType),
+                  operation: `${movementOperationLabel(operationType)}${movement.reverted ? " · annullato" : ""}`,
                   conciseDetail: conciseMovementDetail(operationType, fullDetail),
-                  fullDetail,
+                  fullDetail: movement.reverted ? `${fullDetail} · Movimento annullato.` : fullDetail,
                 };
               })} />
             ) : <p className="home-empty">Nessun movimento registrato.</p>}

@@ -478,9 +478,9 @@ function addStructuralAlerts(
   if (futureCapIssues.length) {
     add({
       id: "future-cap-overflow",
-      tone: "warning",
+      tone: "blocker",
       title: "Team salary futuro oltre 1000 crediti",
-      message: "Il regolamento non ammette eccezioni; l’avanzamento resta confermabile come forzatura amministrativa.",
+      message: "Il regolamento non ammette eccezioni: riduci il team salary futuro prima di avanzare.",
       items: futureCapIssues,
       article: "Art. 9(d)",
       href: "/admin/altre-operazioni",

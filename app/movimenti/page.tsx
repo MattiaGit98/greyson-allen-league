@@ -35,7 +35,6 @@ export default async function TransactionsPage({
     let request = supabase
       .from("league_movement_feed")
       .select("id,operation_type,summary,reverted,created_at", { count: "exact" })
-      .eq("reverted", false)
       .gte("created_at", since.toISOString());
     if (selectedOperationTypes) request = request.in("operation_type", [...selectedOperationTypes]);
     if (textFilter) request = request.or(textFilter);
@@ -64,9 +63,9 @@ export default async function TransactionsPage({
           id: String(movement.id),
           dateTime: movement.created_at,
           displayedDate: formatMovementDate(movement.created_at),
-          operation: movementOperationLabel(operationType),
+          operation: `${movementOperationLabel(operationType)}${movement.reverted ? " · annullato" : ""}`,
           conciseDetail: conciseMovementDetail(operationType, fullDetail),
-          fullDetail,
+          fullDetail: movement.reverted ? `${fullDetail} · Movimento annullato.` : fullDetail,
         };
       })} />
 

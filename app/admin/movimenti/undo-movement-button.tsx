@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { revertMovement } from "./actions";
+import { prepareMovementReversal, revertMovement } from "./actions";
 
 type ReversalPreviewTeam = {
   code: string;
@@ -31,8 +31,8 @@ export function UndoMovementButton({
 }: {
   movementId: string;
   summary: string;
-  preview: ReversalPreviewTeam[];
-  roleMinimumConfirmationRequired: boolean;
+  preview?: ReversalPreviewTeam[];
+  roleMinimumConfirmationRequired?: boolean;
   disabled: boolean;
   triggerLabel?: string;
   triggerClassName?: string;
@@ -44,9 +44,38 @@ export function UndoMovementButton({
   const [open, setOpen] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [explicitConfirmed, setExplicitConfirmed] = useState(false);
+  const [preparedPreview, setPreparedPreview] = useState<ReversalPreviewTeam[] | null>(preview ?? null);
+  const [preparedRoleConfirmation, setPreparedRoleConfirmation] = useState(roleMinimumConfirmationRequired ?? false);
+  const [preparationError, setPreparationError] = useState("");
+  const [preparing, setPreparing] = useState(false);
+  const effectivePreview = preview ?? preparedPreview;
+  const effectiveRoleConfirmation = preview === undefined ? preparedRoleConfirmation : (roleMinimumConfirmationRequired ?? false);
+
+  async function openPreview() {
+    setOpen(true);
+    setPreparationError("");
+    setRoleMinimumConfirmed(false);
+    setExplicitConfirmed(false);
+    if (preview !== undefined) return;
+    setPreparedPreview(null);
+    setPreparing(true);
+    try {
+      const result = await prepareMovementReversal(movementId);
+      if (result.ok) {
+        setPreparedPreview(result.preview);
+        setPreparedRoleConfirmation(result.roleMinimumConfirmationRequired);
+      } else {
+        setPreparationError(result.reason);
+      }
+    } catch {
+      setPreparationError("Verifica dell'annullamento non riuscita. Riprova.");
+    } finally {
+      setPreparing(false);
+    }
+  }
   return (
     <>
-      <button className={triggerClassName ?? "button secondary"} type="button" disabled={disabled} aria-label={triggerAriaLabel} onClick={() => setOpen(true)}>{triggerLabel}</button>
+      <button className={triggerClassName ?? "button secondary"} type="button" disabled={disabled || preparing} aria-label={triggerAriaLabel} onClick={() => void openPreview()}>{preparing ? "Verifica…" : triggerLabel}</button>
       {open && (
         <div className="movement-reversal-modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
           <section className="movement-reversal-modal" role="dialog" aria-modal="true" aria-label="Conferma annullamento movimento" onMouseDown={(event) => event.stopPropagation()}>
@@ -54,7 +83,9 @@ export function UndoMovementButton({
               <div><span>Annullamento movimento</span><strong>{summary}</strong></div>
             </div>
             <div className="movement-reversal-preview-list">
-              {preview.map((team) => (
+              {preparing && <p>Verifica delle conseguenze dell'annullamento…</p>}
+              {preparationError && <p className="validation error">{preparationError}</p>}
+              {effectivePreview?.map((team) => (
                 <article key={team.code}>
                   <div className="movement-reversal-team-heading">
                     <strong>{team.name}</strong>
@@ -71,9 +102,9 @@ export function UndoMovementButton({
                   </div>
                 </article>
               ))}
-              {!preview.length && <p>Nessun roster o scelta di squadra verrebbe modificato.</p>}
+              {effectivePreview && !effectivePreview.length && <p>Nessun roster o scelta di squadra verrebbe modificato.</p>}
             </div>
-            {roleMinimumConfirmationRequired && (
+            {effectivePreview && effectiveRoleConfirmation && (
               <label className="operation-check role-minimum-check movement-role-minimum-check">
                 <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
                 Confermo che assegnerò in seguito i free agent casuali da 1 credito necessari per ripristinare i ruoli.
@@ -91,7 +122,7 @@ export function UndoMovementButton({
               <input type="hidden" name="return_path" value={returnPath} />
               <input type="hidden" name="auction_assignment_only" value={String(auctionAssignmentOnly)} />
               <button className="button secondary" type="button" onClick={() => setOpen(false)}>Indietro</button>
-              <button className="button primary" type="submit" disabled={(roleMinimumConfirmationRequired && !roleMinimumConfirmed) || (requireExplicitConfirmation && !explicitConfirmed)}>Conferma annullamento</button>
+              <button className="button primary" type="submit" disabled={!effectivePreview || Boolean(preparationError) || (effectiveRoleConfirmation && !roleMinimumConfirmed) || (requireExplicitConfirmation && !explicitConfirmed)}>Conferma annullamento</button>
             </form>
           </section>
         </div>

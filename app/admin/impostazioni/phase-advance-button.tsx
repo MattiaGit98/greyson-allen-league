@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { LeagueTransitionPreview } from "@/lib/league-transition";
 import { historyConfirmationForTransition } from "@/lib/phase-history-confirmation";
+import { downloadImportableBackup } from "@/lib/download-importable-backup";
 import { advanceLeaguePhaseStep } from "./actions";
 
 export function PhaseAdvanceButton({ currentLabel, nextLabel, preview, missingPhaseDate = false, phaseDateNotReached = false }: { currentLabel: string; nextLabel: string; preview: LeagueTransitionPreview; missingPhaseDate?: boolean; phaseDateNotReached?: boolean }) {
@@ -72,29 +73,4 @@ export function PhaseAdvanceButton({ currentLabel, nextLabel, preview, missingPh
 function PreviewSection({ title, items, tone }: { title: string; items: string[]; tone: string }) {
   if (!items.length) return null;
   return <section className={`phase-preview-section ${tone}`}><strong>{title}</strong><ul>{items.map((item) => <li key={item}>{item}</li>)}</ul></section>;
-}
-
-async function downloadImportableBackup() {
-  downloadFiles([await fetchBackup("/admin/importa-dati/backup", "backup-ripristino.json")]);
-}
-
-function downloadFiles(files: Array<{ blob: Blob; filename: string }>) {
-  files.forEach(({ blob, filename }) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  });
-}
-
-async function fetchBackup(url: string, fallbackFilename: string) {
-  const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
-  if (!response.ok) throw new Error((await response.text()) || "Backup non riuscito.");
-  const disposition = response.headers.get("content-disposition") ?? "";
-  const filename = disposition.match(/filename="([^"]+)"/i)?.[1] ?? fallbackFilename;
-  return { blob: await response.blob(), filename };
 }

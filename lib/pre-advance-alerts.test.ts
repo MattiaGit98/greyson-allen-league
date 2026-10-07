@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
 import { buildPreAdvanceChecklist } from "./pre-advance-alerts";
+import { buildLeagueTransitionPreview } from "./league-transition";
 import type { PostAuctionContractDraft } from "./post-auction-contracts";
 
 function rosterEntry(name: string, patch: Partial<RosterEntry> = {}): RosterEntry {
@@ -43,6 +44,17 @@ function state(rosterEntries: RosterEntry[] = []): EditableLeagueState {
 }
 
 describe("avvisi prima dell’avanzamento della lega", () => {
+  it("blocca l'avanzamento se il team salary di una stagione futura supera 1000", () => {
+    const input = {
+      currentMoment: "contract_delivery",
+      seasonName: "2026/27",
+      state: state([rosterEntry("Contratto futuro", { cost: 1001, contract: "28" })]),
+    } as const;
+    const result = buildPreAdvanceChecklist(input);
+    expect(result.alerts.find((alert) => alert.id === "future-cap-overflow")?.tone).toBe("blocker");
+    expect(buildLeagueTransitionPreview(input).errors.join(" ")).toContain("Team salary futuro oltre 1000 crediti");
+  });
+
   it("alla scadenza T.O. segnala le opzioni pendenti ma non promuove ancora i Two-way al secondo anno", () => {
     const current = state([
       ...Array.from({ length: 15 }, (_, index) => rosterEntry(`Roster ${index}`)),
