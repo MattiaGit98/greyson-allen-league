@@ -17,6 +17,7 @@ import { PublicPlayerList } from "@/app/giocatori/player-explorer";
 import type { PublicPlayerListRow } from "@/lib/public-player-list";
 import { qualifyingOfferDisplayRole } from "@/lib/qualifying-offer-role";
 import { teamPlayerSearchMatches, type TeamPlayerSearchMatch } from "@/lib/team-player-search";
+import { isPendingAuctionContractForDisplay } from "@/lib/roster-contract-display";
 import type { RecentAuctionCall } from "@/lib/auction-call-feed";
 
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
@@ -743,7 +744,7 @@ function SimplePlayerTable({
         seasonName={seasonName}
         leagueMoment={leagueMoment}
         player={playerList.find((item) => normalizePlayerName(item.name) === normalizePlayerName(entry.name))}
-        pendingAuctionContract={pendingAuctionContracts && isPendingAuctionContract(entry, seasonName)}
+        pendingAuctionContract={pendingAuctionContracts && isPendingAuctionContractForDisplay(entry, seasonName)}
         cutPlayer={cutPlayers}
         key={`${entry.name}-${entry.state}`}
       />)}
@@ -844,12 +845,6 @@ function compareDraftAssets(left: DraftAsset, right: DraftAsset) {
     return String(left.originOrOverall).localeCompare(String(right.originOrOverall), "it");
   }
   return (leftNumber ?? 0) - (rightNumber ?? 0);
-}
-
-function isPendingAuctionContract(entry: RosterEntry, seasonName: string) {
-  return entry.auctionAcquisition !== "qualifying_offer"
-    && entry.auctionPrice !== undefined
-    && entry.contractStartSeason === seasonName;
 }
 
 function ContractDisplay({
