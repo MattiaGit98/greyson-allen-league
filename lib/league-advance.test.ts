@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateLeagueAdvance } from "./league-advance";
+import { calculateLeagueAdvance, projectedDpeRosterOverflowByTeam } from "./league-advance";
 import type { RosterEntry } from "./league-types";
 
 const rosterEntries: RosterEntry[] = [
@@ -125,13 +125,13 @@ describe("avanzamento della lega", () => {
     expect(advanced.rosterEntries[0]).toMatchObject({ slot: "two_way", contract: "27 + R.E." });
   });
 
-  it("promuove nel Roster la T.O. esercitata per utilizzo nei playoff", () => {
+  it("conserva in G-League la T.O. segnalata nei playoff fino alla decisione", () => {
     const entries: RosterEntry[] = [
-      { name: "T.O. playoff", cost: 4, contract: "28 + R.E.", role: "G", state: "active", slot: "g_league", teamCode: "AAA", playoffTeamOptionPromotionSeason: "2027/28" },
+      { name: "T.O. playoff", cost: 4, contract: "27 + T.O.", role: "G", state: "active", slot: "g_league", teamCode: "AAA", playoffTeamOptionUsedSeason: "2026/27" },
     ];
     const advanced = calculateLeagueAdvance({ seasonName: "2026/27", rosterEntries: entries, qualifyingOfferRights: [], playerList: playerList(entries) });
-    expect(advanced.rosterEntries[0]).toMatchObject({ slot: "regular", twoWayPromotionLocked: true });
-    expect(advanced.promotedPlayoffTeamOptionPlayers).toEqual([{ playerName: "T.O. playoff", teamCode: "AAA" }]);
+    expect(advanced.rosterEntries[0]).toMatchObject({ slot: "g_league", contract: "T.O.", playoffTeamOptionUsedSeason: "2026/27" });
+    expect(advanced.reintegratedDpePlayers).toEqual([]);
   });
 
   it("esegue a Fine stagione il taglio programmato di un giocatore nel roster", () => {
@@ -151,6 +151,17 @@ describe("avanzamento della lega", () => {
     expect(advanced.rosterEntries.every((entry) => entry.scheduledSeasonEndCut === undefined)).toBe(true);
   });
 
+  it("segnala subito l'eccesso causato dal rientro DPE e lo rimuove dopo un taglio programmato", () => {
+    const entries: RosterEntry[] = [
+      ...Array.from({ length: 15 }, (_, index) => ({ name: `Roster ${index}`, cost: 4, contract: "28", role: "G" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA" })),
+      { name: "DPE lunga", cost: 4, contract: "28", role: "A", state: "active", slot: "dpe", teamCode: "AAA" },
+    ];
+    const input = { seasonName: "2026/27", rosterEntries: entries, qualifyingOfferRights: [], playerList: playerList(entries) };
+    expect(projectedDpeRosterOverflowByTeam(input)).toEqual({ AAA: 1 });
+    expect(projectedDpeRosterOverflowByTeam({ ...input, rosterEntries: entries.map((entry) => entry.name === "Roster 0" ? { ...entry, scheduledSeasonEndCut: "2026/27" } : entry) })).toEqual({});
+    expect(projectedDpeRosterOverflowByTeam({ ...input, rosterEntries: entries.map((entry) => entry.name === "DPE lunga" ? { ...entry, contract: "27" } : entry) })).toEqual({});
+  });
+
   it("può programmare il taglio della stessa DPE che altrimenti verrebbe reintegrata", () => {
     const entries: RosterEntry[] = [
       ...Array.from({ length: 15 }, (_, index) => ({ name: `Roster ${index}`, cost: 4, contract: "28", role: "G" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA" })),
@@ -162,15 +173,15 @@ describe("avanzamento della lega", () => {
     expect(advanced.rosterEntries.find((entry) => entry.name === "DPE da tagliare")).toMatchObject({ state: "cut", slot: "regular" });
   });
 
-  it("include tra i tagli programmabili la T.O. G-League destinata alla promozione playoff", () => {
+  it("non considera la T.O. playoff in G-League un futuro occupante del Roster", () => {
     const entries: RosterEntry[] = [
       ...Array.from({ length: 15 }, (_, index) => ({ name: `Roster ${index}`, cost: 4, contract: "28", role: "G" as const, state: "active" as const, slot: "regular" as const, teamCode: "AAA" })),
-      { name: "T.O. playoff", cost: 4, contract: "28 + R.E.", role: "A", state: "active", slot: "g_league", teamCode: "AAA", playoffTeamOptionPromotionSeason: "2027/28", scheduledSeasonEndCut: "2026/27" },
+      { name: "T.O. playoff", cost: 4, contract: "27 + T.O.", role: "A", state: "active", slot: "g_league", teamCode: "AAA", playoffTeamOptionUsedSeason: "2026/27", scheduledSeasonEndCut: "2026/27" },
     ];
     const advanced = calculateLeagueAdvance({ seasonName: "2026/27", rosterEntries: entries, qualifyingOfferRights: [], playerList: playerList(entries) });
-    expect(advanced.scheduledCutPlayers).toEqual([{ playerName: "T.O. playoff", teamCode: "AAA" }]);
-    expect(advanced.promotedPlayoffTeamOptionPlayers).toEqual([]);
-    expect(advanced.rosterEntries.find((entry) => entry.name === "T.O. playoff")).toMatchObject({ state: "cut", slot: "regular" });
+    expect(advanced.scheduledCutPlayers).toEqual([]);
+    expect(advanced.invalidScheduledCutPlayers).toEqual([{ playerName: "T.O. playoff", teamCode: "AAA" }]);
+    expect(advanced.rosterEntries.find((entry) => entry.name === "T.O. playoff")).toMatchObject({ state: "active", slot: "g_league", contract: "T.O." });
   });
 
   it("segnala programmazioni inutili o eccedenti invece di eseguirle silenziosamente", () => {

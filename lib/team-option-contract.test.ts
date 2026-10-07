@@ -7,7 +7,8 @@ import {
   annualTeamOptionExpiryYear,
   destinationAfterTeamOptionExercise,
   exerciseOrdinaryTeamOption,
-  exercisePlayoffTeamOption,
+  recordPlayoffTeamOptionUse,
+  contractAfterRosterExitForEntry,
   isRookieExtensionDecisionDue,
   isUnresolvedTeamOption,
   qualifyingOfferForDeclinedRookieExtension,
@@ -96,11 +97,24 @@ describe("destinazioni dei contratti da rookie", () => {
     expect(destinationAfterTeamOptionExercise("regular", "two_way")).toBe("regular");
   });
 
-  it("l'esercizio playoff prepara il secondo anno con R.E. e la promozione della prossima offseason", () => {
-    expect(exercisePlayoffTeamOption({ ...option, contract: "27 + T.O.", slot: "g_league" }, "2026/27")).toMatchObject({
+  it("l'utilizzo playoff lascia invariati contratto e slot", () => {
+    expect(recordPlayoffTeamOptionUse({ ...option, contract: "27 + T.O.", slot: "g_league" }, "2026/27")).toMatchObject({
       slot: "g_league",
-      contract: "28 + R.E.",
-      playoffTeamOptionPromotionSeason: "2027/28",
+      contract: "27 + T.O.",
+      playoffTeamOptionUsedSeason: "2026/27",
     });
+  });
+
+  it("se tagliato prima dell'esercizio conserva un anno oltre la scadenza originaria", () => {
+    const used = { ...option, contract: "27 + T.O.", playoffTeamOptionUsedSeason: "2026/27" };
+    expect(contractAfterRosterExitForEntry(used, 2027)).toBe("28");
+    expect(contractAfterRosterExitForEntry({ ...used, contract: "T.O." }, 2028)).toBe("28");
+    expect(applyStandardContractCut(used, 2027, "free_agency_reopening")).toMatchObject({ contract: "28", state: "cut", playoffTeamOptionUsedSeason: undefined });
+  });
+
+  it("l'esercizio playoff impone il Roster e rimuove il bollino", () => {
+    const marked = { ...option, slot: "g_league" as const, playoffTeamOptionUsedSeason: "2025/26" };
+    expect(() => exerciseOrdinaryTeamOption(marked, "2026/27", "two_way")).toThrow();
+    expect(exerciseOrdinaryTeamOption(marked, "2026/27", "regular")).toMatchObject({ slot: "regular", playoffTeamOptionUsedSeason: undefined });
   });
 });

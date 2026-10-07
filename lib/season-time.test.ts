@@ -58,4 +58,16 @@ describe("logica temporale della stagione", () => {
     expect(calculateCapSpace({ entries: pending, seasonName: "2026/27", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(983);
     expect(calculateCapSpace({ entries: pending, seasonName: "2027/28", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(1000);
   });
+
+  it("impegna il cap dell'anno successivo dalla segnalazione playoff, senza doppio conteggio dopo l'esercizio", () => {
+    const marked: RosterEntry = {
+      name: "Playoff", cost: 40, contract: "27 + T.O.", role: "G", state: "active",
+      slot: "g_league", teamCode: "TST", playoffTeamOptionUsedSeason: "2026/27",
+    };
+    expect(calculateCapSpace({ entries: [marked], seasonName: "2026/27", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(960);
+    expect(calculateCapSpace({ entries: [marked], seasonName: "2027/28", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(960);
+    expect(calculateCapSpace({ entries: [{ ...marked, contract: "T.O." }], seasonName: "2027/28", optionSeasonName: "2027/28", countTeamOptions: false })).toBe(960);
+    expect(calculateCapSpace({ entries: [{ ...marked, contract: "28 + R.E.", playoffTeamOptionUsedSeason: undefined }], seasonName: "2027/28", optionSeasonName: "2027/28", countTeamOptions: false })).toBe(960);
+    expect(calculateCapSpace({ entries: [marked], seasonName: "2028/29", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(1000);
+  });
 });

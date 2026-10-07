@@ -1,5 +1,5 @@
 import type { RosterEntry } from "./league-types";
-import { contractAfterRosterExit, isPendingContractAssignment } from "./team-option-contract";
+import { contractAfterRosterExitForEntry, isPendingContractAssignment } from "./team-option-contract";
 
 export type ReleaseOperationKind = "cut" | "free_release" | "buyout";
 export type ThreeYearValues = [number, number, number];
@@ -9,11 +9,12 @@ export function applyFreeRelease<T extends RosterEntry>(entry: T, currentSeasonE
   return {
     ...entry,
     cost: 0,
-    contract: contractAfterRosterExit(entry.contract, currentSeasonEndYear),
+    contract: contractAfterRosterExitForEntry(entry, currentSeasonEndYear),
     originalContractYears: pendingContract ? 1 : entry.originalContractYears,
     state: "cut",
     slot: "regular",
     scheduledSeasonEndCut: undefined,
+    playoffTeamOptionUsedSeason: undefined,
   };
 }
 

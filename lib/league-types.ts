@@ -30,7 +30,7 @@ export type RosterEntry = {
   endedPreviousSeasonInGLeague?: boolean;
   contractStartSeason?: string;
   twoWayPromotionLocked?: boolean;
-  playoffTeamOptionPromotionSeason?: string;
+  playoffTeamOptionUsedSeason?: string;
   dpeAppliedSeasons?: string[];
   scheduledSeasonEndCut?: string;
 };

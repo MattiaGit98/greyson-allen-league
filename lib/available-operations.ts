@@ -7,13 +7,14 @@ import {
   type LeagueMoment,
   type LeagueTransition,
 } from "./league-moments";
+import { playoffTeamOptionWindowOpen, type PhaseDateMap } from "./phase-calendar";
 
 export type AvailableOperation = {
   label: string;
   urgency?: "urgent" | "upcoming";
 };
 
-export function availableOperationsAt(moment: LeagueMoment): AvailableOperation[] {
+export function availableOperationsAt(moment: LeagueMoment, phaseDates: PhaseDateMap = {}, today = ""): AvailableOperation[] {
   const available: Array<AvailableOperation & { closesAt?: LeagueTransition }> = [];
   const add = (label: string, condition: boolean, closesAt?: LeagueTransition) => {
     if (condition) available.push({ label, closesAt });
@@ -26,7 +27,7 @@ export function availableOperationsAt(moment: LeagueMoment): AvailableOperation[
   add("Buyout", operationWindows.buyout(moment), "buyout_end");
   add("Esercizio DPE", operationWindows.dpeActivation(moment), "trade_deadline");
   add("Reintegro anticipato DPE", operationWindows.dpeReintegration(moment), "free_agency_end");
-  add("T.O. G-League per utilizzo nei playoff", operationWindows.playoffTeamOption(moment), "season_end");
+  add("Segnalazione utilizzo G-League nei playoff", playoffTeamOptionWindowOpen(moment, phaseDates, today), "free_agency_reopening");
   add("Rilascio: meno del 40% della stagione NBA", !hasReachedMoment(moment, "auction_start"), "auction_start");
   add("Rilascio: T.O. da 1 credito", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "contract_delivery"), "contract_delivery");
   add("Rilascio: senza roster NBA", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "free_agency_end") && !tradesAreSuspendedForAuction(moment), "free_agency_end");

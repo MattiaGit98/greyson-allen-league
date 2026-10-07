@@ -104,7 +104,7 @@ export default async function HomePage() {
       )}
       <div className="home-grid">
         <div className="home-main-column">
-          <AvailableOperations operations={availableOperationsAt(moment)} />
+          <AvailableOperations operations={availableOperationsAt(moment, phaseDates, today)} />
           <section className="home-recent-movements" aria-labelledby="recent-movements-title">
             <header>
               <div>

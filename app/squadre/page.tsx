@@ -6,6 +6,7 @@ import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { buildPublicPlayerListRows } from "@/lib/public-player-list";
 import { recentAuctionCallsFromFeed, type AuctionCallFeedRow } from "@/lib/auction-call-feed";
+import { projectedDpeRosterOverflowByTeam } from "@/lib/league-advance";
 
 export default async function TeamsPage({
   searchParams,
@@ -22,6 +23,14 @@ export default async function TeamsPage({
   const teamOptionsResolved = activeSeason.season.team_options_resolved;
   const countTeamOptions = shouldCountTeamOptions(phase, teamOptionsResolved);
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);
+  const seasonEndOverflowByTeam = hasReachedMoment(leagueMoment, "auction_completed")
+    ? projectedDpeRosterOverflowByTeam({
+      seasonName: activeSeason.season.name,
+      rosterEntries: leagueState.rosterEntries,
+      qualifyingOfferRights: leagueState.qualifyingOfferRights,
+      playerList: leagueState.playerList,
+    })
+    : {};
   const pendingAuctionContracts = hasReachedMoment(leagueMoment, "auction_start")
     && !hasReachedMoment(leagueMoment, "contract_delivery");
   const showAuctionCalls = hasReachedMoment(leagueMoment, "auction_start")
@@ -58,6 +67,7 @@ export default async function TeamsPage({
         playerList={leagueState.playerList}
         playerListPublished={leagueState.playerListStatus === "published"}
         inSeason={roleMinimumChecksApply(phase, leagueMoment)}
+        seasonEndOverflowByTeam={seasonEndOverflowByTeam}
         initialTeam={query.team?.toUpperCase()}
         initialPlayer={query.player}
         showQualifyingOffers={!hasReachedMoment(leagueMoment, "auction_completed")}

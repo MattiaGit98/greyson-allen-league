@@ -78,7 +78,6 @@ export function tradesAreSuspendedForAuction(moment: LeagueMoment) {
 
 export const operationWindows = {
   teamOption: (moment: LeagueMoment) => moment === "offseason_start",
-  playoffTeamOption: (moment: LeagueMoment) => hasReachedMoment(moment, "free_agency_end"),
   draft: (moment: LeagueMoment) => hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "auction_start"),
   auction: (moment: LeagueMoment) => hasReachedMoment(moment, "auction_start") && !hasReachedMoment(moment, "auction_completed"),
   contractAssignment: (moment: LeagueMoment) => moment === "auction_completed",

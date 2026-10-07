@@ -58,6 +58,12 @@ export function calculateCapSpace({
   if (targetEndYear === null) return 1000;
 
   const committed = entries.reduce((total, entry) => {
+    const playoffUseEndYear = entry.playoffTeamOptionUsedSeason
+      ? seasonEndYear(entry.playoffTeamOptionUsedSeason)
+      : null;
+    if (playoffUseEndYear !== null && targetEndYear === playoffUseEndYear + 1) {
+      return total + entry.cost;
+    }
     if (entry.contract === "T.O.") {
       return countTeamOptions && targetEndYear === optionEndYear ? total + entry.cost : total;
     }

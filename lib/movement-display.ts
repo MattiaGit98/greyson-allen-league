@@ -4,7 +4,7 @@ const operationLabels: Record<string, string> = {
   qualifying_offer_non_estesa: "Q.O. non estesa",
   team_option: "Team option",
   rookie_extension: "Rookie extension",
-  team_option_playoff: "Team option playoff",
+  team_option_playoff: "Utilizzo playoff G-League",
   firma_free_agent: "Firma free agent",
   estensione_contrattuale: "Estensione contrattuale",
   spostamento_slot: "Spostamento slot",

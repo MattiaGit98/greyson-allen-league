@@ -173,7 +173,6 @@ export function applyRosterCorrections({
 }
 
 function correctedContractMetadata(entry: RosterEntry, _seasonName: string): RosterEntry {
-  const isRookieExtension = /^\d{2} \+ R\.E\.$/.test(entry.contract);
   const keepsTeamOptionHistory = entry.contract === "T.O."
     || isAnnualTeamOptionContract(entry)
     || (entry.contract.includes("(Q)") && entry.teamOptionFinalYear !== undefined);
@@ -182,7 +181,7 @@ function correctedContractMetadata(entry: RosterEntry, _seasonName: string): Ros
     originalContractYears: entry.contract.includes("(E)") ? 3 : entry.originalContractYears,
     teamOptionBaseCost: keepsTeamOptionHistory ? entry.teamOptionBaseCost : undefined,
     teamOptionFinalYear: keepsTeamOptionHistory ? entry.teamOptionFinalYear : undefined,
-    playoffTeamOptionPromotionSeason: keepsTeamOptionHistory || isRookieExtension ? entry.playoffTeamOptionPromotionSeason : undefined,
+    playoffTeamOptionUsedSeason: keepsTeamOptionHistory ? entry.playoffTeamOptionUsedSeason : undefined,
   };
 }
 

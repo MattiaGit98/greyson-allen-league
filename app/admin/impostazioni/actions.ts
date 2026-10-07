@@ -114,7 +114,13 @@ export async function advanceLeaguePhaseStep(formData: FormData) {
   }
 
   let nextState = state;
-  if (transition === "team_option_deadline") nextState = applyTeamOptionDeadline(state, season.name);
+  if (transition === "team_option_deadline") {
+    try {
+      nextState = applyTeamOptionDeadline(state, season.name);
+    } catch (error) {
+      phaseError(error instanceof Error ? error.message : "Contratti da rookie ancora da risolvere.");
+    }
+  }
   if (transition === "auction_start") nextState = closeCurrentSeasonExtensionWindow(nextState, season.name);
   if (transition === "auction_completed" && state.qualifyingOfferRights.length) {
     nextState = { ...nextState, qualifyingOfferRights: [] };

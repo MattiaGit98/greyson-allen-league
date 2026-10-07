@@ -63,6 +63,10 @@ export function todayInRome(now = new Date()) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+export function playoffTeamOptionWindowOpen(moment: LeagueMoment, dates: PhaseDateMap, today: string) {
+  return moment === "free_agency_end" && Boolean(dates.postseason_start && dates.postseason_start <= today);
+}
+
 export function formatPhaseDate(date: string) {
   const [year, month, day] = date.split("-");
   return `${day}/${month}/${year}`;

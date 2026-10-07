@@ -1,6 +1,6 @@
 import type { QualifyingOfferRight, RosterEntry } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
-import { followingSeasonName, seasonEndYear } from "./season-time";
+import { seasonEndYear } from "./season-time";
 
 const rookieExtensionPattern = /^(\d{2})\s*\+\s*R\.?E\.?$/i;
 const annualTeamOptionPattern = /^(\d{2})\s*\+\s*T\.?O\.?$/i;
@@ -98,12 +98,16 @@ export function exerciseOrdinaryTeamOption<T extends RosterEntry>(
 ): T {
   const activeEndYear = seasonEndYear(activeSeasonName);
   if (activeEndYear === null) throw new Error("Annata non valida.");
+  if (entry.playoffTeamOptionUsedSeason && requestedForGLeague !== "regular") {
+    throw new Error("Dopo l'utilizzo nei playoff la T.O. deve portare il giocatore nel Roster.");
+  }
   return {
     ...entry,
     slot: destinationAfterTeamOptionExercise(entry.slot, requestedForGLeague),
     contract: rookieExtensionContract(activeEndYear),
     teamOptionBaseCost: undefined,
     teamOptionFinalYear: undefined,
+    playoffTeamOptionUsedSeason: undefined,
   };
 }
 
@@ -117,20 +121,21 @@ export function applyRookieExtension<T extends RosterEntry>(entry: T, activeSeas
     slot: "regular",
     teamOptionBaseCost: undefined,
     teamOptionFinalYear: undefined,
-    playoffTeamOptionPromotionSeason: undefined,
+    playoffTeamOptionUsedSeason: undefined,
     twoWayPromotionLocked: true,
   };
 }
 
-export function exercisePlayoffTeamOption<T extends RosterEntry>(entry: T, activeSeasonName: string): T {
+export function recordPlayoffTeamOptionUse<T extends RosterEntry>(entry: T, activeSeasonName: string): T {
   const activeEndYear = seasonEndYear(activeSeasonName);
-  if (activeEndYear === null) throw new Error("Annata non valida.");
+  if (activeEndYear === null || entry.state !== "active" || entry.slot !== "g_league"
+    || annualTeamOptionExpiryYear(entry.contract, activeEndYear) !== activeEndYear) {
+    throw new Error("Il giocatore non ha una T.O. annuale attiva in G-League.");
+  }
+  if (entry.playoffTeamOptionUsedSeason) throw new Error("L'utilizzo nei playoff è già stato registrato.");
   return {
     ...entry,
-    contract: rookieExtensionContract(activeEndYear + 1),
-    teamOptionBaseCost: undefined,
-    teamOptionFinalYear: undefined,
-    playoffTeamOptionPromotionSeason: followingSeasonName(activeSeasonName),
+    playoffTeamOptionUsedSeason: activeSeasonName,
   };
 }
 
@@ -142,12 +147,21 @@ export function applyStandardContractCut<T extends RosterEntry>(
   const pendingContract = isPendingContractAssignment(entry.contract);
   return {
     ...entry,
-    contract: contractAfterRosterExit(entry.contract, currentSeasonEndYear),
+    contract: contractAfterRosterExitForEntry(entry, currentSeasonEndYear),
     originalContractYears: pendingContract ? 1 : entry.originalContractYears,
     state: "cut",
     slot: "regular",
     scheduledSeasonEndCut: undefined,
+    playoffTeamOptionUsedSeason: undefined,
   };
+}
+
+export function contractAfterRosterExitForEntry(entry: RosterEntry, currentSeasonEndYear: number) {
+  const usedEndYear = entry.playoffTeamOptionUsedSeason ? seasonEndYear(entry.playoffTeamOptionUsedSeason) : null;
+  if (usedEndYear !== null && (entry.contract === "T.O." || isAnnualTeamOptionContract(entry))) {
+    return String(usedEndYear + 1).slice(-2);
+  }
+  return contractAfterRosterExit(entry.contract, currentSeasonEndYear);
 }
 
 export function contractAfterRosterExit(contract: string, currentSeasonEndYear: number) {

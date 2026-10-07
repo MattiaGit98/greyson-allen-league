@@ -6,6 +6,7 @@ import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import { requireActiveSeason } from "@/lib/active-season";
 import { isAnnualTeamOptionContract, isRookieExtensionContract, isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
 import { buildSeasonEndCutPlan, rosterEntryKey } from "@/lib/league-advance";
+import { normalizePhaseDates, playoffTeamOptionWindowOpen, todayInRome } from "@/lib/phase-calendar";
 
 export type AdminRosterPlayer = {
   id: string;
@@ -35,7 +36,7 @@ export type AdminRosterPlayer = {
   endedPreviousSeasonInGLeague?: boolean;
   contractStartSeason?: string;
   twoWayPromotionLocked?: boolean;
-  playoffTeamOptionPromotionSeason?: string;
+  playoffTeamOptionUsedSeason?: string;
   dpeAppliedSeasons?: string[];
   scheduledSeasonEndCut?: string;
   seasonEndCutEligible: boolean;
@@ -62,6 +63,7 @@ export type AdminOperationContext = {
   teamOptionsResolved: boolean;
   tradeDeadlinePassed: boolean;
   leagueMoment: LeagueMoment;
+  playoffTeamOptionOpen: boolean;
   teams: AdminRosterTeam[];
 };
 
@@ -101,6 +103,7 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
     teamOptionsResolved,
     tradeDeadlinePassed,
     leagueMoment,
+    playoffTeamOptionOpen: playoffTeamOptionWindowOpen(leagueMoment, normalizePhaseDates(activeSeason.season.phase_dates), todayInRome()),
     seasonEndYear: currentSeasonEndYear,
     teams: leagueState.teams.map((team) => {
       const entries = leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code);
@@ -170,7 +173,7 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
             endedPreviousSeasonInGLeague: entry.endedPreviousSeasonInGLeague,
             contractStartSeason: entry.contractStartSeason,
             twoWayPromotionLocked: entry.twoWayPromotionLocked,
-            playoffTeamOptionPromotionSeason: entry.playoffTeamOptionPromotionSeason,
+            playoffTeamOptionUsedSeason: entry.playoffTeamOptionUsedSeason,
             dpeAppliedSeasons: entry.dpeAppliedSeasons,
             scheduledSeasonEndCut: entry.scheduledSeasonEndCut,
             seasonEndCutEligible: seasonEndCutEligibleKeys.has(rosterEntryKey(entry)),

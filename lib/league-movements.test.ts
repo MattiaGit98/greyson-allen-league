@@ -60,6 +60,17 @@ describe("movement reversal", () => {
     })).toMatch(/non sono più annullabili/);
   });
 
+  it("consente di annullare la segnalazione playoff solo prima della riapertura free agency", () => {
+    const input = {
+      operationType: "team_option_playoff",
+      movementSeasonName: "2026/27",
+      undoBeforeMoment: "free_agency_reopening",
+      currentSeasonName: "2026/27",
+    } as const;
+    expect(movementUndoWindowError({ ...input, currentMoment: "free_agency_end" })).toBeNull();
+    expect(movementUndoWindowError({ ...input, currentMoment: "free_agency_reopening" })).toMatch(/non è più annullabile/);
+  });
+
   it("blocks a legacy team-option movement when its season cannot be identified", () => {
     expect(movementUndoWindowError({
       operationType: "team_option",

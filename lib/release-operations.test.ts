@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { applyFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
 
 describe("tagli e rilasci", () => {
+  it("prolunga di un anno la T.O. playoff rilasciata, anche dopo il cambio di annata", () => {
+    const entry = { name: "Playoff", cost: 1, contract: "T.O.", state: "active" as const, slot: "g_league" as const, teamCode: "AAA", playoffTeamOptionUsedSeason: "2026/27" };
+    expect(applyFreeRelease(entry, 2028)).toMatchObject({ cost: 0, contract: "28", state: "cut", playoffTeamOptionUsedSeason: undefined });
+  });
   it("conserva il rilascio gratuito tra i tagliati a costo zero eliminando le possibilità future", () => {
     const released = applyFreeRelease({
       name: "Giocatore",

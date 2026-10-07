@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyLeagueState } from "./league-state";
-import { closeCurrentSeasonExtensionWindow } from "./league-transition";
+import { applyTeamOptionDeadline, closeCurrentSeasonExtensionWindow } from "./league-transition";
 import { historyConfirmationForTransition } from "./phase-history-confirmation";
 
 describe("avanzamento a Inizio asta", () => {
@@ -15,6 +15,14 @@ describe("avanzamento a Inizio asta", () => {
     expect(closeCurrentSeasonExtensionWindow(state, "2026/27").rosterEntries.map((entry) => entry.contract))
       .toEqual(["27", "28 (E)", "27"]);
     expect(state.rosterEntries[0].contract).toBe("27 (E)");
+  });
+});
+
+describe("scadenza contratti da rookie", () => {
+  it("non può eliminare silenziosamente una T.O. playoff ancora da decidere", () => {
+    const state = emptyLeagueState();
+    state.rosterEntries = [{ name: "Playoff", cost: 3, contract: "T.O.", state: "active", slot: "g_league", teamCode: "AAA", playoffTeamOptionUsedSeason: "2025/26" }];
+    expect(() => applyTeamOptionDeadline(state, "2026/27")).toThrow();
   });
 });
 

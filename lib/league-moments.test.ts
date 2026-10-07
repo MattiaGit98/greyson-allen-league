@@ -21,9 +21,6 @@ describe("momenti della lega", () => {
   it("apre e chiude le finestre operative", () => {
     expect(operationWindows.teamOption("offseason_start")).toBe(true);
     expect(operationWindows.teamOption("team_option_deadline")).toBe(false);
-    expect(operationWindows.playoffTeamOption("buyout_end")).toBe(false);
-    expect(operationWindows.playoffTeamOption("free_agency_end")).toBe(true);
-    expect(operationWindows.playoffTeamOption("free_agency_reopening")).toBe(true);
     expect(operationWindows.freeAgency("auction_start")).toBe(false);
     expect(operationWindows.freeAgency("auction_completed")).toBe(false);
     expect(operationWindows.freeAgency("contract_delivery")).toBe(true);

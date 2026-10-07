@@ -421,7 +421,7 @@ function rosterEntryForPlayer(player: AdminRosterPlayer): RosterEntry {
     teamOptionFinalYear: player.teamOptionFinalYear,
     contractStartSeason: player.contractStartSeason,
     twoWayPromotionLocked: player.twoWayPromotionLocked,
-    playoffTeamOptionPromotionSeason: player.playoffTeamOptionPromotionSeason,
+    playoffTeamOptionUsedSeason: player.playoffTeamOptionUsedSeason,
     freeAgentSignedSeason: player.freeAgentSignedSeason,
     endedPreviousSeasonInGLeague: player.endedPreviousSeasonInGLeague,
   };

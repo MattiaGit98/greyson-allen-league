@@ -9,14 +9,14 @@ import {
   type LeagueMoment,
   type LeagueTransition,
 } from "./league-moments";
-import { calculateCapSpace, followingSeasonName } from "./season-time";
+import { calculateCapSpace, followingSeasonName, seasonEndYear } from "./season-time";
 import { slotEligibilityErrors } from "./slot-eligibility";
 import {
   applyPostAuctionContractDrafts,
   missingPostAuctionContractDrafts,
   type PostAuctionContractDraft,
 } from "./post-auction-contracts";
-import { isAnnualTeamOptionContract, isRookieExtensionDecisionDue } from "./team-option-contract";
+import { annualTeamOptionExpiryYear, isRookieExtensionDecisionDue } from "./team-option-contract";
 import { freeReleaseReasonAvailability } from "./free-release";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
@@ -276,25 +276,25 @@ export function buildPreAdvanceChecklist(input: {
     });
   }
 
+  if (transition === "free_agency_reopening") {
+    const unmarkedOptions = state.rosterEntries.filter((entry) => (
+      entry.state === "active" && entry.slot === "g_league"
+      && annualTeamOptionExpiryYear(entry.contract, seasonEndYear(seasonName) ?? undefined) === seasonEndYear(seasonName)
+      && !entry.playoffTeamOptionUsedSeason
+    ));
+    if (unmarkedOptions.length) add({
+      id: "playoff-team-option-verification",
+      tone: "warning",
+      title: "Verifica gli utilizzi G-League nei playoff prima della riapertura free agency",
+      message: "La segnalazione è facoltativa: registra soltanto i giocatori effettivamente utilizzati nei playoff. Dopo l'avanzamento non sarà più possibile.",
+      items: groupPlayerEntries(unmarkedOptions),
+      href: "/admin/team-option",
+      actionLabel: "Controlla i contratti da rookie",
+    });
+  }
+
   if (transition === "season_end") {
     addRoleMinimumAlert(add, state, currentMoment, "/admin/free-agent", "Controlla i minimi di ruolo fino al termine della stagione", "blocker");
-    const playoffOptionCandidates = state.rosterEntries.filter((entry) => (
-      entry.state === "active"
-      && entry.slot === "g_league"
-      && isAnnualTeamOptionContract(entry)
-      && !entry.playoffTeamOptionPromotionSeason
-    ));
-    if (playoffOptionCandidates.length) {
-      add({
-        id: "playoff-team-option-verification",
-        tone: "warning",
-        title: `${playoffOptionCandidates.length} T.O. in G-League da verificare prima della fine della stagione`,
-        message: "Se uno di questi giocatori è stato utilizzato attivamente nei playoff, la T.O. va esercitata prima dell'avanzamento.",
-        items: groupPlayerEntries(playoffOptionCandidates),
-        href: "/admin/team-option",
-        actionLabel: "Controlla le team option playoff",
-      });
-    }
     if (input.currentHistorySeason && input.currentHistorySeason !== seasonName) {
       add({
         id: "history-season-mismatch",
@@ -336,13 +336,10 @@ export function buildPreAdvanceChecklist(input: {
         });
       }
       const rosterMoveIssues = state.teams.flatMap((team) => {
-        const playoffOptionPlayers = advance.promotedPlayoffTeamOptionPlayers
-          .filter((player) => player.teamCode === team.code)
-          .map((player) => `${player.playerName} (T.O. playoff)`);
         const dpePlayers = advance.reintegratedDpePlayers
           .filter((player) => player.teamCode === team.code)
           .map((player) => `${player.playerName} (DPE)`);
-        const players = [...playoffOptionPlayers, ...dpePlayers];
+        const players = dpePlayers;
         const overflow = advance.remainingOverflowByTeam[team.code] ?? 0;
         return overflow ? [{ teamCode: team.code, players, overflow }] : [];
       });
@@ -352,25 +349,15 @@ export function buildPreAdvanceChecklist(input: {
           id: "blocked-offseason-roster-moves",
           tone: "blocker",
           title: `${totalShortfall} slot roster mancanti all’inizio dell’offseason`,
-          message: "All’inizio dell’offseason vengono promosse le T.O. esercitate per utilizzo nei playoff e vengono reintegrate le DPE.",
+          message: "All’inizio dell’offseason vengono reintegrate le DPE negli slot Roster.",
           items: rosterMoveIssues.map((issue) => (
             `${issue.teamCode}: ${issue.players.length ? `${issue.players.join(", ")} · ` : ""}${issue.overflow} slot mancanti`
           )),
-          article: "Art. 11(j); Art. 12(c)",
+          article: "Art. 12(c)",
           href: "/admin/altre-operazioni",
           actionLabel: "Libera gli slot necessari",
         });
       } else {
-        if (advance.promotedPlayoffTeamOptionPlayers.length) {
-          add({
-            id: "playoff-team-option-promotions",
-            tone: "info",
-            title: `${advance.promotedPlayoffTeamOptionPlayers.length} promozioni T.O. playoff all’inizio dell’offseason`,
-            message: "I giocatori saranno spostati automaticamente dalla G-League agli slot roster con il prossimo avanzamento.",
-            items: advance.promotedPlayoffTeamOptionPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
-            article: "Art. 11(j)",
-          });
-        }
         if (advance.reintegratedDpePlayers.length) {
           add({
             id: "dpe-reintegrations",

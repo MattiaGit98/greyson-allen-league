@@ -123,6 +123,11 @@ export function movementUndoWindowError({
   if (undoBeforeMoment === "auction_start" && !operationWindows.draft(currentMoment)) {
     return "Questo annullamento del Draft non può più essere modificato dall'Inizio asta.";
   }
+  if (operationType === "team_option_playoff" || undoBeforeMoment === "free_agency_reopening") {
+    if (!movementSeasonName || movementSeasonName !== currentSeasonName || hasReachedMoment(currentMoment, "free_agency_reopening")) {
+      return "La segnalazione playoff non è più annullabile dalla Riapertura free agency.";
+    }
+  }
   if (operationType === "consegna_contratti") {
     return "La consegna dei contratti non può essere annullata dal registro movimenti.";
   }

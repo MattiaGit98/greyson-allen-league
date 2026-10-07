@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { RosterEntry } from "@/lib/league-types";
-import { applyPlayoffTeamOptionPromotion, requiresPlayoffTeamOptionPromotion } from "./two-way-promotions";
+import { recordPlayoffTeamOptionUse } from "./team-option-contract";
 
 function entry(patch: Partial<RosterEntry>): RosterEntry {
   return {
     name: "Giocatore",
     cost: 5,
-    contract: "28 + R.E.",
+    contract: "27 + T.O.",
     role: "G",
     state: "active",
     slot: "g_league",
@@ -15,22 +15,17 @@ function entry(patch: Partial<RosterEntry>): RosterEntry {
   };
 }
 
-describe("promozione della T.O. esercitata nei playoff", () => {
-  it("la applica soltanto all'inizio dell'offseason prevista", () => {
-    const playoffOption = entry({ playoffTeamOptionPromotionSeason: "2027/28" });
-    expect(requiresPlayoffTeamOptionPromotion(playoffOption, "2026/27")).toBe(false);
-    expect(requiresPlayoffTeamOptionPromotion(playoffOption, "2027/28")).toBe(true);
-    expect(applyPlayoffTeamOptionPromotion(playoffOption, "2027/28")).toMatchObject({
-      slot: "regular",
-      twoWayPromotionLocked: true,
+describe("segnalazione playoff della T.O.", () => {
+  it("registra l'utilizzo senza esercitare il contratto né spostare lo slot", () => {
+    expect(recordPlayoffTeamOptionUse(entry({}), "2026/27")).toMatchObject({
+      slot: "g_league",
+      contract: "27 + T.O.",
+      playoffTeamOptionUsedSeason: "2026/27",
     });
-    expect(applyPlayoffTeamOptionPromotion(playoffOption, "2027/28").playoffTeamOptionPromotionSeason).toBeUndefined();
   });
 
-  it("lascia negli slot speciali gli altri giocatori in attesa della decisione", () => {
-    expect(applyPlayoffTeamOptionPromotion(entry({ playoffTeamOptionPromotionSeason: undefined }), "2027/28")).toMatchObject({
-      slot: "g_league",
-      contract: "28 + R.E.",
-    });
+  it("rifiuta i duplicati e i giocatori fuori dalla G-League", () => {
+    expect(() => recordPlayoffTeamOptionUse(entry({ playoffTeamOptionUsedSeason: "2026/27" }), "2026/27")).toThrow();
+    expect(() => recordPlayoffTeamOptionUse(entry({ slot: "regular" }), "2026/27")).toThrow();
   });
 });

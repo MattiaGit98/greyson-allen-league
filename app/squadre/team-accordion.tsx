@@ -46,6 +46,7 @@ export function TeamAccordion({
   playerList,
   playerListPublished,
   inSeason,
+  seasonEndOverflowByTeam,
   initialTeam,
   initialPlayer,
   showQualifyingOffers,
@@ -66,6 +67,7 @@ export function TeamAccordion({
   playerList: PlayerListEntry[];
   playerListPublished: boolean;
   inSeason: boolean;
+  seasonEndOverflowByTeam: Record<string, number>;
   initialTeam?: string;
   initialPlayer?: string;
   showQualifyingOffers: boolean;
@@ -480,6 +482,7 @@ export function TeamAccordion({
                 playerList={playerList}
                 playerListPublished={playerListPublished}
                 inSeason={inSeason}
+                futureDpeRosterOverflow={seasonEndOverflowByTeam[team.code] ?? 0}
                 duringAuction={showAuctionCallPanels}
                 highlightedDraftYear={highlightedYear}
                 showQualifyingOffers={showQualifyingOffers}
@@ -527,6 +530,7 @@ function TeamDetails({
   playerList,
   playerListPublished,
   inSeason,
+  futureDpeRosterOverflow,
   duringAuction,
   showQualifyingOffers,
   capSeasonName,
@@ -546,6 +550,7 @@ function TeamDetails({
   playerList: PlayerListEntry[];
   playerListPublished: boolean;
   inSeason: boolean;
+  futureDpeRosterOverflow: number;
   duringAuction: boolean;
   showQualifyingOffers: boolean;
   capSeasonName: string;
@@ -587,6 +592,11 @@ function TeamDetails({
           {roleMinimumMissing
             ? <>Da acquistare: {[missingRoles.G ? `${missingRoles.G} G` : "", missingRoles.A ? `${missingRoles.A} A` : "", missingRoles.C ? `${missingRoles.C} C` : ""].filter(Boolean).join(" - ")}</>
             : <>Minimo giocatori raggiunto</>}
+        </div>
+      )}
+      {dpe.length > 0 && futureDpeRosterOverflow > 0 && (
+        <div className="team-future-slot-status">
+          DPE: {futureDpeRosterOverflow} slot Roster da liberare
         </div>
       )}
       <div className="team-summary-strip">
@@ -778,6 +788,9 @@ function PlayerDataRow({
             className="player-flag roster-dpe-flag"
             aria-label="DPE esercitata"
           >DPE</i>
+        )}
+        {entry.state === "active" && entry.playoffTeamOptionUsedSeason && (
+          <i className="player-flag roster-playoff-flag" aria-label="Utilizzato nei playoff">PLAYOFF</i>
         )}
         {shouldShowScheduledCutBadge(entry, seasonName, leagueMoment) && (
           <i

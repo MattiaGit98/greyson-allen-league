@@ -308,11 +308,11 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     expect(alert).toBeUndefined();
   });
 
-  it("blocca la fine della stagione se una T.O. playoff non ha spazio per salire nel roster", () => {
+  it("non blocca la fine della stagione per una T.O. playoff ancora in G-League", () => {
     const exercised = rosterEntry("T.O. playoff", {
       slot: "g_league",
-      contract: "28 + R.E.",
-      playoffTeamOptionPromotionSeason: "2027/28",
+      contract: "27 + T.O.",
+      playoffTeamOptionUsedSeason: "2026/27",
     });
     const seasonEndChecklist = buildPreAdvanceChecklist({
       currentMoment: "free_agency_reopening",
@@ -324,7 +324,16 @@ describe("avvisi prima dell’avanzamento della lega", () => {
       currentHistorySeason: "2026/27",
     });
     const alert = seasonEndChecklist.alerts.find((item) => item.id === "blocked-offseason-roster-moves");
-    expect(alert?.tone).toBe("blocker");
-    expect(alert?.items?.join(" ")).toContain("T.O. playoff (T.O. playoff)");
+    expect(alert).toBeUndefined();
+  });
+
+  it("ricorda la verifica playoff prima della riapertura, senza imporre una segnalazione", () => {
+    const result = buildPreAdvanceChecklist({
+      currentMoment: "free_agency_end",
+      seasonName: "2026/27",
+      state: state([rosterEntry("G-League", { slot: "g_league", contract: "27 + T.O." })]),
+      currentHistorySeason: "2026/27",
+    });
+    expect(result.alerts.find((alert) => alert.id === "playoff-team-option-verification")?.tone).toBe("warning");
   });
 });

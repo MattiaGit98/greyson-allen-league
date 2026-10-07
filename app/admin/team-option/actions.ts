@@ -7,12 +7,13 @@ import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-
 import { calculateCapSpace, followingSeasonName, previousSeasonName } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
+import { normalizePhaseDates, playoffTeamOptionWindowOpen, todayInRome } from "@/lib/phase-calendar";
 import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import {
   applyRookieExtension,
   exerciseOrdinaryTeamOption,
-  exercisePlayoffTeamOption,
+  recordPlayoffTeamOptionUse,
   isRookieExtensionDecisionDue,
   isAnnualTeamOptionContract,
   qualifyingOfferForDeclinedRookieExtension,
@@ -110,7 +111,7 @@ export async function saveRookieContractDecisions(formData: FormData) {
   redirect(`${path}?updated=${decisions.length}`);
 }
 
-export async function exercisePlayoffTeamOptions(formData: FormData) {
+export async function recordPlayoffTeamOptionUses(formData: FormData) {
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   let playerNames: string[];
   try {
@@ -124,10 +125,10 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
   if (!supabase) fail("Supabase non configurato.");
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) fail("Sessione scaduta.");
-  const season = await supabase.from("seasons").select("name,status,team_options_resolved,trade_deadline_passed,timeline_moment").eq("is_active", true).maybeSingle();
+  const season = await supabase.from("seasons").select("name,status,team_options_resolved,trade_deadline_passed,timeline_moment,phase_dates").eq("is_active", true).maybeSingle();
   if (season.error || !season.data) fail(season.error?.message ?? "Nessuna stagione attiva.");
-  if (!operationWindows.playoffTeamOption(leagueMomentFromSeason(season.data))) {
-    fail("L'esercizio anticipato per utilizzo nei playoff è disponibile dopo la Chiusura free agency.");
+  if (!playoffTeamOptionWindowOpen(leagueMomentFromSeason(season.data), normalizePhaseDates(season.data.phase_dates), todayInRome())) {
+    fail("L'utilizzo nei playoff si può registrare dall'inizio della postseason fino alla riapertura della free agency.");
   }
   const activeSeasonName = season.data.name;
 
@@ -136,39 +137,34 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
   const handled = new Set<string>();
   const rosterEntries = state.rosterEntries.map((entry) => {
     if (entry.teamCode !== teamCode || !selected.has(entry.name)) return entry;
-    if (entry.state !== "active" || entry.slot !== "g_league" || !isAnnualTeamOptionContract(entry)) {
+    if (entry.state !== "active" || entry.slot !== "g_league" || !isAnnualTeamOptionContract(entry) || entry.playoffTeamOptionUsedSeason) {
       fail(`${entry.name} non è più una T.O. attiva in G-League.`);
     }
     handled.add(entry.name);
-    return exercisePlayoffTeamOption({
-      ...entry,
-      contractStartSeason: entry.contractStartSeason ?? activeSeasonName,
-    }, activeSeasonName);
+    return recordPlayoffTeamOptionUse(entry, activeSeasonName);
   });
   if (handled.size !== selected.size) fail("Una o più team option non appartengono alla squadra selezionata.");
 
-  const teamEntries = rosterEntries.filter((entry) => entry.teamCode === teamCode);
-  const capWarnings = [0, 1, 2].flatMap((distance) => {
-    const targetSeason = followingSeasonName(activeSeasonName, distance);
-    const space = calculateCapSpace({
-      entries: entriesForDpeAdjustedCap(teamEntries, distance),
-      seasonName: targetSeason,
-      optionSeasonName: activeSeasonName,
-      countTeamOptions: true,
-    });
-    return space < 0 ? [`L'esercizio anticipato porterebbe il team salary ${targetSeason} oltre il salary cap di 1000 crediti (cap libero ${space}).`] : [];
+  const nextSeasonName = followingSeasonName(activeSeasonName);
+  const nextSeasonCapSpace = calculateCapSpace({
+    entries: entriesForDpeAdjustedCap(rosterEntries.filter((entry) => entry.teamCode === teamCode), 1),
+    seasonName: nextSeasonName,
+    optionSeasonName: activeSeasonName,
+    countTeamOptions: true,
   });
-  requireCapCompliance(capWarnings, fail);
+  if (nextSeasonCapSpace < 0) {
+    fail(`Utilizzo nei playoff non registrabile: contando le T.O. selezionate, il team salary ${nextSeasonName} supera il salary cap di 1000 crediti (cap libero ${nextSeasonCapSpace}).`);
+  }
 
   const nextState = { ...state, rosterEntries };
   let movementState = state;
   const movements: LeagueMovementDraft[] = playerNames.map((playerName) => {
     const before = movementState;
-    const exercisedEntry = rosterEntries.find((entry) => entry.teamCode === teamCode && entry.name === playerName);
+    const markedEntry = rosterEntries.find((entry) => entry.teamCode === teamCode && entry.name === playerName);
     const after = {
       ...before,
       rosterEntries: before.rosterEntries.map((entry) => (
-        entry.teamCode === teamCode && entry.name === playerName && exercisedEntry ? exercisedEntry : entry
+        entry.teamCode === teamCode && entry.name === playerName && markedEntry ? markedEntry : entry
       )),
     };
     movementState = after;
@@ -176,8 +172,9 @@ export async function exercisePlayoffTeamOptions(formData: FormData) {
       before,
       after,
       operationType: "team_option_playoff",
-      summary: capOverrideSummary(`${playerName}: T.O. esercitata anticipatamente da ${teamCode} per utilizzo nei playoff; contratto ${exercisedEntry?.contract ?? "-"}; promozione obbligatoria nel Roster all'inizio dell'offseason`, capWarnings, false),
+      summary: `${playerName}: utilizzo nei playoff registrato da ${teamCode}; T.O. da esercitare nella prossima offseason con destinazione Roster`,
       seasonName: activeSeasonName,
+      undoBeforeMoment: "free_agency_reopening",
     };
   });
   const response = await persistLeagueMovements(supabase, state, nextState, movements);
@@ -197,6 +194,10 @@ function applyDecision(
   if (!entry || entry.state !== "active") throw new Error(`${decision.playerName} non appartiene più alla squadra selezionata.`);
   if (decision.kind === "team_option" && entry.contract !== "T.O.") {
     throw new Error(`${entry.name} non è più una team option da risolvere.`);
+  }
+  if (decision.kind === "team_option" && entry.playoffTeamOptionUsedSeason) {
+    if (decision.decision === "decline") throw new Error(`${entry.name}: la T.O. va esercitata dopo l'utilizzo nei playoff; in alternativa puoi tagliare il giocatore.`);
+    if (decision.destination !== "regular") throw new Error(`${entry.name}: dopo l'utilizzo nei playoff la destinazione obbligatoria è il Roster.`);
   }
   if (decision.kind === "rookie_extension" && !isRookieExtensionDecisionDue(entry, seasonName)) {
     throw new Error(`${entry.name} non ha una rookie extension da risolvere in questa offseason.`);

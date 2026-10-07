@@ -1,10 +1,6 @@
 import type { PlayerListEntry, QualifyingOfferRight, RosterEntry } from "@/lib/league-types";
 import { advanceSeasonName, seasonEndYear } from "./season-time";
-import { contractAfterRosterExit, isAnnualTeamOptionContract, isRookieExtensionContract } from "./team-option-contract";
-import {
-  applyPlayoffTeamOptionPromotion,
-  requiresPlayoffTeamOptionPromotion,
-} from "./two-way-promotions";
+import { contractAfterRosterExitForEntry, isAnnualTeamOptionContract, isRookieExtensionContract } from "./team-option-contract";
 import { orderPlayerListByRole } from "./player-list-order";
 
 export type LeagueAdvanceInput = {
@@ -27,7 +23,8 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
       ...(scheduled ? {
         state: "cut" as const,
         slot: "regular" as const,
-        contract: contractAfterRosterExit(entry.contract, currentEndYear),
+        contract: contractAfterRosterExitForEntry(entry, currentEndYear),
+        playoffTeamOptionUsedSeason: undefined,
       } : {}),
     };
   });
@@ -40,6 +37,13 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
     excessiveScheduledCutsByTeam: plan.excessiveScheduledCutsByTeam,
     remainingOverflowByTeam,
   };
+}
+
+export function projectedDpeRosterOverflowByTeam(input: LeagueAdvanceInput) {
+  const advance = calculateLeagueAdvance(input);
+  const reintegratingTeams = new Set(advance.reintegratedDpePlayers.map((entry) => entry.teamCode));
+  return Object.fromEntries(Object.entries(advance.remainingOverflowByTeam)
+    .filter(([teamCode]) => reintegratingTeams.has(teamCode)));
 }
 
 export function buildSeasonEndCutPlan(input: LeagueAdvanceInput) {
@@ -118,15 +122,10 @@ function calculateLeagueAdvanceCore(input: LeagueAdvanceInput) {
         : entry.dpeAppliedSeasons?.includes(input.seasonName) ? [input.seasonName] : undefined,
     }));
 
-  const promotedPlayoffTeamOptionPlayers = retainedBeforeDpeReintegration
-    .filter((entry) => requiresPlayoffTeamOptionPromotion(entry, nextSeasonName))
-    .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
-  const retainedAfterPlayoffPromotions = retainedBeforeDpeReintegration
-    .map((entry) => applyPlayoffTeamOptionPromotion(entry, nextSeasonName));
-  const reintegratedDpePlayers = retainedAfterPlayoffPromotions
+  const reintegratedDpePlayers = retainedBeforeDpeReintegration
     .filter((entry) => entry.state === "active" && entry.slot === "dpe")
     .map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode }));
-  const retainedEntries = retainedAfterPlayoffPromotions.map((entry) => (
+  const retainedEntries = retainedBeforeDpeReintegration.map((entry) => (
     entry.state === "active" && entry.slot === "dpe"
       ? { ...entry, slot: "regular" as const }
       : entry
@@ -164,7 +163,6 @@ function calculateLeagueAdvanceCore(input: LeagueAdvanceInput) {
     expiredContracts: input.rosterEntries.length - retainedEntries.length,
     generatedQualifyingOffers: generatedRights.length,
     pendingRookieExtensions: retainedEntries.filter((entry) => entry.state === "active" && isRookieExtensionContract(entry)).length,
-    promotedPlayoffTeamOptionPlayers,
     reintegratedDpePlayers,
   };
 }

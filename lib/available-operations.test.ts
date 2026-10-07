@@ -17,6 +17,14 @@ describe("operazioni disponibili", () => {
   it("non mostra l'assegnazione contratti nella homepage", () => {
     expect(labelsAt("auction_completed")).not.toContain("Assegnazione contratti");
   });
+
+  it("mostra la segnalazione playoff solo tra la data di inizio postseason e la riapertura della free agency", () => {
+    const dates = { postseason_start: "2027-04-01" };
+    const label = "Segnalazione utilizzo G-League nei playoff";
+    expect(availableOperationsAt("free_agency_end", dates, "2027-03-31").map((item) => item.label)).not.toContain(label);
+    expect(availableOperationsAt("free_agency_end", dates, "2027-04-01").map((item) => item.label)).toContain(label);
+    expect(availableOperationsAt("free_agency_reopening", dates, "2027-04-02").map((item) => item.label)).not.toContain(label);
+  });
 });
 
 function labelsAt(moment: Parameters<typeof availableOperationsAt>[0]) {

@@ -98,10 +98,11 @@ export function buildLeagueTransitionPreview(input: {
   if (transition === "free_agency_end") {
     preview.closedPossibilities.push("Si chiudono free agency e rilasci gratuiti.");
     preview.closedPossibilities.push("Si chiude la possibilità di reintegro anticipato dalla DPE.");
-    preview.newPossibilities.push("Si apre l'esercizio anticipato delle T.O. in G-League utilizzate nei playoff.");
+    preview.newPossibilities.push("Dalla data di Inizio postseason si potrà segnalare l'utilizzo nei playoff delle T.O. in G-League.");
   }
 
   if (transition === "free_agency_reopening") {
+    preview.closedPossibilities.push("Si chiude la segnalazione dell'utilizzo nei playoff dei giocatori in G-League.");
     preview.newPossibilities.push("Riapre la free agency per la March Madness e resta disponibile fino alla fine della stagione.");
   }
 
@@ -119,7 +120,6 @@ export function buildLeagueTransitionPreview(input: {
       if (advance.scheduledCutPlayers.length && !advance.invalidScheduledCutPlayers.length && !advance.excessiveScheduledCutsByTeam.length) {
         preview.automaticActions.push(`${advance.scheduledCutPlayers.length} tagli programmati saranno eseguiti.`);
       }
-      preview.automaticActions.push(`${advance.promotedPlayoffTeamOptionPlayers.length} T.O. esercitate per utilizzo nei playoff saranno promosse negli slot roster.`);
       preview.automaticActions.push(`${advance.reintegratedDpePlayers.length} giocatori in DPE saranno reintegrati negli slot roster.`);
       preview.automaticActions.push(`Il listone attuale diventerà provvisorio: manterrà ${advance.playerList.length} giocatori, ma le squadre NBA saranno azzerate.`);
       preview.automaticActions.push("Classifiche e tabelloni correnti saranno importati nello storico.");
@@ -130,7 +130,6 @@ export function buildLeagueTransitionPreview(input: {
     preview.newPossibilities.push("La nuova annata ripartirà da Inizio offseason.");
     preview.closedPossibilities.push("La stagione corrente sarà conclusa.");
     preview.closedPossibilities.push("Si chiude la free agency riaperta per la March Madness.");
-    preview.closedPossibilities.push("Si chiude l'esercizio anticipato delle T.O. per utilizzo nei playoff.");
   }
 
   const checklist = buildPreAdvanceChecklist(input);
@@ -146,6 +145,8 @@ export function buildLeagueTransitionPreview(input: {
 }
 
 export function applyTeamOptionDeadline(state: EditableLeagueState, seasonName: string) {
+  const unresolvedPlayoffOptions = state.rosterEntries.filter((entry) => entry.state === "active" && entry.contract === "T.O." && entry.playoffTeamOptionUsedSeason);
+  if (unresolvedPlayoffOptions.length) throw new Error("Prima della Scadenza T.O. e R.E. risolvi le team option dei giocatori utilizzati nei playoff.");
   return {
     ...state,
     rosterEntries: state.rosterEntries.filter((entry) => !(
