@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyContextualContractCut, canApplyStretchProvision, canStretchContextualCut, isStretchUnavailable } from "./stretch-provision";
+import { allowedStretchYears, applyContextualContractCut, canApplyStretchProvision, canStretchContextualCut, isStretchUnavailable } from "./stretch-provision";
 
 describe("stretch provision", () => {
   it("permette il taglio contestuale di un pending, con rate arrotondate e blocco di una seconda stretch", () => {
@@ -9,6 +9,8 @@ describe("stretch provision", () => {
     expect(cut).toMatchObject({ state: "cut", cost: 4, contract: "29", originalContractYears: 1, stretchProvisionApplied: true });
     expect(canStretchContextualCut(cut, 2027)).toBe(false);
     expect(() => applyContextualContractCut({ ...entry, contract: "28" }, 2027, "auction_start", 2)).toThrow();
+    expect(applyContextualContractCut({ ...entry, contract: "28" }, 2027, "auction_start", 3))
+      .toMatchObject({ state: "cut", cost: 8, contract: "29", stretchProvisionApplied: true });
   });
   it("si può applicare una sola volta a un contratto tagliato", () => {
     expect(canApplyStretchProvision({ cost: 10, contract: "28", state: "cut", stretchProvisionApplied: false }, 2028)).toBe(true);
@@ -20,9 +22,12 @@ describe("stretch provision", () => {
     expect(canApplyStretchProvision({ cost: 10, contract: "28", state: "active", stretchProvisionApplied: false }, 2028)).toBe(false);
   });
 
-  it("si apre all'inizio dell'annata dell'ultimo anno e resta chiusa prima", () => {
+  it("si apre dall'offseason precedente al penultimo anno e limita le rate", () => {
     const entry = { cost: 10, contract: "28", state: "cut" as const, stretchProvisionApplied: false };
-    expect(canApplyStretchProvision(entry, 2027)).toBe(false);
+    expect(canApplyStretchProvision(entry, 2026)).toBe(false);
+    expect(allowedStretchYears(entry, 2027)).toEqual([3]);
+    expect(canApplyStretchProvision(entry, 2027)).toBe(true);
+    expect(allowedStretchYears(entry, 2028)).toEqual([2, 3]);
     expect(canApplyStretchProvision(entry, 2028)).toBe(true);
   });
 

@@ -40,6 +40,8 @@ export function ContextualSlotResolver({
           const decision = value[index] ?? emptyContextualSlotDecision();
           const movedPlayer = step.moveCandidates.find((candidate) => candidate.name === decision.playerName);
           const cutPlayer = step.cutCandidates.find((candidate) => candidate.name === decision.playerName);
+          const stretchOptions = cutPlayer?.stretchOptions ?? [];
+          const displayedStretchOptions = stretchOptions.length ? stretchOptions : [2, 3];
           return (
             <fieldset className="contextual-slot-step" key={`${index}-${step.slot}`}>
               <legend>
@@ -72,19 +74,18 @@ export function ContextualSlotResolver({
                       <input
                         type="checkbox"
                         checked={decision.kind === "cut" && decision.stretchYears != null}
-                        disabled={decision.kind !== "cut" || !cutPlayer?.stretchEligible}
-                        onChange={(event) => replaceDecision(index, { ...decision, stretchYears: event.target.checked ? 2 : null })}
+                        disabled={decision.kind !== "cut" || !stretchOptions.length}
+                        onChange={(event) => replaceDecision(index, { ...decision, stretchYears: event.target.checked ? stretchOptions[0] : null })}
                       />
                       Stretch provision
                     </label>
                     <select
                       aria-label={`Durata stretch provision per ${decision.playerName || "il giocatore da tagliare"}`}
-                      value={decision.kind === "cut" ? decision.stretchYears ?? 2 : 2}
-                      disabled={decision.kind !== "cut" || !cutPlayer?.stretchEligible || decision.stretchYears == null}
+                      value={decision.kind === "cut" ? decision.stretchYears ?? displayedStretchOptions[0] : displayedStretchOptions[0]}
+                      disabled={decision.kind !== "cut" || !stretchOptions.length || decision.stretchYears == null}
                       onChange={(event) => replaceDecision(index, { ...decision, stretchYears: Number(event.target.value) as 2 | 3 })}
                     >
-                      <option value={2}>2 anni</option>
-                      <option value={3}>3 anni</option>
+                      {displayedStretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}
                     </select>
                   </div>
                 </div>

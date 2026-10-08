@@ -9,7 +9,7 @@ import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligib
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
-import { canStretchContextualCut } from "@/lib/stretch-provision";
+import { contextualStretchYears } from "@/lib/stretch-provision";
 
 export default async function TradeSimulatorPage() {
   const [activeSeason, leagueState] = await Promise.all([
@@ -100,7 +100,7 @@ export default async function TradeSimulatorPage() {
           })(),
           slot: entry.slot,
           cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
-          stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
+          stretchOptions: contextualStretchYears(entry, seasonEndYear(seasonName) ?? 0),
           movementDestinations: entry.slot === "dpe"
             ? []
             : legalSlotDestinations(

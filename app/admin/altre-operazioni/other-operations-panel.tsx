@@ -8,7 +8,7 @@ import type { AdminOperationContext, AdminRosterPlayer, AdminRosterTeam } from "
 import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
 import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
-import { applyContextualContractCut, canApplyStretchProvision, canStretchContextualCut } from "@/lib/stretch-provision";
+import { allowedStretchYears, applyContextualContractCut, canApplyStretchProvision, contextualStretchYears } from "@/lib/stretch-provision";
 import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib/cap-override";
@@ -106,14 +106,16 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [dpeCutConfirmed, setDpeCutConfirmed] = useState(false);
   const [dpeStretchYears, setDpeStretchYears] = useState<2 | 3 | null>(null);
-  const [installments, setInstallments] = useState<2 | 3>(2);
+  const stretchOptions = allowedStretchYears(player, props.seasonEndYear);
+  const [installments, setInstallments] = useState<2 | 3>(stretchOptions[0] ?? 2);
   const [releaseReason, setReleaseReason] = useState<FreeReleaseReason | "">("");
   const oneCreditTeamOptionRelease = operation === "free_release"
     && freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
   const occupiedDpePlayer = operation === "dpe_activate"
     ? team.players.find((item) => item.state === "active" && item.slot === "dpe") ?? null
     : null;
-  const dpeStretchEligible = occupiedDpePlayer ? canStretchContextualCut(rosterEntryForPlayer(occupiedDpePlayer), props.seasonEndYear) : false;
+  const dpeStretchOptions = occupiedDpePlayer ? contextualStretchYears(rosterEntryForPlayer(occupiedDpePlayer), props.seasonEndYear) : [];
+  const dpeStretchEligible = dpeStretchOptions.length > 0;
   const effectiveDpeStretchYears = dpeStretchEligible ? dpeStretchYears : null;
   const preview = operationPreview(operation, player, team, props, installments, confirmed, roleMinimumConfirmed, releaseReason, dpeCutConfirmed, effectiveDpeStretchYears);
   const formAction = operation === "extension"
@@ -155,7 +157,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
             </select>
           </Field>
           {operation === "stretch" && (
-            <Field label="Numero di rate"><select value={installments} onChange={(event) => { setInstallments(Number(event.target.value) as 2 | 3); }}><option value={2}>2 rate</option><option value={3}>3 rate</option></select></Field>
+            <Field label="Numero di rate"><select value={installments} onChange={(event) => { setInstallments(Number(event.target.value) as 2 | 3); }}>{stretchOptions.map((years) => <option value={years} key={years}>{years} rate</option>)}</select></Field>
           )}
           {operation === "free_release" && (
             <div className="release-reason-fieldset">
@@ -196,8 +198,8 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           )}
           {operation === "dpe_activate" && occupiedDpePlayer && (
             <div className="dpe-contextual-stretch">
-              <label><input type="checkbox" checked={effectiveDpeStretchYears != null} disabled={!dpeCutConfirmed || !dpeStretchEligible} onChange={(event) => setDpeStretchYears(event.target.checked ? 2 : null)} />Stretch provision per {occupiedDpePlayer.name}</label>
-              <select aria-label={`Durata stretch provision per ${occupiedDpePlayer.name}`} value={effectiveDpeStretchYears ?? 2} disabled={effectiveDpeStretchYears == null || !dpeCutConfirmed} onChange={(event) => setDpeStretchYears(Number(event.target.value) as 2 | 3)}><option value={2}>2 anni</option><option value={3}>3 anni</option></select>
+              <label><input type="checkbox" checked={effectiveDpeStretchYears != null} disabled={!dpeCutConfirmed || !dpeStretchEligible} onChange={(event) => setDpeStretchYears(event.target.checked ? dpeStretchOptions[0] ?? null : null)} />Stretch provision per {occupiedDpePlayer.name}</label>
+              <select aria-label={`Durata stretch provision per ${occupiedDpePlayer.name}`} value={effectiveDpeStretchYears ?? dpeStretchOptions[0] ?? 2} disabled={effectiveDpeStretchYears == null || !dpeCutConfirmed} onChange={(event) => setDpeStretchYears(Number(event.target.value) as 2 | 3)}>{dpeStretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}</select>
             </div>
           )}
           {preview.roleMinimumMissing > 0 && !preview.roleMinimumSlotError && (
@@ -298,7 +300,7 @@ function operationPreview(
       currentDpeExemption: player.state === "active" && player.slot === "dpe",
     });
   } else if (operation === "stretch") {
-    const stretch = stretchCapSpaces(spacesBefore, charges[0], installments);
+    const stretch = stretchCapSpaces(spacesBefore, charges, installments);
     spacesAfter = stretch.spacesAfter;
     installment = stretch.installment;
   } else if (operation === "dpe_activate") {

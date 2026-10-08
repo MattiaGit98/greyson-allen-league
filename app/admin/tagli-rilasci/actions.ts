@@ -7,7 +7,7 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
 import { rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
-import { canApplyStretchProvision } from "@/lib/stretch-provision";
+import { allowedStretchYears, canApplyStretchProvision } from "@/lib/stretch-provision";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideSummary, hasBlockingDpeCutCapViolation, requireCapCompliance, salaryCapWarningsForSpaces } from "@/lib/cap-override";
@@ -159,11 +159,12 @@ export async function applyStretchProvision(formData: FormData) {
   const currentEndYear = seasonEndYear(season.name);
   if (currentEndYear === null) operationError(returnPath, "Annata non valida.");
   if (!entry || !canApplyStretchProvision(entry, currentEndYear)) operationError(returnPath, "Questo contratto non è idoneo alla stretch provision.");
+  if (!allowedStretchYears(entry, currentEndYear).includes(installments as 2 | 3)) operationError(returnPath, "Numero di rate non consentito per questo contratto.");
 
   const spacesBefore = teamCapSpaces(state.rosterEntries, teamCode, season.name, season.status, season.team_options_resolved);
-  const residualCharge = playerCharges(entry, season.name, season.status, season.team_options_resolved)[0];
-  if (residualCharge <= 0) operationError(returnPath, "Il contratto non ha un peso residuo da distribuire.");
-  const stretch = stretchCapSpaces(spacesBefore, residualCharge, installments as 2 | 3);
+  const residualCharges = playerCharges(entry, season.name, season.status, season.team_options_resolved);
+  if (residualCharges.every((charge) => charge <= 0)) operationError(returnPath, "Il contratto non ha un peso residuo da distribuire.");
+  const stretch = stretchCapSpaces(spacesBefore, residualCharges, installments as 2 | 3);
   const finalExpiry = currentEndYear + installments - 1;
   const rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
     ...item,

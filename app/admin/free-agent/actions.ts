@@ -18,7 +18,7 @@ import { dpeCountsForRoleMinimums, roleMinimumChecksApply, roleMinimumRecoverySl
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { orderPlayerListByRole } from "@/lib/player-list-order";
 import { parseContextualSlotDecisions, resolveContextualSlots, type AppliedContextualSlotOperation } from "@/lib/contextual-slot-resolution";
-import { applyContextualContractCut, canStretchContextualCut } from "@/lib/stretch-provision";
+import { applyContextualContractCut, contextualStretchYears } from "@/lib/stretch-provision";
 
 const path = "/admin/free-agent";
 
@@ -105,7 +105,7 @@ export async function signFreeAgent(formData: FormData) {
       name: entry.name,
       slot: entry.slot as ManagedRosterSlot,
       cuttable: !isUnresolvedTeamOption(entry, moment, activeSeasonName),
-      stretchEligible: canStretchContextualCut(entry, seasonEndYear(activeSeasonName) ?? 0),
+      stretchOptions: contextualStretchYears(entry, seasonEndYear(activeSeasonName) ?? 0),
       moveDestinations: isUnresolvedTeamOption(entry, moment, activeSeasonName)
         ? []
         : legalSlotDestinations(

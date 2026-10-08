@@ -6,7 +6,7 @@ export type ContextualSlotPlayer = {
   name: string;
   slot: ContextualSlot;
   cuttable: boolean;
-  stretchEligible?: boolean;
+  stretchOptions?: (2 | 3)[];
   freeReleasable?: boolean;
   moveDestinations: ContextualSlot[];
 };
@@ -92,7 +92,8 @@ export function resolveContextualSlots({
         errors.push(`${selectedPlayer.name} non può essere tagliato in questa operazione.`);
         return { complete: false, countsAfter, operations, steps, errors };
       }
-      if (decision.stretchYears != null && (!selectedPlayer.stretchEligible || ![2, 3].includes(decision.stretchYears))) {
+      const stretchOptions = selectedPlayer.stretchOptions ?? [];
+      if (decision.stretchYears != null && !stretchOptions.includes(decision.stretchYears)) {
         errors.push(`${selectedPlayer.name} non è idoneo alla stretch provision contestuale.`);
         return { complete: false, countsAfter, operations, steps, errors };
       }

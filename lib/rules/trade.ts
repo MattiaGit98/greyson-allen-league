@@ -20,6 +20,7 @@ export type TradePlayerMove = {
   cost: number;
   capCost: number;
   futureCapCosts?: Record<string, number>;
+  stretchOptions?: (2 | 3)[];
   role: TradeRole | null;
   sourceSlot: TradeSlot;
   destinationSlot: TradeSlot;
@@ -34,6 +35,9 @@ export type TradeCut = {
   role: TradeRole | null;
   slot: TradeSlot;
   stretchYears?: 2 | 3 | null;
+  stretchOptions?: (2 | 3)[];
+  stretchResidualCost?: number;
+  futureCapCosts?: Record<string, number>;
 };
 
 export type TradePromotion = {
@@ -451,7 +455,11 @@ export function evaluateTrade(input: {
       });
     }
     seenCuts.add(cut.id);
-    if (cut.stretchYears != null && (![2, 3].includes(cut.stretchYears) || cut.cost <= 0)) {
+    if (cut.stretchYears != null && (
+      ![2, 3].includes(cut.stretchYears)
+      || cut.cost <= 0
+      || (cut.stretchOptions !== undefined && !cut.stretchOptions.includes(cut.stretchYears))
+    )) {
       errors.push({ code: "TRADE_STRETCH_INVALID", message: "La stretch provision contestuale non è valida per questo giocatore." });
     }
   }
@@ -500,7 +508,7 @@ export function evaluateTrade(input: {
 
     for (const cut of input.cuts.filter((item) => item.teamCode === team.code)) {
       slots[slotKey(cut.slot)] -= 1;
-      if (cut.stretchYears != null) costAfter += (cut.slot === "dpe" ? 0 : -cut.cost) + Math.ceil(cut.cost / cut.stretchYears);
+      if (cut.stretchYears != null) costAfter += (cut.slot === "dpe" ? 0 : -cut.cost) + Math.ceil((cut.stretchResidualCost ?? cut.cost) / cut.stretchYears);
       else if (cut.slot === "dpe") costAfter += cut.cost;
       if (cut.slot !== "dpe" && cut.role) roles[cut.role] -= 1;
     }
@@ -552,7 +560,8 @@ export function evaluateTrade(input: {
       }
 
       for (const cut of input.cuts.filter((item) => item.teamCode === team.code && item.stretchYears != null)) {
-        if (index + 1 < cut.stretchYears!) costAfterFuture += Math.ceil(cut.cost / cut.stretchYears!);
+        costAfterFuture -= cut.futureCapCosts?.[future.seasonName] ?? 0;
+        if (index + 1 < cut.stretchYears!) costAfterFuture += Math.ceil((cut.stretchResidualCost ?? cut.cost) / cut.stretchYears!);
       }
 
       if (costAfterFuture > 1000) {

@@ -18,6 +18,12 @@ describe("operazioni disponibili", () => {
     expect(labelsAt("auction_completed")).not.toContain("Assegnazione contratti");
   });
 
+  it("ordina alfabeticamente le operazioni con la stessa scadenza", () => {
+    const labels = labelsAt("offseason_start");
+    expect(labels.indexOf("Estensioni contrattuali")).toBeLessThan(labels.indexOf("Rilascio: meno del 40% della stagione NBA"));
+    expect(labels.slice(-3)).toEqual(["Promozioni di slot", "Stretch provision", "Tagli"]);
+  });
+
   it("mostra la segnalazione playoff solo tra la data di inizio postseason e la riapertura della free agency", () => {
     const dates = { postseason_start: "2027-04-01" };
     const label = "Segnalazione utilizzo G-League nei playoff";

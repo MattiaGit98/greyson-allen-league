@@ -30,7 +30,7 @@ import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligib
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildSignAndTradeProvisional, signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
-import { applyContextualContractCut, canStretchContextualCut } from "@/lib/stretch-provision";
+import { applyContextualContractCut, contextualStretchYears } from "@/lib/stretch-provision";
 import {
   applyValidatedTrade,
   existingTradeClauseAgreements,
@@ -351,7 +351,8 @@ export async function registerTrade(formData: FormData) {
     const entryToCut = receivedMove
       ? { ...source.entry, teamCode: receivedMove.toTeamCode, slot: receivedMove.destinationSlot }
       : source.entry;
-    if (requested.stretchYears != null && !canStretchContextualCut(entryToCut, currentEndYear)) {
+    const stretchOptions = contextualStretchYears(entryToCut, currentEndYear);
+    if (requested.stretchYears != null && !stretchOptions.includes(requested.stretchYears)) {
       fail(`${source.entry.name}: stretch provision non consentita per questo taglio.`);
     }
     cutChanges.push({
@@ -362,6 +363,9 @@ export async function registerTrade(formData: FormData) {
       id: requested.id,
       teamCode: requested.teamCode,
       cost: scheduledCost(source.entry, season.name),
+      futureCapCosts: Object.fromEntries(capSeasons.slice(1).map((targetSeason) => [targetSeason, scheduledCost(source.entry, targetSeason)])),
+      stretchOptions,
+      stretchResidualCost: source.entry.cost * (stretchOptions.length === 1 && stretchOptions[0] === 3 ? 2 : 1),
       role: rolesByName.get(normalizePlayerName(source.entry.name)) ?? null,
       slot: entryToCut.slot,
       stretchYears: requested.stretchYears ?? null,

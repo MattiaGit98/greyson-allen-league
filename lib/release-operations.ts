@@ -70,14 +70,12 @@ export function releaseCapSpaces({
 
 export function stretchCapSpaces(
   spacesBefore: ThreeYearValues,
-  residualCharge: number,
+  residualCharges: ThreeYearValues,
   installments: 2 | 3,
 ): { spacesAfter: ThreeYearValues; installment: number } {
-  const installment = Math.ceil(residualCharge / installments);
-  const spacesAfter: ThreeYearValues = [
-    spacesBefore[0] + residualCharge - installment,
-    spacesBefore[1] - installment,
-    spacesBefore[2] - (installments === 3 ? installment : 0),
-  ];
+  const installment = Math.ceil(residualCharges.reduce((total, charge) => total + charge, 0) / installments);
+  const spacesAfter = spacesBefore.map((space, index) => (
+    space + residualCharges[index] - (index < installments ? installment : 0)
+  )) as ThreeYearValues;
   return { spacesAfter, installment };
 }

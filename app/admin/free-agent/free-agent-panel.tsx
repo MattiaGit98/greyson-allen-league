@@ -34,7 +34,8 @@ type TeamOption = {
     cost: number;
     contract: string;
     cuttable: boolean;
-    stretchEligible: boolean;
+    stretchOptions: (2 | 3)[];
+    charges: [number, number, number];
     moveDestinations: Exclude<Slot, "dpe">[];
   }[];
 };
@@ -199,7 +200,7 @@ function FreeAgentDialog({
       name: item.name,
       slot: item.slot,
       cuttable: item.cuttable,
-      stretchEligible: item.stretchEligible,
+      stretchOptions: item.stretchOptions,
       moveDestinations: item.moveDestinations,
     }]
   ));
@@ -228,12 +229,12 @@ function FreeAgentDialog({
   const contextualCutSavings = slotResolution.operations.reduce((total, operation) => {
     if (operation.kind !== "cut" || operation.stretchYears == null) return total;
     const cutPlayer = team?.rosterPlayers.find((item) => item.name === operation.playerName);
-    return total + (cutPlayer ? cutPlayer.cost - Math.ceil(cutPlayer.cost / operation.stretchYears) : 0);
+    return total + (cutPlayer ? cutPlayer.charges[0] - Math.ceil(cutPlayer.charges.reduce((sum, charge) => sum + charge, 0) / operation.stretchYears) : 0);
   }, 0);
   const futureStretchCharges = [1, 2].map((distance) => slotResolution.operations.reduce((total, operation) => {
-    if (operation.kind !== "cut" || operation.stretchYears == null || distance >= operation.stretchYears) return total;
+    if (operation.kind !== "cut" || operation.stretchYears == null) return total;
     const cutPlayer = team?.rosterPlayers.find((item) => item.name === operation.playerName);
-    return total + (cutPlayer ? Math.ceil(cutPlayer.cost / operation.stretchYears) : 0);
+    return total + (cutPlayer ? (distance < operation.stretchYears ? Math.ceil(cutPlayer.charges.reduce((sum, charge) => sum + charge, 0) / operation.stretchYears) : 0) - cutPlayer.charges[distance] : 0);
   }, 0));
   const futureStretchError = team && futureStretchCharges.some((charge, index) => charge > 0 && team.futureSpaces[index] - charge < 0)
     ? "La stretch provision contestuale non rispetta il cap delle stagioni future."

@@ -23,6 +23,27 @@ const teams: TradeTeamState[] = [
 ];
 
 describe("trade rules", () => {
+  it("sostituisce il peso di due anni residui con tre rate anche nei cap futuri", () => {
+    const input = {
+      phase: "offseason" as const,
+      teams: [{ ...teams[0], futureCosts: [
+        { seasonName: "2027/28", currentCost: 500 },
+        { seasonName: "2028/29", currentCost: 500 },
+      ] }],
+      playerMoves: [],
+      pickMoves: [],
+      cuts: [{ id: "two-years", teamCode: "AAA", cost: 12, role: "G" as const, slot: "regular" as const,
+        stretchYears: 3 as const, stretchOptions: [3 as const], stretchResidualCost: 24,
+        futureCapCosts: { "2027/28": 12, "2028/29": 0 } }],
+    };
+    const result = evaluateTrade(input);
+    expect(result.calculated.teamResults[0]).toMatchObject({
+      costAfter: 696,
+      futureCaps: [{ costAfter: 496 }, { costAfter: 508 }],
+    });
+    expect(evaluateTrade({ ...input, cuts: [{ ...input.cuts[0], stretchYears: 2 as const }] }).valid).toBe(false);
+  });
+
   it("conteggia le rate della stretch per il taglio contestuale della squadra ricevente", () => {
     const result = evaluateTrade({
       phase: "offseason",

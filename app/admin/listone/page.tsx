@@ -28,6 +28,7 @@ export default async function PlayerListAdminPage({ searchParams }: { searchPara
         initialStatus={state.playerListStatus}
         eligibilityEditable={eligibilityEditable}
         showRealTeam={showRealTeam}
+        showEligibilityBadges={!hasReachedMoment(moment, "auction_completed")}
       />
     </section>
   );

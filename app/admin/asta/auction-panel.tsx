@@ -35,7 +35,7 @@ type AuctionTeam = {
     teamOptionFinalYear?: number;
     slot: AuctionSlot;
     cuttable: boolean;
-    stretchEligible: boolean;
+    stretchOptions: (2 | 3)[];
     freeReleasable: boolean;
     charges: [number, number, number];
     moveDestinations: AuctionSlot[];
@@ -158,8 +158,8 @@ export function AuctionPanel({
               <strong className="player-name">{row.name}</strong>
               <span className="auction-player-subline">
                 {row.realTeam && <small className="real-team-text">{row.realTeam}</small>}
-                {row.rookie && <i className="player-flag player-flag-rookie">Rookie</i>}
-                {row.under23 && <i className="player-flag player-flag-u23">U23</i>}
+                {phase === "auction" && row.rookie && <i className="player-flag player-flag-rookie">Rookie</i>}
+                {phase === "auction" && row.under23 && <i className="player-flag player-flag-u23">U23</i>}
               </span>
             </span>
             <span><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>
@@ -218,7 +218,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     name: player.name,
     slot: player.slot,
     cuttable: player.cuttable,
-    stretchEligible: player.stretchEligible,
+    stretchOptions: player.stretchOptions,
     freeReleasable: player.freeReleasable,
     moveDestinations: player.moveDestinations,
   }));
@@ -249,7 +249,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     .reduce((total, operation) => {
       if (operation.kind !== "cut" || operation.stretchYears == null) return total;
       const cutPlayer = team?.players.find((player) => player.name === operation.playerName);
-      return total + (cutPlayer ? cutPlayer.charges[0] - Math.ceil(cutPlayer.cost / operation.stretchYears) : 0);
+      return total + (cutPlayer ? cutPlayer.charges[0] - Math.ceil(cutPlayer.charges.reduce((sum, charge) => sum + charge, 0) / operation.stretchYears) : 0);
     }, 0);
   const capAfterPurchase = team ? team.spaces[0] - effectivePrice + releasedCap + stretchedCap : 0;
   const capWarnings = (team && capAfterPurchase < 0 && effectivePrice > 1)
@@ -261,7 +261,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
       if (!incumbent) return delta;
       if (operation.kind === "free_release") return delta + incumbent.charges[distance];
       if (operation.kind === "cut" && operation.stretchYears != null) {
-        return delta + incumbent.charges[distance] - (distance < operation.stretchYears ? Math.ceil(incumbent.cost / operation.stretchYears) : 0);
+        return delta + incumbent.charges[distance] - (distance < operation.stretchYears ? Math.ceil(incumbent.charges.reduce((sum, charge) => sum + charge, 0) / operation.stretchYears) : 0);
       }
       if (operation.kind === "move" && operation.destinationSlot !== "regular" && !incumbent.pendingAuctionContract && !contractIncludesTeamOption(incumbent)) {
         return delta + incumbent.charges[distance];
@@ -539,10 +539,8 @@ function editSpaces(
       } else if (operation.kind === "move") {
         releaseFutureCapForSpecialSlot(after, movedRoster, operation.destinationSlot);
       } else if (operation.kind === "cut" && operation.stretchYears != null) {
-        const installment = Math.ceil(movedRoster.cost / operation.stretchYears);
-        after[0] += movedRoster.charges[0] - installment;
-        after[1] += movedRoster.charges[1] - installment;
-        if (operation.stretchYears === 3) after[2] += movedRoster.charges[2] - installment;
+        const installment = Math.ceil(movedRoster.charges.reduce((sum, charge) => sum + charge, 0) / operation.stretchYears);
+        movedRoster.charges.forEach((charge, index) => { after[index] += charge - (index < operation.stretchYears! ? installment : 0); });
       }
     }
     return after;

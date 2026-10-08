@@ -4,15 +4,48 @@ import { applyStandardContractCut, contractAfterRosterExitForEntry } from "./tea
 
 export type StretchYears = 2 | 3;
 
-export function canStretchContextualCut(
+export function allowedStretchYears(entry: {
+  cost: number;
+  contract: string;
+  state: "active" | "cut";
+  stretchProvisionApplied?: boolean;
+  buyoutApplied?: boolean;
+}, currentSeasonEndYear: number): StretchYears[] {
+  if (entry.state !== "cut" || entry.cost <= 0 || isStretchUnavailable(entry)) return [];
+  const remainingYears = (contractExpiryYear(entry.contract, currentSeasonEndYear) ?? 0) - currentSeasonEndYear + 1;
+  if (remainingYears === 1) return [2, 3];
+  if (remainingYears === 2) return [3];
+  return [];
+}
+
+export function contextualStretchYears(
   entry: Pick<RosterEntry, "cost" | "contract" | "stretchProvisionApplied" | "buyoutApplied" | "playoffTeamOptionUsedSeason">,
   currentSeasonEndYear: number,
-) {
-  return canApplyStretchProvision({
+): StretchYears[] {
+  return allowedStretchYears({
     ...entry,
     state: "cut",
     contract: contractAfterRosterExitForEntry(entry, currentSeasonEndYear),
   }, currentSeasonEndYear);
+}
+
+export function stretchInstallmentForEntry(
+  entry: Parameters<typeof allowedStretchYears>[0],
+  currentSeasonEndYear: number,
+  installments: StretchYears,
+) {
+  if (!allowedStretchYears(entry, currentSeasonEndYear).includes(installments)) {
+    throw new Error("Stretch provision non consentita per questo contratto o numero di rate.");
+  }
+  const remainingYears = contractExpiryYear(entry.contract, currentSeasonEndYear)! - currentSeasonEndYear + 1;
+  return Math.ceil(entry.cost * remainingYears / installments);
+}
+
+export function canStretchContextualCut(
+  entry: Pick<RosterEntry, "cost" | "contract" | "stretchProvisionApplied" | "buyoutApplied" | "playoffTeamOptionUsedSeason">,
+  currentSeasonEndYear: number,
+) {
+  return contextualStretchYears(entry, currentSeasonEndYear).length > 0;
 }
 
 export function applyContextualContractCut<T extends RosterEntry>(
@@ -23,12 +56,12 @@ export function applyContextualContractCut<T extends RosterEntry>(
 ): T {
   const cut = applyStandardContractCut(entry, currentSeasonEndYear, moment);
   if (stretchYears === null) return cut;
-  if (![2, 3].includes(stretchYears) || !canApplyStretchProvision(cut, currentSeasonEndYear)) {
+  if (!allowedStretchYears(cut, currentSeasonEndYear).includes(stretchYears)) {
     throw new Error(`${entry.name}: stretch provision non consentita per questo taglio.`);
   }
   return {
     ...cut,
-    cost: Math.ceil(cut.cost / stretchYears),
+    cost: stretchInstallmentForEntry(cut, currentSeasonEndYear, stretchYears),
     contract: String(currentSeasonEndYear + stretchYears - 1).slice(-2),
     stretchProvisionApplied: true,
   };
@@ -41,10 +74,7 @@ export function canApplyStretchProvision(entry: {
   stretchProvisionApplied?: boolean;
   buyoutApplied?: boolean;
 }, currentSeasonEndYear: number) {
-  return entry.state === "cut"
-    && entry.cost > 0
-    && !isStretchUnavailable(entry)
-    && contractExpiryYear(entry.contract, currentSeasonEndYear) === currentSeasonEndYear;
+  return allowedStretchYears(entry, currentSeasonEndYear).length > 0;
 }
 
 export function isStretchUnavailable(entry: {

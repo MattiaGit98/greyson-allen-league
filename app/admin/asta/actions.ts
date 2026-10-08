@@ -26,7 +26,7 @@ import { freeReleaseReasonAvailability } from "@/lib/free-release";
 import { applyFreeRelease } from "@/lib/release-operations";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { parseContextualSlotDecisions, resolveContextualSlots, type AppliedContextualSlotOperation } from "@/lib/contextual-slot-resolution";
-import { applyContextualContractCut, canStretchContextualCut } from "@/lib/stretch-provision";
+import { applyContextualContractCut, contextualStretchYears } from "@/lib/stretch-provision";
 
 const auctionPath = "/admin/asta";
 type AuctionEditKind = "cut" | "free_release" | "slot";
@@ -94,7 +94,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
         name: entry.name,
         slot: entry.slot as AuctionSlot,
         cuttable: true,
-        stretchEligible: canStretchContextualCut(entry, currentEndYear),
+        stretchOptions: contextualStretchYears(entry, currentEndYear),
         freeReleasable: freeReleaseReasonAvailability(
           "one_credit_team_option",
           moment,
@@ -320,7 +320,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
           name: item.name,
           slot: item.slot as AuctionSlot,
           cuttable: true,
-          stretchEligible: canStretchContextualCut(item, currentEndYear),
+          stretchOptions: contextualStretchYears(item, currentEndYear),
           freeReleasable: freeReleaseReasonAvailability(
             "one_credit_team_option",
             moment,

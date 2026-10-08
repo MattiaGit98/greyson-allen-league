@@ -11,7 +11,7 @@ import { conciseMovementDetail } from "@/lib/movement-display";
 import { legalAuctionContextualDestinations } from "@/lib/auction-management";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
 import { buildRoleMinimumAlerts, formatRoleMinimumMissing } from "@/lib/admin-alerts";
-import { canStretchContextualCut } from "@/lib/stretch-provision";
+import { contextualStretchYears } from "@/lib/stretch-provision";
 
 export default async function AuctionAdminPage({
   searchParams,
@@ -87,7 +87,7 @@ export default async function AuctionAdminPage({
             teamOptionFinalYear: entry.teamOptionFinalYear,
             slot: entry.slot as "regular" | "two_way" | "g_league",
             cuttable: true,
-            stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
+            stretchOptions: contextualStretchYears(entry, seasonEndYear(seasonName) ?? 0),
             freeReleasable: freeReleaseReasonAvailability(
               "one_credit_team_option",
               leagueMoment,

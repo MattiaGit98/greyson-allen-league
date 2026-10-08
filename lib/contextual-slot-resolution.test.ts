@@ -38,9 +38,12 @@ describe("risoluzione contestuale degli slot", () => {
       decisions: [{ kind: "cut" as const, playerName: "Two-way", destinationSlot: "" as const, stretchYears: 3 as const }],
     };
     expect(resolveContextualSlots(input).errors).toContain("Two-way non è idoneo alla stretch provision contestuale.");
-    const eligible = resolveContextualSlots({ ...input, players: players.map((player) => player.name === "Two-way" ? { ...player, stretchEligible: true } : player) });
+    const eligible = resolveContextualSlots({ ...input, players: players.map((player) => player.name === "Two-way" ? { ...player, stretchOptions: [2, 3] } : player) });
     expect(eligible.complete).toBe(true);
     expect(eligible.operations).toContainEqual({ kind: "cut", playerName: "Two-way", sourceSlot: "two_way", stretchYears: 3 });
+    const twoYearsRemaining = players.map((player) => player.name === "Two-way" ? { ...player, stretchOptions: [3 as const] } : player);
+    expect(resolveContextualSlots({ ...input, players: twoYearsRemaining, decisions: [{ ...input.decisions[0], stretchYears: 2 as const }] }).complete).toBe(false);
+    expect(resolveContextualSlots({ ...input, players: twoYearsRemaining }).complete).toBe(true);
     expect(() => parseContextualSlotDecisions(JSON.stringify([{ ...input.decisions[0], stretchYears: 4 }]))).toThrow();
   });
 

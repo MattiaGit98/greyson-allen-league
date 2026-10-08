@@ -28,7 +28,7 @@ type RosterPlayer = {
   role: "G" | "A" | "C" | null;
   slot: TradeSlot;
   cuttable: boolean;
-  stretchEligible: boolean;
+  stretchOptions: (2 | 3)[];
   movementDestinations: Exclude<TradeSlot, "dpe">[];
   allowedDestinations: TradeSlot[];
   newSigning?: boolean;
@@ -991,6 +991,7 @@ function TradeTeamCard({
       newSigning: selectedPlayer.newSigning,
       capCost: selectedPlayer.capCost,
       futureCapCosts: selectedPlayer.futureCapCosts,
+      stretchOptions: selectedPlayer.stretchOptions,
       role: selectedPlayer.role,
       sourceSlot: selectedPlayer.slot,
       destinationSlot,
@@ -1033,11 +1034,16 @@ function TradeTeamCard({
 
   function addCut() {
     if (!selectedCut && !selectedReceivedCut) return;
+    const stretchOptions = selectedCut?.stretchOptions ?? selectedReceivedCut?.stretchOptions ?? [];
+    const yearlyCost = selectedCut?.cost ?? selectedReceivedCut!.cost;
     onAddCut({
       id: cutId,
       teamCode: team.code,
       name: selectedCut?.name ?? selectedReceivedCut!.name,
       cost: selectedCut?.capCost ?? selectedReceivedCut!.capCost,
+      futureCapCosts: selectedCut?.futureCapCosts ?? selectedReceivedCut!.futureCapCosts,
+      stretchOptions,
+      stretchResidualCost: yearlyCost * (stretchOptions.length === 1 && stretchOptions[0] === 3 ? 2 : 1),
       contract: selectedCut?.contract ?? selectedReceivedCut!.contract,
       role: selectedCut?.role ?? selectedReceivedCut!.role,
       slot: selectedCut?.slot ?? selectedReceivedCut!.destinationSlot,
@@ -1241,8 +1247,8 @@ function TradeTeamCard({
                 <div className="trade-cut-entry" key={cut.id}>
                   <p><span><strong>{cut.name}</strong><small>libera {slotLabel(cut.slot)} · resta a cap</small></span><button type="button" onClick={() => onRemoveCut(cut.id)} aria-label={`Rimuovi ${cut.name}`}>×</button></p>
                   <div className="trade-cut-stretch">
-                    <label><input type="checkbox" checked={cut.stretchYears != null} disabled={!source?.stretchEligible} onChange={(event) => onUpdateCut(cut.id, event.target.checked ? 2 : null)} />Stretch provision</label>
-                    <select aria-label={`Durata stretch provision per ${cut.name}`} value={cut.stretchYears ?? 2} disabled={cut.stretchYears == null || !source?.stretchEligible} onChange={(event) => onUpdateCut(cut.id, Number(event.target.value) as 2 | 3)}><option value={2}>2 anni</option><option value={3}>3 anni</option></select>
+                    <label><input type="checkbox" checked={cut.stretchYears != null} disabled={!source?.stretchOptions.length} onChange={(event) => onUpdateCut(cut.id, event.target.checked ? source?.stretchOptions[0] ?? null : null)} />Stretch provision</label>
+                    <select aria-label={`Durata stretch provision per ${cut.name}`} value={cut.stretchYears ?? source?.stretchOptions[0] ?? 2} disabled={cut.stretchYears == null || !source?.stretchOptions.length} onChange={(event) => onUpdateCut(cut.id, Number(event.target.value) as 2 | 3)}>{(source?.stretchOptions.length ? source.stretchOptions : [2, 3]).map((years) => <option value={years} key={years}>{years} anni</option>)}</select>
                   </div>
                 </div>
               );
@@ -1637,8 +1643,15 @@ function hydrateTradeImport(
     const source = playerById.get(cut.id);
     const receivedMove = playerMoves.find((move) => move.id === cut.id);
     const ownerCode = receivedMove?.toTeamCode ?? source?.team.code;
-    if (!source || ownerCode !== cut.teamCode || !participants.has(cut.teamCode) || !source.player.cuttable || (cut.stretchYears != null && (!source.player.stretchEligible || (cut.stretchYears !== 2 && cut.stretchYears !== 3)))) throw new Error("Un taglio contestuale non è più consentito.");
-    return { id: source.player.id, teamCode: cut.teamCode, name: source.player.name, cost: source.player.capCost, contract: source.player.contract, role: source.player.role, slot: receivedMove?.destinationSlot ?? source.player.slot, stretchYears: cut.stretchYears ?? null };
+    if (!source || ownerCode !== cut.teamCode || !participants.has(cut.teamCode) || !source.player.cuttable || (cut.stretchYears != null && !source.player.stretchOptions.includes(cut.stretchYears))) throw new Error("Un taglio contestuale non è più consentito.");
+    return {
+      id: source.player.id, teamCode: cut.teamCode, name: source.player.name,
+      cost: source.player.capCost, contract: source.player.contract, role: source.player.role,
+      slot: receivedMove?.destinationSlot ?? source.player.slot, stretchYears: cut.stretchYears ?? null,
+      stretchOptions: source.player.stretchOptions,
+      stretchResidualCost: source.player.cost * (source.player.stretchOptions.length === 1 && source.player.stretchOptions[0] === 3 ? 2 : 1),
+      futureCapCosts: source.player.futureCapCosts,
+    };
   });
 
   ensureUnique(payload.promotions.map((promotion) => promotion.id), "Lo stesso spostamento compare più volte nel testo.");

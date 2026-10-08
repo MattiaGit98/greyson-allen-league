@@ -11,7 +11,7 @@ import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualify
 import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { requireActiveSeason } from "@/lib/active-season";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
-import { canStretchContextualCut } from "@/lib/stretch-provision";
+import { contextualStretchYears } from "@/lib/stretch-provision";
 
 export default async function TradesPage({
   searchParams,
@@ -128,7 +128,7 @@ export default async function TradesPage({
         })(),
         slot: entry.slot,
         cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
-        stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
+        stretchOptions: contextualStretchYears(entry, seasonEndYear(seasonName) ?? 0),
         movementDestinations: entry.slot === "dpe"
           ? []
           : legalSlotDestinations(

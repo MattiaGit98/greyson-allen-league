@@ -6,7 +6,7 @@ import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligib
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
-import { canStretchContextualCut } from "@/lib/stretch-provision";
+import { contextualStretchYears } from "@/lib/stretch-provision";
 
 export default async function FreeAgentPage({ searchParams }: { searchParams: Promise<{ error?: string; updated?: string }> }) {
   const query = await searchParams;
@@ -78,7 +78,13 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
         cost: entry.cost,
         contract: entry.contract,
         cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
-        stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
+        stretchOptions: contextualStretchYears(entry, seasonEndYear(seasonName) ?? 0),
+        charges: [0, 1, 2].map((distance) => 1000 - calculateCapSpace({
+          entries: [entry],
+          seasonName: followingSeasonName(seasonName, distance),
+          optionSeasonName: seasonName,
+          countTeamOptions: true,
+        })) as [number, number, number],
         moveDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment, seasonName)
           ? []
           : legalSlotDestinations(

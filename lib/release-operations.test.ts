@@ -108,16 +108,23 @@ describe("tagli e rilasci", () => {
 
 describe("stretch provision", () => {
   it("divide il residuo in due rate equivalenti", () => {
-    expect(stretchCapSpaces([100, 100, 100], 10, 2)).toEqual({
+    expect(stretchCapSpaces([100, 100, 100], [10, 0, 0], 2)).toEqual({
       installment: 5,
       spacesAfter: [105, 95, 100],
     });
   });
 
   it("distribuisce il residuo in tre rate arrotondate per eccesso", () => {
-    expect(stretchCapSpaces([100, 100, 100], 10, 3)).toEqual({
+    expect(stretchCapSpaces([100, 100, 100], [10, 0, 0], 3)).toEqual({
       installment: 4,
       spacesAfter: [106, 96, 96],
+    });
+  });
+
+  it("distribuisce il costo di due stagioni residue in tre rate", () => {
+    expect(stretchCapSpaces([100, 100, 100], [11, 11, 0], 3)).toEqual({
+      installment: 8,
+      spacesAfter: [103, 103, 92],
     });
   });
 });
