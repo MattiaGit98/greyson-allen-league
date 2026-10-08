@@ -17,6 +17,29 @@ const baseInput = {
 };
 
 describe("evaluateFreeAgentSigning", () => {
+  it("valuta il cap dopo la stretch contestuale e mostra lo spazio precedente originale", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      currentCost: 1090,
+      price: 20,
+      contextualCutSavings: 20,
+      contextualCuts: [{ role: "A", slot: "regular" }],
+    });
+    expect(result.calculated.spaceBefore).toBe(-90);
+    expect(result.calculated.costAfter).toBe(1090);
+    expect(result.warnings.some((warning) => warning.code.includes("CAP"))).toBe(false);
+  });
+  it("consente una firma da un credito che riduce il cap già oltre soglia grazie alla stretch", () => {
+    const result = evaluateFreeAgentSigning({
+      ...baseInput,
+      currentCost: 1120,
+      price: 1,
+      contextualCutSavings: 10,
+      contextualCuts: [{ role: "A", slot: "regular" }],
+    });
+    expect(result.calculated.costAfter).toBe(1111);
+    expect(result.warnings.some((warning) => warning.code === "IN_SEASON_FROZEN")).toBe(false);
+  });
   it("assigns the annual contract with Q.O. only through the trade deadline", () => {
     expect(automaticFreeAgentContract("2026/27", false)).toBe("27 (Q)");
     expect(automaticFreeAgentContract("2026/27", true)).toBe("27");

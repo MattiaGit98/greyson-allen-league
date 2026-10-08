@@ -1,11 +1,12 @@
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { calculateCapSpace } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { FreeAgentPanel } from "./free-agent-panel";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
 import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
+import { canStretchContextualCut } from "@/lib/stretch-provision";
 
 export default async function FreeAgentPage({ searchParams }: { searchParams: Promise<{ error?: string; updated?: string }> }) {
   const query = await searchParams;
@@ -55,6 +56,12 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
       optionSeasonName: seasonName,
       countTeamOptions: true,
     }),
+    futureSpaces: [1, 2].map((distance) => calculateCapSpace({
+      entries: leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code),
+      seasonName: followingSeasonName(seasonName, distance),
+      optionSeasonName: seasonName,
+      countTeamOptions: true,
+    })) as [number, number],
     cutPlayerNames: leagueState.rosterEntries
       .filter((entry) => entry.teamCode === team.code && entry.state === "cut")
       .map((entry) => entry.name)
@@ -71,6 +78,7 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
         cost: entry.cost,
         contract: entry.contract,
         cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
+        stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
         moveDestinations: entry.slot === "dpe" || isUnresolvedTeamOption(entry, leagueMoment, seasonName)
           ? []
           : legalSlotDestinations(

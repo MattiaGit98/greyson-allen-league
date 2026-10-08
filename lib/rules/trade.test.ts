@@ -23,6 +23,50 @@ const teams: TradeTeamState[] = [
 ];
 
 describe("trade rules", () => {
+  it("conteggia le rate della stretch per il taglio contestuale della squadra ricevente", () => {
+    const result = evaluateTrade({
+      phase: "offseason",
+      teams: [
+        { ...teams[0], futureCosts: [{ seasonName: "2027/28", currentCost: 500 }, { seasonName: "2028/29", currentCost: 500 }] },
+        { ...teams[1], futureCosts: [{ seasonName: "2027/28", currentCost: 400 }, { seasonName: "2028/29", currentCost: 400 }] },
+      ],
+      playerMoves: [{ id: "received", fromTeamCode: "BBB", toTeamCode: "AAA", cost: 11, capCost: 11, role: "G", sourceSlot: "regular", destinationSlot: "regular", futureCapCosts: { "2027/28": 0, "2028/29": 0 } }],
+      pickMoves: [],
+      cuts: [{ id: "received", teamCode: "AAA", cost: 11, role: "G", slot: "regular", stretchYears: 3 }],
+    });
+    expect(result.calculated.teamResults.find((team) => team.code === "AAA")).toMatchObject({
+      costAfter: 704,
+      futureCaps: [{ costAfter: 504 }, { costAfter: 504 }],
+    });
+  });
+  it("allows a team to cut a player received in the same trade", () => {
+    const playerMoves = [{
+      id: "received",
+      fromTeamCode: "BBB",
+      toTeamCode: "AAA",
+      cost: 20,
+      capCost: 20,
+      role: "G" as const,
+      sourceSlot: "two_way" as const,
+      destinationSlot: "regular" as const,
+      allowedDestinationSlots: ["regular" as const],
+    }];
+    const input = {
+      phase: "offseason",
+      teams: [teams[0], teams[1]],
+      playerMoves,
+      pickMoves: [],
+      cuts: [{ id: "received", teamCode: "AAA", cost: 20, role: "G" as const, slot: "regular" as const }],
+    };
+    const result = evaluateTrade(input);
+    expect(result.errors.some((error) => error.code === "TRADE_CUT_DUPLICATE")).toBe(false);
+    expect(result.calculated.teamResults.find((team) => team.code === "AAA")).toMatchObject({
+      slots: { regular: 15 },
+      roles: { G: 5 },
+      costAfter: 720,
+    });
+    expect(evaluateTrade({ ...input, cuts: [{ ...input.cuts[0], teamCode: "BBB" }] }).errors.some((error) => error.code === "TRADE_CUT_DUPLICATE")).toBe(true);
+  });
   it("keeps a regular-season trade registrable while pricing the mandatory role restoration", () => {
     const result = evaluateTrade({
       phase: "regular_season",

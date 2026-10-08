@@ -1,4 +1,4 @@
-import type { AuctionAcquisitionKind, RosterEntry } from "./league-types";
+import type { AuctionAcquisitionKind, PlayerListEntry, RosterEntry } from "./league-types";
 import type { LeagueMoment } from "./league-moments";
 import { assignedAuctionContract } from "./rules/contracts";
 import {
@@ -18,6 +18,10 @@ export const auctionSlotLimits: AuctionSlotCounts = {
   two_way: 2,
   g_league: 3,
 };
+
+export function isAuctionablePlayerRole(role: PlayerListEntry["role"]) {
+  return role !== "X";
+}
 
 export function auctionContractAtPurchase({
   price,

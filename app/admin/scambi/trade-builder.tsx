@@ -28,6 +28,7 @@ type RosterPlayer = {
   role: "G" | "A" | "C" | null;
   slot: TradeSlot;
   cuttable: boolean;
+  stretchEligible: boolean;
   movementDestinations: Exclude<TradeSlot, "dpe">[];
   allowedDestinations: TradeSlot[];
   newSigning?: boolean;
@@ -103,7 +104,7 @@ type TradeImportPayload = {
   playerMoves: Pick<TradePlayerMove, "id" | "fromTeamCode" | "toTeamCode" | "destinationSlot">[];
   pickMoves: Pick<TradePickMove, "id" | "fromTeamCode" | "toTeamCode">[];
   qualifyingOfferMoves: TradeQualifyingOfferMove[];
-  cuts: Pick<TradeCut, "id" | "teamCode">[];
+  cuts: Pick<TradeCut, "id" | "teamCode" | "stretchYears">[];
   promotions: TradePromotion[];
   pickClauses: Pick<TradePickClauseAgreement, "pickId" | "clause" | "counterpartyPickId">[];
   existingClauseAgreementIds: string[];
@@ -357,7 +358,8 @@ export function TradeBuilder({
     setQualifyingOfferMoves((current) => current.filter((move) => (
       move.fromTeamCode !== previousCode && move.toTeamCode !== previousCode
     )));
-    setCuts((current) => current.filter((cut) => cut.teamCode !== previousCode));
+    const removedPlayerIds = new Set(playerMoves.filter((move) => move.fromTeamCode === previousCode || move.toTeamCode === previousCode).map((move) => move.id));
+    setCuts((current) => current.filter((cut) => cut.teamCode !== previousCode && !removedPlayerIds.has(cut.id)));
     setPromotions((current) => current.filter((promotion) => promotion.teamCode !== previousCode));
     setExistingClauseChanges([]);
   }
@@ -380,7 +382,8 @@ export function TradeBuilder({
     setQualifyingOfferMoves((current) => current.filter((move) => (
       move.fromTeamCode !== teamCode && move.toTeamCode !== teamCode
     )));
-    setCuts((current) => current.filter((cut) => cut.teamCode !== teamCode));
+    const removedPlayerIds = new Set(playerMoves.filter((move) => move.fromTeamCode === teamCode || move.toTeamCode === teamCode).map((move) => move.id));
+    setCuts((current) => current.filter((cut) => cut.teamCode !== teamCode && !removedPlayerIds.has(cut.id)));
     setPromotions((current) => current.filter((promotion) => promotion.teamCode !== teamCode));
     setExistingClauseChanges([]);
   }
@@ -617,13 +620,14 @@ export function TradeBuilder({
             onTeamChange={(nextCode) => changeParticipant(team.code, nextCode)}
             onRemove={() => removeParticipant(team.code)}
             onAddPlayer={(move) => { invalidateTradeConfirmations(); setPlayerMoves((current) => [...current, move]); }}
-            onRemovePlayer={(id) => { invalidateTradeConfirmations(); setPlayerMoves((current) => current.filter((move) => move.id !== id)); }}
+            onRemovePlayer={(id) => { invalidateTradeConfirmations(); setPlayerMoves((current) => current.filter((move) => move.id !== id)); setCuts((current) => current.filter((cut) => cut.id !== id)); }}
             onAddPick={(move) => { invalidateTradeConfirmations(); setPickMoves((current) => [...current, move]); }}
             onRemovePick={(id) => { invalidateTradeConfirmations(); setPickMoves((current) => current.filter((move) => move.id !== id)); }}
             onAddQualifyingOffer={(move) => { invalidateTradeConfirmations(); setQualifyingOfferMoves((current) => [...current, move]); }}
             onRemoveQualifyingOffer={(id) => { invalidateTradeConfirmations(); setQualifyingOfferMoves((current) => current.filter((move) => move.id !== id)); }}
             onAddCut={(cut) => { invalidateTradeConfirmations(); setCuts((current) => [...current, cut]); }}
             onRemoveCut={(id) => { invalidateTradeConfirmations(); setCuts((current) => current.filter((cut) => cut.id !== id)); }}
+            onUpdateCut={(id, stretchYears) => { invalidateTradeConfirmations(); setCuts((current) => current.map((cut) => cut.id === id ? { ...cut, stretchYears } : cut)); }}
             onAddPromotion={(promotion) => { invalidateTradeConfirmations(); setPromotions((current) => [...current, promotion]); }}
             onRemovePromotion={(id) => { invalidateTradeConfirmations(); setPromotions((current) => current.filter((promotion) => promotion.id !== id)); }}
             onAddPickClause={addPickClause}
@@ -822,6 +826,7 @@ function TradeTeamCard({
   onRemoveQualifyingOffer,
   onAddCut,
   onRemoveCut,
+  onUpdateCut,
   onAddPromotion,
   onRemovePromotion,
   onAddPickClause,
@@ -860,6 +865,7 @@ function TradeTeamCard({
   onRemoveQualifyingOffer: (id: string) => void;
   onAddCut: (cut: CutMove) => void;
   onRemoveCut: (id: string) => void;
+  onUpdateCut: (id: string, stretchYears: 2 | 3 | null) => void;
   onAddPromotion: (promotion: PromotionMove) => void;
   onRemovePromotion: (id: string) => void;
   onAddPickClause: (input: {
@@ -917,12 +923,18 @@ function TradeTeamCard({
   const selectedQualifyingOffer = selectedQualifyingOfferSource?.qualifyingOffers.find(
     (offer) => offer.id === qualifyingOfferId,
   );
-  const selectedCut = team.players.find((player) => player.id === cutId);
+  const receivedPlayers = playerMoves.filter((move) => move.toTeamCode === team.code);
+  const receivedCutCandidates = receivedPlayers.filter((move) => (
+    !cuts.some((cut) => cut.id === move.id)
+    && !promotions.some((promotion) => promotion.id === move.id)
+    && otherParticipants.some((participant) => participant.players.some((player) => player.id === move.id && player.cuttable))
+  ));
+  const selectedCut = availableOwnPlayers.find((player) => player.id === cutId && player.cuttable);
+  const selectedReceivedCut = receivedCutCandidates.find((move) => move.id === cutId);
   const selectedPromotion = team.players.find((player) => player.id === promotionId);
   const allowedDestinations = selectedPlayer
     ? selectedPlayer.allowedDestinations
     : ["regular" as TradeSlot];
-  const receivedPlayers = playerMoves.filter((move) => move.toTeamCode === team.code);
   const receivedPicks = pickMoves.filter((move) => move.toTeamCode === team.code);
   const receivedQualifyingOffers = qualifyingOfferMoves.filter((move) => move.toTeamCode === team.code);
   const teamCuts = cuts.filter((cut) => cut.teamCode === team.code);
@@ -1020,15 +1032,15 @@ function TradeTeamCard({
   }
 
   function addCut() {
-    if (!selectedCut) return;
+    if (!selectedCut && !selectedReceivedCut) return;
     onAddCut({
-      id: selectedCut.id,
+      id: cutId,
       teamCode: team.code,
-      name: selectedCut.name,
-      cost: selectedCut.capCost,
-      contract: selectedCut.contract,
-      role: selectedCut.role,
-      slot: selectedCut.slot,
+      name: selectedCut?.name ?? selectedReceivedCut!.name,
+      cost: selectedCut?.capCost ?? selectedReceivedCut!.capCost,
+      contract: selectedCut?.contract ?? selectedReceivedCut!.contract,
+      role: selectedCut?.role ?? selectedReceivedCut!.role,
+      slot: selectedCut?.slot ?? selectedReceivedCut!.destinationSlot,
     });
     setCutId("");
   }
@@ -1213,18 +1225,30 @@ function TradeTeamCard({
                 {playerOptionLabel(player)}
               </option>
             ))}
+            {receivedCutCandidates.map((move) => (
+              <option value={move.id} key={move.id}>
+                {move.name} · ricevuto · {slotLabel(move.destinationSlot)}
+              </option>
+            ))}
           </select>
-          <button type="button" onClick={addCut} disabled={!selectedCut}>Taglia</button>
+          <button type="button" onClick={addCut} disabled={!selectedCut && !selectedReceivedCut}>Taglia</button>
         </div>
-        <AssetList
-          items={teamCuts.map((cut) => ({
-            id: cut.id,
-            primary: cut.name,
-            secondary: `libera ${slotLabel(cut.slot)} · resta a cap`,
-          }))}
-          empty="Nessun taglio"
-          onRemove={onRemoveCut}
-        />
+        {teamCuts.length ? (
+          <div className="trade-asset-list trade-cut-list">
+            {teamCuts.map((cut) => {
+              const source = allTeams.flatMap((candidate) => candidate.players).find((player) => player.id === cut.id);
+              return (
+                <div className="trade-cut-entry" key={cut.id}>
+                  <p><span><strong>{cut.name}</strong><small>libera {slotLabel(cut.slot)} · resta a cap</small></span><button type="button" onClick={() => onRemoveCut(cut.id)} aria-label={`Rimuovi ${cut.name}`}>×</button></p>
+                  <div className="trade-cut-stretch">
+                    <label><input type="checkbox" checked={cut.stretchYears != null} disabled={!source?.stretchEligible} onChange={(event) => onUpdateCut(cut.id, event.target.checked ? 2 : null)} />Stretch provision</label>
+                    <select aria-label={`Durata stretch provision per ${cut.name}`} value={cut.stretchYears ?? 2} disabled={cut.stretchYears == null || !source?.stretchEligible} onChange={(event) => onUpdateCut(cut.id, Number(event.target.value) as 2 | 3)}><option value={2}>2 anni</option><option value={3}>3 anni</option></select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <small className="trade-empty">Nessun taglio</small>}
       </section>
 
       <section className="trade-asset-section cut">
@@ -1434,7 +1458,7 @@ export function tradeSimulationRecap({
     const operations = [
       ...cuts
         .filter((cut) => cut.teamCode === teamCode)
-        .map((cut) => `Taglio contestuale: ${cut.name}`),
+        .map((cut) => `Taglio contestuale: ${cut.name}${cut.stretchYears ? ` (stretch provision in ${cut.stretchYears} anni)` : ""}`),
       ...promotions
         .filter((promotion) => promotion.teamCode === teamCode)
         .map((promotion) => `Spostamento: ${promotion.name}, ${slotLabel(promotion.sourceSlot)} -> ${slotLabel(promotion.destinationSlot)}`),
@@ -1476,7 +1500,7 @@ function tradeImportPayload(input: Omit<TradeImportPayload, "version" | "existin
     playerMoves: input.playerMoves.map(({ id, fromTeamCode, toTeamCode, destinationSlot }) => ({ id, fromTeamCode, toTeamCode, destinationSlot })),
     pickMoves: input.pickMoves.map(({ id, fromTeamCode, toTeamCode }) => ({ id, fromTeamCode, toTeamCode })),
     qualifyingOfferMoves: input.qualifyingOfferMoves.map(({ id, fromTeamCode, toTeamCode }) => ({ id, fromTeamCode, toTeamCode })),
-    cuts: input.cuts.map(({ id, teamCode }) => ({ id, teamCode })),
+    cuts: input.cuts.map(({ id, teamCode, stretchYears }) => ({ id, teamCode, stretchYears: stretchYears ?? null })),
     promotions: input.promotions.map(({ id, teamCode, sourceSlot, destinationSlot }) => ({ id, teamCode, sourceSlot, destinationSlot })),
     pickClauses: input.pickClauses.map(({ pickId, clause, counterpartyPickId }) => ({ pickId, clause, counterpartyPickId })),
     existingClauseAgreementIds: input.existingClauseChanges.map((change) => change.agreementId),
@@ -1611,8 +1635,10 @@ function hydrateTradeImport(
   ensureUnique(payload.cuts.map((cut) => cut.id), "Lo stesso taglio compare più volte nel testo.");
   const cuts = payload.cuts.map((cut): CutMove => {
     const source = playerById.get(cut.id);
-    if (!source || source.team.code !== cut.teamCode || !participants.has(cut.teamCode) || !source.player.cuttable) throw new Error("Un taglio contestuale non è più consentito.");
-    return { id: source.player.id, teamCode: cut.teamCode, name: source.player.name, cost: source.player.capCost, contract: source.player.contract, role: source.player.role, slot: source.player.slot };
+    const receivedMove = playerMoves.find((move) => move.id === cut.id);
+    const ownerCode = receivedMove?.toTeamCode ?? source?.team.code;
+    if (!source || ownerCode !== cut.teamCode || !participants.has(cut.teamCode) || !source.player.cuttable || (cut.stretchYears != null && (!source.player.stretchEligible || (cut.stretchYears !== 2 && cut.stretchYears !== 3)))) throw new Error("Un taglio contestuale non è più consentito.");
+    return { id: source.player.id, teamCode: cut.teamCode, name: source.player.name, cost: source.player.capCost, contract: source.player.contract, role: source.player.role, slot: receivedMove?.destinationSlot ?? source.player.slot, stretchYears: cut.stretchYears ?? null };
   });
 
   ensureUnique(payload.promotions.map((promotion) => promotion.id), "Lo stesso spostamento compare più volte nel testo.");
@@ -1625,7 +1651,8 @@ function hydrateTradeImport(
   });
 
   const unavailablePlayerIds = new Set([...playerMoves, ...cuts, ...promotions].map((move) => move.id));
-  if (unavailablePlayerIds.size !== playerMoves.length + cuts.length + promotions.length) throw new Error("Un giocatore è indicato per operazioni incompatibili.");
+  const allowedReceivedCuts = cuts.filter((cut) => playerMoves.some((move) => move.id === cut.id && move.toTeamCode === cut.teamCode));
+  if (unavailablePlayerIds.size !== playerMoves.length + cuts.length + promotions.length - allowedReceivedCuts.length) throw new Error("Un giocatore è indicato per operazioni incompatibili.");
   const pickMoveById = new Map(pickMoves.map((move) => [move.id, move]));
   const postTradeOwner = (pickId: string) => pickMoveById.get(pickId)?.toTeamCode ?? pickById.get(pickId)?.team.code ?? "";
   const conditionedPickIds = new Set<string>();

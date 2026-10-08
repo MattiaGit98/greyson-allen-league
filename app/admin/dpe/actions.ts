@@ -24,6 +24,8 @@ export async function applyDpeOperation(formData: FormData) {
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const dpeCutConfirmed = formData.get("dpe_cut_confirmed") === "true";
   const expectedCutPlayerName = String(formData.get("dpe_cut_player_name") ?? "").trim();
+  const rawStretchYears = String(formData.get("dpe_stretch_years") ?? "").trim();
+  const cutStretchYears = rawStretchYears === "" ? null : Number(rawStretchYears);
   if (!teamCode || !playerName || !["dpe_activate", "dpe_reintegrate"].includes(operation)) fail("Operazione DPE non valida.");
 
   const supabase = await createSupabaseServerClient();
@@ -66,7 +68,11 @@ export async function applyDpeOperation(formData: FormData) {
     if (!incumbent && (dpeCutConfirmed || expectedCutPlayerName)) {
       fail("Lo slot DPE è cambiato: aggiorna la pagina e ripeti l’operazione.");
     }
+    if (cutStretchYears !== null && (cutStretchYears !== 2 && cutStretchYears !== 3 || !incumbent || !dpeCutConfirmed)) {
+      fail("Stretch provision contestuale non valida per la DPE.");
+    }
   } else {
+    if (cutStretchYears !== null) fail("Non puoi applicare una stretch provision durante il reintegro.");
     if (entry.slot !== "dpe") fail("Il giocatore non è nella DPE.");
     if (teamActive.filter((item) => item.slot === "regular").length >= 15) fail("Per il reintegro serve uno slot roster libero.");
   }
@@ -74,17 +80,23 @@ export async function applyDpeOperation(formData: FormData) {
   const seasonName = season.data.name;
   const currentSeasonEndYear = seasonEndYear(seasonName);
   if (currentSeasonEndYear === null) fail("Annata non valida.");
-  const activation = operation === "dpe_activate"
-    ? applyDpeActivationWithOptionalCut({
-      rosterEntries: state.rosterEntries,
-      teamCode,
-      playerName,
-      expectedCutPlayerName: occupiedDpe[0]?.name ?? null,
-      seasonName,
-      currentSeasonEndYear,
-      leagueMoment,
-    })
-    : null;
+  let activation: ReturnType<typeof applyDpeActivationWithOptionalCut> | null = null;
+  if (operation === "dpe_activate") {
+    try {
+      activation = applyDpeActivationWithOptionalCut({
+        rosterEntries: state.rosterEntries,
+        teamCode,
+        playerName,
+        expectedCutPlayerName: occupiedDpe[0]?.name ?? null,
+        cutStretchYears: cutStretchYears as 2 | 3 | null,
+        seasonName,
+        currentSeasonEndYear,
+        leagueMoment,
+      });
+    } catch (error) {
+      fail(error instanceof Error ? error.message : "Taglio contestuale DPE non valido.");
+    }
+  }
   const rosterEntries: RosterEntry[] = activation?.rosterEntries ?? state.rosterEntries.map((item, index) => index === entryIndex
     ? {
       ...item,
@@ -120,7 +132,7 @@ export async function applyDpeOperation(formData: FormData) {
   const label = operation === "dpe_activate" ? "Esercizio DPE" : "Reintegro anticipato dalla DPE";
   const slotDetail = operation === "dpe_activate" ? "Roster → DPE" : "DPE → Roster";
   const cutDetail = activation?.cutPlayer
-    ? `; taglio contestuale di ${activation.cutPlayer.name} dalla DPE (costo ${activation.cutPlayer.cost}, contratto ${activation.cutPlayer.contract})`
+    ? `; taglio contestuale di ${activation.cutPlayer.name} dalla DPE (costo ${activation.cutPlayer.cost}, contratto ${activation.cutPlayer.contract})${cutStretchYears ? ` con stretch provision in ${cutStretchYears} anni` : ""}`
     : "";
   const response = await persistLeagueMovement(supabase, state, nextState, operation, `${playerName}: ${label.toLocaleLowerCase("it-IT")} per ${teamCode}; ${slotDetail}${cutDetail}`);
   if (response.error) fail(response.error.message);

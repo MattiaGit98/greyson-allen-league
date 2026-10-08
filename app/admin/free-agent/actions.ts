@@ -8,19 +8,17 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
 import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rules/free-agent";
 import { countRosterRoles } from "@/lib/rules/roster";
-import { calculateCapSpace, seasonEndYear } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
 import { requireCapCompliance } from "@/lib/cap-override";
-import {
-  applyStandardContractCut,
-  isUnresolvedTeamOption,
-} from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply, roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { orderPlayerListByRole } from "@/lib/player-list-order";
 import { parseContextualSlotDecisions, resolveContextualSlots, type AppliedContextualSlotOperation } from "@/lib/contextual-slot-resolution";
+import { applyContextualContractCut, canStretchContextualCut } from "@/lib/stretch-provision";
 
 const path = "/admin/free-agent";
 
@@ -107,6 +105,7 @@ export async function signFreeAgent(formData: FormData) {
       name: entry.name,
       slot: entry.slot as ManagedRosterSlot,
       cuttable: !isUnresolvedTeamOption(entry, moment, activeSeasonName),
+      stretchEligible: canStretchContextualCut(entry, seasonEndYear(activeSeasonName) ?? 0),
       moveDestinations: isUnresolvedTeamOption(entry, moment, activeSeasonName)
         ? []
         : legalSlotDestinations(
@@ -119,11 +118,17 @@ export async function signFreeAgent(formData: FormData) {
   });
   if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
   if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
-  const contextualCuts = new Set(slotResolution.operations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
+  const contextualCuts = new Map(slotResolution.operations.flatMap((operation) => (
+    operation.kind === "cut" ? [[operation.playerName, operation.stretchYears] as const] : []
+  )));
   const contextualMoves = new Map(slotResolution.operations.flatMap((operation) => (
     operation.kind === "move" ? [[operation.playerName, operation.destinationSlot] as const] : []
   )));
   const contextualCutEntries = managedActiveEntries.filter((entry) => contextualCuts.has(entry.name));
+  const contextualCutSavings = contextualCutEntries.reduce((total, entry) => {
+    const years = contextualCuts.get(entry.name);
+    return total + (years ? entry.cost - Math.ceil(entry.cost / years) : 0);
+  }, 0);
   const currentCost = 1000 - calculateCapSpace({
     entries: teamEntries.filter((entry) => entry.state !== "active" || entry.slot !== "dpe"),
     seasonName: seasonResponse.data.name,
@@ -135,6 +140,7 @@ export async function signFreeAgent(formData: FormData) {
     enforceRoleMinimums: roleMinimumChecksApply(seasonResponse.data.status, moment),
     freeAgentThousandLimitApplies: !hasReachedMoment(moment, "free_agency_reopening"),
     currentCost,
+    contextualCutSavings,
     price,
     destination,
     slots: {
@@ -197,7 +203,7 @@ export async function signFreeAgent(formData: FormData) {
   const rosterEntries = [
     ...state.rosterEntries.map((entry) => {
       if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
-        return applyStandardContractCut(entry, endYear, moment);
+        return applyContextualContractCut(entry, endYear, moment, contextualCuts.get(entry.name));
       }
       const moveDestination = contextualMoves.get(entry.name);
       if (moveDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: moveDestination };
@@ -232,6 +238,15 @@ export async function signFreeAgent(formData: FormData) {
       ? [`La firma porterebbe il team salary oltre quota 1100 (cap libero ${1000 - afterCost}).`]
       : []),
   ];
+  if (slotResolution.operations.some((operation) => operation.kind === "cut" && operation.stretchYears != null)) {
+    const futureSpaces = [1, 2].map((distance) => calculateCapSpace({
+      entries: rosterEntries.filter((entry) => entry.teamCode === teamCode),
+      seasonName: followingSeasonName(activeSeasonName, distance),
+      optionSeasonName: activeSeasonName,
+      countTeamOptions: true,
+    }));
+    if (futureSpaces.some((space) => space < 0)) capWarnings.push("La stretch provision contestuale non rispetta il cap delle stagioni future.");
+  }
   requireCapCompliance(capWarnings, fail);
   const nextState = {
     ...state,
@@ -266,7 +281,7 @@ function freeAgentSlotLabel(slot: string) {
 function contextualOperationSummary(operations: AppliedContextualSlotOperation[]) {
   return operations.map((operation) => (
     operation.kind === "cut"
-      ? `; taglio contestuale di ${operation.playerName}`
+      ? `; taglio contestuale di ${operation.playerName}${operation.stretchYears ? ` con stretch provision in ${operation.stretchYears} anni` : ""}`
       : operation.kind === "free_release"
         ? `; rilascio gratuito contestuale di ${operation.playerName}`
       : `; spostamento contestuale di ${operation.playerName} verso ${freeAgentSlotLabel(operation.destinationSlot)}`

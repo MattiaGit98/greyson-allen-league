@@ -5,6 +5,7 @@ import {
   auctionAcquisitionLabel,
   auctionDestinationErrors,
   isPostAuctionContractAssignmentCandidate,
+  isAuctionablePlayerRole,
   qualifyingAuctionErrors,
   auctionSlotLimits,
   type AuctionSlot,
@@ -30,8 +31,11 @@ type AuctionTeam = {
     role: "G" | "A" | "C" | null;
     cost: number;
     contract: string;
+    pendingAuctionContract: boolean;
+    teamOptionFinalYear?: number;
     slot: AuctionSlot;
     cuttable: boolean;
+    stretchEligible: boolean;
     freeReleasable: boolean;
     charges: [number, number, number];
     moveDestinations: AuctionSlot[];
@@ -96,11 +100,11 @@ export function AuctionPanel({
   const [dialogSelection, setDialogSelection] = useState<AuctionDialogSelection | null>(null);
   const selected = rows.find((row) => row.name === dialogSelection?.name) ?? null;
   const selectedDialogIsValid = Boolean(selected && (
-    (dialogSelection?.mode === "purchase" && !selected.roster)
+    (dialogSelection?.mode === "purchase" && !selected.roster && isAuctionablePlayerRole(selected.role))
     || (dialogSelection?.mode === "operations" && selected.roster)
   ));
   const filtered = useMemo(() => rows.filter((row) => (
-    (!onlyAuctionable || !row.roster)
+    (!onlyAuctionable || (!row.roster && isAuctionablePlayerRole(row.role)))
     && row.name.toLocaleLowerCase("it").includes(query.trim().toLocaleLowerCase("it"))
   )), [onlyAuctionable, query, rows]);
 
@@ -161,7 +165,7 @@ export function AuctionPanel({
             <span><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>
             <strong className="real-team">{row.realTeam || "—"}</strong>
             <AuctionStatus row={row} />
-            <button className={`auction-row-action ${row.roster ? "edit" : "bid"}`} type="button" onClick={() => setDialogSelection({
+            <button className={`auction-row-action ${row.roster ? "edit" : "bid"}`} type="button" disabled={!row.roster && !isAuctionablePlayerRole(row.role)} onClick={() => setDialogSelection({
               name: row.name,
               mode: row.roster ? "operations" : "purchase",
             })}>
@@ -214,6 +218,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     name: player.name,
     slot: player.slot,
     cuttable: player.cuttable,
+    stretchEligible: player.stretchEligible,
     freeReleasable: player.freeReleasable,
     moveDestinations: player.moveDestinations,
   }));
@@ -240,10 +245,31 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
   const releasedCap = slotResolution.operations
     .filter((operation) => operation.kind === "free_release")
     .reduce((total, operation) => total + (team?.players.find((player) => player.name === operation.playerName)?.charges[0] ?? 0), 0);
-  const capAfterPurchase = team ? team.spaces[0] - effectivePrice + releasedCap : 0;
+  const stretchedCap = slotResolution.operations
+    .reduce((total, operation) => {
+      if (operation.kind !== "cut" || operation.stretchYears == null) return total;
+      const cutPlayer = team?.players.find((player) => player.name === operation.playerName);
+      return total + (cutPlayer ? cutPlayer.charges[0] - Math.ceil(cutPlayer.cost / operation.stretchYears) : 0);
+    }, 0);
+  const capAfterPurchase = team ? team.spaces[0] - effectivePrice + releasedCap + stretchedCap : 0;
   const capWarnings = (team && capAfterPurchase < 0 && effectivePrice > 1)
     ? [`L'offerta supera quota 1000: in asta sarebbe consentito soltanto un acquisto da 1 credito (cap libero ${team.spaces[0]} → ${capAfterPurchase}).`]
     : [];
+  if (team && slotResolution.operations.some((operation) => operation.kind === "cut" && operation.stretchYears != null)) {
+    const futureSpaces = [1, 2].map((distance) => team.spaces[distance] + slotResolution.operations.reduce((delta, operation) => {
+      const incumbent = team.players.find((candidate) => candidate.name === operation.playerName);
+      if (!incumbent) return delta;
+      if (operation.kind === "free_release") return delta + incumbent.charges[distance];
+      if (operation.kind === "cut" && operation.stretchYears != null) {
+        return delta + incumbent.charges[distance] - (distance < operation.stretchYears ? Math.ceil(incumbent.cost / operation.stretchYears) : 0);
+      }
+      if (operation.kind === "move" && operation.destinationSlot !== "regular" && !incumbent.pendingAuctionContract && !contractIncludesTeamOption(incumbent)) {
+        return delta + incumbent.charges[distance];
+      }
+      return delta;
+    }, 0));
+    if (futureSpaces.some((space) => space < 0)) capWarnings.push("La stretch provision contestuale non rispetta il cap delle stagioni future.");
+  }
   const afterSlots = team ? slotResolution.countsAfter : null;
   const slotLimit = effectiveSlot === "regular" ? 15 : effectiveSlot === "two_way" ? 2 : 3;
   const slotErrors = slotResolution.errors;
@@ -512,6 +538,11 @@ function editSpaces(
         movedRoster.charges.forEach((charge, index) => { after[index] += charge; });
       } else if (operation.kind === "move") {
         releaseFutureCapForSpecialSlot(after, movedRoster, operation.destinationSlot);
+      } else if (operation.kind === "cut" && operation.stretchYears != null) {
+        const installment = Math.ceil(movedRoster.cost / operation.stretchYears);
+        after[0] += movedRoster.charges[0] - installment;
+        after[1] += movedRoster.charges[1] - installment;
+        if (operation.stretchYears === 3) after[2] += movedRoster.charges[2] - installment;
       }
     }
     return after;

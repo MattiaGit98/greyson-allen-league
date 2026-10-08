@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { applyFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
+import { applyFreeRelease, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
 
 describe("tagli e rilasci", () => {
+  it("rimuove del tutto dalla squadra chi viene rilasciato perché non è più in NBA", () => {
+    const roster = [
+      { name: "Fuori NBA", cost: 12, contract: "28", state: "active" as const, slot: "regular" as const, teamCode: "AAA" },
+      { name: "Altro", cost: 5, contract: "27", state: "active" as const, slot: "regular" as const, teamCode: "AAA" },
+    ];
+    expect(rosterAfterFreeRelease(roster, 0, "no_nba_roster", 2027)).toEqual([roster[1]]);
+    expect(rosterAfterFreeRelease(roster, 0, "under_half_games", 2027)[0]).toMatchObject({ name: "Fuori NBA", state: "cut", cost: 0 });
+  });
   it("prolunga di un anno la T.O. playoff rilasciata, anche dopo il cambio di annata", () => {
     const entry = { name: "Playoff", cost: 1, contract: "T.O.", state: "active" as const, slot: "g_league" as const, teamCode: "AAA", playoffTeamOptionUsedSeason: "2026/27" };
     expect(applyFreeRelease(entry, 2028)).toMatchObject({ cost: 0, contract: "28", state: "cut", playoffTeamOptionUsedSeason: undefined });

@@ -1,12 +1,13 @@
 import type { RosterEntry } from "./league-types";
 import type { LeagueMoment } from "./league-moments";
-import { applyStandardContractCut } from "./team-option-contract";
+import { applyContextualContractCut, type StretchYears } from "./stretch-provision";
 
 export function applyDpeActivationWithOptionalCut(input: {
   rosterEntries: RosterEntry[];
   teamCode: string;
   playerName: string;
   expectedCutPlayerName?: string | null;
+  cutStretchYears?: StretchYears | null;
   seasonName: string;
   currentSeasonEndYear: number;
   leagueMoment: LeagueMoment;
@@ -32,6 +33,7 @@ export function applyDpeActivationWithOptionalCut(input: {
   if (!incumbent && input.expectedCutPlayerName) {
     throw new Error("Lo slot DPE è cambiato: aggiorna la pagina e ripeti l’operazione.");
   }
+  if (!incumbent && input.cutStretchYears != null) throw new Error("Non c'è un giocatore DPE da tagliare con stretch provision.");
 
   const rosterEntries = input.rosterEntries.map((entry, index) => {
     if (index === targetIndex) {
@@ -42,7 +44,7 @@ export function applyDpeActivationWithOptionalCut(input: {
       };
     }
     if (incumbent && index === incumbent.index) {
-      return applyStandardContractCut(entry, input.currentSeasonEndYear, input.leagueMoment);
+      return applyContextualContractCut(entry, input.currentSeasonEndYear, input.leagueMoment, input.cutStretchYears ?? null);
     }
     return entry;
   });

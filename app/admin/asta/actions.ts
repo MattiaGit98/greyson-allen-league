@@ -7,6 +7,7 @@ import {
   auctionContractAtPurchase,
   auctionDestinationErrors,
   isPostAuctionContractAssignmentCandidate,
+  isAuctionablePlayerRole,
   legalAuctionContextualDestinations,
   qualifyingAuctionErrors,
   type AuctionSlot,
@@ -25,6 +26,7 @@ import { freeReleaseReasonAvailability } from "@/lib/free-release";
 import { applyFreeRelease } from "@/lib/release-operations";
 import { inheritedDpeSeasons } from "@/lib/dpe-rules";
 import { parseContextualSlotDecisions, resolveContextualSlots, type AppliedContextualSlotOperation } from "@/lib/contextual-slot-resolution";
+import { applyContextualContractCut, canStretchContextualCut } from "@/lib/stretch-provision";
 
 const auctionPath = "/admin/asta";
 type AuctionEditKind = "cut" | "free_release" | "slot";
@@ -53,6 +55,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   }
   const player = state.playerList.find((item) => item.name === playerName);
   if (!player) fail("Il giocatore non è presente nel listone.");
+  if (!isAuctionablePlayerRole(player.role)) fail("Un giocatore senza ruolo non può essere acquistato all'asta.");
   if (!state.teams.some((team) => team.code === teamCode)) fail("Squadra non valida.");
   if (state.rosterEntries.some((entry) => entry.name === playerName && entry.state === "active")) {
     fail("Il giocatore appartiene già a una squadra.");
@@ -91,6 +94,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
         name: entry.name,
         slot: entry.slot as AuctionSlot,
         cuttable: true,
+        stretchEligible: canStretchContextualCut(entry, currentEndYear),
         freeReleasable: freeReleaseReasonAvailability(
           "one_credit_team_option",
           moment,
@@ -114,7 +118,9 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   });
   if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
   if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
-  const contextualCuts = new Set(slotResolution.operations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
+  const contextualCuts = new Map(slotResolution.operations.flatMap((operation) => (
+    operation.kind === "cut" ? [[operation.playerName, operation.stretchYears] as const] : []
+  )));
   const contextualFreeReleases = new Set(slotResolution.operations.filter((operation) => operation.kind === "free_release").map((operation) => operation.playerName));
   const contextualMoves = new Map(slotResolution.operations.flatMap((operation) => (
     operation.kind === "move" ? [[operation.playerName, operation.destinationSlot] as const] : []
@@ -145,7 +151,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
         return applyFreeRelease(entry, currentEndYear);
       }
       if (contextualCuts.has(entry.name) && entry.teamCode === teamCode && entry.state === "active") {
-        return applyStandardContractCut(entry, currentEndYear, "auction_start");
+        return applyContextualContractCut(entry, currentEndYear, "auction_start", contextualCuts.get(entry.name));
       }
       const moveDestination = contextualMoves.get(entry.name);
       if (moveDestination && entry.teamCode === teamCode && entry.state === "active") return { ...entry, slot: moveDestination };
@@ -159,6 +165,10 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   const capWarnings = afterSpace < 0 && price > 1
     ? [`Oltre quota 1000, in asta si può acquistare soltanto per 1 credito (cap libero ${afterSpace}).`]
     : [];
+  if (slotResolution.operations.some((operation) => operation.kind === "cut" && operation.stretchYears != null)
+    && capSpaces(rosterEntries, teamCode, season.name).slice(1).some((space) => space < 0)) {
+    capWarnings.push("La stretch provision contestuale non rispetta il cap delle stagioni future.");
+  }
   requireCapCompliance(capWarnings, fail);
   const nextState: EditableLeagueState = {
     ...state,
@@ -194,7 +204,7 @@ function acquisitionSummary(outcome: QualifyingAuctionOutcome) {
 function contextualOperationSummary(operations: AppliedContextualSlotOperation[]) {
   return operations.map((operation) => (
     operation.kind === "cut"
-      ? `; taglio contestuale di ${operation.playerName}`
+      ? `; taglio contestuale di ${operation.playerName}${operation.stretchYears ? ` con stretch provision in ${operation.stretchYears} anni` : ""}`
       : operation.kind === "free_release"
         ? `; rilascio gratuito contestuale di ${operation.playerName}`
       : `; spostamento contestuale di ${operation.playerName} verso ${slotLabel(operation.destinationSlot)}`
@@ -310,6 +320,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
           name: item.name,
           slot: item.slot as AuctionSlot,
           cuttable: true,
+          stretchEligible: canStretchContextualCut(item, currentEndYear),
           freeReleasable: freeReleaseReasonAvailability(
             "one_credit_team_option",
             moment,
@@ -334,7 +345,9 @@ export async function modifyAuctionPlayer(formData: FormData) {
     if (slotResolution.errors.length) fail(slotResolution.errors.join(" "));
     if (!slotResolution.complete) fail("Completa le operazioni contestuali necessarie per liberare gli slot.");
     contextualOperations = slotResolution.operations;
-    const contextualCuts = new Set(contextualOperations.filter((operation) => operation.kind === "cut").map((operation) => operation.playerName));
+    const contextualCuts = new Map(contextualOperations.flatMap((operation) => (
+      operation.kind === "cut" ? [[operation.playerName, operation.stretchYears] as const] : []
+    )));
     const contextualFreeReleases = new Set(contextualOperations.filter((operation) => operation.kind === "free_release").map((operation) => operation.playerName));
     const contextualMoves = new Map(contextualOperations.flatMap((operation) => (
       operation.kind === "move" ? [[operation.playerName, operation.destinationSlot] as const] : []
@@ -346,7 +359,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
       if (contextualFreeReleases.has(item.name)) {
         return applyFreeRelease(item, currentEndYear);
       }
-      if (contextualCuts.has(item.name)) return applyStandardContractCut(item, currentEndYear, moment);
+      if (contextualCuts.has(item.name)) return applyContextualContractCut(item, currentEndYear, moment, contextualCuts.get(item.name));
       const moveDestination = contextualMoves.get(item.name);
       if (moveDestination) return applyAuctionSlotMove(item, moveDestination, currentEndYear, season.name);
       return item;
@@ -479,7 +492,7 @@ function modificationDetail(kind: AuctionEditKind, entry: RosterEntry, newSlot: 
   if (kind === "free_release") return `rilasciato gratuitamente da ${entry.teamCode}`;
   const contextualDetail = contextualOperations.map((operation) => (
     operation.kind === "cut"
-      ? `; taglio contestuale di ${operation.playerName}`
+      ? `; taglio contestuale di ${operation.playerName}${operation.stretchYears ? ` con stretch provision in ${operation.stretchYears} anni` : ""}`
       : operation.kind === "free_release"
         ? `; rilascio gratuito contestuale di ${operation.playerName}`
       : `; ${operation.playerName} spostato da ${slotLabel(operation.sourceSlot)} a ${slotLabel(operation.destinationSlot)}`

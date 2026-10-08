@@ -6,10 +6,18 @@ import {
   acquisitionKindForOutcome,
   qualifyingAuctionErrors,
   isPostAuctionContractAssignmentCandidate,
+  isAuctionablePlayerRole,
   legalAuctionContextualDestinations,
 } from "./auction-management";
 
 describe("pannello asta", () => {
+  it("esclude dall'asta i giocatori senza ruolo, anche se hanno una Q.O.", () => {
+    expect(isAuctionablePlayerRole("X")).toBe(false);
+    expect(isAuctionablePlayerRole("G")).toBe(true);
+    expect(isAuctionablePlayerRole("A")).toBe(true);
+    expect(isAuctionablePlayerRole("C")).toBe(true);
+  });
+
   it("assegna subito l'annuale alla Q.O. accettata e lascia pendenti gli altri acquisti", () => {
     expect(auctionContractAtPurchase({ price: 8, currentSeasonEndYear: 2027 })).toMatchObject({
       cost: 8,

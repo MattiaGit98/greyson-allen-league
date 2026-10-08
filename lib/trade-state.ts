@@ -39,6 +39,7 @@ export type TradeTransactionPayload = {
   cuts: {
     id: string;
     teamCode: string;
+    stretchYears?: 2 | 3 | null;
   }[];
   promotions?: {
     id: string;
@@ -150,18 +151,18 @@ export function applyValidatedTrade(
   changes: ValidatedTradeChanges,
 ): EditableLeagueState {
   const playerMoveByIndex = new Map(changes.playerMoves.map((move) => [move.stateIndex, move]));
-  const cutIndexes = new Set(changes.cuts.map((cut) => cut.stateIndex));
+  const cutByIndex = new Map(changes.cuts.map((cut) => [cut.stateIndex, cut]));
   const promotionByIndex = new Map((changes.promotions ?? []).map((promotion) => [promotion.stateIndex, promotion]));
   const rosterEntries: RosterEntry[] = state.rosterEntries.map((entry, index) => {
     const move = playerMoveByIndex.get(index);
+    const cut = cutByIndex.get(index);
+    if (cut) {
+      return cut.entry ?? { ...entry, teamCode: move?.toTeamCode ?? entry.teamCode, state: "cut", slot: "regular" };
+    }
     if (move) {
       // Il contratto e tutti i suoi metadati restano invariati: cambiano soltanto
       // proprietario e, nei limiti consentiti, slot di destinazione.
       return { ...entry, teamCode: move.toTeamCode, slot: move.destinationSlot };
-    }
-    if (cutIndexes.has(index)) {
-      const replacement = changes.cuts.find((cut) => cut.stateIndex === index)?.entry;
-      return replacement ?? { ...entry, state: "cut", slot: "regular" };
     }
     const promotion = promotionByIndex.get(index);
     if (promotion) return { ...entry, slot: promotion.destinationSlot };

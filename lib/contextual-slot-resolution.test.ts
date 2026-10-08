@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveContextualSlots, type ContextualSlotPlayer } from "./contextual-slot-resolution";
+import { parseContextualSlotDecisions, resolveContextualSlots, type ContextualSlotPlayer } from "./contextual-slot-resolution";
 
 const players: ContextualSlotPlayer[] = [
   { name: "Centro roster", slot: "regular", cuttable: true, moveDestinations: [] },
@@ -27,7 +27,21 @@ describe("risoluzione contestuale degli slot", () => {
       decisions: [{ kind: "cut", playerName: "Two-way", destinationSlot: "" }],
     });
     expect(result.complete).toBe(true);
-    expect(result.operations).toEqual([{ kind: "cut", playerName: "Two-way", sourceSlot: "two_way" }]);
+    expect(result.operations).toEqual([{ kind: "cut", playerName: "Two-way", sourceSlot: "two_way", stretchYears: null }]);
+  });
+
+  it("applica la stretch soltanto a un candidato idoneo e con durata valida", () => {
+    const input = {
+      counts: { regular: 15, two_way: 2, g_league: 3 },
+      incomingSlot: "two_way" as const,
+      players,
+      decisions: [{ kind: "cut" as const, playerName: "Two-way", destinationSlot: "" as const, stretchYears: 3 as const }],
+    };
+    expect(resolveContextualSlots(input).errors).toContain("Two-way non è idoneo alla stretch provision contestuale.");
+    const eligible = resolveContextualSlots({ ...input, players: players.map((player) => player.name === "Two-way" ? { ...player, stretchEligible: true } : player) });
+    expect(eligible.complete).toBe(true);
+    expect(eligible.operations).toContainEqual({ kind: "cut", playerName: "Two-way", sourceSlot: "two_way", stretchYears: 3 });
+    expect(() => parseContextualSlotDecisions(JSON.stringify([{ ...input.decisions[0], stretchYears: 4 }]))).toThrow();
   });
 
   it("consente il rilascio gratuito soltanto per un candidato idoneo", () => {
@@ -70,7 +84,7 @@ describe("risoluzione contestuale degli slot", () => {
     expect(result.countsAfter).toEqual({ regular: 15, two_way: 2, g_league: 3 });
     expect(result.operations).toEqual([
       { kind: "move", playerName: "Two-way", sourceSlot: "two_way", destinationSlot: "regular" },
-      { kind: "cut", playerName: "Centro roster", sourceSlot: "regular" },
+      { kind: "cut", playerName: "Centro roster", sourceSlot: "regular", stretchYears: null },
     ]);
   });
 

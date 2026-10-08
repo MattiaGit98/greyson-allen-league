@@ -30,6 +30,20 @@ function state(): EditableLeagueState {
 }
 
 describe("applicazione di uno scambio", () => {
+  it("registra il giocatore ricevuto e tagliato tra i tagliati della nuova squadra", () => {
+    const before = state();
+    const cutEntry = { ...before.rosterEntries[0], teamCode: "BBB", state: "cut" as const, slot: "regular" as const, contract: "27" };
+    const after = applyValidatedTrade(before, {
+      playerMoves: [{ stateIndex: 0, toTeamCode: "BBB", destinationSlot: "regular" }],
+      pickMoves: [],
+      pickClauses: [],
+      existingClauseChanges: [],
+      qualifyingOfferMoves: [],
+      cuts: [{ stateIndex: 0, entry: cutEntry }],
+    });
+    expect(after.rosterEntries[0]).toEqual(cutEntry);
+    expect(before.rosterEntries[0].teamCode).toBe("AAA");
+  });
   it("trasferisce il giocatore senza alterare contratto o limitazioni di acquisto", () => {
     const before = state();
     const after = applyValidatedTrade(before, {

@@ -1,5 +1,5 @@
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
 import { TradeBuilder } from "./trade-builder";
 import { registerTrade } from "./actions";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction } from "@/lib/league-moments";
@@ -11,6 +11,7 @@ import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualify
 import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { requireActiveSeason } from "@/lib/active-season";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
+import { canStretchContextualCut } from "@/lib/stretch-provision";
 
 export default async function TradesPage({
   searchParams,
@@ -127,6 +128,7 @@ export default async function TradesPage({
         })(),
         slot: entry.slot,
         cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
+        stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
         movementDestinations: entry.slot === "dpe"
           ? []
           : legalSlotDestinations(

@@ -8,7 +8,7 @@ import type { AdminOperationContext, AdminRosterPlayer, AdminRosterTeam } from "
 import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
 import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
-import { canApplyStretchProvision } from "@/lib/stretch-provision";
+import { applyContextualContractCut, canApplyStretchProvision, canStretchContextualCut } from "@/lib/stretch-provision";
 import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib/cap-override";
@@ -20,7 +20,7 @@ import {
   freeReleaseReasonValues,
   type FreeReleaseReason,
 } from "@/lib/free-release";
-import { applyStandardContractCut, isUnresolvedTeamOption } from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { applyScheduledSeasonEndCut } from "@/app/admin/tagli-programmati/actions";
 import { roleMinimumDeficits, roleMinimums } from "@/lib/rules/roster";
@@ -105,6 +105,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
   const [confirmed, setConfirmed] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [dpeCutConfirmed, setDpeCutConfirmed] = useState(false);
+  const [dpeStretchYears, setDpeStretchYears] = useState<2 | 3 | null>(null);
   const [installments, setInstallments] = useState<2 | 3>(2);
   const [releaseReason, setReleaseReason] = useState<FreeReleaseReason | "">("");
   const oneCreditTeamOptionRelease = operation === "free_release"
@@ -112,7 +113,9 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
   const occupiedDpePlayer = operation === "dpe_activate"
     ? team.players.find((item) => item.state === "active" && item.slot === "dpe") ?? null
     : null;
-  const preview = operationPreview(operation, player, team, props, installments, confirmed, roleMinimumConfirmed, releaseReason, dpeCutConfirmed);
+  const dpeStretchEligible = occupiedDpePlayer ? canStretchContextualCut(rosterEntryForPlayer(occupiedDpePlayer), props.seasonEndYear) : false;
+  const effectiveDpeStretchYears = dpeStretchEligible ? dpeStretchYears : null;
+  const preview = operationPreview(operation, player, team, props, installments, confirmed, roleMinimumConfirmed, releaseReason, dpeCutConfirmed, effectiveDpeStretchYears);
   const formAction = operation === "extension"
     ? applyContractExtension
     : operation === "stretch"
@@ -135,6 +138,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
       <input type="hidden" name="dpe_cut_confirmed" value={String(dpeCutConfirmed)} />
       <input type="hidden" name="dpe_cut_player_name" value={occupiedDpePlayer?.name ?? ""} />
+      <input type="hidden" name="dpe_stretch_years" value={operation === "dpe_activate" ? effectiveDpeStretchYears ?? "" : ""} />
       <input type="hidden" name="confirmed" value={String(confirmed)} />
       <input type="hidden" name="installments" value={installments} />
 
@@ -146,18 +150,19 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <div className="auction-modal-body">
         <div className="auction-modal-fields single-column">
           <Field label="Operazione">
-            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setRoleMinimumConfirmed(false); setDpeCutConfirmed(false); setReleaseReason(""); }}>
+            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setRoleMinimumConfirmed(false); setDpeCutConfirmed(false); setDpeStretchYears(null); setReleaseReason(""); }}>
               {choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.label}</option>)}
             </select>
           </Field>
           {operation === "stretch" && (
             <Field label="Numero di rate"><select value={installments} onChange={(event) => { setInstallments(Number(event.target.value) as 2 | 3); }}><option value={2}>2 rate</option><option value={3}>3 rate</option></select></Field>
           )}
-          {operation === "free_release" && !oneCreditTeamOptionRelease && (
+          {operation === "free_release" && (
             <div className="release-reason-fieldset">
               <span>Causa del rilascio</span>
               <div className="release-reason-list">
                 {freeReleaseReasonValues.filter((reason) => reason !== "one_credit_team_option"
+                  && (!oneCreditTeamOptionRelease || reason === "no_nba_roster")
                   && !(reason === "under_half_games" && hadDpeInPreviousSeason(player, props.seasonName))).map((reason) => {
                   const availability = freeReleaseReasonAvailability(reason, props.leagueMoment, player, props.seasonName);
                   return (
@@ -185,9 +190,15 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           )}
           {operation === "dpe_activate" && occupiedDpePlayer && (
             <label className="operation-check other-operation-check dpe-contextual-cut-check">
-              <input type="checkbox" checked={dpeCutConfirmed} onChange={(event) => setDpeCutConfirmed(event.target.checked)} />
+              <input type="checkbox" checked={dpeCutConfirmed} onChange={(event) => { setDpeCutConfirmed(event.target.checked); if (!event.target.checked) setDpeStretchYears(null); }} />
               <span>Taglia contestualmente <strong>{occupiedDpePlayer.name}</strong> dallo slot DPE</span>
             </label>
+          )}
+          {operation === "dpe_activate" && occupiedDpePlayer && (
+            <div className="dpe-contextual-stretch">
+              <label><input type="checkbox" checked={effectiveDpeStretchYears != null} disabled={!dpeCutConfirmed || !dpeStretchEligible} onChange={(event) => setDpeStretchYears(event.target.checked ? 2 : null)} />Stretch provision per {occupiedDpePlayer.name}</label>
+              <select aria-label={`Durata stretch provision per ${occupiedDpePlayer.name}`} value={effectiveDpeStretchYears ?? 2} disabled={effectiveDpeStretchYears == null || !dpeCutConfirmed} onChange={(event) => setDpeStretchYears(Number(event.target.value) as 2 | 3)}><option value={2}>2 anni</option><option value={3}>3 anni</option></select>
+            </div>
           )}
           {preview.roleMinimumMissing > 0 && !preview.roleMinimumSlotError && (
             <label className="operation-check other-operation-check role-minimum-check">
@@ -263,6 +274,7 @@ function operationPreview(
   roleMinimumConfirmed: boolean,
   releaseReason: FreeReleaseReason | "",
   dpeCutConfirmed: boolean,
+  dpeStretchYears: 2 | 3 | null,
 ) {
   const spacesBefore: ThreeYearValues = [team.space, team.nextSpace, team.followingSpace];
   const charges = playerCharges(player, props);
@@ -294,7 +306,7 @@ function operationPreview(
     const occupiedDpePlayer = team.players.find((item) => item.state === "active" && item.slot === "dpe");
     if (occupiedDpePlayer) {
       const incumbentCharges = playerCharges(occupiedDpePlayer, props);
-      const cutEntry = applyStandardContractCut(rosterEntryForPlayer(occupiedDpePlayer), props.seasonEndYear, props.leagueMoment);
+      const cutEntry = applyContextualContractCut(rosterEntryForPlayer(occupiedDpePlayer), props.seasonEndYear, props.leagueMoment, dpeStretchYears);
       spacesAfter = releaseCapSpaces({
         kind: "cut",
         spacesBefore: spacesAfter,
@@ -336,7 +348,7 @@ function operationPreview(
   if (occupiedDpePlayer && !dpeCutConfirmed) errors.push(`Conferma il taglio contestuale di ${occupiedDpePlayer.name}.`);
   if (operation === "free_release") {
     const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
-    if (!automaticOneCreditRelease) {
+    if (!automaticOneCreditRelease || releaseReason) {
       if (!releaseReason) errors.push("Seleziona una e una sola causa di rilascio gratuito.");
       else {
         const availability = freeReleaseReasonAvailability(releaseReason, props.leagueMoment, player, props.seasonName);

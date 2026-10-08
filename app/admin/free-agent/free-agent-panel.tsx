@@ -25,6 +25,7 @@ type TeamOption = {
   code: string;
   name: string;
   currentCost: number;
+  futureSpaces: [number, number];
   cutPlayerNames: string[];
   rosterPlayers: {
     name: string;
@@ -33,6 +34,7 @@ type TeamOption = {
     cost: number;
     contract: string;
     cuttable: boolean;
+    stretchEligible: boolean;
     moveDestinations: Exclude<Slot, "dpe">[];
   }[];
 };
@@ -197,6 +199,7 @@ function FreeAgentDialog({
       name: item.name,
       slot: item.slot,
       cuttable: item.cuttable,
+      stretchEligible: item.stretchEligible,
       moveDestinations: item.moveDestinations,
     }]
   ));
@@ -222,6 +225,19 @@ function FreeAgentDialog({
     const cutPlayer = team?.rosterPlayers.find((item) => item.name === operation.playerName);
     return cutPlayer ? [cutPlayer] : [];
   });
+  const contextualCutSavings = slotResolution.operations.reduce((total, operation) => {
+    if (operation.kind !== "cut" || operation.stretchYears == null) return total;
+    const cutPlayer = team?.rosterPlayers.find((item) => item.name === operation.playerName);
+    return total + (cutPlayer ? cutPlayer.cost - Math.ceil(cutPlayer.cost / operation.stretchYears) : 0);
+  }, 0);
+  const futureStretchCharges = [1, 2].map((distance) => slotResolution.operations.reduce((total, operation) => {
+    if (operation.kind !== "cut" || operation.stretchYears == null || distance >= operation.stretchYears) return total;
+    const cutPlayer = team?.rosterPlayers.find((item) => item.name === operation.playerName);
+    return total + (cutPlayer ? Math.ceil(cutPlayer.cost / operation.stretchYears) : 0);
+  }, 0));
+  const futureStretchError = team && futureStretchCharges.some((charge, index) => charge > 0 && team.futureSpaces[index] - charge < 0)
+    ? "La stretch provision contestuale non rispetta il cap delle stagioni future."
+    : null;
   const contextualMoves = slotResolution.operations.flatMap((operation) => (
     operation.kind === "move" ? [operation] : []
   ));
@@ -231,6 +247,7 @@ function FreeAgentDialog({
     enforceRoleMinimums,
     freeAgentThousandLimitApplies,
     currentCost: team?.currentCost ?? 0,
+    contextualCutSavings,
     price,
     destination,
     slots,
@@ -365,6 +382,7 @@ function FreeAgentDialog({
           <p className="validation warning">L’assegnazione obbligatoria da 1 credito può portare il team salary oltre il salary cap; il credito continua comunque a pesare sul team salary della squadra.</p>
         )}
         {roleMinimumSlotError && <p className="validation error">{roleMinimumSlotError}</p>}
+        {futureStretchError && <p className="validation error">{futureStretchError}</p>}
         {roleMinimumConfirmationRequired && !roleMinimumSlotError && (
           <label className="operation-check role-minimum-check">
             <input type="checkbox" checked={roleMinimumConfirmed} onChange={(event) => setRoleMinimumConfirmed(event.target.checked)} />
@@ -389,7 +407,7 @@ function FreeAgentDialog({
         >
           Firma e scambia
         </button>
-        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || !slotResolution.complete || slotResolution.errors.length > 0 || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || outsideDuplicate || !team || blockingCapWarnings.length > 0}>Registra firma</button>
+        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || !slotResolution.complete || slotResolution.errors.length > 0 || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || futureStretchError !== null || outsideDuplicate || !team || blockingCapWarnings.length > 0}>Registra firma</button>
       </div>
     </form>
   );

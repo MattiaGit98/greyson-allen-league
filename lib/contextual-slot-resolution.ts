@@ -6,6 +6,7 @@ export type ContextualSlotPlayer = {
   name: string;
   slot: ContextualSlot;
   cuttable: boolean;
+  stretchEligible?: boolean;
   freeReleasable?: boolean;
   moveDestinations: ContextualSlot[];
 };
@@ -14,10 +15,11 @@ export type ContextualSlotDecision = {
   kind: "cut" | "free_release" | "move" | "";
   playerName: string;
   destinationSlot: ContextualSlot | "";
+  stretchYears?: 2 | 3 | null;
 };
 
 export type AppliedContextualSlotOperation =
-  | { kind: "cut"; playerName: string; sourceSlot: ContextualSlot }
+  | { kind: "cut"; playerName: string; sourceSlot: ContextualSlot; stretchYears: 2 | 3 | null }
   | { kind: "free_release"; playerName: string; sourceSlot: ContextualSlot }
   | { kind: "move"; playerName: string; sourceSlot: ContextualSlot; destinationSlot: ContextualSlot };
 
@@ -90,9 +92,13 @@ export function resolveContextualSlots({
         errors.push(`${selectedPlayer.name} non può essere tagliato in questa operazione.`);
         return { complete: false, countsAfter, operations, steps, errors };
       }
+      if (decision.stretchYears != null && (!selectedPlayer.stretchEligible || ![2, 3].includes(decision.stretchYears))) {
+        errors.push(`${selectedPlayer.name} non è idoneo alla stretch provision contestuale.`);
+        return { complete: false, countsAfter, operations, steps, errors };
+      }
       countsAfter[slot] -= 1;
       usedPlayers.add(selectedPlayer.name);
-      operations.push({ kind: "cut", playerName: selectedPlayer.name, sourceSlot: slot });
+      operations.push({ kind: "cut", playerName: selectedPlayer.name, sourceSlot: slot, stretchYears: decision.stretchYears ?? null });
       continue;
     }
     if (decision.kind === "free_release") {
@@ -126,7 +132,7 @@ export function resolveContextualSlots({
 }
 
 export function emptyContextualSlotDecision(): ContextualSlotDecision {
-  return { kind: "", playerName: "", destinationSlot: "" };
+  return { kind: "", playerName: "", destinationSlot: "", stretchYears: null };
 }
 
 export function parseContextualSlotDecisions(value: FormDataEntryValue | null) {
@@ -142,6 +148,7 @@ export function parseContextualSlotDecisions(value: FormDataEntryValue | null) {
     const kind = decision.kind;
     const playerName = typeof decision.playerName === "string" ? decision.playerName.trim() : "";
     const destinationSlot = decision.destinationSlot;
+    const stretchYears = decision.stretchYears == null ? null : decision.stretchYears;
     if (
       !["cut", "free_release", "move"].includes(String(kind))
       || !playerName
@@ -149,10 +156,11 @@ export function parseContextualSlotDecisions(value: FormDataEntryValue | null) {
       || (destinationSlot !== "" && !contextualSlotOrder.includes(destinationSlot as ContextualSlot))
       || ((kind === "cut" || kind === "free_release") && destinationSlot !== "")
       || (kind === "move" && destinationSlot === "")
+      || (stretchYears !== null && (kind !== "cut" || (stretchYears !== 2 && stretchYears !== 3)))
     ) {
       throw new Error("Operazioni contestuali non valide.");
     }
-    return { kind: kind as "cut" | "free_release" | "move", playerName, destinationSlot: destinationSlot as ContextualSlot | "" };
+    return { kind: kind as "cut" | "free_release" | "move", playerName, destinationSlot: destinationSlot as ContextualSlot | "", stretchYears };
   });
 }
 

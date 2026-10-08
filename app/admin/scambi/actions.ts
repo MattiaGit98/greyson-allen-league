@@ -29,7 +29,8 @@ import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamO
 import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildSignAndTradeProvisional, signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
-import { applyStandardContractCut, isUnresolvedTeamOption } from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
+import { applyContextualContractCut, canStretchContextualCut } from "@/lib/stretch-provision";
 import {
   applyValidatedTrade,
   existingTradeClauseAgreements,
@@ -339,22 +340,31 @@ export async function registerTrade(formData: FormData) {
   if (currentEndYear === null) fail("Annata non valida.");
   const cuts: TradeCut[] = payload.cuts.map((requested) => {
     const source = activePlayers.get(requested.id);
-    if (!source || source.entry.teamCode !== requested.teamCode || !participants.has(requested.teamCode)) {
+    const receivedMove = playerMoves.find((move) => move.id === requested.id);
+    const ownerCode = receivedMove?.toTeamCode ?? source?.entry.teamCode;
+    if (!source || ownerCode !== requested.teamCode || !participants.has(requested.teamCode)) {
       fail("Un giocatore indicato per il taglio contestuale non è più disponibile.");
     }
     if (isUnresolvedTeamOption(source.entry, moment, season.name)) {
       fail(`${source.entry.name}: un contratto da rookie ancora da risolvere può essere gestito soltanto nel pannello Contratti da rookie.`);
     }
+    const entryToCut = receivedMove
+      ? { ...source.entry, teamCode: receivedMove.toTeamCode, slot: receivedMove.destinationSlot }
+      : source.entry;
+    if (requested.stretchYears != null && !canStretchContextualCut(entryToCut, currentEndYear)) {
+      fail(`${source.entry.name}: stretch provision non consentita per questo taglio.`);
+    }
     cutChanges.push({
       stateIndex: source.stateIndex,
-      entry: applyStandardContractCut(source.entry, currentEndYear, moment),
+      entry: applyContextualContractCut(entryToCut, currentEndYear, moment, requested.stretchYears ?? null),
     });
     return {
       id: requested.id,
       teamCode: requested.teamCode,
       cost: scheduledCost(source.entry, season.name),
       role: rolesByName.get(normalizePlayerName(source.entry.name)) ?? null,
-      slot: source.entry.slot,
+      slot: entryToCut.slot,
+      stretchYears: requested.stretchYears ?? null,
     };
   });
 
@@ -513,7 +523,7 @@ export async function registerTrade(formData: FormData) {
     }),
     ...cutChanges.flatMap((change) => {
       const entry = state.rosterEntries[change.stateIndex];
-      return entry ? [`Taglio contestuale: ${entry.name} (${entry.teamCode}); ${entry.cost} crediti, contratto ${entry.contract}`] : [];
+      return entry ? [`Taglio contestuale: ${entry.name} (${change.entry?.teamCode ?? entry.teamCode}); ${entry.cost} crediti, contratto ${entry.contract}${change.entry?.stretchProvisionApplied ? `; stretch provision: ${change.entry.cost} crediti, scadenza ${change.entry.contract}` : ""}`] : [];
     }),
     ...promotionChanges.flatMap((change) => {
       const entry = state.rosterEntries[change.stateIndex];
@@ -658,7 +668,7 @@ function parsePayload(value: FormDataEntryValue | null): TradeTransactionPayload
     ) throw new Error("Modifica dell'accordo non valida.");
   }
   for (const cut of payload.cuts) {
-    if (!isRecord(cut) || !textFields(cut, "id", "teamCode")) throw new Error("Taglio contestuale non valido.");
+    if (!isRecord(cut) || !textFields(cut, "id", "teamCode") || (cut.stretchYears != null && cut.stretchYears !== 2 && cut.stretchYears !== 3)) throw new Error("Taglio contestuale non valido.");
   }
   for (const promotion of payload.promotions ?? []) {
     if (

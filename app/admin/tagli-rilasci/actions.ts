@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { RosterEntry } from "@/lib/league-types";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
-import { applyFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
+import { rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { canApplyStretchProvision } from "@/lib/stretch-provision";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -56,7 +56,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
     const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, freeReleasePlayer, season.name);
-    if (oneCreditTeamOptionRelease.available) {
+    if (oneCreditTeamOptionRelease.available && submittedReleaseReasons.length === 0) {
       releaseReason = "one_credit_team_option";
     } else {
       if (submittedReleaseReasons.length !== 1 || !isFreeReleaseReason(submittedReleaseReasons[0])) {
@@ -75,9 +75,8 @@ export async function applyRosterExitOperation(formData: FormData) {
   let rosterEntries: RosterEntry[];
   let buyoutTotalResidual: number | null = null;
   if (kind === "free_release") {
-    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
-      ? applyFreeRelease(item, currentEndYear)
-      : item);
+    if (!releaseReason) operationError(returnPath, "Seleziona una causa di rilascio gratuito.");
+    rosterEntries = rosterAfterFreeRelease(state.rosterEntries, entryIndex, releaseReason, currentEndYear);
   } else if (kind === "buyout") {
     if (season.status !== "regular_season") operationError(returnPath, "Il buyout è disponibile soltanto durante la regular season.");
     const remainingYears = charges.filter((charge) => charge > 0).length;

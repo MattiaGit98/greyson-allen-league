@@ -4,11 +4,12 @@ import { nextDraftYear } from "@/lib/draft-positions";
 import { fourthDraftVirtualPicks } from "@/lib/future-draft-picks";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
-import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
 import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
+import { canStretchContextualCut } from "@/lib/stretch-provision";
 
 export default async function TradeSimulatorPage() {
   const [activeSeason, leagueState] = await Promise.all([
@@ -99,6 +100,7 @@ export default async function TradeSimulatorPage() {
           })(),
           slot: entry.slot,
           cuttable: !isUnresolvedTeamOption(entry, leagueMoment, seasonName),
+          stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
           movementDestinations: entry.slot === "dpe"
             ? []
             : legalSlotDestinations(

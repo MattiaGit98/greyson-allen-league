@@ -39,6 +39,7 @@ export function ContextualSlotResolver({
         {resolution.steps.map((step, index) => {
           const decision = value[index] ?? emptyContextualSlotDecision();
           const movedPlayer = step.moveCandidates.find((candidate) => candidate.name === decision.playerName);
+          const cutPlayer = step.cutCandidates.find((candidate) => candidate.name === decision.playerName);
           return (
             <fieldset className="contextual-slot-step" key={`${index}-${step.slot}`}>
               <legend>
@@ -47,13 +48,13 @@ export function ContextualSlotResolver({
               </legend>
 
               {step.cutCandidates.length > 0 && (
-                <div className={`contextual-slot-choice${decision.kind === "cut" ? " selected" : ""}`}>
+                <div className={`contextual-slot-choice cut${decision.kind === "cut" ? " selected" : ""}`}>
                   <label className="contextual-slot-radio">
                     <input
                       type="radio"
                       name={`slot-resolution-${index}`}
                       checked={decision.kind === "cut"}
-                      onChange={() => replaceDecision(index, { kind: "cut", playerName: "", destinationSlot: "" })}
+                      onChange={() => replaceDecision(index, { kind: "cut", playerName: "", destinationSlot: "", stretchYears: null })}
                     />
                     <span>Taglio contestuale</span>
                   </label>
@@ -61,11 +62,31 @@ export function ContextualSlotResolver({
                     aria-label={`Giocatore da tagliare dallo slot ${contextualSlotLabel(step.slot)}`}
                     value={decision.kind === "cut" ? decision.playerName : ""}
                     disabled={decision.kind !== "cut"}
-                    onChange={(event) => replaceDecision(index, { kind: "cut", playerName: event.target.value, destinationSlot: "" })}
+                    onChange={(event) => replaceDecision(index, { kind: "cut", playerName: event.target.value, destinationSlot: "", stretchYears: null })}
                   >
                     <option value="">Seleziona il giocatore</option>
                     {step.cutCandidates.map((candidate) => <option value={candidate.name} key={candidate.name}>{candidate.name}</option>)}
                   </select>
+                  <div className="contextual-cut-stretch">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={decision.kind === "cut" && decision.stretchYears != null}
+                        disabled={decision.kind !== "cut" || !cutPlayer?.stretchEligible}
+                        onChange={(event) => replaceDecision(index, { ...decision, stretchYears: event.target.checked ? 2 : null })}
+                      />
+                      Stretch provision
+                    </label>
+                    <select
+                      aria-label={`Durata stretch provision per ${decision.playerName || "il giocatore da tagliare"}`}
+                      value={decision.kind === "cut" ? decision.stretchYears ?? 2 : 2}
+                      disabled={decision.kind !== "cut" || !cutPlayer?.stretchEligible || decision.stretchYears == null}
+                      onChange={(event) => replaceDecision(index, { ...decision, stretchYears: Number(event.target.value) as 2 | 3 })}
+                    >
+                      <option value={2}>2 anni</option>
+                      <option value={3}>3 anni</option>
+                    </select>
+                  </div>
                 </div>
               )}
 

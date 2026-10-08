@@ -25,6 +25,30 @@ const incumbent: RosterEntry = {
 };
 
 describe("sostituzione contestuale nello slot DPE", () => {
+  it("permette la stretch contestuale solo se l'occupante ha un annuale o un pending", () => {
+    const annualIncumbent = { ...incumbent, contract: "27", cost: 11 };
+    const result = applyDpeActivationWithOptionalCut({
+      rosterEntries: [target, annualIncumbent],
+      teamCode: "AAA",
+      playerName: target.name,
+      expectedCutPlayerName: annualIncumbent.name,
+      cutStretchYears: 3,
+      seasonName: "2026/27",
+      currentSeasonEndYear: 2027,
+      leagueMoment: "auction_completed",
+    });
+    expect(result.rosterEntries[1]).toMatchObject({ state: "cut", cost: 4, contract: "29", stretchProvisionApplied: true });
+    expect(() => applyDpeActivationWithOptionalCut({
+      rosterEntries: [target, incumbent],
+      teamCode: "AAA",
+      playerName: target.name,
+      expectedCutPlayerName: incumbent.name,
+      cutStretchYears: 2,
+      seasonName: "2026/27",
+      currentSeasonEndYear: 2027,
+      leagueMoment: "auction_completed",
+    })).toThrow("stretch provision non consentita");
+  });
   it("taglia l'occupante e inserisce il nuovo giocatore in un unico stato finale", () => {
     const result = applyDpeActivationWithOptionalCut({
       rosterEntries: [target, incumbent],

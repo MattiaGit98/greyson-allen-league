@@ -33,6 +33,7 @@ export type TradeCut = {
   cost: number;
   role: TradeRole | null;
   slot: TradeSlot;
+  stretchYears?: 2 | 3 | null;
 };
 
 export type TradePromotion = {
@@ -442,13 +443,17 @@ export function evaluateTrade(input: {
 
   const seenCuts = new Set<string>();
   for (const cut of input.cuts) {
-    if (seenCuts.has(cut.id) || seenPlayers.has(cut.id)) {
+    const receivedMove = input.playerMoves.find((move) => move.id === cut.id);
+    if (seenCuts.has(cut.id) || (receivedMove && (receivedMove.toTeamCode !== cut.teamCode || receivedMove.destinationSlot !== cut.slot))) {
       errors.push({
         code: "TRADE_CUT_DUPLICATE",
-        message: "Un giocatore non può essere contemporaneamente ceduto e tagliato.",
+        message: "Il taglio contestuale del giocatore ricevuto deve riferirsi alla squadra e allo slot di arrivo.",
       });
     }
     seenCuts.add(cut.id);
+    if (cut.stretchYears != null && (![2, 3].includes(cut.stretchYears) || cut.cost <= 0)) {
+      errors.push({ code: "TRADE_STRETCH_INVALID", message: "La stretch provision contestuale non è valida per questo giocatore." });
+    }
   }
 
   const seenPromotions = new Set<string>();
@@ -495,7 +500,8 @@ export function evaluateTrade(input: {
 
     for (const cut of input.cuts.filter((item) => item.teamCode === team.code)) {
       slots[slotKey(cut.slot)] -= 1;
-      if (cut.slot === "dpe") costAfter += cut.cost;
+      if (cut.stretchYears != null) costAfter += (cut.slot === "dpe" ? 0 : -cut.cost) + Math.ceil(cut.cost / cut.stretchYears);
+      else if (cut.slot === "dpe") costAfter += cut.cost;
       if (cut.slot !== "dpe" && cut.role) roles[cut.role] -= 1;
     }
 
@@ -536,13 +542,17 @@ export function evaluateTrade(input: {
       });
     }
 
-    const futureCaps = (team.futureCosts ?? []).map((future) => {
+    const futureCaps = (team.futureCosts ?? []).map((future, index) => {
       let costAfterFuture = future.currentCost;
 
       for (const move of input.playerMoves) {
         const futurePlayerCost = move.futureCapCosts?.[future.seasonName] ?? 0;
         if (move.fromTeamCode === team.code) costAfterFuture -= futurePlayerCost;
         if (move.toTeamCode === team.code) costAfterFuture += futurePlayerCost;
+      }
+
+      for (const cut of input.cuts.filter((item) => item.teamCode === team.code && item.stretchYears != null)) {
+        if (index + 1 < cut.stretchYears!) costAfterFuture += Math.ceil(cut.cost / cut.stretchYears!);
       }
 
       if (costAfterFuture > 1000) {

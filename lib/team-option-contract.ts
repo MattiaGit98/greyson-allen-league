@@ -156,7 +156,7 @@ export function applyStandardContractCut<T extends RosterEntry>(
   };
 }
 
-export function contractAfterRosterExitForEntry(entry: RosterEntry, currentSeasonEndYear: number) {
+export function contractAfterRosterExitForEntry(entry: Pick<RosterEntry, "contract" | "playoffTeamOptionUsedSeason">, currentSeasonEndYear: number) {
   const usedEndYear = entry.playoffTeamOptionUsedSeason ? seasonEndYear(entry.playoffTeamOptionUsedSeason) : null;
   if (usedEndYear !== null && (entry.contract === "T.O." || isAnnualTeamOptionContract(entry))) {
     return String(usedEndYear + 1).slice(-2);

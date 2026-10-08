@@ -1,6 +1,6 @@
 import { AuctionPanel } from "./auction-panel";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { calculateCapSpace, followingSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName, seasonEndYear, shouldCountTeamOptions } from "@/lib/season-time";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { requireActiveSeason } from "@/lib/active-season";
 import { buildMovementReversal } from "@/lib/league-movements";
@@ -11,6 +11,7 @@ import { conciseMovementDetail } from "@/lib/movement-display";
 import { legalAuctionContextualDestinations } from "@/lib/auction-management";
 import { freeReleaseReasonAvailability } from "@/lib/free-release";
 import { buildRoleMinimumAlerts, formatRoleMinimumMissing } from "@/lib/admin-alerts";
+import { canStretchContextualCut } from "@/lib/stretch-provision";
 
 export default async function AuctionAdminPage({
   searchParams,
@@ -82,8 +83,11 @@ export default async function AuctionAdminPage({
             role: entry.role ?? null,
             cost: entry.cost,
             contract: entry.contract,
+            pendingAuctionContract: entry.auctionPrice !== undefined && entry.contractStartSeason === seasonName,
+            teamOptionFinalYear: entry.teamOptionFinalYear,
             slot: entry.slot as "regular" | "two_way" | "g_league",
             cuttable: true,
+            stretchEligible: canStretchContextualCut(entry, seasonEndYear(seasonName) ?? 0),
             freeReleasable: freeReleaseReasonAvailability(
               "one_credit_team_option",
               leagueMoment,

@@ -15,6 +15,7 @@ export function evaluateFreeAgentSigning(input: {
   enforceRoleMinimums?: boolean;
   freeAgentThousandLimitApplies?: boolean;
   currentCost: number;
+  contextualCutSavings?: number;
   price: number;
   destination: "regular" | "two_way";
   slots: SlotCounts;
@@ -63,11 +64,15 @@ export function evaluateFreeAgentSigning(input: {
 
   const cap = validateCapOperation(
     input.currentCost,
-    Math.max(0, input.price),
+    Math.max(0, input.price) - (input.contextualCutSavings ?? 0),
     "regular_season",
     true,
     input.freeAgentThousandLimitApplies ?? true,
   );
+  if ((input.freeAgentThousandLimitApplies ?? true) && input.price > 1 && cap.calculated.after > 1000
+    && !cap.errors.some((error) => error.code === "FREE_AGENT_MAX_ONE")) {
+    cap.errors.push({ code: "FREE_AGENT_MAX_ONE", message: "Il free agent può essere acquistato solo a 1 credito." });
+  }
   const slotsAfter = {
     ...input.slots,
     regular: input.slots.regular + (input.destination === "regular" ? 1 : 0),
