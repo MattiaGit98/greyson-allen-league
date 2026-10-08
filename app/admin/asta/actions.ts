@@ -134,7 +134,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
   });
   const rosterEntry: RosterEntry = {
     name: player.name,
-    role: player.role === "X" ? undefined : player.role,
+    role: player.role,
     ...contractAtPurchase,
     state: "active",
     slot,
