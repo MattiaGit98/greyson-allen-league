@@ -5,6 +5,7 @@ node_modules/
 coverage/
 *.tsbuildinfo
 import-report.json
+supabase/seed.sql
 .tmp-pdf/
 .node-runtime/
 .node-portable.zip
