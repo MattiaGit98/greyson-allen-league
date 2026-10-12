@@ -1,5 +1,4 @@
 import type { RosterEntry } from "./league-types";
-import type { FreeReleaseReason } from "./free-release";
 import { contractAfterRosterExitForEntry, isPendingContractAssignment } from "./team-option-contract";
 
 export type ReleaseOperationKind = "cut" | "free_release" | "buyout";
@@ -22,10 +21,8 @@ export function applyFreeRelease<T extends RosterEntry>(entry: T, currentSeasonE
 export function rosterAfterFreeRelease<T extends RosterEntry>(
   entries: T[],
   entryIndex: number,
-  reason: FreeReleaseReason,
   currentSeasonEndYear: number,
 ): T[] {
-  if (reason === "no_nba_roster") return entries.filter((_, index) => index !== entryIndex);
   return entries.map((entry, index) => index === entryIndex ? applyFreeRelease(entry, currentSeasonEndYear) : entry);
 }
 

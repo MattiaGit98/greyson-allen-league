@@ -243,8 +243,8 @@ export function buildPreAdvanceChecklist(input: {
       id: "trade-deadline-closures",
       tone: "info",
       title: "Il prossimo avanzamento chiude scambi e nuove DPE",
-      message: "Dopo la trade deadline si chiudono anche i rilasci gratuiti per squalifica o cause giudiziarie; i nuovi free agent avranno un annuale senza Q.O.",
-      article: "Art. 5(d); Art. 10(c); Art. 12(a); Art. 13(a)",
+      message: "Dopo la trade deadline i nuovi free agent avranno un annuale senza Q.O.",
+      article: "Art. 5(d); Art. 12(a); Art. 13(a)",
       href: "/admin/scambi",
       actionLabel: "Controlla gli scambi",
     });
@@ -270,7 +270,7 @@ export function buildPreAdvanceChecklist(input: {
       tone: "info",
       title: "Stanno per chiudersi free agency e operazioni collegate",
       message: "Termineranno free agency, rilasci gratuiti e possibilità di reintegro anticipato dalla DPE.",
-      article: "Art. 5(a); Art. 10(b); Art. 12(d)",
+      article: "Art. 5(a); Art. 10(b-c); Art. 12(d)",
       href: "/admin/free-agent",
       actionLabel: "Controlla la free agency",
     });

@@ -18,6 +18,14 @@ describe("operazioni disponibili", () => {
     expect(labelsAt("auction_completed")).not.toContain("Assegnazione contratti");
   });
 
+  it("mantiene il rilascio per squalifica fino alla chiusura della prima free agency", () => {
+    const label = "Rilascio: senza squadra o squalifiche";
+    expect(labelsAt("auction_start")).not.toContain(label);
+    expect(labelsAt("trade_deadline")).toContain(label);
+    expect(labelsAt("buyout_end")).toContain(label);
+    expect(labelsAt("free_agency_end")).not.toContain(label);
+  });
+
   it("ordina alfabeticamente le operazioni con la stessa scadenza", () => {
     const labels = labelsAt("offseason_start");
     expect(labels.indexOf("Estensioni contrattuali")).toBeLessThan(labels.indexOf("Rilascio: meno del 40% della stagione NBA"));

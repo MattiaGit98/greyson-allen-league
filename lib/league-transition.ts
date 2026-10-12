@@ -89,7 +89,6 @@ export function buildLeagueTransitionPreview(input: {
     preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE per i giocatori tornati in campo.");
     preview.newPossibilities.push("I free agent soggetti a buyout stagionale possono essere firmati soltanto dalle prime otto squadre.");
     preview.closedPossibilities.push("Si chiudono gli scambi e l’esercizio della DPE.");
-    preview.closedPossibilities.push("Si chiude la causale di rilascio gratuito legata a squalifiche o cause giudiziarie.");
     preview.automaticActions.push("I nuovi free agent avranno un contratto annuale senza Q.O.");
   }
 

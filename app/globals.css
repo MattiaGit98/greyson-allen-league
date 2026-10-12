@@ -1980,7 +1980,10 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .other-operations-row > button { min-height: 31px; padding: 0 9px; border: 1px solid var(--green); border-radius: 99px; background: var(--green); color: white; font: inherit; font-size: 8px; font-weight: 900; cursor: pointer; }
 .other-operations-row > button:disabled { border-color: #d3d5cf; background: #ecece7; color: #9a9c97; cursor: not-allowed; }
 .other-operation-check { padding: 12px; border: 1px solid #d5d8cf; border-radius: 9px; background: white; }
-.dpe-contextual-stretch { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border: 1px solid #d5d8cf; border-radius: 9px; background: #fff; }
+.dpe-contextual-cut-option { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px; border: 1px solid transparent; border-radius: 9px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.dpe-contextual-cut-option.selected { border-color: #aebba8; background: #f5f7f2; }
+.dpe-contextual-cut-option input { flex: 0 0 auto; width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
+.dpe-contextual-stretch { display: flex; align-items: center; gap: 9px; min-width: 0; margin: 5px 0 0 24px; padding: 7px 8px; border-radius: 9px; background: #f7f8f4; }
 .dpe-contextual-stretch label { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; font-weight: 700; }
 .dpe-contextual-stretch input { margin: 0; accent-color: var(--green); }
 .dpe-contextual-stretch select { width: 83px; min-height: 32px; flex: 0 0 auto; margin-left: auto; padding: 0 6px; border: 1px solid #d2d6c8; border-radius: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 10px; }

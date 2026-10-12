@@ -76,7 +76,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   let buyoutTotalResidual: number | null = null;
   if (kind === "free_release") {
     if (!releaseReason) operationError(returnPath, "Seleziona una causa di rilascio gratuito.");
-    rosterEntries = rosterAfterFreeRelease(state.rosterEntries, entryIndex, releaseReason, currentEndYear);
+    rosterEntries = rosterAfterFreeRelease(state.rosterEntries, entryIndex, currentEndYear);
   } else if (kind === "buyout") {
     if (season.status !== "regular_season") operationError(returnPath, "Il buyout è disponibile soltanto durante la regular season.");
     const remainingYears = charges.filter((charge) => charge > 0).length;

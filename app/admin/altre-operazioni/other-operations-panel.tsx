@@ -191,16 +191,25 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
             </label>
           )}
           {operation === "dpe_activate" && occupiedDpePlayer && (
-            <label className="operation-check other-operation-check dpe-contextual-cut-check">
-              <input type="checkbox" checked={dpeCutConfirmed} onChange={(event) => { setDpeCutConfirmed(event.target.checked); if (!event.target.checked) setDpeStretchYears(null); }} />
-              <span>Taglia contestualmente <strong>{occupiedDpePlayer.name}</strong> dallo slot DPE</span>
-            </label>
-          )}
-          {operation === "dpe_activate" && occupiedDpePlayer && (
-            <div className="dpe-contextual-stretch">
-              <label><input type="checkbox" checked={effectiveDpeStretchYears != null} disabled={!dpeCutConfirmed || !dpeStretchEligible} onChange={(event) => setDpeStretchYears(event.target.checked ? dpeStretchOptions[0] ?? null : null)} />Stretch provision per {occupiedDpePlayer.name}</label>
-              <select aria-label={`Durata stretch provision per ${occupiedDpePlayer.name}`} value={effectiveDpeStretchYears ?? dpeStretchOptions[0] ?? 2} disabled={effectiveDpeStretchYears == null || !dpeCutConfirmed} onChange={(event) => setDpeStretchYears(Number(event.target.value) as 2 | 3)}>{dpeStretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}</select>
-            </div>
+            <section className="contextual-slot-resolution dpe-contextual-resolution" aria-label="Operazione contestuale per liberare lo slot DPE">
+              <header>
+                <span>Slot da liberare</span>
+                <strong>Completa l'operazione necessaria</strong>
+              </header>
+              <div className="contextual-slot-steps">
+                <fieldset className="contextual-slot-step">
+                  <legend><b>1</b><span>Libera lo slot DPE</span></legend>
+                  <label className={`dpe-contextual-cut-option${dpeCutConfirmed ? " selected" : ""}`}>
+                    <input type="checkbox" checked={dpeCutConfirmed} onChange={(event) => { setDpeCutConfirmed(event.target.checked); if (!event.target.checked) setDpeStretchYears(null); }} />
+                    <span>Taglia contestualmente <strong>{occupiedDpePlayer.name}</strong></span>
+                  </label>
+                  <div className="dpe-contextual-stretch">
+                    <label><input type="checkbox" aria-label={`Stretch provision per ${occupiedDpePlayer.name}`} checked={effectiveDpeStretchYears != null} disabled={!dpeCutConfirmed || !dpeStretchEligible} onChange={(event) => setDpeStretchYears(event.target.checked ? dpeStretchOptions[0] ?? null : null)} />Stretch provision</label>
+                    <select aria-label={`Durata stretch provision per ${occupiedDpePlayer.name}`} value={effectiveDpeStretchYears ?? dpeStretchOptions[0] ?? 2} disabled={effectiveDpeStretchYears == null || !dpeCutConfirmed} onChange={(event) => setDpeStretchYears(Number(event.target.value) as 2 | 3)}>{dpeStretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}</select>
+                  </div>
+                </fieldset>
+              </div>
+            </section>
           )}
           {preview.roleMinimumMissing > 0 && !preview.roleMinimumSlotError && (
             <label className="operation-check other-operation-check role-minimum-check">

@@ -17,7 +17,9 @@ describe("causali del rilascio gratuito", () => {
 
   it("chiude le causali alle rispettive scadenze", () => {
     expect(freeReleaseReasonAvailability("under_half_games", "auction_start", ordinary, seasonName).available).toBe(false);
-    expect(freeReleaseReasonAvailability("suspension_or_legal", "trade_deadline", ordinary, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("suspension_or_legal", "trade_deadline", ordinary, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("suspension_or_legal", "buyout_end", ordinary, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("suspension_or_legal", "free_agency_end", ordinary, seasonName).available).toBe(false);
     expect(freeReleaseReasonAvailability("no_nba_roster", "free_agency_end", ordinary, seasonName).available).toBe(false);
   });
 

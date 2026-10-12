@@ -61,11 +61,11 @@ export function freeReleaseReasonAvailability(
 
   if (reason === "suspension_or_legal") {
     const available = hasReachedMoment(moment, "team_option_deadline")
-      && !hasReachedMoment(moment, "trade_deadline")
+      && !hasReachedMoment(moment, "free_agency_end")
       && !tradesAreSuspendedForAuction(moment);
     return available
       ? { available: true }
-      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. alla Trade deadline, ma non durante l'asta." };
+      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. alla Chiusura free agency, ma non durante l'asta." };
   }
 
   if (reason === "under_half_games") {
