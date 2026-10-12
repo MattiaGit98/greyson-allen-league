@@ -159,12 +159,11 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           {operation === "stretch" && (
             <Field label="Numero di rate"><select value={installments} onChange={(event) => { setInstallments(Number(event.target.value) as 2 | 3); }}>{stretchOptions.map((years) => <option value={years} key={years}>{years} rate</option>)}</select></Field>
           )}
-          {operation === "free_release" && (
+          {operation === "free_release" && !oneCreditTeamOptionRelease && (
             <div className="release-reason-fieldset">
               <span>Causa del rilascio</span>
               <div className="release-reason-list">
                 {freeReleaseReasonValues.filter((reason) => reason !== "one_credit_team_option"
-                  && (!oneCreditTeamOptionRelease || reason === "no_nba_roster")
                   && !(reason === "under_half_games" && hadDpeInPreviousSeason(player, props.seasonName))).map((reason) => {
                   const availability = freeReleaseReasonAvailability(reason, props.leagueMoment, player, props.seasonName);
                   return (
@@ -359,7 +358,7 @@ function operationPreview(
   if (occupiedDpePlayer && !dpeCutConfirmed) errors.push(`Conferma il taglio contestuale di ${occupiedDpePlayer.name}.`);
   if (operation === "free_release") {
     const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
-    if (!automaticOneCreditRelease || releaseReason) {
+    if (!automaticOneCreditRelease) {
       if (!releaseReason) errors.push("Seleziona una e una sola causa di rilascio gratuito.");
       else {
         const availability = freeReleaseReasonAvailability(releaseReason, props.leagueMoment, player, props.seasonName);

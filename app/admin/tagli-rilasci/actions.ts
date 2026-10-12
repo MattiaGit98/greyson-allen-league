@@ -56,7 +56,8 @@ export async function applyRosterExitOperation(formData: FormData) {
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
     const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, freeReleasePlayer, season.name);
-    if (oneCreditTeamOptionRelease.available && submittedReleaseReasons.length === 0) {
+    if (oneCreditTeamOptionRelease.available) {
+      if (submittedReleaseReasons.length !== 0) operationError(returnPath, "Per una T.O. da 1 credito non serve selezionare una causa di rilascio.");
       releaseReason = "one_credit_team_option";
     } else {
       if (submittedReleaseReasons.length !== 1 || !isFreeReleaseReason(submittedReleaseReasons[0])) {

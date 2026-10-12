@@ -19,7 +19,7 @@ describe("operazioni disponibili", () => {
   });
 
   it("mantiene il rilascio per squalifica fino alla chiusura della prima free agency", () => {
-    const label = "Rilascio: senza squadra o squalifiche";
+    const label = "Rilascio: senza squadra o squalifica";
     expect(labelsAt("auction_start")).not.toContain(label);
     expect(labelsAt("trade_deadline")).toContain(label);
     expect(labelsAt("buyout_end")).toContain(label);
