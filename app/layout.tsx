@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { SiteNavigation } from "@/components/site-navigation";
 import { LivePageRefresh } from "@/components/live-page-refresh";
 import { RouteScrollReset } from "@/components/route-scroll-reset";
+import { PwaRegistration } from "@/components/pwa-registration";
 import { displayedSeasonName } from "@/lib/season-time";
 import { leagueMomentFromSeason, publicPhaseLabel } from "@/lib/league-moments";
 import { loadActiveSeason } from "@/lib/active-season";
@@ -11,6 +12,28 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Greyson Allen League",
   description: "Roster, contratti e movimenti della lega",
+  applicationName: "Greyson Allen League",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Greyson Allen",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#183f34",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -28,6 +51,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <main>{children}</main>
         <RouteScrollReset />
         <LivePageRefresh />
+        <PwaRegistration />
       </body>
     </html>
   );
