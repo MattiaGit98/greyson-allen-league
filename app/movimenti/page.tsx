@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { conciseMovementDetail, movementFilterOptions, movementOperationLabel, movementOperationTypesForFilter, movementSearchFilter, normalizeMovementSearchQuery } from "@/lib/movement-display";
+import { conciseMovementDetail, fullMovementDetail, movementFilterOptions, movementOperationLabel, movementOperationTypesForFilter, movementSearchFilter, normalizeMovementSearchQuery } from "@/lib/movement-display";
 import { MovementFilter } from "./movement-filter";
 import { MovementList } from "./movement-list";
 
@@ -65,7 +65,7 @@ export default async function TransactionsPage({
           displayedDate: formatMovementDate(movement.created_at),
           operation: `${movementOperationLabel(operationType)}${movement.reverted ? " · annullato" : ""}`,
           conciseDetail: conciseMovementDetail(operationType, fullDetail),
-          fullDetail: movement.reverted ? `${fullDetail} · Movimento annullato.` : fullDetail,
+          fullDetail: `${fullMovementDetail(operationType, fullDetail)}${movement.reverted ? "\n\nMovimento annullato." : ""}`,
         };
       })} />
 

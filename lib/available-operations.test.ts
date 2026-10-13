@@ -19,7 +19,7 @@ describe("operazioni disponibili", () => {
   });
 
   it("mantiene il rilascio per squalifica fino alla chiusura della prima free agency", () => {
-    const label = "Rilascio: senza squadra o squalifica";
+    const label = "Rilasci: senza squadra o squalifica";
     expect(labelsAt("auction_start")).not.toContain(label);
     expect(labelsAt("trade_deadline")).toContain(label);
     expect(labelsAt("buyout_end")).toContain(label);
@@ -28,8 +28,9 @@ describe("operazioni disponibili", () => {
 
   it("ordina alfabeticamente le operazioni con la stessa scadenza", () => {
     const labels = labelsAt("offseason_start");
-    expect(labels.indexOf("Estensioni contrattuali")).toBeLessThan(labels.indexOf("Rilascio: meno del 40% della stagione NBA"));
-    expect(labels.slice(-3)).toEqual(["Promozioni di slot", "Stretch provision", "Tagli"]);
+    expect(labels.indexOf("Estensioni contrattuali")).toBeLessThan(labels.indexOf("Rilasci: meno del 40% della stagione NBA"));
+    expect(labels.slice(-2)).toEqual(["Stretch provision", "Tagli"]);
+    expect(labels).not.toContain("Promozioni di slot");
   });
 
   it("mostra la segnalazione playoff solo tra la data di inizio postseason e la riapertura della free agency", () => {

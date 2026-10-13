@@ -65,7 +65,10 @@ h2 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -.05em; }
 .section { padding: 90px 7vw; }
 .live-update-notice { position: fixed; z-index: 80; right: 20px; bottom: 20px; display: flex; align-items: center; gap: 10px; max-width: min(420px, calc(100vw - 32px)); padding: 10px 12px; border: 1px solid #ccd9bb; border-radius: 12px; background: #f6faee; color: #315044; box-shadow: 0 12px 30px rgba(24,63,52,.16); font-size: 11px; font-weight: 700; }
 .live-update-notice button { border: 0; border-radius: 8px; background: var(--green); color: white; padding: 7px 9px; font: inherit; font-weight: 900; cursor: pointer; white-space: nowrap; }
-.admin-success-feedback { position: sticky; top: var(--header-height); z-index: 18; width: calc(100% - 32px); max-width: 1380px; margin: 16px auto 0; padding: 13px 18px; border: 1px solid #65937d; border-left: 4px solid #3f7961; border-radius: 12px; background: #dcefe5; color: #315d49; box-shadow: 0 5px 18px rgba(24,63,52,.1); font-size: 13px; font-weight: 800; line-height: 1.4; }
+.admin-success-feedback { position: sticky; top: var(--header-height); z-index: 18; width: calc(100% - 32px); max-width: 1380px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px auto 0; padding: 13px 18px; border: 1px solid #65937d; border-left: 4px solid #3f7961; border-radius: 12px; background: #dcefe5; color: #315d49; box-shadow: 0 5px 18px rgba(24,63,52,.1); font-size: 13px; font-weight: 800; line-height: 1.4; }
+.admin-success-feedback > span { min-width: 0; }
+.admin-success-feedback > button { flex: 0 0 auto; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid #65937d; border-radius: 7px; background: transparent; color: #315d49; font: inherit; font-size: 19px; line-height: 1; cursor: pointer; }
+.admin-success-feedback > button:hover { background: #cae8d7; }
 .notice.success[data-admin-feedback-mirrored="true"] { display: none; }
 form[data-live-submitting="true"] { opacity: .72; pointer-events: none; cursor: progress; }
 form[data-live-submitting="true"] button, form[data-live-submitting="true"] input, form[data-live-submitting="true"] select, form[data-live-submitting="true"] textarea { cursor: progress; }
@@ -1449,6 +1452,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 
 /* Pannello asta */
 .auction-admin-page { padding-top: 28px; }
+.auction-backup-action { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 .auction-list-toolbar { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 18px; }
 .auction-list-toolbar .auction-search { flex: 1 1 420px; margin: 0; }
 .auction-search { display: block; max-width: 520px; margin: 0 0 18px; }
@@ -1578,6 +1582,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .free-agent-panel-toolbar .auction-search { width: 100%; }
   .free-agent-panel-toolbar > .button { width: 100%; }
   .auction-admin-page { padding-right: 0; padding-left: 0; }
+  .auction-backup-action { margin-right: 8px; margin-left: 8px; }
   .auction-list-toolbar { margin-right: 8px; margin-left: 8px; }
   .auction-admin-page > .notice, .auction-search { margin-right: 8px; margin-left: 8px; }
   .auction-list-toolbar .auction-search { min-width: 0; margin: 0; }

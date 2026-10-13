@@ -163,6 +163,13 @@ export default async function AuctionAdminPage({
 
   return (
     <section className="section page-top admin-dashboard auction-admin-page">
+      <div className="auction-backup-action">
+        {operationWindows.auction(leagueMoment) ? (
+          <a className="button secondary" href="/admin/backup/asta">Excel di emergenza asta</a>
+        ) : (
+          <button className="button secondary" type="button" disabled>Excel di emergenza asta</button>
+        )}
+      </div>
       {query.updated && <p className="notice success">{query.updated}</p>}
       {query.reverted && <p className="notice success">Assegnazione d’asta annullata e situazione precedente ripristinata.</p>}
       {query.error && <p className="notice error">Operazione non riuscita: {query.error}</p>}

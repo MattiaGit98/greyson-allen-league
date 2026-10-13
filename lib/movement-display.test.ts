@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conciseMovementDetail, movementOperationLabel, movementOperationTypesForFilter, movementSearchFilter, normalizeMovementSearchQuery } from "./movement-display";
+import { conciseMovementDetail, fullMovementDetail, movementOperationLabel, movementOperationTypesForFilter, movementSearchFilter, normalizeMovementSearchQuery } from "./movement-display";
 
 describe("visualizzazione sintetica dei movimenti", () => {
   it("abbrevia una team option mantenendo giocatore e squadra", () => {
@@ -16,11 +16,42 @@ describe("visualizzazione sintetica dei movimenti", () => {
     )).toBe("Nuovo: firmato da AAA; taglio contestuale di Vecchio");
   });
 
-  it("mantiene gli slot soltanto quando cambiano in uno scambio", () => {
+  it("elenca squadre e destinatari dei beni scambiati", () => {
     expect(conciseMovementDetail(
       "scambio",
       "Scambio AAA ↔ BBB: Primo: AAA → BBB; Roster → Two-way; 20 crediti, contratto 28; Secondo: BBB → AAA; Roster → Roster; 15 crediti, contratto 27",
-    )).toBe("Scambio AAA ↔ BBB: Primo: AAA → BBB; Roster → Two-way; Secondo: BBB → AAA");
+    )).toBe("AAA ↔ BBB: Primo (BBB); Secondo (AAA)");
+  });
+
+  it("mostra il dettaglio per squadra, includendo scelte, Q.O. e operazioni contestuali", () => {
+    const summary = "Scambio AAA ↔ BBB ↔ CCC: Primo: AAA → BBB; Roster → Two-way; 20 crediti, contratto 28; Scelta 2028 1° giro, Orig/pos CCC: BBB → CCC; Diritti Q.O. su Secondo: CCC → AAA; importo 1; Taglio contestuale: Terzo (BBB); 8 crediti, contratto 27; Spostamento contestuale: Quarto (AAA); Two-way → Roster; Clausola eliminata: scelta 2028 1° giro (AAA) con contropartita 2029 2° giro (BBB)";
+    expect(conciseMovementDetail("scambio", summary)).toContain("Primo (BBB); Scelta 2028 1° giro, Orig/pos CCC (CCC); Q.O. Secondo (AAA)");
+    const full = fullMovementDetail("scambio", summary);
+    expect(full).toContain("AAA\nCede: Primo · 20 crediti, contratto 28 · Roster → Two-way\nRiceve: Q.O. Secondo (1 credito)");
+    expect(full).toContain("BBB\nCede: Scelta 2028 1° giro, Orig/pos CCC\nRiceve: Primo");
+    expect(full).toContain("Taglio contestuale: Terzo");
+    expect(full).toContain("Clausole: Clausola eliminata:");
+    expect(full).toContain("CCC\nCede: Q.O. Secondo");
+  });
+
+  it("non inventa una ripartizione per testi di scambio non riconosciuti", () => {
+    expect(fullMovementDetail("scambio", "Scambio storico senza dettagli sufficienti")).toBe("Scambio storico senza dettagli sufficienti");
+  });
+
+  it("rende il sign and trade leggibile e separa le clausole senza inventare beneficiari", () => {
+    const summary = "Sign and trade AAA ↔ BBB: Firma free agent · AAA · 20 crediti · Roster; Nuovo: AAA → BBB; Roster → Roster; 20 crediti, contratto 27; Clausola su scelta 2028 1° giro, Orig/pos AAA: diritto di swap; contropartita 2028 1° giro, Orig/pos BBB";
+    expect(conciseMovementDetail("sign_and_trade", summary)).toContain("AAA ↔ BBB: Nuovo (BBB)");
+    expect(fullMovementDetail("sign_and_trade", summary)).toContain("Clausole dello scambio: Clausola su scelta 2028 1° giro");
+    expect(fullMovementDetail("sign_and_trade", summary)).toContain("Firma free agent · AAA · 20 crediti · Roster");
+  });
+
+  it("attribuisce le nuove clausole alla squadra beneficiaria quando è registrata", () => {
+    const summary = "Scambio AAA ↔ BBB: Primo: AAA → BBB; Roster → Roster; 20 crediti, contratto 27; Clausola su scelta 2028 1° giro, Orig/pos AAA: protetta top 3; contropartita 2029 2° giro, Orig/pos BBB; a favore di AAA";
+    expect(conciseMovementDetail("scambio", summary)).toContain("clausola su scelta 2028 1° giro, Orig/pos AAA: protetta top 3 (AAA)");
+    const full = fullMovementDetail("scambio", summary);
+    expect(full).toContain("AAA\nCede: Primo");
+    expect(full).toContain("Clausole: Clausola su scelta 2028 1° giro, Orig/pos AAA: protetta top 3; contropartita 2029 2° giro, Orig/pos BBB");
+    expect(full).not.toContain("Clausole dello scambio:");
   });
 
   it("nasconde costo e scadenza di una rettifica roster", () => {

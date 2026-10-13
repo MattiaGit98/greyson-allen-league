@@ -17,6 +17,7 @@ export function LivePageRefresh() {
     const supabase = createSupabaseBrowserClient();
     if (!supabase) return;
     const submissions = new Map<HTMLFormElement, { button: HTMLButtonElement | null; sawPending: boolean; timeout: ReturnType<typeof setTimeout> }>();
+    let lastSubmittedForm: HTMLFormElement | null = null;
     const formForEvent = (event: Event) => event.target instanceof Element ? event.target.closest("form") : null;
     const finishSubmission = (form: HTMLFormElement) => {
       const submission = submissions.get(form);
@@ -53,6 +54,7 @@ export function LivePageRefresh() {
       notices.forEach((notice) => { notice.setAttribute("data-live-outdated", "true"); });
       form.dataset.liveSubmitting = "true";
       form.setAttribute("aria-busy", "true");
+      lastSubmittedForm = form;
       const button = event instanceof SubmitEvent && event.submitter instanceof HTMLButtonElement ? event.submitter : null;
       submissions.set(form, {
         button,
@@ -96,7 +98,13 @@ export function LivePageRefresh() {
     document.addEventListener("click", markButtonEdit, true);
     document.addEventListener("submit", guardSubmittingForm, true);
     document.addEventListener("keydown", preventInputWhileSubmitting, true);
-    const clearUpdateNotice = () => setUpdateAvailable(false);
+    const clearUpdateNotice = () => {
+      // Il messaggio di successo può trovarsi fuori dal form (per esempio dopo un redirect).
+      // In quel caso il form salvato non deve restare marcato come modifica non salvata.
+      if (lastSubmittedForm) delete lastSubmittedForm.dataset.liveDirty;
+      lastSubmittedForm = null;
+      setUpdateAvailable(false);
+    };
     window.addEventListener("admin-action-confirmed", clearUpdateNotice);
     const submissionObserver = new MutationObserver(() => {
       for (const [form, submission] of submissions) {

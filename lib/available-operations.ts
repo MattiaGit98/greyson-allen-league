@@ -28,13 +28,12 @@ export function availableOperationsAt(moment: LeagueMoment, phaseDates: PhaseDat
   add("Esercizio DPE", operationWindows.dpeActivation(moment), "trade_deadline");
   add("Reintegro anticipato DPE", operationWindows.dpeReintegration(moment), "free_agency_end");
   add("Segnalazione utilizzo G-League nei playoff", playoffTeamOptionWindowOpen(moment, phaseDates, today), "free_agency_reopening");
-  add("Rilascio: meno del 40% della stagione NBA", !hasReachedMoment(moment, "auction_start"), "auction_start");
-  add("Rilascio: T.O. da 1 credito", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "contract_delivery"), "contract_delivery");
-  add("Rilascio: senza squadra o squalifica", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "free_agency_end") && !tradesAreSuspendedForAuction(moment), "free_agency_end");
+  add("Rilasci: meno del 40% della stagione NBA", !hasReachedMoment(moment, "auction_start"), "auction_start");
+  add("Rilasci: T.O. da 1 credito", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "contract_delivery"), "contract_delivery");
+  add("Rilasci: senza squadra o squalifica", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "free_agency_end") && !tradesAreSuspendedForAuction(moment), "free_agency_end");
 
   available.push(
     { label: "Tagli" },
-    { label: "Promozioni di slot" },
     { label: "Stretch provision" },
   );
 

@@ -1,3 +1,5 @@
+import { tradeMovementPresentation } from "./trade-movement-display";
+
 const operationLabels: Record<string, string> = {
   acquisto_asta: "Acquisto asta",
   modifica_asta: "Modifica asta",
@@ -103,7 +105,7 @@ export function conciseMovementDetail(operationType: string, summary: string) {
   } else if (normalizedType === "scelta_draft") {
     concise = firstSegment(detail).replace(/\s+per\s+\d+\s+crediti\b.*$/i, "");
   } else if (["scambio", "sign_and_trade", "rettifica_admin_scambio"].includes(normalizedType)) {
-    concise = conciseTrade(detail);
+    concise = tradeMovementPresentation(summary)?.concise ?? conciseTrade(detail);
   } else if (normalizedType === "rettifica_roster_rimozione") {
     concise = conciseRosterCorrection(detail, "rimosso");
   } else if (normalizedType === "rettifica_roster_contratto") {
@@ -120,6 +122,12 @@ export function conciseMovementDetail(operationType: string, summary: string) {
   }
 
   return normalize(`${concise}${forcedCap ? " · CAP FORZATO" : ""}`);
+}
+
+export function fullMovementDetail(operationType: string, summary: string) {
+  return ["scambio", "sign_and_trade", "rettifica_admin_scambio"].includes(operationType.trim().toLocaleLowerCase("it-IT"))
+    ? tradeMovementPresentation(summary)?.full ?? summary
+    : summary;
 }
 
 function conciseAcquisition(value: string) {

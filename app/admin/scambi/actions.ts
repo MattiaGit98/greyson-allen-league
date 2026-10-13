@@ -511,10 +511,10 @@ export async function registerTrade(formData: FormData) {
       const pick = tradeState.draftAssets[change.stateIndex];
       return pick ? [`Scelta ${tradePickLabel(pick)}: ${pick.teamCode} → ${change.toTeamCode}`] : [];
     }),
-    ...pickClauseChanges.flatMap((change) => {
+    ...pickClauseChanges.flatMap((change, index) => {
       const subject = tradeState.draftAssets[change.subjectIndex];
       const counterparty = change.counterpartyIndex === null ? null : tradeState.draftAssets[change.counterpartyIndex];
-      return subject ? [`Clausola su scelta ${tradePickLabel(subject)}: ${tradeClauseLabel(change.clause)}${counterparty ? `; contropartita ${tradePickLabel(counterparty)}` : ""}`] : [];
+      return subject ? [`Clausola su scelta ${tradePickLabel(subject)}: ${tradeClauseLabel(change.clause)}${counterparty ? `; contropartita ${tradePickLabel(counterparty)}` : ""}; a favore di ${pickClauses[index].beneficiaryTeamCode}`] : [];
     }),
     ...evaluatedExistingClauseChanges.map((change) => (
       change.action === "remove"

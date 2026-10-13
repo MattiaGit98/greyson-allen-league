@@ -8,7 +8,7 @@ import { availableOperationsAt } from "@/lib/available-operations";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason, publicPhaseLabel, type LeagueMoment } from "@/lib/league-moments";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
-import { conciseMovementDetail, movementOperationLabel } from "@/lib/movement-display";
+import { conciseMovementDetail, fullMovementDetail, movementOperationLabel } from "@/lib/movement-display";
 import { formatHomepageCalendarDate } from "@/lib/calendar-homepage";
 import { nextPhaseDate, normalizePhaseDates } from "@/lib/phase-calendar";
 import { displayedSeasonName } from "@/lib/season-time";
@@ -123,7 +123,7 @@ export default async function HomePage() {
                   displayedDate: formatMovementDate(movement.created_at),
                   operation: `${movementOperationLabel(operationType)}${movement.reverted ? " · annullato" : ""}`,
                   conciseDetail: conciseMovementDetail(operationType, fullDetail),
-                  fullDetail: movement.reverted ? `${fullDetail} · Movimento annullato.` : fullDetail,
+                  fullDetail: `${fullMovementDetail(operationType, fullDetail)}${movement.reverted ? "\n\nMovimento annullato." : ""}`,
                 };
               })} />
             ) : <p className="home-empty">Nessun movimento registrato.</p>}
