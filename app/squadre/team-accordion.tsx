@@ -23,7 +23,7 @@ import type { RecentAuctionCall } from "@/lib/auction-call-feed";
 const dataSectionKeys = ["roster", "two_way", "g_league", "dpe", "draft", "cut", "qualifying_offer"] as const;
 type DataSectionKey = (typeof dataSectionKeys)[number];
 type OpenSectionsByTeam = Record<string, DataSectionKey[]>;
-type TeamSort = "name" | "cap_desc" | "roster_space";
+type TeamSort = "name" | "cap_desc";
 type ExplorerDialog = "search" | "order" | "view" | null;
 
 const playerSlotSectionKeys: DataSectionKey[] = ["roster", "two_way", "g_league", "dpe"];
@@ -131,10 +131,8 @@ export function TeamAccordion({
   const teamMetrics = useMemo(() => new Map(teams.map((team) => {
     const entries = rosterEntries.filter((entry) => entry.teamCode === team.code);
     const capSpaces = teamCapSpaces(entries, capSeasonName, countTeamOptions);
-    const active = entries.filter((entry) => entry.state === "active");
     return [team.code, {
       currentCap: capSpaces[0],
-      rosterSpace: 15 - active.filter((entry) => entry.slot === "regular").length,
     }];
   })), [capSeasonName, countTeamOptions, rosterEntries, teams]);
   const capScaleMinimum = useMemo(() => {
@@ -147,7 +145,6 @@ export function TeamAccordion({
       const leftMetrics = teamMetrics.get(left.code)!;
       const rightMetrics = teamMetrics.get(right.code)!;
       if (teamSort === "cap_desc") return rightMetrics.currentCap - leftMetrics.currentCap || left.name.localeCompare(right.name, "it");
-      if (teamSort === "roster_space") return rightMetrics.rosterSpace - leftMetrics.rosterSpace || left.name.localeCompare(right.name, "it");
       return left.name.localeCompare(right.name, "it");
     }), [teamMetrics, teamSort, teams]);
   const playerSearchMatches = useMemo(() => {
@@ -368,9 +365,9 @@ export function TeamAccordion({
               <header><span>Squadre</span><strong id="team-explorer-order-title">Ordina squadre</strong></header>
               <div className="team-explorer-dialog-body">
                 <fieldset className="team-explorer-fieldset team-explorer-order-options">
-                  {(["name", "cap_desc", "roster_space"] as TeamSort[]).map((option) => <label key={option}>
+                  {(["name", "cap_desc"] as TeamSort[]).map((option) => <label key={option}>
                     <input type="radio" name="team-sort" checked={orderDraft === option} onChange={() => setOrderDraft(option)} />
-                    {option === "name" ? "Alfabetico" : option === "cap_desc" ? "Cap libero" : "Spazio roster"}
+                    {option === "name" ? "Alfabetico" : "Cap libero"}
                   </label>)}
                 </fieldset>
               </div>
@@ -892,7 +889,7 @@ function ContractDisplay({
   const year = value.match(/\d{2}/)?.[0] ?? value;
   const expiryTone = contractExpiryTone(year, seasonName);
   const markers = [
-    ...(value.includes("(E)") ? [{ label: "+ EXT", kind: "ext" }] : []),
+    ...(value.includes("(E)") ? [{ label: "(EXT)", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "→ Q.O.", kind: "qo" }] : []),
     ...(value.includes("+ R.E.") ? [{ label: "+ R.E.", kind: "re" }] : []),
     ...(value.includes("+ T.O.") ? [{ label: "+ T.O.", kind: "team-option" }] : []),

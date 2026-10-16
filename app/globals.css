@@ -389,6 +389,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .filter-bar input, .filter-bar select { width: 100%; min-height: 42px; border: 1px solid #d2d6c8; border-radius: 10px; outline: 0; background: white; padding: 0 12px; color: var(--ink); transition: border-color .15s, box-shadow .15s; }
 .filter-bar input:focus, .filter-bar select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(24,63,52,.08); }
 .player-filter-bar { width: 100%; min-width: 0; grid-template-columns: minmax(200px, 1fr) max-content max-content max-content auto; align-items: end; }
+.player-filter-bar.is-post-auction { grid-template-columns: minmax(200px, 1fr) max-content max-content auto; }
 .player-filter-bar .search-field { min-width: 0; }
 .filter-bar .player-list-editor-search > span { margin-bottom: 7px; color: var(--muted); font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .filter-bar .player-list-search-control input:focus { box-shadow: none; }
@@ -437,6 +438,12 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .real-team, .real-team-text, .player-list-edit-real-team { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-status { justify-self: center; text-align: center; font-style: normal; }
 .player-status-roster { color: #697069; font-size: 10px; font-weight: 800; letter-spacing: .06em; }
+.player-status-roster-detail { min-width: 86px; max-width: 100%; display: inline-grid; justify-items: center; gap: 2px; padding: 5px 7px; border: 1px solid; border-radius: 9px; line-height: 1.1; }
+.player-status-roster-detail strong { font-size: 10px; font-weight: 900; letter-spacing: .06em; }
+.player-status-roster-detail small { font-size: 8px; font-weight: 800; white-space: nowrap; }
+.player-status-expiring { border-color: #dfc5a9; background: #fbf0e4; color: #86522e; }
+.player-status-not_expiring { border-color: #b8d2bf; background: #edf5ed; color: #315d49; }
+.player-status-pending { border-color: #d0c2df; background: #f2edf7; color: #664c7a; }
 .player-status-highlight { min-height: 30px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid #a9c9d8; border-radius: 9px; background: #dceaf2; color: #275f78; }
 .player-status-highlight strong { font-size: 11px; }
 .player-status-highlight small { padding-left: 7px; border-left: 1px solid #a9c9d8; font-size: 9px; font-weight: 900; letter-spacing: .05em; }
@@ -1076,6 +1083,10 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 
 @media (min-width: 851px) and (max-width: 1100px) {
   .player-filter-bar { grid-template-columns: minmax(0, 1fr) max-content max-content; }
+  .player-filter-bar.is-post-auction { grid-template-columns: minmax(0, 1fr) max-content; }
+  .player-filter-bar.is-post-auction .search-field,
+  .player-filter-bar.is-post-auction .player-status-filter { grid-column: 1; }
+  .player-filter-bar.is-post-auction .player-filter-reset { grid-column: 2; align-self: end; }
   .player-filter-bar .player-category-filter { grid-column: 1 / 3; }
   .player-filter-bar .player-filter-reset { grid-column: 3; width: 100%; }
 }
@@ -1225,9 +1236,12 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .search-field { grid-column: 1 / 3; }
   .player-category-filter { grid-column: 1 / 3; }
   .player-filter-bar { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 12px; }
+  .player-filter-bar.is-post-auction { grid-template-columns: minmax(0, 1fr); }
   .player-filter-bar .search-field, .player-filter-bar .player-check-filter { grid-column: auto; }
   .player-filter-bar .player-check-filter > div { width: 100%; }
   .player-filter-bar .player-check-filter label { flex: 1 1 0; padding: 0 6px; }
+  .player-filter-bar.is-post-auction .player-status-filter > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .player-filter-bar.is-post-auction.without-pending .player-status-filter label:last-child { grid-column: 1 / -1; }
   .player-filter-bar .filter-label-full { display: none; }
   .player-filter-bar .filter-label-short { display: inline; }
   .player-filter-bar .player-filter-reset { width: 100%; }
@@ -1268,6 +1282,8 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .player-list .player-flag-rookie::after { content: "R"; font-size: 7px; }
   .player-list .real-team { justify-self: start; text-align: left; font-size: 9px; }
   .player-list .player-row > .player-status { width: 100%; max-width: none; min-width: 0; overflow: visible; text-overflow: clip; white-space: normal; }
+  .player-list .player-status-roster-detail { min-width: 0; padding: 4px 2px; }
+  .player-list .player-status-roster-detail small { font-size: 8px; letter-spacing: -.02em; }
   .player-list .player-status-highlight { min-height: 27px; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 5px; }
   .player-list .player-status-highlight small { min-width: 0; max-width: 100%; overflow: visible; padding-top: 2px; padding-left: 0; border-top: 1px solid #a9c9d8; border-left: 0; font-size: 8px; line-height: 1; text-overflow: clip; white-space: nowrap; }
   .player-list .player-status-buyout { flex-direction: row; gap: 4px; padding-right: 6px; padding-left: 6px; }
@@ -2454,6 +2470,7 @@ input[type="reset"]:disabled {
   .public-navigation.is-open ~ main .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .public-navigation.is-open ~ main .filter-bar .search-field,
   .public-navigation.is-open ~ main .player-category-filter { grid-column: 1 / -1; }
+  .public-navigation.is-open ~ main .player-filter-bar.is-post-auction .player-status-filter > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .public-navigation.is-open ~ main .player-filter-bar .player-filter-reset { grid-column: 1 / -1; width: 100%; }
 
   .public-navigation.is-open ~ main .trade-team-grid,

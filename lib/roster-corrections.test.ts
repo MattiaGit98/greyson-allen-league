@@ -41,17 +41,17 @@ describe("rettifiche roster", () => {
       { value: "27 + T.O.", label: "27 + T.O." },
       { value: "27 + R.E.", label: "27 + R.E." },
       { value: "27 (Q)", label: "27 → Q.O." },
-      { value: "27 (E)", label: "27 + EXT" },
+      { value: "27 (E)", label: "27 (EXT)" },
       { value: "28", label: "28" },
       { value: "28 + T.O.", label: "28 + T.O." },
       { value: "28 + R.E.", label: "28 + R.E." },
       { value: "28 (Q)", label: "28 → Q.O." },
-      { value: "28 (E)", label: "28 + EXT" },
+      { value: "28 (E)", label: "28 (EXT)" },
       { value: "29", label: "29" },
       { value: "29 + T.O.", label: "29 + T.O." },
       { value: "29 + R.E.", label: "29 + R.E." },
       { value: "29 (Q)", label: "29 → Q.O." },
-      { value: "29 (E)", label: "29 + EXT" },
+      { value: "29 (E)", label: "29 (EXT)" },
     ]);
   });
 

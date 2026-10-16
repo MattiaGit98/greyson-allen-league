@@ -55,7 +55,7 @@ export function rosterCorrectionContractOptions(seasonName: string, leagueMoment
       { value: `${year} (Q)`, label: `${year} → Q.O.` },
     );
     if (distance > 0 || !hasReachedMoment(leagueMoment, "auction_start")) {
-      options.push({ value: `${year} (E)`, label: `${year} + EXT` });
+      options.push({ value: `${year} (E)`, label: `${year} (EXT)` });
     }
   }
   return options;

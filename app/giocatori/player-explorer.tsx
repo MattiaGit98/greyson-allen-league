@@ -2,18 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import type { PublicPlayerListRow as Row } from "@/lib/public-player-list";
+import { publicPlayerStatus, type PublicPlayerListRow as Row, type PublicPlayerStatus as PlayerStatusKind } from "@/lib/public-player-list";
 
-type PlayerStatus = "roster" | "qo" | "fa";
 type PlayerCategory = "rookie" | "under23" | "veteran";
-function statusOf(row: Row): PlayerStatus {
-  if (row.rosterTeamCode) return "roster";
-  if (row.qualifyingTeamCode) return "qo";
-  return "fa";
-}
 
 const allRoles: Row["role"][] = ["G", "A", "C", "X"];
-const allStatuses: PlayerStatus[] = ["fa", "qo", "roster"];
+const preAuctionStatuses: PlayerStatusKind[] = ["fa", "qo", "roster"];
+const postAuctionStatuses: PlayerStatusKind[] = ["fa", "expiring", "not_expiring", "pending"];
 const allCategories: PlayerCategory[] = ["rookie", "under23", "veteran"];
 
 function categoryOf(row: Row): PlayerCategory {
@@ -28,38 +23,48 @@ function toggleSelection<T>(selected: T[], value: T): T[] {
   return selected.filter((item) => item !== value);
 }
 
-export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility, showQualifyingOfferFilter }: {
+export function PlayerExplorer({ rows, seasonName, postAuction, showPendingFilter, showOrder, showRealTeam, showEligibility, showQualifyingOfferFilter }: {
   rows: Row[];
+  seasonName: string;
+  postAuction: boolean;
+  showPendingFilter: boolean;
   showOrder: boolean;
   showRealTeam: boolean;
   showEligibility: boolean;
   showQualifyingOfferFilter: boolean;
 }) {
+  const availableStatuses = postAuction
+    ? showPendingFilter ? postAuctionStatuses : postAuctionStatuses.filter((status) => status !== "pending")
+    : preAuctionStatuses;
   const [query, setQuery] = useState("");
   const [roles, setRoles] = useState<Row["role"][]>(allRoles);
-  const [statuses, setStatuses] = useState<PlayerStatus[]>(allStatuses);
+  const [statuses, setStatuses] = useState<PlayerStatusKind[]>(availableStatuses);
   const [categories, setCategories] = useState<PlayerCategory[]>(allCategories);
   const filtered = useMemo(() => rows.filter((row) => {
     const matchesQuery = row.name.toLowerCase().includes(query.toLowerCase());
     const matchesCategory = !showEligibility || categories.includes(categoryOf(row));
+    const status = publicPlayerStatus(row, seasonName, postAuction);
+    const matchesStatus = statuses.includes(status)
+      || (postAuction && status === "pending" && !showPendingFilter)
+      || (postAuction && status === "qo" && statuses.length === availableStatuses.length);
     return matchesQuery
       && roles.includes(row.role)
-      && statuses.includes(statusOf(row))
+      && matchesStatus
       && matchesCategory;
-  }), [categories, query, roles, rows, showEligibility, statuses]);
+  }), [availableStatuses.length, categories, postAuction, query, roles, rows, seasonName, showEligibility, showPendingFilter, statuses]);
   const filtersAreActive = roles.length !== allRoles.length
-    || statuses.length !== allStatuses.length
+    || statuses.length !== availableStatuses.length
     || (showEligibility && categories.length !== allCategories.length);
 
   function resetFilters() {
     setRoles(allRoles);
-    setStatuses(allStatuses);
+    setStatuses(availableStatuses);
     setCategories(allCategories);
   }
 
   return (
     <>
-      <div className="filter-bar player-filter-bar">
+      <div className={`filter-bar player-filter-bar${postAuction ? " is-post-auction" : ""}${postAuction && !showPendingFilter ? " without-pending" : ""}`}>
         <label className="search-field player-list-editor-search">
           <span>Cerca giocatore</span>
           <div className="player-list-search-control">
@@ -83,8 +88,14 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility,
           onToggle={(value) => setRoles((current) => toggleSelection(current, value))}
         />
         <PlayerCheckFilter
+          className="player-status-filter"
           label="Stato"
-          options={[
+          options={postAuction ? [
+            { value: "fa", label: "FA" },
+            { value: "expiring", label: "In scad." },
+            { value: "not_expiring", label: "Non in scad." },
+            ...(showPendingFilter ? [{ value: "pending" as const, label: "Da ass." }] : []),
+          ] : [
             { value: "fa", label: "FA" },
             ...(showQualifyingOfferFilter ? [{ value: "qo" as const, label: "Q.O." }] : []),
             { value: "roster", label: "A roster" },
@@ -108,6 +119,8 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility,
 
       <PublicPlayerList
         rows={filtered}
+        seasonName={seasonName}
+        postAuction={postAuction}
         showOrder={showOrder}
         showRealTeam={showRealTeam}
         showEligibility={showEligibility}
@@ -119,12 +132,16 @@ export function PlayerExplorer({ rows, showOrder, showRealTeam, showEligibility,
 
 export function PublicPlayerList({
   rows,
+  seasonName = "",
+  postAuction = false,
   showOrder,
   showRealTeam,
   showEligibility,
   emptyLabel = "Listone non ancora pubblicato",
 }: {
   rows: Row[];
+  seasonName?: string;
+  postAuction?: boolean;
   showOrder: boolean;
   showRealTeam: boolean;
   showEligibility: boolean;
@@ -155,7 +172,7 @@ export function PublicPlayerList({
             </span>
             <span><i className={`mini-role mini-role-${row.role.toLowerCase()}`}>{row.role}</i></span>
             {showRealTeam && <strong className="real-team">{row.realTeam}</strong>}
-            <PlayerStatus row={row} />
+            <PlayerStatus row={row} seasonName={seasonName} postAuction={postAuction} />
           </article>
         );
       })}
@@ -194,8 +211,16 @@ function PlayerCheckFilter<T extends string>({ className = "", label, options, s
   );
 }
 
-function PlayerStatus({ row }: { row: Row }) {
-  if (row.rosterTeamCode) return <span className="player-status player-status-roster">{row.rosterTeamCode}</span>;
+function PlayerStatus({ row, seasonName, postAuction }: { row: Row; seasonName: string; postAuction: boolean }) {
+  if (row.rosterTeamCode) {
+    if (!postAuction) return <span className="player-status player-status-roster">{row.rosterTeamCode}</span>;
+    const status = publicPlayerStatus(row, seasonName, true);
+    const label = status === "expiring" ? "In scad." : status === "pending" ? "Da ass." : "Non in scad.";
+    const fullLabel = status === "expiring" ? "In scadenza" : status === "pending" ? "Contratto da assegnare" : "Non in scadenza";
+    return <span className={`player-status player-status-roster-detail player-status-${status}`} aria-label={`${row.rosterTeamCode}, ${fullLabel}`}>
+      <strong>{row.rosterTeamCode}</strong><small aria-hidden="true">{label}</small>
+    </span>;
+  }
   if (row.qualifyingTeamCode) {
     return <span className="player-status player-status-highlight"><strong>Q.O. {row.qualifyingTeamCode}</strong></span>;
   }

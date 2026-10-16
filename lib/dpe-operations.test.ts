@@ -7,7 +7,7 @@ import { calculateCapSpace } from "./season-time";
 const target: RosterEntry = {
   name: "Nuovo infortunato",
   cost: 20,
-  contract: "28 + EXT",
+  contract: "28 (E)",
   role: "G",
   state: "active",
   slot: "regular",

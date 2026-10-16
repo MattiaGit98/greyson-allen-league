@@ -7,7 +7,7 @@ import {
   type LeagueMoment,
   type LeagueTransition,
 } from "./league-moments";
-import { playoffTeamOptionWindowOpen, type PhaseDateMap } from "./phase-calendar";
+import { nextPhaseDate, playoffTeamOptionWindowOpen, type PhaseDateMap } from "./phase-calendar";
 
 export type AvailableOperation = {
   label: string;
@@ -38,12 +38,15 @@ export function availableOperationsAt(moment: LeagueMoment, phaseDates: PhaseDat
   );
 
   const nextTransition = nextLeagueTransition(moment);
-  const followingTransition = nextTransition === "season_end" ? null : nextLeagueTransition(nextTransition);
+  const nextEvent = nextPhaseDate(phaseDates, moment, today)?.transition ?? nextTransition;
+  const followingTransition = nextEvent !== nextTransition
+    ? nextTransition
+    : nextTransition === "season_end" ? null : nextLeagueTransition(nextTransition);
   return available
     .sort((left, right) => closureOrder(left.closesAt) - closureOrder(right.closesAt) || left.label.localeCompare(right.label, "it"))
     .map(({ closesAt: _closesAt, ...operation }) => ({
       ...operation,
-      urgency: _closesAt === nextTransition
+      urgency: _closesAt === nextEvent
         ? "urgent"
         : _closesAt === followingTransition
           ? "upcoming"

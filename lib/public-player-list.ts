@@ -1,5 +1,9 @@
 import type { EditableLeagueState } from "./league-state";
 import { numberPublicAvailablePlayers } from "./player-list-public-order";
+import { seasonEndYear } from "./season-time";
+import { isPendingContractAssignment } from "./team-option-contract";
+
+export type PublicPlayerStatus = "fa" | "qo" | "roster" | "expiring" | "not_expiring" | "pending";
 
 export type PublicPlayerListRow = {
   name: string;
@@ -10,6 +14,7 @@ export type PublicPlayerListRow = {
   listOrder: number;
   publicOrder: number | null;
   rosterTeamCode: string | null;
+  rosterContract: string | null;
   qualifyingTeamCode: string | null;
   buyoutApplied: boolean;
 };
@@ -34,10 +39,23 @@ export function buildPublicPlayerListRows(
       ...player,
       listOrder: index + 1,
       rosterTeamCode: activeRoster?.teamCode ?? null,
+      rosterContract: activeRoster?.contract ?? null,
       qualifyingTeamCode: activeRoster ? null : qualifyingOffer?.teamCode ?? null,
       buyoutApplied,
     };
   }));
+}
+
+export function publicPlayerStatus(row: PublicPlayerListRow, seasonName: string, postAuction: boolean): PublicPlayerStatus {
+  if (!row.rosterTeamCode) return row.qualifyingTeamCode ? "qo" : "fa";
+  if (!postAuction) return "roster";
+  const contract = row.rosterContract?.trim() ?? "";
+  if (isPendingContractAssignment(contract)) return "pending";
+  const endYear = seasonEndYear(seasonName);
+  const shortYear = endYear === null ? null : String(endYear % 100).padStart(2, "0");
+  return shortYear && (contract === shortYear || contract === `${shortYear} (Q)`)
+    ? "expiring"
+    : "not_expiring";
 }
 
 function normalizePlayerName(value: string) {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { liveRefreshDecision } from "@/lib/live-refresh-policy";
 
 export function LivePageRefresh() {
   const pathname = usePathname();
@@ -67,31 +68,32 @@ export function LivePageRefresh() {
       const form = formForEvent(event);
       if (form?.dataset.liveSubmitting === "true") event.preventDefault();
     };
+    const currentDecision = () => liveRefreshDecision({
+      preserveWork: preserveForm,
+      autoRefreshing: isAdmin && Boolean(document.querySelector("[data-live-auto-refresh='true']")),
+      submitting: preserveForm && Boolean(document.querySelector("form[data-live-submitting='true']")),
+      dirtyForm: preserveForm && Boolean(document.querySelector("form[data-live-dirty='true']")),
+      openDialog: isAdmin && Boolean(document.querySelector("[role='dialog'], [role='alertdialog']")),
+    });
     const refresh = () => {
-      if (preserveForm) {
-        const submittingForm = document.querySelector("form[data-live-submitting='true']");
-        const dirtyForm = document.querySelector("form[data-live-dirty='true']");
-        const openOperation = isAdmin && document.querySelector("[role='dialog'], [role='alertdialog']");
-        if (submittingForm) return;
-        if (dirtyForm || openOperation) {
-          setUpdateAvailable(true);
-          return;
-        }
-        if (isAdmin) {
-          if (refreshTimer.current) clearTimeout(refreshTimer.current);
-          refreshTimer.current = setTimeout(() => {
-            if (document.querySelector("form[data-live-submitting='true']")) return;
-            if (document.querySelector("form[data-live-dirty='true'], [role='dialog'], [role='alertdialog']")) {
-              setUpdateAvailable(true);
-              return;
-            }
-            router.refresh();
-          }, 350);
-        } else setUpdateAvailable(true);
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      const initialDecision = currentDecision();
+      if (initialDecision === "ignore") {
+        if (isAdmin && document.querySelector("[data-live-auto-refresh='true']")) setUpdateAvailable(false);
         return;
       }
-      if (refreshTimer.current) clearTimeout(refreshTimer.current);
-      refreshTimer.current = setTimeout(() => router.refresh(), 350);
+      const finishRefresh = (noticeWaited: boolean) => {
+        const decision = currentDecision();
+        if (decision === "ignore") return;
+        if (decision === "notice") {
+          if (noticeWaited) setUpdateAvailable(true);
+          else refreshTimer.current = setTimeout(() => finishRefresh(true), 900);
+          return;
+        }
+        setUpdateAvailable(false);
+        router.refresh();
+      };
+      refreshTimer.current = setTimeout(() => finishRefresh(initialDecision === "notice"), initialDecision === "notice" ? 900 : 350);
     };
     document.addEventListener("input", markFormDirty, true);
     document.addEventListener("change", markFormDirty, true);
@@ -99,6 +101,7 @@ export function LivePageRefresh() {
     document.addEventListener("submit", guardSubmittingForm, true);
     document.addEventListener("keydown", preventInputWhileSubmitting, true);
     const clearUpdateNotice = () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
       // Il messaggio di successo può trovarsi fuori dal form (per esempio dopo un redirect).
       // In quel caso il form salvato non deve restare marcato come modifica non salvata.
       if (lastSubmittedForm) delete lastSubmittedForm.dataset.liveDirty;
@@ -151,7 +154,7 @@ export function LivePageRefresh() {
     <aside className="live-update-notice" role="status">
       <span>Sono disponibili dati aggiornati della lega.</span>
       <button type="button" onClick={() => {
-        const unfinishedForm = isAdmin && document.querySelector("form[data-live-dirty='true'], [role='dialog'], [role='alertdialog']");
+        const unfinishedForm = preserveForm && document.querySelector("form[data-live-dirty='true'], [role='dialog'], [role='alertdialog']");
         if (unfinishedForm && !window.confirm("Aggiornare la pagina? Le modifiche non salvate andranno perse.")) return;
         setUpdateAvailable(false);
         if (unfinishedForm) window.location.reload();

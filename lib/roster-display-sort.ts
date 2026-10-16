@@ -1,5 +1,5 @@
 import type { RosterEntry } from "./league-types";
-import { contractCostForSeason } from "./season-time";
+import { contractCostForSeason, seasonEndYear } from "./season-time";
 
 export type RosterSortKey = "role" | "name" | "contract" | "cost";
 export type RosterSortState = { key: RosterSortKey; direction: "asc" | "desc" };
@@ -11,7 +11,7 @@ export function sortPlayerEntries(entries: RosterEntry[], seasonName: string, so
     if (sort.key === "cost") {
       result = contractCostForSeason(left, seasonName) - contractCostForSeason(right, seasonName);
     } else if (sort.key === "contract") {
-      result = contractSortValue(left.contract) - contractSortValue(right.contract);
+      result = contractSortValue(left.contract, seasonName) - contractSortValue(right.contract, seasonName);
     } else if (sort.key === "role") {
       const leftRole = roleSortValue(left.role);
       const rightRole = roleSortValue(right.role);
@@ -30,8 +30,26 @@ export function sortPlayerEntries(entries: RosterEntry[], seasonName: string, so
   });
 }
 
-function contractSortValue(value: string) {
-  return Number(String(value).match(/\d+/)?.[0] ?? 999);
+function contractSortValue(value: string, seasonName: string) {
+  const contract = value.trim().toLocaleUpperCase("it-IT");
+  const activeYear = seasonEndYear(seasonName);
+  const shortYear = contract.match(/^\d{2}/)?.[0];
+  let year: number;
+  if (shortYear !== undefined) {
+    year = Math.floor((activeYear ?? 2000) / 100) * 100 + Number(shortYear);
+    if (activeYear !== null && year < activeYear - 50) year += 100;
+    if (activeYear !== null && year > activeYear + 50) year -= 100;
+  } else if (/^(?:T\.?O\.?|R\.?E\.?)$/.test(contract) && activeYear !== null) {
+    year = activeYear - 1;
+  } else {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const priority = /\+\s*T\.?O\.?|^T\.?O\.?$/.test(contract) ? 5
+    : /\+\s*R\.?E\.?|^R\.?E\.?$/.test(contract) ? 4
+      : /\+\s*EXT|\(E\)/.test(contract) ? 3
+        : /\+\s*Q\.?O\.?|\(Q\)/.test(contract) ? 2
+          : 1;
+  return year * 10 + priority;
 }
 
 function roleSortValue(role: RosterEntry["role"]) {

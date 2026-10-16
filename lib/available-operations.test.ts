@@ -33,6 +33,27 @@ describe("operazioni disponibili", () => {
     expect(labels).not.toContain("Promozioni di slot");
   });
 
+  it("non colora gli scambi di rosso prima della data informativa di inizio campionato", () => {
+    const dates = { regular_season_start: "2026-10-20", trade_deadline: "2027-02-01" };
+    const beforeStart = availableOperationsAt("contract_delivery", dates, "2026-10-19");
+    expect(beforeStart.find((operation) => operation.label === "Scambi")?.urgency).not.toBe("urgent");
+    expect(beforeStart.find((operation) => operation.label === "Esercizio DPE")?.urgency).not.toBe("urgent");
+    expect(availableOperationsAt("contract_delivery", dates, "2026-10-20").find((operation) => operation.label === "Scambi")?.urgency).not.toBe("urgent");
+
+    const afterStart = availableOperationsAt("contract_delivery", dates, "2026-10-21");
+    expect(afterStart.find((operation) => operation.label === "Scambi")?.urgency).toBe("urgent");
+    expect(afterStart.find((operation) => operation.label === "Esercizio DPE")?.urgency).toBe("urgent");
+  });
+
+  it("considera anche l'inizio postseason prima della riapertura free agency", () => {
+    const dates = { postseason_start: "2027-04-01", free_agency_reopening: "2027-04-05" };
+    const beforeStart = availableOperationsAt("free_agency_end", dates, "2027-03-31");
+    expect(beforeStart.every((operation) => operation.urgency !== "urgent")).toBe(true);
+
+    const afterStart = availableOperationsAt("free_agency_end", dates, "2027-04-02");
+    expect(afterStart.find((operation) => operation.label === "Segnalazione utilizzo G-League nei playoff")?.urgency).toBe("urgent");
+  });
+
   it("mostra la segnalazione playoff solo tra la data di inizio postseason e la riapertura della free agency", () => {
     const dates = { postseason_start: "2027-04-01" };
     const label = "Segnalazione utilizzo G-League nei playoff";
