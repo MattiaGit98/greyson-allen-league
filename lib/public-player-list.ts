@@ -22,26 +22,30 @@ export type PublicPlayerListRow = {
 export function buildPublicPlayerListRows(
   state: Pick<EditableLeagueState, "playerList" | "rosterEntries" | "qualifyingOfferRights">,
 ): PublicPlayerListRow[] {
+  const activeRosterByName = new Map<string, (typeof state.rosterEntries)[number]>();
+  const buyoutNames = new Set<string>();
+  for (const entry of state.rosterEntries) {
+    const name = normalizePlayerName(entry.name);
+    if (entry.state === "active" && !activeRosterByName.has(name)) activeRosterByName.set(name, entry);
+    if (entry.state === "cut" && entry.buyoutApplied === true) buyoutNames.add(name);
+  }
+  const qualifyingOfferByName = new Map<string, (typeof state.qualifyingOfferRights)[number]>();
+  for (const right of state.qualifyingOfferRights) {
+    const name = normalizePlayerName(right.playerName);
+    if (!qualifyingOfferByName.has(name)) qualifyingOfferByName.set(name, right);
+  }
+
   return numberPublicAvailablePlayers(state.playerList.map((player, index) => {
     const normalizedName = normalizePlayerName(player.name);
-    const activeRoster = state.rosterEntries.find((entry) => (
-      normalizePlayerName(entry.name) === normalizedName && entry.state === "active"
-    ));
-    const qualifyingOffer = state.qualifyingOfferRights.find((right) => (
-      normalizePlayerName(right.playerName) === normalizedName
-    ));
-    const buyoutApplied = state.rosterEntries.some((entry) => (
-      normalizePlayerName(entry.name) === normalizedName
-      && entry.state === "cut"
-      && entry.buyoutApplied === true
-    ));
+    const activeRoster = activeRosterByName.get(normalizedName);
+    const qualifyingOffer = qualifyingOfferByName.get(normalizedName);
     return {
       ...player,
       listOrder: index + 1,
       rosterTeamCode: activeRoster?.teamCode ?? null,
       rosterContract: activeRoster?.contract ?? null,
       qualifyingTeamCode: activeRoster ? null : qualifyingOffer?.teamCode ?? null,
-      buyoutApplied,
+      buyoutApplied: buyoutNames.has(normalizedName),
     };
   }));
 }

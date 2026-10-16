@@ -42,6 +42,27 @@ describe("righe pubbliche del listone", () => {
     expect(rows[0]).toMatchObject({ rosterTeamCode: null, buyoutApplied: false, publicOrder: 1 });
   });
 
+  it("mantiene la prima corrispondenza normalizzata e il segnale buyout", () => {
+    const rows = buildPublicPlayerListRows({
+      playerList: [
+        { name: "Primo Giocatore", role: "G", realTeam: "", rookie: false, under23: false },
+        { name: "Secondo Giocatore", role: "A", realTeam: "", rookie: false, under23: false },
+      ],
+      rosterEntries: [
+        { name: " primo  giocatore ", role: "G", cost: 1, contract: "27", state: "active", slot: "regular", teamCode: "AAA" },
+        { name: "Primo Giocatore", role: "G", cost: 2, contract: "28", state: "active", slot: "regular", teamCode: "BBB" },
+        { name: "Secondo Giocatore", role: "A", cost: 3, contract: "27", state: "cut", slot: "regular", teamCode: "CCC", buyoutApplied: true },
+      ],
+      qualifyingOfferRights: [
+        { playerName: "secondo giocatore", qualifyingAmount: 1, teamCode: "DDD" },
+        { playerName: "Secondo Giocatore", qualifyingAmount: 2, teamCode: "EEE" },
+      ],
+    });
+
+    expect(rows[0]).toMatchObject({ rosterTeamCode: "AAA", rosterContract: "27", qualifyingTeamCode: null });
+    expect(rows[1]).toMatchObject({ rosterTeamCode: null, qualifyingTeamCode: "DDD", buyoutApplied: true });
+  });
+
   it("distingue i contratti in scadenza, non in scadenza e da assegnare dopo l'asta", () => {
     const row = buildPublicPlayerListRows({
       playerList: [{ name: "Giocatore", role: "G", realTeam: "", rookie: false, under23: false }],

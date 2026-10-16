@@ -593,7 +593,7 @@ export function PostAuctionContractForm(props: OperationProps & { contractDrafts
                     const choiceLabel = choice.kind === "annual" && finalCost === 1
                       ? `${choice.label} → Q.O.`
                       : choice.kind === "triennial" && auctionPrice >= 200
-                        ? `${choice.label} (EXT)`
+                        ? `${choice.label} EXT`
                         : choice.label;
                     return (
                       <label className={assignment?.contract === choice.kind ? "selected" : ""} key={choice.kind}>

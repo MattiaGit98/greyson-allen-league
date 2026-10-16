@@ -392,7 +392,7 @@ function formatContractOptionLabel(value: string) {
   const qualifyingOffer = value.match(/^(\d{2}) \(Q\)$/);
   if (qualifyingOffer) return `${qualifyingOffer[1]} → Q.O.`;
   const extension = value.match(/^(\d{2}) \(E\)$/);
-  if (extension) return `${extension[1]} (EXT)`;
+  if (extension) return `${extension[1]} EXT`;
   return value;
 }
 

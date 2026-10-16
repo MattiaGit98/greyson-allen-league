@@ -889,7 +889,7 @@ function ContractDisplay({
   const year = value.match(/\d{2}/)?.[0] ?? value;
   const expiryTone = contractExpiryTone(year, seasonName);
   const markers = [
-    ...(value.includes("(E)") ? [{ label: "(EXT)", kind: "ext" }] : []),
+    ...(value.includes("(E)") ? [{ label: "EXT", kind: "ext" }] : []),
     ...(value.includes("(Q)") ? [{ label: "→ Q.O.", kind: "qo" }] : []),
     ...(value.includes("+ R.E.") ? [{ label: "+ R.E.", kind: "re" }] : []),
     ...(value.includes("+ T.O.") ? [{ label: "+ T.O.", kind: "team-option" }] : []),

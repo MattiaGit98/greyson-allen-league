@@ -26,20 +26,16 @@ const movementDateFormatter = new Intl.DateTimeFormat("it-IT", {
 });
 
 export default async function HomePage() {
-  const [activeSeason, state, supabase] = await Promise.all([
+  const [activeSeason, state, historyState, competitionState, movementResponse] = await Promise.all([
     requireActiveSeason(),
     loadEditableLeagueState(),
-    createSupabaseServerClient(),
-  ]);
-  const [movementResponse] = await Promise.all([
-    supabase
-      ? supabase.from("league_movement_feed").select("id,operation_type,summary,created_at,reverted").order("created_at", { ascending: false }).limit(5)
-      : null,
+    loadHistoryCompetitionState(),
+    loadCompetitionState(),
+    loadRecentMovements(),
   ]);
   if (movementResponse?.error) throw new Error(`Movimenti recenti non disponibili: ${movementResponse.error.message}`);
   const movements = movementResponse?.data ?? [];
   const moment = leagueMomentFromSeason(activeSeason.season);
-  const [historyState, competitionState] = await Promise.all([loadHistoryCompetitionState(), loadCompetitionState()]);
   const todayParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
     .formatToParts(new Date()).reduce((value, part) => ({ ...value, [part.type]: part.value }), {} as Record<string, string>);
   const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
@@ -137,6 +133,13 @@ export default async function HomePage() {
       </div>
     </section>
   );
+}
+
+async function loadRecentMovements() {
+  const supabase = await createSupabaseServerClient();
+  return supabase
+    ? supabase.from("league_movement_feed").select("id,operation_type,summary,created_at,reverted").order("created_at", { ascending: false }).limit(5)
+    : null;
 }
 
 type HomeLeagueAlert = {
