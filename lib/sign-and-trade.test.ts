@@ -61,7 +61,6 @@ describe("sign and trade", () => {
         signerTeamCode: "AAA",
         price: 5,
         destinationSlot: "regular",
-        buyoutTopSixConfirmed: false,
       },
       seasonName: "2026/27",
       phase: "regular_season",
@@ -97,7 +96,6 @@ describe("sign and trade", () => {
         signerTeamCode: "AAA",
         price: 20,
         destinationSlot: "regular",
-        buyoutTopSixConfirmed: false,
       },
       seasonName: "2026/27",
       phase: "regular_season",
@@ -117,7 +115,6 @@ describe("sign and trade", () => {
         signerTeamCode: "AAA",
         price: 5,
         destinationSlot: "regular",
-        buyoutTopSixConfirmed: false,
       },
       seasonName: "2026/27",
       phase: "regular_season",
@@ -153,7 +150,6 @@ describe("sign and trade", () => {
         signerTeamCode: "AAA",
         price: 5,
         destinationSlot: "regular",
-        buyoutTopSixConfirmed: false,
       },
       seasonName: "2026/27",
       phase: "regular_season",
@@ -173,7 +169,6 @@ describe("sign and trade", () => {
         signerTeamCode: "AAA",
         price: 1,
         destinationSlot: "regular",
-        buyoutTopSixConfirmed: false,
       },
       seasonName: "2026/27",
       phase: "regular_season",
@@ -185,7 +180,7 @@ describe("sign and trade", () => {
     });
   });
 
-  it("richiede anche nel sign and trade la verifica per un free agent soggetto a buyout", () => {
+  it("firma un FA da buyout senza verifica di classifica, preservando il vecchio contratto tagliato", () => {
     const state = baseState();
     state.rosterEntries.push({
       name: "Free Agent",
@@ -206,24 +201,19 @@ describe("sign and trade", () => {
       signerTeamCode: "AAA",
       price: 5,
       destinationSlot: "regular" as const,
-      buyoutTopSixConfirmed: false,
     };
 
-    expect(() => buildSignAndTradeProvisional({
+    const provisional = buildSignAndTradeProvisional({
       state,
       request,
       seasonName: "2026/27",
       phase: "regular_season",
       moment: "contract_delivery",
-    })).toThrow("prime otto posizioni");
-
-    expect(() => buildSignAndTradeProvisional({
-      state,
-      request: { ...request, buyoutTopSixConfirmed: true },
-      seasonName: "2026/27",
-      phase: "regular_season",
-      moment: "contract_delivery",
-    })).not.toThrow();
+    });
+    expect(provisional.state.rosterEntries.find((entry) => entry.name === "Free Agent" && entry.state === "active"))
+      .toMatchObject({ teamCode: "AAA", cost: 5, contract: "27 (Q)", buyoutApplied: false });
+    expect(provisional.state.rosterEntries.find((entry) => entry.name === "Free Agent" && entry.state === "cut"))
+      .toMatchObject({ teamCode: "BBB", cost: 20, contract: "27", buyoutApplied: true });
   });
 
 });

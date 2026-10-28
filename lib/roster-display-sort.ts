@@ -1,5 +1,5 @@
 import type { RosterEntry } from "./league-types";
-import { contractCostForSeason, seasonEndYear } from "./season-time";
+import { seasonEndYear } from "./season-time";
 
 export type RosterSortKey = "role" | "name" | "contract" | "cost";
 export type RosterSortState = { key: RosterSortKey; direction: "asc" | "desc" };
@@ -9,7 +9,7 @@ export function sortPlayerEntries(entries: RosterEntry[], seasonName: string, so
   return [...entries].sort((left, right) => {
     let result: number;
     if (sort.key === "cost") {
-      result = contractCostForSeason(left, seasonName) - contractCostForSeason(right, seasonName);
+      result = left.cost - right.cost;
     } else if (sort.key === "contract") {
       result = contractSortValue(left.contract, seasonName) - contractSortValue(right.contract, seasonName);
     } else if (sort.key === "role") {
@@ -23,7 +23,7 @@ export function sortPlayerEntries(entries: RosterEntry[], seasonName: string, so
     }
     if (result !== 0) return result * direction;
     if (sort.key === "role" || sort.key === "contract") {
-      const costDifference = contractCostForSeason(right, seasonName) - contractCostForSeason(left, seasonName);
+      const costDifference = right.cost - left.cost;
       if (costDifference !== 0) return costDifference;
     }
     return left.name.localeCompare(right.name, "it");

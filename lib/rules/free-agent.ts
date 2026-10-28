@@ -3,11 +3,11 @@ import { validateRoleMinimums, validateSlots, type RoleCounts, type SlotCounts }
 import { result } from "./types";
 import { seasonEndYear } from "../season-time";
 
-export function automaticFreeAgentContract(seasonName: string, tradeDeadlinePassed: boolean) {
+export function automaticFreeAgentContract(seasonName: string, roleMinimumReplacement = false) {
   const endYear = seasonEndYear(seasonName);
   if (endYear === null) return null;
   const expiry = String(endYear).slice(-2);
-  return tradeDeadlinePassed ? expiry : `${expiry} (Q)`;
+  return roleMinimumReplacement ? expiry : `${expiry} (Q)`;
 }
 
 export function evaluateFreeAgentSigning(input: {

@@ -11,7 +11,6 @@ import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { conciseMovementDetail, fullMovementDetail, movementOperationLabel } from "@/lib/movement-display";
 import { formatHomepageCalendarDate } from "@/lib/calendar-homepage";
 import { nextPhaseDate, normalizePhaseDates } from "@/lib/phase-calendar";
-import { displayedSeasonName } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadCompetitionState } from "@/lib/competition-store";
@@ -70,7 +69,7 @@ export default async function HomePage() {
       <header className="home-hero">
         <p className="eyebrow">Greyson Allen League</p>
         <div className="home-season-line">
-          <h1>{displayedSeasonName(activeSeason.season.name)} · {macroPhase}</h1>
+          <h1>{activeSeason.season.name} · {macroPhase}</h1>
         </div>
       </header>
       {state.publicNotice && <section className="home-public-notice" aria-label="Avviso della lega"><p>{state.publicNotice}</p></section>}

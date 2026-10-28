@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { availableOperationsAt } from "./available-operations";
 
 describe("operazioni disponibili", () => {
+  it("mostra il buyout dal Termine asta, non soltanto dopo la deadline", () => {
+    expect(labelsAt("auction_start")).not.toContain("Buyout");
+    expect(labelsAt("auction_completed")).toContain("Buyout");
+    expect(labelsAt("contract_delivery")).toContain("Buyout");
+    expect(labelsAt("trade_deadline")).toContain("Buyout");
+    expect(labelsAt("buyout_end")).not.toContain("Buyout");
+    expect(labelsAt("free_agency_reopening")).not.toContain("Buyout");
+  });
   it("mostra il reintegro anticipato già al Termine asta e lo chiude con la prima free agency", () => {
     const label = "Reintegro anticipato DPE";
     expect(labelsAt("offseason_start")).not.toContain(label);

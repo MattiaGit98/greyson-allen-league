@@ -16,18 +16,15 @@ export type PublicPlayerListRow = {
   rosterTeamCode: string | null;
   rosterContract: string | null;
   qualifyingTeamCode: string | null;
-  buyoutApplied: boolean;
 };
 
 export function buildPublicPlayerListRows(
   state: Pick<EditableLeagueState, "playerList" | "rosterEntries" | "qualifyingOfferRights">,
 ): PublicPlayerListRow[] {
   const activeRosterByName = new Map<string, (typeof state.rosterEntries)[number]>();
-  const buyoutNames = new Set<string>();
   for (const entry of state.rosterEntries) {
     const name = normalizePlayerName(entry.name);
     if (entry.state === "active" && !activeRosterByName.has(name)) activeRosterByName.set(name, entry);
-    if (entry.state === "cut" && entry.buyoutApplied === true) buyoutNames.add(name);
   }
   const qualifyingOfferByName = new Map<string, (typeof state.qualifyingOfferRights)[number]>();
   for (const right of state.qualifyingOfferRights) {
@@ -45,7 +42,6 @@ export function buildPublicPlayerListRows(
       rosterTeamCode: activeRoster?.teamCode ?? null,
       rosterContract: activeRoster?.contract ?? null,
       qualifyingTeamCode: activeRoster ? null : qualifyingOffer?.teamCode ?? null,
-      buyoutApplied: buyoutNames.has(normalizedName),
     };
   }));
 }

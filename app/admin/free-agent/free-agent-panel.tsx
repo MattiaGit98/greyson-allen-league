@@ -18,8 +18,6 @@ type PlayerOption = {
   listOrder: number;
   rosterTeamCode: string | null;
   qualifyingTeamCode: string | null;
-  cutTeamCodes: string[];
-  buyoutApplied: boolean;
 };
 type TeamOption = {
   code: string;
@@ -46,7 +44,6 @@ export function FreeAgentPanel({
   freeAgentThousandLimitApplies,
   seasonName,
   leagueMoment,
-  tradeDeadlinePassed,
   signAndTradeOpen,
   listPublished,
   teams,
@@ -57,7 +54,6 @@ export function FreeAgentPanel({
   freeAgentThousandLimitApplies: boolean;
   seasonName: string;
   leagueMoment: LeagueMoment;
-  tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
   listPublished: boolean;
   teams: TeamOption[];
@@ -108,11 +104,6 @@ export function FreeAgentPanel({
           <article className="auction-player-row" key={player.listOrder}>
             <span className="player-identity">
               <strong className="player-name">{player.name}</strong>
-              {player.buyoutApplied && (
-                <span className="player-flags">
-                  <small className="player-flag player-flag-buyout">Buyout</small>
-                </span>
-              )}
             </span>
             <span><i className={`mini-role mini-role-${player.role.toLowerCase()}`}>{player.role}</i></span>
             <button className="auction-row-action bid" type="button" onClick={() => setSelectedName(player.name)}>Firma</button>
@@ -138,7 +129,6 @@ export function FreeAgentPanel({
             freeAgentThousandLimitApplies={freeAgentThousandLimitApplies}
             seasonName={seasonName}
             leagueMoment={leagueMoment}
-            tradeDeadlinePassed={tradeDeadlinePassed}
             signAndTradeOpen={signAndTradeOpen}
             canSign={canSign}
             unavailableReason={unavailableReason}
@@ -163,7 +153,6 @@ function FreeAgentDialog({
   freeAgentThousandLimitApplies,
   seasonName,
   leagueMoment,
-  tradeDeadlinePassed,
   signAndTradeOpen,
   canSign,
   unavailableReason,
@@ -178,7 +167,6 @@ function FreeAgentDialog({
   freeAgentThousandLimitApplies: boolean;
   seasonName: string;
   leagueMoment: LeagueMoment;
-  tradeDeadlinePassed: boolean;
   signAndTradeOpen: boolean;
   canSign: boolean;
   unavailableReason?: string;
@@ -191,7 +179,6 @@ function FreeAgentDialog({
   const [slotDecisions, setSlotDecisions] = useState<ContextualSlotDecision[]>([]);
   const [outsideName, setOutsideName] = useState("");
   const [outsideRole, setOutsideRole] = useState<"G" | "A" | "C" | "X" | "">("");
-  const [buyoutTopSixConfirmed, setBuyoutTopSixConfirmed] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
   const [roleMinimumReplacement, setRoleMinimumReplacement] = useState(false);
   const team = teams.find((item) => item.code === teamCode) ?? teams[0];
@@ -279,7 +266,7 @@ function FreeAgentDialog({
     && Boolean(selectedRole)
     && roleMinimumShortageBefore[selectedRole as "G" | "A" | "C"] > 0;
   const blockingCapWarnings = roleMinimumReplacement && roleMinimumReplacementAvailable ? [] : capWarnings;
-  const contract = automaticFreeAgentContract(seasonName, tradeDeadlinePassed || roleMinimumReplacement) ?? "—";
+  const contract = automaticFreeAgentContract(seasonName, roleMinimumReplacement) ?? "—";
   const roleMinimumSlotError = roleMinimumConfirmationRequired
     ? roleMinimumRecoverySlotError({ ...roleMinimumShortageAfter, total: roleMinimumShortageAfter.G + roleMinimumShortageAfter.A + roleMinimumShortageAfter.C }, {
       regular: preview.calculated.slotsAfter.regular,
@@ -288,7 +275,6 @@ function FreeAgentDialog({
     : null;
   const roleMinimumConfirmationMissing = roleMinimumConfirmationRequired && !roleMinimumConfirmed;
   const signAndTradeErrors = preview.errors.filter((error) => !error.code.startsWith("SLOT_"));
-  const buyoutEligibilityConfirmationMissing = Boolean(player?.buyoutApplied) && !buyoutTopSixConfirmed;
 
   function openSignAndTrade() {
     const params = new URLSearchParams({
@@ -300,7 +286,6 @@ function FreeAgentDialog({
       sign_team: teamCode,
       sign_price: String(price),
       sign_slot: destination,
-      sign_buyout_top_six_confirmed: String(buyoutTopSixConfirmed),
     });
     window.location.assign(`/admin/scambi?${params.toString()}`);
   }
@@ -315,7 +300,6 @@ function FreeAgentDialog({
       <input type="hidden" name="price" value={price} />
       <input type="hidden" name="destination" value={destination} />
       <input type="hidden" name="slot_resolution_json" value={JSON.stringify(slotDecisions)} />
-      <input type="hidden" name="buyout_top_six_confirmed" value={String(buyoutTopSixConfirmed)} />
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
       <input type="hidden" name="role_minimum_replacement" value={String(roleMinimumReplacement)} />
 
@@ -333,12 +317,12 @@ function FreeAgentDialog({
         <div className={`auction-modal-fields free-agent-signing-fields ${outsideList ? "free-agent-outside-fields" : ""}`}>
           {outsideList && (
             <>
-              <Field label="Nome giocatore" className="field-player-name"><input type="text" maxLength={120} value={outsideName} onChange={(event) => { setOutsideName(event.target.value); setBuyoutTopSixConfirmed(false); }} /></Field>
+              <Field label="Nome giocatore" className="field-player-name"><input type="text" maxLength={120} value={outsideName} onChange={(event) => setOutsideName(event.target.value)} /></Field>
               <Field label="Ruolo" className="field-player-role"><select value={outsideRole} onChange={(event) => { setOutsideRole(event.target.value as typeof outsideRole); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}><option value="">Seleziona</option><option value="G">Guardia</option><option value="A">Ala</option><option value="C">Centro</option><option value="X">Senza ruolo Dunkest</option></select></Field>
             </>
           )}
           <Field label="Squadra" className="field-team">
-            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setSlotDecisions([]); setBuyoutTopSixConfirmed(false); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
+            <select value={teamCode} onChange={(event) => { setTeamCode(event.target.value); setSlotDecisions([]); setRoleMinimumConfirmed(false); setRoleMinimumReplacement(false); }}>
               {teams.map((item) => <option value={item.code} key={item.code}>{formatTeamName(item.name)}</option>)}
             </select>
           </Field>
@@ -367,12 +351,6 @@ function FreeAgentDialog({
         </div>
         <p className="manual-cut-check">Verifica manualmente che il giocatore acquisito non compaia tra i tagliati:<br />{team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}</p>
         {outsideDuplicate && <p className="validation error">Il giocatore è già nel listone: selezionalo dall’elenco.</p>}
-        {player?.buyoutApplied && (
-          <label className="operation-check free-agent-standing-check">
-            <input type="checkbox" checked={buyoutTopSixConfirmed} onChange={(event) => setBuyoutTopSixConfirmed(event.target.checked)} />
-            Ho verificato che la squadra occupi una delle prime otto posizioni della regular season
-          </label>
-        )}
         {roleMinimumReplacementAvailable && (
           <label className="operation-check role-minimum-check">
             <input type="checkbox" checked={roleMinimumReplacement} onChange={(event) => { setRoleMinimumReplacement(event.target.checked); setRoleMinimumConfirmed(false); }} />
@@ -404,11 +382,11 @@ function FreeAgentDialog({
           className="button secondary sign-trade-action"
           type="button"
           onClick={openSignAndTrade}
-          disabled={!canSign || !signAndTradeOpen || signAndTradeErrors.length > 0 || buyoutEligibilityConfirmationMissing || outsideDuplicate || !team}
+          disabled={!canSign || !signAndTradeOpen || signAndTradeErrors.length > 0 || outsideDuplicate || !team}
         >
           Firma e scambia
         </button>
-        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || !slotResolution.complete || slotResolution.errors.length > 0 || buyoutEligibilityConfirmationMissing || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || futureStretchError !== null || outsideDuplicate || !team || blockingCapWarnings.length > 0}>Registra firma</button>
+        <button className="button primary" type="submit" disabled={!canSign || !preview.valid || !slotResolution.complete || slotResolution.errors.length > 0 || roleMinimumConfirmationMissing || roleMinimumSlotError !== null || futureStretchError !== null || outsideDuplicate || !team || blockingCapWarnings.length > 0}>Registra firma</button>
       </div>
     </form>
   );

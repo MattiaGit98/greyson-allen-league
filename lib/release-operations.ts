@@ -4,6 +4,28 @@ import { contractAfterRosterExitForEntry, isPendingContractAssignment } from "./
 export type ReleaseOperationKind = "cut" | "free_release" | "buyout";
 export type ThreeYearValues = [number, number, number];
 
+/** Sconto del 20% sul totale residuo, arrotondato una sola volta per eccesso. */
+export function buyoutCost(charges: readonly number[]) {
+  const residual = charges.reduce((total, charge) => total + charge, 0);
+  if (charges.some((charge) => !Number.isSafeInteger(charge) || charge < 0) || !Number.isSafeInteger(residual)) {
+    throw new Error("Costo residuo del buyout non valido.");
+  }
+  return residual - Math.floor(residual / 5);
+}
+
+export function applyBuyout<T extends RosterEntry>(entry: T, currentSeasonEndYear: number, charges: readonly number[]): T {
+  const shortExpiry = entry.contract.match(/\d{2}/)?.[0];
+  const expiry = shortExpiry ? Math.floor(currentSeasonEndYear / 100) * 100 + Number(shortExpiry) : null;
+  if (entry.state !== "active" || isPendingContractAssignment(entry.contract) || expiry === null || expiry <= currentSeasonEndYear
+    || charges.filter((charge) => charge > 0).length <= 1) {
+    throw new Error("Il buyout richiede un giocatore attivo con più di una stagione residua già contrattualizzata.");
+  }
+  return {
+    ...entry, state: "cut", slot: "regular", cost: buyoutCost(charges), contract: String(currentSeasonEndYear).slice(-2),
+    buyoutApplied: true, scheduledSeasonEndCut: undefined, playoffTeamOptionUsedSeason: undefined,
+  };
+}
+
 export function applyFreeRelease<T extends RosterEntry>(entry: T, currentSeasonEndYear: number): T {
   const pendingContract = isPendingContractAssignment(entry.contract);
   return {
@@ -31,14 +53,12 @@ export function releaseCapSpaces({
   spacesBefore,
   contractCharges,
   cutContractCharges,
-  buyoutContractCharges,
   currentDpeExemption,
 }: {
   kind: ReleaseOperationKind;
   spacesBefore: ThreeYearValues;
   contractCharges: ThreeYearValues;
   cutContractCharges?: ThreeYearValues;
-  buyoutContractCharges?: ThreeYearValues;
   currentDpeExemption: boolean;
 }): ThreeYearValues {
   const after: ThreeYearValues = [...spacesBefore];
@@ -58,8 +78,7 @@ export function releaseCapSpaces({
   }
 
   const currentCharge = currentDpeExemption ? 0 : contractCharges[0];
-  const totalResidual = (buyoutContractCharges ?? contractCharges).reduce((total, charge) => total + charge, 0);
-  after[0] += currentCharge - totalResidual;
+  after[0] += currentCharge - buyoutCost(contractCharges);
   after[1] += contractCharges[1];
   after[2] += contractCharges[2];
   return after;

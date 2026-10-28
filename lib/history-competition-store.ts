@@ -27,7 +27,7 @@ export async function loadHistoryCompetitionState() {
     const normalized = normalizeHistoryEntries(row.category, row.entries);
     if (normalized) competitions[row.category] = normalized;
   }
-  return { competitions, configured: true };
+  return { competitions };
 }
 
 export async function loadCurrentHistoryImports() {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceSeasonName, calculateCapSpace, displayedSeasonName, previousSeasonName, shouldCountTeamOptions } from "./season-time";
+import { advanceSeasonName, calculateCapSpace, previousSeasonName, shouldCountTeamOptions } from "./season-time";
 import type { RosterEntry } from "./league-types";
 
 const entries: RosterEntry[] = [
@@ -9,8 +9,15 @@ const entries: RosterEntry[] = [
 ];
 
 describe("logica temporale della stagione", () => {
-  it("usa direttamente l'annata assegnata alla fase", () => {
-    expect(displayedSeasonName("2026/27")).toBe("2026/27");
+  it("usa il costo già registrato, senza ricalcolarlo dal prezzo d'asta o dai vecchi metadati", () => {
+    const entry: RosterEntry = { name: "Costo già calcolato", cost: 47, contract: "29", state: "active", slot: "regular", teamCode: "TST",
+      auctionPrice: 50, originalContractYears: 3, teamOptionBaseCost: 25, teamOptionFinalYear: 2029 };
+    for (const seasonName of ["2026/27", "2027/28", "2028/29"]) {
+      expect(calculateCapSpace({ entries: [entry], seasonName, optionSeasonName: "2026/27", countTeamOptions: true })).toBe(953);
+    }
+    expect(calculateCapSpace({ entries: [entry], seasonName: "2029/30", optionSeasonName: "2026/27", countTeamOptions: true })).toBe(1000);
+  });
+  it("calcola l'annata precedente a quella salvata", () => {
     expect(previousSeasonName("2026/27")).toBe("2025/26");
   });
 

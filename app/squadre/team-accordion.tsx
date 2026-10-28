@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DraftAsset, PlayerListEntry, QualifyingOfferRight, RosterEntry, TeamSummary } from "@/lib/league-types";
-import { calculateCapSpace, contractCostForSeason, followingSeasonName } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap, shouldShowDpeBadge } from "@/lib/dpe-rules";
 import type { LeagueMoment } from "@/lib/league-moments";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
@@ -728,7 +728,7 @@ function SimplePlayerTable({
   const sortedEntries = sort
     ? sortPlayerEntries(entries, seasonName, sort)
     : [...entries].sort((left, right) => (
-      contractCostForSeason(right, seasonName) - contractCostForSeason(left, seasonName)
+      right.cost - left.cost
       || left.name.localeCompare(right.name, "it")
     ));
   return (
@@ -808,7 +808,7 @@ function PlayerDataRow({
         )}
         seasonName={seasonName}
       /></span>
-      <span><strong className="credit-value">{contractCostForSeason(entry, seasonName)}</strong></span>
+      <span><strong className="credit-value">{entry.cost}</strong></span>
     </div>
   );
 }

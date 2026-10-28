@@ -9,7 +9,7 @@ describe("regolamento LaTeX", () => {
 
   it("importa tutti gli articoli e i commi", () => {
     expect(articles).toHaveLength(15);
-    expect(articles.reduce((total, article) => total + article.clauses.length, 0)).toBe(93);
+    expect(articles.reduce((total, article) => total + article.clauses.length, 0)).toBe(92);
   });
 
   it("mantiene etichette e richiami per la navigazione interna", () => {

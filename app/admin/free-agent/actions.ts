@@ -10,7 +10,7 @@ import { automaticFreeAgentContract, evaluateFreeAgentSigning } from "@/lib/rule
 import { countRosterRoles } from "@/lib/rules/roster";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { hasReachedMoment, leagueMomentFromSeason, operationWindows, tradeDeadlineHasPassed } from "@/lib/league-moments";
+import { hasReachedMoment, leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { requireCapCompliance } from "@/lib/cap-override";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { legalSlotDestinations, type ManagedRosterSlot } from "@/lib/slot-eligibility";
@@ -23,7 +23,6 @@ import { applyContextualContractCut, contextualStretchYears } from "@/lib/stretc
 const path = "/admin/free-agent";
 
 export async function signFreeAgent(formData: FormData) {
-  const buyoutTopSixConfirmed = formData.get("buyout_top_six_confirmed") === "true";
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const roleMinimumReplacement = formData.get("role_minimum_replacement") === "true";
   const playerSource = clean(formData.get("player_source"));
@@ -76,14 +75,6 @@ export async function signFreeAgent(formData: FormData) {
       rookie: false,
       under23: false,
     };
-  }
-  const buyoutFreeAgent = playerSource === "list" && state.rosterEntries.some((entry) => (
-    normalizePlayerName(entry.name) === normalizedPlayerName
-    && entry.state === "cut"
-    && entry.buyoutApplied === true
-  ));
-  if (buyoutFreeAgent && !buyoutTopSixConfirmed) {
-    fail("Conferma di aver verificato che la squadra occupi una delle prime otto posizioni della regular season per firmare questo free agent soggetto a buyout.");
   }
   const activePlayer = state.rosterEntries.find((entry) => normalizePlayerName(entry.name) === normalizedPlayerName && entry.state === "active");
   const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedPlayerName);
@@ -182,7 +173,7 @@ export async function signFreeAgent(formData: FormData) {
   if (!endYear) fail("Annata non valida.");
   const contract = automaticFreeAgentContract(
     seasonResponse.data.name,
-    tradeDeadlineHasPassed(moment) || roleMinimumReplacement,
+    roleMinimumReplacement,
   );
   if (!contract) fail("Annata non valida.");
   const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);

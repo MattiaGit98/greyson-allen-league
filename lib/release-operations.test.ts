@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyFreeRelease, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
+import { applyBuyout, buyoutCost, applyFreeRelease, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
+import type { RosterEntry } from "./league-types";
+import { allowedStretchYears } from "./stretch-provision";
 
 describe("tagli e rilasci", () => {
   it("conserva tra i tagliati a costo zero anche chi viene rilasciato perché non è più in NBA", () => {
@@ -79,32 +81,67 @@ describe("tagli e rilasci", () => {
     })).toEqual([120, 120, 100]);
   });
 
-  it("il buyout concentra il residuo sul primo anno", () => {
+  it("il buyout concentra il residuo scontato sul primo anno", () => {
     expect(releaseCapSpaces({
       kind: "buyout",
       spacesBefore: [100, 100, 100],
       contractCharges: [20, 20, 0],
       currentDpeExemption: false,
-    })).toEqual([80, 120, 100]);
+    })).toEqual([88, 120, 100]);
   });
 
-  it("il buyout usa gli addebiti espliciti quando il residuo è già stato rettificato", () => {
+  it("il buyout sconta gli addebiti effettivi anche quando differiscono tra le annate", () => {
     expect(releaseCapSpaces({
       kind: "buyout",
       spacesBefore: [100, 100, 100],
       contractCharges: [5, 10, 0],
-      buyoutContractCharges: [5, 5, 0],
       currentDpeExemption: false,
-    })).toEqual([95, 110, 100]);
+    })).toEqual([93, 110, 100]);
   });
 
-  it("il buyout di un giocatore in DPE fa rientrare sul cap tutto il residuo", () => {
+  it("il buyout dalla DPE include anche l'anno esente nel residuo da scontare", () => {
     expect(releaseCapSpaces({
       kind: "buyout",
       spacesBefore: [100, 100, 100],
       contractCharges: [20, 20, 0],
       currentDpeExemption: true,
-    })).toEqual([60, 120, 100]);
+    })).toEqual([68, 120, 100]);
+  });
+});
+
+describe("buyout scontato", () => {
+  const entry: RosterEntry = {
+    name: "Pluriennale", cost: 47, contract: "29 (E)", state: "active", slot: "regular", teamCode: "AAA",
+  };
+
+  it.each([
+    [[47, 47, 0], 76],
+    [[47, 47, 47], 113],
+    [[3, 3, 0], 5],
+    [[5, 5, 0], 8],
+  ])("sconta il totale %j e arrotonda una sola volta a %i", (charges, expected) => {
+    expect(buyoutCost(charges)).toBe(expected);
+  });
+
+  it.each([[-1, 5], [1.5, 5], [NaN, 5], [Infinity, 5], [Number.MAX_SAFE_INTEGER, 1]])("rifiuta addebiti non validi: %j", (...charges) => {
+    expect(() => buyoutCost(charges)).toThrow("Costo residuo");
+  });
+
+  it("produce un annuale tagliato senza diritti futuri, non modificando l'originale", () => {
+    const result = applyBuyout({ ...entry, scheduledSeasonEndCut: "2026/27" }, 2027, [47, 47, 47]);
+    expect(result).toMatchObject({ cost: 113, contract: "27", state: "cut", slot: "regular", teamCode: "AAA", buyoutApplied: true });
+    expect(result.scheduledSeasonEndCut).toBeUndefined();
+    expect(allowedStretchYears(result, 2027)).toEqual([]);
+    expect(entry).toMatchObject({ cost: 47, contract: "29 (E)", state: "active" });
+  });
+
+  it.each(["27", "27 (Q)", "27 + T.O.", "27 + R.E.", "PENDING", "T.O.", "R.E."])("non compra anni opzionali o bozze di %s", (contract) => {
+    expect(() => applyBuyout({ ...entry, contract }, 2027, [47, 47, 0])).toThrow("più di una stagione");
+  });
+
+  it("rifiuta i tagliati e chi ha un solo addebito residuo", () => {
+    expect(() => applyBuyout({ ...entry, state: "cut" }, 2027, [47, 47, 47])).toThrow();
+    expect(() => applyBuyout(entry, 2027, [47, 0, 0])).toThrow();
   });
 });
 

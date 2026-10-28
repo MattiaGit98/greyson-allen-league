@@ -6,7 +6,7 @@ import { applyContractExtension } from "@/app/admin/estensioni/actions";
 import { applyRosterExitOperation, applyStretchProvision } from "@/app/admin/tagli-rilasci/actions";
 import type { AdminOperationContext, AdminRosterPlayer, AdminRosterTeam } from "@/lib/admin-operation-data";
 import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
-import { releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
+import { buyoutCost, releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
 import { allowedStretchYears, applyContextualContractCut, canApplyStretchProvision, contextualStretchYears } from "@/lib/stretch-provision";
 import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
@@ -266,7 +266,7 @@ function operationPreview(
   const spacesBefore: ThreeYearValues = [team.space, team.nextSpace, team.followingSpace];
   const charges = playerCharges(player, props);
   const cutEntry = operation === "cut" ? applyContextualContractCut(rosterEntryForPlayer(player), props.seasonEndYear, props.leagueMoment, cutStretchYears) : null;
-  const buyoutTotalResidual = charges.reduce((total, charge) => total + charge, 0);
+  const buyoutTotalResidual = buyoutCost(charges);
   let spacesAfter: ThreeYearValues = [...spacesBefore];
   let installment: number | undefined;
   if (operation === "extension") {

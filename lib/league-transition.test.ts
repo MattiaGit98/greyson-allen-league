@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { emptyLeagueState } from "./league-state";
-import { applyTeamOptionDeadline, closeCurrentSeasonExtensionWindow } from "./league-transition";
+import { applyTeamOptionDeadline, buildLeagueTransitionPreview, closeCurrentSeasonExtensionWindow } from "./league-transition";
 import { historyConfirmationForTransition } from "./phase-history-confirmation";
+
+describe("avvisi aggiornati su buyout e free agent", () => {
+  it("apre il buyout al Termine asta e non cambia i contratti alla deadline", () => {
+    const input = { seasonName: "2026/27", state: emptyLeagueState() };
+    const auction = buildLeagueTransitionPreview({ ...input, currentMoment: "auction_start" });
+    expect(auction.newPossibilities).toContain("Si apre la finestra per i buyout, con riduzione del 20% del costo residuo.");
+    const deadline = buildLeagueTransitionPreview({ ...input, currentMoment: "contract_delivery" });
+    expect(deadline.newPossibilities.join(" ")).not.toMatch(/buyout|prime otto/);
+    expect(deadline.automaticActions.join(" ")).not.toMatch(/senza Q.O./);
+  });
+});
 
 describe("avanzamento a Inizio asta", () => {
   it("rimuove soltanto l'estensione non esercitata del contratto in scadenza", () => {

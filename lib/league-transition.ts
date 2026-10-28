@@ -73,6 +73,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla trade deadline.");
     preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE fino alla Chiusura free agency.");
     preview.newPossibilities.push("Riaprono gli scambi fino alla trade deadline.");
+    preview.newPossibilities.push("Si apre la finestra per i buyout, con riduzione del 20% del costo residuo.");
     preview.closedPossibilities.push("Si chiude l’asta.");
   }
 
@@ -86,10 +87,7 @@ export function buildLeagueTransitionPreview(input: {
   }
 
   if (transition === "trade_deadline") {
-    preview.newPossibilities.push("Si apre la finestra per i buyout.");
-    preview.newPossibilities.push("I free agent soggetti a buyout stagionale possono essere firmati soltanto dalle prime otto squadre.");
     preview.closedPossibilities.push("Si chiudono gli scambi e l’esercizio della DPE.");
-    preview.automaticActions.push("I nuovi free agent avranno un contratto annuale senza Q.O.");
   }
 
   if (transition === "buyout_end") preview.closedPossibilities.push("Non sarà più possibile applicare il buyout.");

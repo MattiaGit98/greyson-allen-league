@@ -34,8 +34,14 @@ describe("momenti della lega", () => {
     expect(operationWindows.dpeReintegration("free_agency_reopening")).toBe(false);
     expect(operationWindows.freeRelease("offseason_start")).toBe(true);
     expect(operationWindows.freeRelease("free_agency_end")).toBe(false);
+    expect(operationWindows.buyout("offseason_start")).toBe(false);
+    expect(operationWindows.buyout("team_option_deadline")).toBe(false);
+    expect(operationWindows.buyout("auction_start")).toBe(false);
+    expect(operationWindows.buyout("auction_completed")).toBe(true);
+    expect(operationWindows.buyout("contract_delivery")).toBe(true);
     expect(operationWindows.buyout("trade_deadline")).toBe(true);
     expect(operationWindows.buyout("buyout_end")).toBe(false);
+    expect(operationWindows.buyout("free_agency_reopening")).toBe(false);
     expect(operationWindows.dpeActivation("offseason_start")).toBe(true);
     expect(operationWindows.dpeActivation("team_option_deadline")).toBe(true);
     expect(operationWindows.draft("team_option_deadline")).toBe(true);

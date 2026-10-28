@@ -2,7 +2,7 @@ import type { PlayerListEntry } from "./league-types";
 import { normalizePlayerName } from "./admin-alerts";
 import type { RosterEntry } from "./league-types";
 import type { EditableLeagueState } from "./league-state";
-import { operationWindows, tradeDeadlineHasPassed, tradesAreSuspendedForAuction, type LeagueMoment } from "./league-moments";
+import { operationWindows, tradesAreSuspendedForAuction, type LeagueMoment } from "./league-moments";
 import { automaticFreeAgentContract } from "./rules/free-agent";
 import { tradePlayerId } from "./trade-state";
 import { inheritedDpeSeasons } from "./dpe-rules";
@@ -17,7 +17,6 @@ export type SignAndTradeRequest = {
   signerTeamCode: string;
   price: number;
   destinationSlot: "regular" | "two_way";
-  buyoutTopSixConfirmed: boolean;
 };
 
 export type SignAndTradeProvisional = {
@@ -88,15 +87,7 @@ export function buildSignAndTradeProvisional(input: {
   if (activePlayer) throw new Error("Il giocatore appartiene già a una squadra.");
   const qualifyingOffer = state.qualifyingOfferRights.find((right) => normalizePlayerName(right.playerName) === normalizedName);
   if (qualifyingOffer) throw new Error("Il giocatore è coperto da una qualifying offer e non è un free agent.");
-  const buyoutFreeAgent = request.playerSource === "list" && state.rosterEntries.some((entry) => (
-    normalizePlayerName(entry.name) === normalizedName
-    && entry.state === "cut"
-    && entry.buyoutApplied === true
-  ));
-  if (buyoutFreeAgent && !request.buyoutTopSixConfirmed) {
-    throw new Error("Conferma di aver verificato che la squadra firmataria occupi una delle prime otto posizioni della regular season per acquisire questo free agent soggetto a buyout.");
-  }
-  const contract = automaticFreeAgentContract(input.seasonName, tradeDeadlineHasPassed(input.moment));
+  const contract = automaticFreeAgentContract(input.seasonName);
   if (!contract) throw new Error("Annata non valida.");
   const dpeAppliedSeasons = inheritedDpeSeasons(state.rosterEntries, player.name);
   const signingEntry: RosterEntry = {

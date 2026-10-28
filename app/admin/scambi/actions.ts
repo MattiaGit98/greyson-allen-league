@@ -711,7 +711,6 @@ function validateSignAndTradeRequest(value: unknown): asserts value is SignAndTr
       !["list", "outside"].includes(String(value.playerSource))
       || !Number.isInteger(value.price)
       || !["regular", "two_way"].includes(String(value.destinationSlot))
-      || typeof value.buyoutTopSixConfirmed !== "boolean"
       || typeof value.playerRole !== "string"
       || !["G", "A", "C", "X", ""].includes(value.playerRole)
       || typeof value.realTeam !== "string"

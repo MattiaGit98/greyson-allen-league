@@ -42,7 +42,7 @@ describe("avanzamento della lega", () => {
     ]);
   });
 
-  it("mantiene le Q.O. degli annuali da 1 e dei free agent pre-deadline", () => {
+  it("rispetta i contratti già registrati, senza aggiungere Q.O. retroattive ai vecchi annuali semplici", () => {
     const entries: RosterEntry[] = [
       { name: "Asta annuale da 1", cost: 1, contract: "27 (Q)", role: "G", state: "active", slot: "regular", teamCode: "AAA" },
       { name: "Free agent pre-deadline", cost: 27, contract: "27 (Q)", role: "A", state: "active", slot: "regular", teamCode: "BBB" },

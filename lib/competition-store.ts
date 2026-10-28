@@ -29,7 +29,7 @@ export async function loadCompetitionState() {
     );
     if (normalized) competitions[row.competition_name] = normalized;
   }
-  return { teams, competitions, season: activeSeason.season, configured: true };
+  return { teams, competitions, season: activeSeason.season };
 }
 
 export async function loadCompetitionTeams(): Promise<CompetitionTeam[]> {

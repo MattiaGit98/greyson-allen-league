@@ -1,6 +1,6 @@
 import { loadHistoryCompetitionState } from "@/lib/history-competition-store";
 import { loadEditableLeagueState } from "@/lib/league-state";
-import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
+import { shouldCountTeamOptions } from "@/lib/season-time";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { renderStaticLeagueHtml } from "@/lib/static-league-html";
 import { requireActiveSeason } from "@/lib/active-season";
@@ -35,7 +35,7 @@ export async function GET() {
       loadEditableLeagueState(),
     ]);
     const phase = activeSeason.season.status;
-    const seasonName = displayedSeasonName(activeSeason.season.name);
+    const seasonName = activeSeason.season.name;
     const exportedAt = new Date();
     const html = renderStaticLeagueHtml({
       exportedAt,

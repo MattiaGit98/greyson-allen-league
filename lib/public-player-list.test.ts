@@ -30,7 +30,7 @@ describe("righe pubbliche del listone", () => {
     ]);
   });
 
-  it("non tratta come buyout un taglio ordinario", () => {
+  it("non collega un tagliato al free agent omonimo", () => {
     const rows = buildPublicPlayerListRows({
       playerList: [{ name: "Tagliato", role: "G", realTeam: "", rookie: false, under23: false }],
       rosterEntries: [
@@ -39,10 +39,12 @@ describe("righe pubbliche del listone", () => {
       qualifyingOfferRights: [],
     });
 
-    expect(rows[0]).toMatchObject({ rosterTeamCode: null, buyoutApplied: false, publicOrder: 1 });
+    expect(rows[0]).toMatchObject({ rosterTeamCode: null, publicOrder: 1 });
+    expect(rows[0]).not.toHaveProperty("buyoutApplied");
+    expect(publicPlayerStatus(rows[0], "2026/27", true)).toBe("fa");
   });
 
-  it("mantiene la prima corrispondenza normalizzata e il segnale buyout", () => {
+  it("mantiene la prima corrispondenza normalizzata senza riportare il vecchio buyout", () => {
     const rows = buildPublicPlayerListRows({
       playerList: [
         { name: "Primo Giocatore", role: "G", realTeam: "", rookie: false, under23: false },
@@ -60,7 +62,8 @@ describe("righe pubbliche del listone", () => {
     });
 
     expect(rows[0]).toMatchObject({ rosterTeamCode: "AAA", rosterContract: "27", qualifyingTeamCode: null });
-    expect(rows[1]).toMatchObject({ rosterTeamCode: null, qualifyingTeamCode: "DDD", buyoutApplied: true });
+    expect(rows[1]).toMatchObject({ rosterTeamCode: null, qualifyingTeamCode: "DDD" });
+    expect(rows[1]).not.toHaveProperty("buyoutApplied");
   });
 
   it("distingue i contratti in scadenza, non in scadenza e da assegnare dopo l'asta", () => {

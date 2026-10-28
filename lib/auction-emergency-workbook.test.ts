@@ -62,7 +62,7 @@ describe("Excel di emergenza asta", () => {
     expect(list).toContainEqual(["Giocatore roster", "G", ""]);
     expect(list).toContainEqual(["Giocatore QO", "A", "Q.O. · Squadra Alfa"]);
     expect(list).toContainEqual(["Giocatore libero", "C", "FA"]);
-    expect(list).toContainEqual(["Giocatore buyout", "G", "FA B.O."]);
+    expect(list).toContainEqual(["Giocatore buyout", "G", "FA"]);
   });
 
   it("non tronca uno slot che contiene più giocatori delle righe di riferimento", () => {

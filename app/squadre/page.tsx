@@ -1,7 +1,7 @@
 import { TeamAccordion } from "./team-accordion";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { hasReachedMoment, leagueMomentFromSeason } from "@/lib/league-moments";
-import { displayedSeasonName, shouldCountTeamOptions } from "@/lib/season-time";
+import { shouldCountTeamOptions } from "@/lib/season-time";
 import { requireActiveSeason } from "@/lib/active-season";
 import { roleMinimumChecksApply } from "@/lib/role-minimums";
 import { buildPublicPlayerListRows } from "@/lib/public-player-list";
@@ -19,7 +19,7 @@ export default async function TeamsPage({
     loadEditableLeagueState(),
   ]);
   const phase = activeSeason.season.status;
-  const capSeasonName = displayedSeasonName(activeSeason.season.name);
+  const capSeasonName = activeSeason.season.name;
   const teamOptionsResolved = activeSeason.season.team_options_resolved;
   const countTeamOptions = shouldCountTeamOptions(phase, teamOptionsResolved);
   const leagueMoment = leagueMomentFromSeason(activeSeason.season);

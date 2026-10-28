@@ -7,6 +7,16 @@ function player(name: string, role: RosterEntry["role"], contract: string, cost:
 }
 
 describe("ordinamento pubblico dei roster", () => {
+  it("ordina per il costo salvato, senza usare prezzo d'asta o tipo di contratto", () => {
+    const entries = [
+      { ...player("Scontato", "G", "29 (E)", 47), auctionPrice: 50, originalContractYears: 3 as const },
+      player("Annuale", "A", "27", 48),
+      { ...player("Raddoppiato", "C", "28", 60), teamOptionBaseCost: 30 },
+    ];
+    expect(sortPlayerEntries(entries, "2026/27", { key: "cost", direction: "desc" }).map((entry) => entry.name))
+      .toEqual(["Raddoppiato", "Annuale", "Scontato"]);
+    expect(entries.map((entry) => entry.name)).toEqual(["Scontato", "Annuale", "Raddoppiato"]);
+  });
   it("a parità di ruolo ordina sempre per crediti decrescenti", () => {
     const entries = [
       player("G economica", "G", "27", 5),

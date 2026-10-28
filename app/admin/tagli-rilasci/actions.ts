@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { RosterEntry } from "@/lib/league-types";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
-import { rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
+import { applyBuyout, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { allowedStretchYears, canApplyStretchProvision, applyContextualContractCut } from "@/lib/stretch-provision";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -85,19 +85,13 @@ export async function applyRosterExitOperation(formData: FormData) {
     rosterEntries = rosterAfterFreeRelease(state.rosterEntries, entryIndex, currentEndYear);
   } else if (kind === "buyout") {
     if (season.status !== "regular_season") operationError(returnPath, "Il buyout è disponibile soltanto durante la regular season.");
-    const remainingYears = charges.filter((charge) => charge > 0).length;
-    if (remainingYears <= 1) operationError(returnPath, "Il buyout richiede più di una stagione residua.");
-    const totalResidual = charges.reduce((total, charge) => total + charge, 0);
-    buyoutTotalResidual = totalResidual;
-    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? {
-      ...entry,
-      state: "cut" as const,
-      slot: "regular" as const,
-      cost: totalResidual,
-      contract: String(currentEndYear).slice(-2),
-      buyoutApplied: true,
-      scheduledSeasonEndCut: undefined,
-    } : item);
+    try {
+      const boughtOut = applyBuyout(entry, currentEndYear, charges);
+      buyoutTotalResidual = boughtOut.cost;
+      rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? boughtOut : item);
+    } catch (error) {
+      operationError(returnPath, error instanceof Error ? error.message : "Buyout non valido.");
+    }
   } else {
     try {
       rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
@@ -148,7 +142,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   const releaseDetail = releaseReason ? ` · ${freeReleaseReasonLabels[releaseReason]}` : "";
   const buyoutDetail = buyoutTotalResidual === null
     ? ""
-    : ` · costo concentrato ${buyoutTotalResidual}, scadenza ${String(seasonEndYear(season.name)).slice(-2)}`;
+    : ` · residuo ${charges.reduce((total, charge) => total + charge, 0)}, riduzione 20%, costo concentrato ${buyoutTotalResidual}, scadenza ${String(currentEndYear).slice(-2)}`;
   const stretchDetail = cutStretchYears === null ? "" : ` · stretch provision in ${cutStretchYears} anni: ${rosterEntries[entryIndex].cost} crediti, scadenza ${rosterEntries[entryIndex].contract}`;
   const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}${stretchDetail}`, capWarnings, false));
   if (response.error) operationError(returnPath, response.error.message);

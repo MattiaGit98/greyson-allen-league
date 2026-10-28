@@ -24,13 +24,6 @@ export function roleMinimumShortage(entries: RosterEntry[], phase: LeaguePhase, 
   return { G, A, C, total: G + A + C };
 }
 
-export function roleMinimumShortageMessage(shortage: RoleMinimumShortage) {
-  const details = [shortage.G ? `${shortage.G} G` : "", shortage.A ? `${shortage.A} A` : "", shortage.C ? `${shortage.C} C` : ""]
-    .filter(Boolean)
-    .join(" · ");
-  return `Dopo l'operazione va assegnato un free agent casuale da 1 credito per: ${details}.`;
-}
-
 export function roleMinimumsWorsen(before: RosterEntry[], after: RosterEntry[], phase: LeaguePhase, moment?: LeagueMoment) {
   return roleMinimumAffectedTeamCodes(before, after).some((teamCode) => {
     const previous = roleMinimumShortage(before.filter((entry) => entry.teamCode === teamCode), phase, moment);

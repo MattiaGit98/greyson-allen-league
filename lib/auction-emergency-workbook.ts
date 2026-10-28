@@ -92,7 +92,7 @@ export function buildAuctionEmergencyWorkbook({ state, seasonName, exportedAt, c
       ? ""
       : player.qualifyingTeamCode
         ? `Q.O. · ${teamNames.get(player.qualifyingTeamCode) ?? player.qualifyingTeamCode}`
-        : player.buyoutApplied ? "FA B.O." : "FA";
+        : "FA";
     const row = listSheet.getRow(index + 5);
     row.values = [player.name, player.role, status];
     row.font = { name: "Arial", size: 10 };

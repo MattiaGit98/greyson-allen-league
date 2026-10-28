@@ -227,7 +227,6 @@ function parseSignAndTradeRequest(query: Record<string, string | undefined>): Si
       signerTeamCode: (query.sign_team ?? "").toUpperCase(),
       price: Number(query.sign_price),
       destinationSlot: query.sign_slot === "two_way" ? "two_way" : "regular",
-      buyoutTopSixConfirmed: query.sign_buyout_top_six_confirmed === "true",
     };
   }
   return null;

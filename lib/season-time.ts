@@ -7,10 +7,6 @@ export function advanceSeasonName(name: string) {
   return `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
 }
 
-export function displayedSeasonName(name: string) {
-  return name;
-}
-
 export function followingSeasonName(name: string, distance = 1) {
   let result = name;
   for (let index = 0; index < distance; index += 1) result = advanceSeasonName(result);
@@ -33,13 +29,6 @@ export function seasonEndYear(name: string) {
 
 export function shouldCountTeamOptions(phase: LeaguePhase, teamOptionsResolved: boolean) {
   return phase !== "offseason" || teamOptionsResolved;
-}
-
-export function contractCostForSeason(entry: RosterEntry, seasonName: string) {
-  const targetEndYear = seasonEndYear(seasonName);
-  const expiry = Number(entry.contract.match(/\d{2}/)?.[0] ?? 0);
-  if (targetEndYear === null || !expiry) return entry.cost;
-  return entry.cost;
 }
 
 export function calculateCapSpace({
@@ -73,7 +62,7 @@ export function calculateCapSpace({
     const expiry = Number(entry.contract.match(/\d{2}/)?.[0] ?? 0);
     const fullExpiryYear = Math.floor(targetEndYear / 100) * 100 + expiry;
     if (fullExpiryYear < targetEndYear) return total;
-    return total + contractCostForSeason(entry, seasonName);
+    return total + entry.cost;
   }, 0);
   return 1000 - committed;
 }

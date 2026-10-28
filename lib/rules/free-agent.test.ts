@@ -40,9 +40,12 @@ describe("evaluateFreeAgentSigning", () => {
     expect(result.calculated.costAfter).toBe(1111);
     expect(result.warnings.some((warning) => warning.code === "IN_SEASON_FROZEN")).toBe(false);
   });
-  it("assigns the annual contract with Q.O. only through the trade deadline", () => {
+  it("assegna sempre la Q.O., eccetto alle firme obbligatorie per carenza di ruolo", () => {
+    expect(automaticFreeAgentContract("2026/27")).toBe("27 (Q)");
     expect(automaticFreeAgentContract("2026/27", false)).toBe("27 (Q)");
     expect(automaticFreeAgentContract("2026/27", true)).toBe("27");
+    expect(automaticFreeAgentContract("2027/28")).toBe("28 (Q)");
+    expect(automaticFreeAgentContract("non valida")).toBeNull();
   });
 
   it("requires a regular roster cut when all 15 places are occupied", () => {
