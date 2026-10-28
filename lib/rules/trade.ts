@@ -48,6 +48,16 @@ export type TradePromotion = {
   allowedDestinationSlots?: Exclude<TradeSlot, "dpe">[];
 };
 
+export type TradeExistingStretch = {
+  id: string;
+  teamCode: string;
+  currentCapCost: number;
+  residualCost: number;
+  years: 2 | 3;
+  stretchOptions: (2 | 3)[];
+  futureCapCosts: Record<string, number>;
+};
+
 export type TradePickMove = {
   id: string;
   fromTeamCode: string;
@@ -124,6 +134,7 @@ export function evaluateTrade(input: {
   qualifyingOfferTransfersOpen?: boolean;
   cuts: TradeCut[];
   promotions?: TradePromotion[];
+  stretches?: TradeExistingStretch[];
 }) {
   const errors: { code: string; message: string }[] = [];
   const warnings: { code: string; message: string }[] = [];
@@ -486,6 +497,18 @@ export function evaluateTrade(input: {
     }
   }
 
+  const seenStretches = new Set<string>();
+  for (const stretch of input.stretches ?? []) {
+    if (seenStretches.has(stretch.id) || seenPlayers.has(stretch.id) || seenCuts.has(stretch.id) || seenPromotions.has(stretch.id)
+      || !input.teams.some((team) => team.code === stretch.teamCode)
+      || ![2, 3].includes(stretch.years) || !stretch.stretchOptions.includes(stretch.years)
+      || !Number.isSafeInteger(stretch.residualCost) || stretch.residualCost <= 0
+      || !Number.isSafeInteger(stretch.currentCapCost) || stretch.currentCapCost < 0) {
+      errors.push({ code: "TRADE_EXISTING_STRETCH_INVALID", message: "Stretch di un contratto già tagliato non valida o duplicata." });
+    }
+    seenStretches.add(stretch.id);
+  }
+
   const teamResults = input.teams.map((team) => {
     const slotsBefore = { ...team.slots };
     const rolesBefore = { ...team.roles };
@@ -516,6 +539,10 @@ export function evaluateTrade(input: {
     for (const promotion of (input.promotions ?? []).filter((item) => item.teamCode === team.code)) {
       slots[slotKey(promotion.sourceSlot)] -= 1;
       slots[slotKey(promotion.destinationSlot)] += 1;
+    }
+
+    for (const stretch of (input.stretches ?? []).filter((item) => item.teamCode === team.code)) {
+      costAfter += Math.ceil(stretch.residualCost / stretch.years) - stretch.currentCapCost;
     }
 
     const slotValidation = validateSlots(slots);
@@ -562,6 +589,11 @@ export function evaluateTrade(input: {
       for (const cut of input.cuts.filter((item) => item.teamCode === team.code && item.stretchYears != null)) {
         costAfterFuture -= cut.futureCapCosts?.[future.seasonName] ?? 0;
         if (index + 1 < cut.stretchYears!) costAfterFuture += Math.ceil((cut.stretchResidualCost ?? cut.cost) / cut.stretchYears!);
+      }
+
+      for (const stretch of (input.stretches ?? []).filter((item) => item.teamCode === team.code)) {
+        costAfterFuture -= stretch.futureCapCosts[future.seasonName] ?? 0;
+        if (index + 1 < stretch.years) costAfterFuture += Math.ceil(stretch.residualCost / stretch.years);
       }
 
       if (costAfterFuture > 1000) {

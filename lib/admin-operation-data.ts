@@ -38,6 +38,7 @@ export type AdminRosterPlayer = {
   twoWayPromotionLocked?: boolean;
   playoffTeamOptionUsedSeason?: string;
   dpeAppliedSeasons?: string[];
+  dpeSeasonEndReintegratedSeasons?: string[];
   scheduledSeasonEndCut?: string;
   seasonEndCutEligible: boolean;
 };
@@ -175,6 +176,7 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
             twoWayPromotionLocked: entry.twoWayPromotionLocked,
             playoffTeamOptionUsedSeason: entry.playoffTeamOptionUsedSeason,
             dpeAppliedSeasons: entry.dpeAppliedSeasons,
+            dpeSeasonEndReintegratedSeasons: entry.dpeSeasonEndReintegratedSeasons,
             scheduledSeasonEndCut: entry.scheduledSeasonEndCut,
             seasonEndCutEligible: seasonEndCutEligibleKeys.has(rosterEntryKey(entry)),
           };

@@ -1,4 +1,5 @@
 import { result } from "./types";
+import { rosterSlotLimits } from "../roster-slot-limits";
 
 export type SlotCounts = { regular: number; twoWay: number; gLeague: number; dpe: number };
 export type RoleCounts = { G: number; A: number; C: number };
@@ -23,7 +24,7 @@ export function countRosterRoles(
 }
 
 export function validateSlots(slots: SlotCounts) {
-  const limits: SlotCounts = { regular: 15, twoWay: 2, gLeague: 3, dpe: 1 };
+  const limits: SlotCounts = { regular: rosterSlotLimits.regular, twoWay: rosterSlotLimits.two_way, gLeague: rosterSlotLimits.g_league, dpe: rosterSlotLimits.dpe };
   const errors = (Object.keys(limits) as (keyof SlotCounts)[])
     .filter((key) => slots[key] > limits[key])
     .map((key) => ({ code: `SLOT_${key.toUpperCase()}_FULL`, message: `Superato il limite per lo slot ${key}.` }));

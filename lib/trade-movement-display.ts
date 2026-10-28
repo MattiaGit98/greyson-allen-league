@@ -52,6 +52,15 @@ export function tradeMovementPresentation(summary: string): { concise: string; f
       continue;
     }
 
+    const existingStretch = part.match(/^Stretch su tagliato:\s*(.*?)\s*\(([A-Z0-9_-]+)\)$/i);
+    if (existingStretch && teams.has(existingStretch[2])) {
+      const contract = /^\d+ crediti, contratto /i.test(parts[index + 1] ?? "") ? parts[++index] : null;
+      const installments = /^[23] rate da \d+ crediti, scadenza /i.test(parts[index + 1] ?? "") ? parts[++index] : null;
+      teams.get(existingStretch[2])!.operations.push([`Stretch su tagliato: ${existingStretch[1]}`, contract, installments].filter(Boolean).join(" · "));
+      listed.push(`stretch ${existingStretch[1]} (${existingStretch[2]})`);
+      continue;
+    }
+
     const move = part.match(/^Spostamento contestuale:\s*(.*?)\s*\(([A-Z0-9_-]+)\)$/i);
     if (move && teams.has(move[2])) {
       const slots = /^(Roster|Two-way|G-League|DPE)\s*→\s*(Roster|Two-way|G-League|DPE)$/i.test(parts[index + 1] ?? "")

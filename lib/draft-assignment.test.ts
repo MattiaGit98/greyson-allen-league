@@ -115,18 +115,18 @@ describe("assegnazione draft", () => {
 
   it("blocca il draft anche se il conflitto è in uno slot diverso da quello scelto", () => {
     const input = state();
-    input.rosterEntries = Array.from({ length: 2 }, (_, index) => ({
-      name: `DPE ${index}`,
+    input.rosterEntries = Array.from({ length: 3 }, (_, index) => ({
+      name: `Two-way ${index}`,
       role: "G" as const,
       cost: 1,
       contract: "27",
       state: "active" as const,
-      slot: "dpe" as const,
+      slot: "two_way" as const,
       teamCode: "AAA",
     }));
     expect(() => buildDraftAssignment({
       state: input, historyEntries: [], draftYear: 2026, pickIndex: 0, requestedPlayerName: "Rookie Uno", destinationSlot: "regular",
-    })).toThrow(/DPE.*oltre il limite/i);
+    })).toThrow(/Two-way.*oltre il limite/i);
   });
 
   it("completa progressivamente il draft e genera le scelte tra tre anni", () => {

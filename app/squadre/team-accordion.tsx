@@ -614,7 +614,7 @@ function TeamDetails({
         <SimplePlayerTable entries={gLeague} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
-      <DataSection tone="dpe" label={`Disabled player exception (${dpe.length}/1)`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
+      <DataSection tone="dpe" label={`Disabled player exception (${dpe.length})`} expanded={openSections.includes("dpe")} onToggle={() => toggleSection("dpe")}>
         <SimplePlayerTable entries={dpe} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} />
       </DataSection>
 

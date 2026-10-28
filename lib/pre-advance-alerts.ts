@@ -18,6 +18,7 @@ import {
 } from "./post-auction-contracts";
 import { annualTeamOptionExpiryYear, isRookieExtensionDecisionDue } from "./team-option-contract";
 import { freeReleaseReasonAvailability } from "./free-release";
+import { rosterSlotLimits } from "./roster-slot-limits";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -378,7 +379,7 @@ export function buildPreAdvanceChecklist(input: {
           id: "scheduled-season-end-cuts",
           tone: "info",
           title: `${advance.scheduledCutPlayers.length} tagli programmati saranno eseguiti a Fine stagione`,
-          message: "I giocatori restano attivi fino all’avanzamento; il taglio sarà applicato automaticamente prima di reintegri e promozioni.",
+          message: "I giocatori restano attivi fino all’avanzamento; il taglio sarà applicato automaticamente prima dei reintegri DPE.",
           items: advance.scheduledCutPlayers.map((player) => `${player.teamCode}: ${player.playerName}`),
           href: "/admin/altre-operazioni",
           actionLabel: "Controlla i tagli programmati",
@@ -441,7 +442,7 @@ function addStructuralAlerts(
   seasonName: string,
   state: EditableLeagueState,
 ) {
-  const limits = { regular: 15, two_way: 2, g_league: 3, dpe: 1 } as const;
+  const limits = rosterSlotLimits;
   const overflows = state.teams.flatMap((team) => {
     const active = state.rosterEntries.filter((entry) => entry.teamCode === team.code && entry.state === "active");
     return (Object.keys(limits) as (keyof typeof limits)[]).flatMap((slot) => {

@@ -31,6 +31,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildSignAndTradeProvisional, signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { applyContextualContractCut, contextualStretchYears } from "@/lib/stretch-provision";
+import { resolveTradeStretches } from "@/lib/trade-stretch";
 import {
   applyValidatedTrade,
   existingTradeClauseAgreements,
@@ -406,6 +407,13 @@ export async function registerTrade(formData: FormData) {
     };
   });
 
+  let resolvedStretches: ReturnType<typeof resolveTradeStretches>;
+  try {
+    resolvedStretches = resolveTradeStretches({ entries: state.rosterEntries, requests: payload.stretches ?? [],
+      participantCodes, seasonName: season.name, countTeamOptions });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : "Stretch dei contratti tagliati non valida.");
+  }
   const tradeTeams = participantCodes.map((teamCode) => {
     const teamEntries = state.rosterEntries.filter((entry) => entry.teamCode === teamCode);
     const activeEntries = teamEntries.filter((entry) => entry.state === "active");
@@ -455,6 +463,7 @@ export async function registerTrade(formData: FormData) {
     qualifyingOfferTransfersOpen,
     cuts,
     promotions,
+    stretches: resolvedStretches.stretches,
   });
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
   const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
@@ -474,6 +483,7 @@ export async function registerTrade(formData: FormData) {
     qualifyingOfferMoves: qualifyingChanges,
     cuts: cutChanges,
     promotions: promotionChanges,
+    stretches: resolvedStretches.changes,
   }));
   const actualCapWarningsByTeam = new Map(participantCodes.map((teamCode) => {
     const before = teamCapSpaces(state.rosterEntries, teamCode);
@@ -532,6 +542,10 @@ export async function registerTrade(formData: FormData) {
     ...promotionChanges.flatMap((change) => {
       const entry = state.rosterEntries[change.stateIndex];
       return entry ? [`Spostamento contestuale: ${entry.name} (${entry.teamCode}); ${tradeSlotLabel(entry.slot)} → ${tradeSlotLabel(change.destinationSlot)}`] : [];
+    }),
+    ...resolvedStretches.changes.map((change, index) => {
+      const entry = state.rosterEntries[change.stateIndex];
+      return `Stretch su tagliato: ${entry.name} (${entry.teamCode}); ${entry.cost} crediti, contratto ${entry.contract}; ${resolvedStretches.stretches[index].years} rate da ${change.entry.cost} crediti, scadenza ${change.entry.contract}`;
     }),
     ...roleMinimumRestorations.map((team) => `Ripristino ruoli richiesto: ${team.code}; free agent casuali da 1 credito ${team.requiredRoleFreeAgents}`),
   ];
@@ -638,6 +652,10 @@ function parsePayload(value: FormDataEntryValue | null): TradeTransactionPayload
   const arrayFields = ["participantCodes", "playerMoves", "pickMoves", "pickClauses", "qualifyingOfferMoves", "existingClauseChanges", "cuts", "promotions"] as const;
   if (arrayFields.some((field) => !Array.isArray(parsed[field]))) throw new Error("Dati dello scambio incompleti.");
   const payload = parsed as TradeTransactionPayload;
+  if (payload.stretches !== undefined && (!Array.isArray(payload.stretches) || payload.stretches.some((stretch) => (
+    !isRecord(stretch) || !textFields(stretch, "id", "teamCode", "contract")
+    || (stretch.years !== 2 && stretch.years !== 3) || !Number.isSafeInteger(stretch.cost) || stretch.cost <= 0
+  )))) throw new Error("Stretch dei contratti già tagliati non valida.");
   if (payload.signAndTrade === undefined) throw new Error("Dati del sign and trade mancanti.");
   if (payload.signAndTrade !== null) validateSignAndTradeRequest(payload.signAndTrade);
   if (payload.participantCodes.some((code) => typeof code !== "string")) throw new Error("Squadre dello scambio non valide.");

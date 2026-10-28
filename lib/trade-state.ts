@@ -2,6 +2,7 @@ import type { DraftAsset, DraftClauseResolution, RosterEntry } from "./league-ty
 import type { EditableLeagueState } from "./league-state";
 import type { TradePickClause, TradeSlot } from "./rules/trade";
 import type { SignAndTradeRequest } from "./sign-and-trade";
+import type { TradeStretchRequest } from "./trade-stretch";
 
 export type TradeTransactionPayload = {
   signAndTrade: SignAndTradeRequest | null;
@@ -46,6 +47,7 @@ export type TradeTransactionPayload = {
     teamCode: string;
     destinationSlot: TradeSlot;
   }[];
+  stretches?: TradeStretchRequest[];
 };
 
 export type ValidatedTradeChanges = {
@@ -64,6 +66,7 @@ export type ValidatedTradeChanges = {
   }[];
   cuts: { stateIndex: number; entry?: RosterEntry }[];
   promotions?: { stateIndex: number; destinationSlot: TradeSlot }[];
+  stretches?: { stateIndex: number; entry: RosterEntry }[];
 };
 
 export type ExistingTradeClauseAgreement = {
@@ -153,7 +156,10 @@ export function applyValidatedTrade(
   const playerMoveByIndex = new Map(changes.playerMoves.map((move) => [move.stateIndex, move]));
   const cutByIndex = new Map(changes.cuts.map((cut) => [cut.stateIndex, cut]));
   const promotionByIndex = new Map((changes.promotions ?? []).map((promotion) => [promotion.stateIndex, promotion]));
+  const stretchByIndex = new Map((changes.stretches ?? []).map((stretch) => [stretch.stateIndex, stretch.entry]));
   const rosterEntries: RosterEntry[] = state.rosterEntries.map((entry, index) => {
+    const stretched = stretchByIndex.get(index);
+    if (stretched) return stretched;
     const move = playerMoveByIndex.get(index);
     const cut = cutByIndex.get(index);
     if (cut) {

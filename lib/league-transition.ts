@@ -60,7 +60,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.closedPossibilities.push("Si sospendono gli scambi fino al termine dell’asta.");
     preview.closedPossibilities.push("Si chiude il Draft.");
     preview.closedPossibilities.push("Si chiudono le estensioni contrattuali.");
-    preview.closedPossibilities.push("Si chiudono i rilasci gratuiti per chi ha disputato meno del 40% delle partite NBA.");
+    preview.closedPossibilities.push("Si chiudono i rilasci gratuiti per chi ha disputato meno della metà delle partite nella precedente regular season NBA.");
   }
 
   if (transition === "auction_completed") {
@@ -71,6 +71,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.automaticActions.push("Per il cap corrente si applicherà la soglia prevista durante la stagione.");
     preview.newPossibilities.push("Si apre l’assegnazione dei contratti acquistati all’asta.");
     preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla trade deadline.");
+    preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE fino alla Chiusura free agency.");
     preview.newPossibilities.push("Riaprono gli scambi fino alla trade deadline.");
     preview.closedPossibilities.push("Si chiude l’asta.");
   }
@@ -86,7 +87,6 @@ export function buildLeagueTransitionPreview(input: {
 
   if (transition === "trade_deadline") {
     preview.newPossibilities.push("Si apre la finestra per i buyout.");
-    preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE per i giocatori tornati in campo.");
     preview.newPossibilities.push("I free agent soggetti a buyout stagionale possono essere firmati soltanto dalle prime otto squadre.");
     preview.closedPossibilities.push("Si chiudono gli scambi e l’esercizio della DPE.");
     preview.automaticActions.push("I nuovi free agent avranno un contratto annuale senza Q.O.");

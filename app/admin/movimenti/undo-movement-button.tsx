@@ -140,5 +140,5 @@ function formatRoles(roles: RoleCounts) {
 }
 
 function formatSlots(slots: SlotCounts) {
-  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`;
+  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`;
 }

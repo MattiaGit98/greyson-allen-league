@@ -17,6 +17,7 @@ import { countRosterRoles } from "@/lib/rules/roster";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import type { ExistingTradeClauseAgreement } from "@/lib/trade-state";
 import { signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
+import { hydrateTradeStretches, type TradeStretchContract, type TradeStretchMove, type TradeStretchRequest } from "@/lib/trade-stretch";
 
 type RosterPlayer = {
   id: string;
@@ -58,6 +59,7 @@ type TradeTeam = {
   currentCost: number;
   futureCosts: { seasonName: string; currentCost: number }[];
   cutPlayerNames: string[];
+  stretchContracts: TradeStretchContract[];
   players: RosterPlayer[];
   picks: DraftPick[];
   qualifyingOffers: QualifyingOffer[];
@@ -108,9 +110,11 @@ type TradeImportPayload = {
   promotions: TradePromotion[];
   pickClauses: Pick<TradePickClauseAgreement, "pickId" | "clause" | "counterpartyPickId">[];
   existingClauseAgreementIds: string[];
+  stretches?: TradeStretchRequest[];
 };
 
 type ImportedTradeState = {
+  stretches: TradeStretchMove[];
   participantCodes: string[];
   playerMoves: PlayerMove[];
   pickMoves: PickMove[];
@@ -171,6 +175,7 @@ export function TradeBuilder({
   const [pickClauses, setPickClauses] = useState<PickClauseAgreement[]>([]);
   const [qualifyingOfferMoves, setQualifyingOfferMoves] = useState<QualifyingOfferMove[]>([]);
   const [cuts, setCuts] = useState<CutMove[]>([]);
+  const [stretches, setStretches] = useState<TradeStretchMove[]>([]);
   const [promotions, setPromotions] = useState<PromotionMove[]>([]);
   const [existingClauseChanges, setExistingClauseChanges] = useState<TradeExistingClauseChange[]>([]);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
@@ -179,6 +184,18 @@ export function TradeBuilder({
   const [importError, setImportError] = useState("");
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [recordAsCorrection, setRecordAsCorrection] = useState(false);
+
+  useEffect(() => {
+    const contracts = teams.flatMap((team) => team.stretchContracts);
+    setStretches((current) => {
+      const next = current.filter((stretch) => participantCodes.includes(stretch.teamCode) && contracts.some((entry) => (
+        entry.id === stretch.id && entry.cost === stretch.cost && entry.contract === stretch.contract
+        && entry.currentCapCost === stretch.currentCapCost && entry.stretchOptions.includes(stretch.years)
+        && JSON.stringify(entry.futureCapCosts) === JSON.stringify(stretch.futureCapCosts)
+      )));
+      return next.length === current.length ? current : next;
+    });
+  }, [teams, participantCodes]);
 
   const participants = participantCodes
     .map((code) => teams.find((team) => team.code === code))
@@ -253,7 +270,8 @@ export function TradeBuilder({
     enforceRoleMinimums,
     cuts,
     promotions,
-  }), [cuts, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, includeDpeInRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
+    stretches,
+  }), [cuts, stretches, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, includeDpeInRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
   const capWarnings = [...new Set([
     ...evaluation.warnings
       .filter((warning) => warning.code.includes("CAP"))
@@ -302,6 +320,7 @@ export function TradeBuilder({
     && (!roleMinimumConfirmationRequired || roleMinimumConfirmed);
   const readableTradeRecap = simulationValid
     ? tradeSimulationRecap({
+      stretches,
       teams,
       participantCodes,
       playerMoves,
@@ -316,6 +335,7 @@ export function TradeBuilder({
     : "";
   const simulationRecap = simulator && readableTradeRecap
     ? withTradeImportPayload(readableTradeRecap, tradeImportPayload({
+      stretches,
       participantCodes,
       playerMoves,
       pickMoves,
@@ -361,6 +381,7 @@ export function TradeBuilder({
     const removedPlayerIds = new Set(playerMoves.filter((move) => move.fromTeamCode === previousCode || move.toTeamCode === previousCode).map((move) => move.id));
     setCuts((current) => current.filter((cut) => cut.teamCode !== previousCode && !removedPlayerIds.has(cut.id)));
     setPromotions((current) => current.filter((promotion) => promotion.teamCode !== previousCode));
+    setStretches((current) => current.filter((stretch) => stretch.teamCode !== previousCode));
     setExistingClauseChanges([]);
   }
 
@@ -385,6 +406,7 @@ export function TradeBuilder({
     const removedPlayerIds = new Set(playerMoves.filter((move) => move.fromTeamCode === teamCode || move.toTeamCode === teamCode).map((move) => move.id));
     setCuts((current) => current.filter((cut) => cut.teamCode !== teamCode && !removedPlayerIds.has(cut.id)));
     setPromotions((current) => current.filter((promotion) => promotion.teamCode !== teamCode));
+    setStretches((current) => current.filter((stretch) => stretch.teamCode !== teamCode));
     setExistingClauseChanges([]);
   }
 
@@ -501,14 +523,19 @@ export function TradeBuilder({
         enforceRoleMinimums,
         cuts: imported.cuts,
         promotions: imported.promotions,
+        stretches: imported.stretches,
       });
-      if (!importedEvaluation.valid) throw new Error("Lo scambio non rispetta più le regole correnti della lega.");
+      if (!importedEvaluation.valid || importedEvaluation.warnings.some((warning) => warning.code.includes("CAP"))
+        || importedEvaluation.calculated.teamResults.some((team) => team.requiredRoleFreeAgents > Math.max(0, 15 - team.slots.regular) + Math.max(0, 2 - team.slots.twoWay))) {
+        throw new Error("Lo scambio non rispetta più le regole correnti della lega.");
+      }
       setParticipantCodes(imported.participantCodes);
       setPlayerMoves(imported.playerMoves);
       setPickMoves(imported.pickMoves);
       setQualifyingOfferMoves(imported.qualifyingOfferMoves);
       setCuts(imported.cuts);
       setPromotions(imported.promotions);
+      setStretches(imported.stretches);
       setPickClauses(imported.pickClauses);
       setExistingClauseChanges(imported.existingClauseChanges);
       setRoleMinimumConfirmed(false);
@@ -541,6 +568,7 @@ export function TradeBuilder({
         name="trade_json"
         value={JSON.stringify({
           signAndTrade: signAndTrade?.request ?? null,
+          stretches: stretches.map(({ id, teamCode, years, cost, contract }) => ({ id, teamCode, years, cost, contract })),
           participantCodes,
           playerMoves,
           pickMoves,
@@ -605,6 +633,7 @@ export function TradeBuilder({
             pickMoves={pickMoves}
             qualifyingOfferMoves={qualifyingOfferMoves}
             cuts={cuts}
+            stretches={stretches}
             promotions={promotions}
             allPicks={allPicks}
             reservedPickIds={reservedPickIds}
@@ -628,6 +657,9 @@ export function TradeBuilder({
             onAddCut={(cut) => { invalidateTradeConfirmations(); setCuts((current) => [...current, cut]); }}
             onRemoveCut={(id) => { invalidateTradeConfirmations(); setCuts((current) => current.filter((cut) => cut.id !== id)); }}
             onUpdateCut={(id, stretchYears) => { invalidateTradeConfirmations(); setCuts((current) => current.map((cut) => cut.id === id ? { ...cut, stretchYears } : cut)); }}
+            onAddStretch={(stretch) => { invalidateTradeConfirmations(); setStretches((current) => [...current, stretch]); }}
+            onRemoveStretch={(id) => { invalidateTradeConfirmations(); setStretches((current) => current.filter((stretch) => stretch.id !== id)); }}
+            onUpdateStretch={(id, years) => { invalidateTradeConfirmations(); setStretches((current) => current.map((stretch) => stretch.id === id ? { ...stretch, years } : stretch)); }}
             onAddPromotion={(promotion) => { invalidateTradeConfirmations(); setPromotions((current) => [...current, promotion]); }}
             onRemovePromotion={(id) => { invalidateTradeConfirmations(); setPromotions((current) => current.filter((promotion) => promotion.id !== id)); }}
             onAddPickClause={addPickClause}
@@ -659,7 +691,7 @@ export function TradeBuilder({
                 <span>Roster<b>{result.slotsBefore.regular} / 15 → {result.slots.regular} / 15</b></span>
                 <span>Two-way<b>{result.slotsBefore.twoWay} / 2 → {result.slots.twoWay} / 2</b></span>
                 <span>G-League<b>{result.slotsBefore.gLeague} / 3 → {result.slots.gLeague} / 3</b></span>
-                <span>DPE<b>{result.slotsBefore.dpe} / 1 → {result.slots.dpe} / 1</b></span>
+                <span>DPE<b>{result.slotsBefore.dpe} → {result.slots.dpe}</b></span>
               </div>
               <p className="manual-cut-check">Verifica manualmente che i giocatori acquisiti non compaiano tra i tagliati:<br />{team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}</p>
             </article>
@@ -804,6 +836,7 @@ function TradeTeamCard({
   pickMoves,
   qualifyingOfferMoves,
   cuts,
+  stretches,
   promotions,
   allPicks,
   reservedPickIds,
@@ -827,6 +860,9 @@ function TradeTeamCard({
   onAddCut,
   onRemoveCut,
   onUpdateCut,
+  onAddStretch,
+  onRemoveStretch,
+  onUpdateStretch,
   onAddPromotion,
   onRemovePromotion,
   onAddPickClause,
@@ -843,6 +879,7 @@ function TradeTeamCard({
   pickMoves: PickMove[];
   qualifyingOfferMoves: QualifyingOfferMove[];
   cuts: CutMove[];
+  stretches: TradeStretchMove[];
   promotions: PromotionMove[];
   allPicks: { pick: DraftPick; ownerTeamCode: string }[];
   reservedPickIds: Set<string>;
@@ -866,6 +903,9 @@ function TradeTeamCard({
   onAddCut: (cut: CutMove) => void;
   onRemoveCut: (id: string) => void;
   onUpdateCut: (id: string, stretchYears: 2 | 3 | null) => void;
+  onAddStretch: (stretch: TradeStretchMove) => void;
+  onRemoveStretch: (id: string) => void;
+  onUpdateStretch: (id: string, years: 2 | 3) => void;
   onAddPromotion: (promotion: PromotionMove) => void;
   onRemovePromotion: (id: string) => void;
   onAddPickClause: (input: {
@@ -882,6 +922,12 @@ function TradeTeamCard({
   const [pickId, setPickId] = useState("");
   const [qualifyingOfferId, setQualifyingOfferId] = useState("");
   const [cutId, setCutId] = useState("");
+  const [stretchId, setStretchId] = useState("");
+  const [stretchYears, setStretchYears] = useState<2 | 3>(2);
+  const availableStretchContracts = team.stretchContracts.filter((entry) => !stretches.some((stretch) => stretch.id === entry.id));
+  const selectedStretchContract = availableStretchContracts.find((entry) => entry.id === stretchId);
+  const selectedStretchYears = selectedStretchContract?.stretchOptions.includes(stretchYears) ? stretchYears : selectedStretchContract?.stretchOptions[0];
+  const teamStretches = stretches.filter((stretch) => stretch.teamCode === team.code);
   const [promotionId, setPromotionId] = useState("");
   const [promotionDestinationSlot, setPromotionDestinationSlot] = useState<Exclude<TradeSlot, "dpe">>("regular");
 
@@ -1257,6 +1303,27 @@ function TradeTeamCard({
         ) : <small className="trade-empty">Nessun taglio</small>}
       </section>
 
+      {team.stretchContracts.length > 0 && <section className="trade-asset-section cut">
+        <span className="trade-section-label">Stretch dei tagliati</span>
+        <div className="trade-composer promotion">
+          <select aria-label="Contratto già tagliato da distribuire" value={stretchId} onChange={(event) => { setStretchId(event.target.value); setStretchYears(2); }}>
+            <option value="">Seleziona contratto tagliato</option>
+            {availableStretchContracts.map((entry) => <option value={entry.id} key={entry.id}>{entry.name} · {entry.cost} crediti · {entry.contract}</option>)}
+          </select>
+          <select aria-label="Rate stretch del contratto tagliato" value={selectedStretchYears ?? 2} disabled={!selectedStretchContract} onChange={(event) => setStretchYears(Number(event.target.value) as 2 | 3)}>
+            {(selectedStretchContract?.stretchOptions ?? [2, 3]).map((years) => <option value={years} key={years}>{years} anni</option>)}
+          </select>
+          <button type="button" disabled={!selectedStretchContract || !selectedStretchYears} onClick={() => {
+            if (!selectedStretchContract || !selectedStretchYears) return;
+            onAddStretch({ ...selectedStretchContract, years: selectedStretchYears }); setStretchId(""); setStretchYears(2);
+          }}>Aggiungi</button>
+        </div>
+        {teamStretches.map((stretch) => <div className="trade-cut-entry" key={stretch.id}>
+          <p><span><strong>{stretch.name}</strong><small>già tagliato · {stretch.cost} crediti · {stretch.contract}</small></span><button type="button" onClick={() => onRemoveStretch(stretch.id)} aria-label={`Rimuovi stretch di ${stretch.name}`}>×</button></p>
+          <div className="trade-cut-stretch trade-existing-stretch"><label>Rate<select aria-label={`Rate stretch di ${stretch.name}`} value={stretch.years} onChange={(event) => onUpdateStretch(stretch.id, Number(event.target.value) as 2 | 3)}>{stretch.stretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}</select></label><small>{Math.ceil(stretch.residualCost / stretch.years)} crediti/anno</small></div>
+        </div>)}
+      </section>}
+
       <section className="trade-asset-section cut">
         <span className="trade-section-label">Spostamenti contestuali</span>
         <div className="trade-composer promotion">
@@ -1413,6 +1480,7 @@ function playerOptionLabel(player: Pick<RosterPlayer, "name" | "cost" | "slot" |
 }
 
 export function tradeSimulationRecap({
+  stretches = [],
   teams,
   participantCodes,
   playerMoves,
@@ -1434,6 +1502,7 @@ export function tradeSimulationRecap({
   cuts: CutMove[];
   promotions: PromotionMove[];
   existingClauseAgreements: ExistingTradeClauseAgreement[];
+  stretches?: TradeStretchMove[];
 }) {
   const lines: string[] = [];
   const movedPickIds = new Set(pickMoves.map((move) => move.id));
@@ -1462,6 +1531,8 @@ export function tradeSimulationRecap({
         .map((move) => `Q.O. ${move.playerName} (${move.amount} crediti)`),
     ];
     const operations = [
+      ...stretches.filter((stretch) => stretch.teamCode === teamCode)
+        .map((stretch) => `Stretch su tagliato: ${stretch.name} (${stretch.cost} crediti, ${stretch.contract}; ${stretch.years} rate da ${Math.ceil(stretch.residualCost / stretch.years)} crediti)`),
       ...cuts
         .filter((cut) => cut.teamCode === teamCode)
         .map((cut) => `Taglio contestuale: ${cut.name}${cut.stretchYears ? ` (stretch provision in ${cut.stretchYears} anni)` : ""}`),
@@ -1510,6 +1581,7 @@ function tradeImportPayload(input: Omit<TradeImportPayload, "version" | "existin
     promotions: input.promotions.map(({ id, teamCode, sourceSlot, destinationSlot }) => ({ id, teamCode, sourceSlot, destinationSlot })),
     pickClauses: input.pickClauses.map(({ pickId, clause, counterpartyPickId }) => ({ pickId, clause, counterpartyPickId })),
     existingClauseAgreementIds: input.existingClauseChanges.map((change) => change.agreementId),
+    stretches: input.stretches?.map(({ id, teamCode, years, cost, contract }) => ({ id, teamCode, years, cost, contract })),
   };
 }
 
@@ -1557,6 +1629,7 @@ function validateTradeImportPayload(value: unknown): TradeImportPayload {
     payload.existingClauseAgreementIds,
   ];
   if (arrays.some((item) => !Array.isArray(item))) throw new Error("Codice di importazione incompleto.");
+  if (payload.stretches !== undefined && !Array.isArray(payload.stretches)) throw new Error("Stretch dei tagliati non valida.");
   return payload as TradeImportPayload;
 }
 
@@ -1570,6 +1643,7 @@ function hydrateTradeImport(
     throw new Error("Le squadre indicate nel testo non sono più valide.");
   }
   const participants = new Set(participantCodes);
+  const stretches = hydrateTradeStretches(payload.stretches ?? [], teams.flatMap((team) => team.stretchContracts), participantCodes);
   const players = teams.flatMap((team) => team.players.map((player) => ({ team, player })));
   const picks = teams.flatMap((team) => team.picks.map((pick) => ({ team, pick })));
   const offers = teams.flatMap((team) => team.qualifyingOffers.map((offer) => ({ team, offer })));
@@ -1719,7 +1793,7 @@ function hydrateTradeImport(
     action: "remove",
     clause: null,
   }));
-  return { participantCodes, playerMoves, pickMoves, qualifyingOfferMoves, cuts, promotions, pickClauses, existingClauseChanges };
+  return { participantCodes, playerMoves, pickMoves, qualifyingOfferMoves, cuts, promotions, pickClauses, existingClauseChanges, stretches };
 }
 
 function pickTitle(pick: Pick<PickMove, "year" | "round" | "originOrOverall">) {

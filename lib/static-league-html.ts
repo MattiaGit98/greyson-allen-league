@@ -9,12 +9,17 @@ import type {
   HistoryCompetitionMap,
   HistoryEntryContent,
 } from "@/lib/history-competitions";
-import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
+import { calculateCapSpace, followingSeasonName } from "./season-time";
+import type { LeagueMoment } from "./league-moments";
+import { dpeCountsForRoleMinimums } from "./role-minimums";
+import { countRosterRoles } from "./rules/roster";
+import { entriesForDpeAdjustedCap } from "./dpe-rules";
 
 export type StaticLeagueHtmlInput = {
   exportedAt: Date;
   seasonName: string;
   phaseName: string;
+  leagueMoment: LeagueMoment;
   countTeamOptions: boolean;
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
@@ -61,14 +66,10 @@ function renderTeams(input: StaticLeagueHtmlInput) {
     const cut = entries.filter((entry) => entry.state === "cut");
     const assets = input.draftAssets.filter((asset) => asset.teamCode === team.code).sort(compareDraftAssets);
     const rights = input.qualifyingOfferRights.filter((right) => right.teamCode === team.code);
-    const roles = {
-      G: active.filter((entry) => entry.slot !== "dpe" && entry.role === "G").length,
-      A: active.filter((entry) => entry.slot !== "dpe" && entry.role === "A").length,
-      C: active.filter((entry) => entry.slot !== "dpe" && entry.role === "C").length,
-    };
+    const roles = countRosterRoles(active.map((entry) => ({ role: entry.role, slot: entry.slot })), dpeCountsForRoleMinimums(input.leagueMoment));
     const capSeasons = [input.seasonName, followingSeasonName(input.seasonName), followingSeasonName(input.seasonName, 2)];
-    const caps = capSeasons.map((seasonName) => calculateCapSpace({
-      entries,
+    const caps = capSeasons.map((seasonName, distance) => calculateCapSpace({
+      entries: entriesForDpeAdjustedCap(entries, distance),
       seasonName,
       optionSeasonName: input.seasonName,
       countTeamOptions: input.countTeamOptions,

@@ -44,8 +44,8 @@ describe("causali del rilascio gratuito", () => {
     });
   });
 
-  it("nasconde solo la causale delle partite dopo una DPE nella stagione precedente", () => {
-    const formerDpe = { ...ordinary, dpeAppliedSeasons: ["2026/27"] };
+  it("nasconde solo la causale delle partite dopo il reintegro DPE a fine stagione", () => {
+    const formerDpe = { ...ordinary, dpeAppliedSeasons: ["2026/27"], dpeSeasonEndReintegratedSeasons: ["2026/27"] };
     expect(freeReleaseReasonAvailability("under_half_games", "offseason_start", formerDpe, seasonName).available).toBe(false);
     expect(availableFreeReleaseReasons("offseason_start", formerDpe, seasonName)).toEqual([]);
     expect(availableFreeReleaseReasons("team_option_deadline", formerDpe, seasonName)).toEqual([
@@ -54,11 +54,17 @@ describe("causali del rilascio gratuito", () => {
     ]);
     expect(availableFreeReleaseReasons("offseason_start", formerDpe, "2028/29")).toEqual(["under_half_games"]);
     expect(availableFreeReleaseReasons("offseason_start", {
-      ...ordinary, dpeAppliedSeasons: ["2026/27", "2027/28"],
+      ...ordinary, dpeAppliedSeasons: ["2026/27", "2027/28"], dpeSeasonEndReintegratedSeasons: ["2027/28"],
     }, "2028/29")).toEqual([]);
     expect(availableFreeReleaseReasons("offseason_start", {
       ...ordinary, dpeAppliedSeasons: ["2027/28"],
     }, "2027/28")).toEqual(["under_half_games"]);
+  });
+
+  it("non esclude chi è stato reintegrato anticipatamente, anche dopo uno scambio", () => {
+    const reintegratedEarly = { ...ordinary, dpeAppliedSeasons: ["2026/27"], teamCode: "BBB" };
+    expect(availableFreeReleaseReasons("offseason_start", reintegratedEarly, seasonName)).toEqual(["under_half_games"]);
+    expect(availableFreeReleaseReasons("auction_start", reintegratedEarly, seasonName)).toEqual([]);
   });
 
   it("chiude durante l'asta i rilasci per assenza dal roster NBA e per squalifica", () => {

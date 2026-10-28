@@ -4,7 +4,7 @@ export const rosterSlotLimits = {
   regular: 15,
   two_way: 2,
   g_league: 3,
-  dpe: 1,
+  dpe: Number.POSITIVE_INFINITY,
 } as const;
 
 export type RosterSlot = keyof typeof rosterSlotLimits;

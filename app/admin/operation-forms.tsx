@@ -13,6 +13,7 @@ import { legalSlotDestinations, slotEligibilityErrors, slotMoveTimingErrors } fr
 import { destinationAfterTeamOptionExercise } from "@/lib/team-option-contract";
 import type { PostAuctionContractDraft } from "@/lib/post-auction-contracts";
 import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
+import { rosterSlotLimits } from "@/lib/roster-slot-limits";
 
 type OperationProps = {
   phase: string;
@@ -25,7 +26,7 @@ type OperationProps = {
   teams: AdminRosterTeam[];
 };
 
-const slotLimits = { regular: 15, two_way: 2, g_league: 3, dpe: 1 } as const;
+const slotLimits = rosterSlotLimits;
 type Slot = keyof typeof slotLimits;
 
 function formatTeamName(name: string) {
@@ -51,7 +52,7 @@ function slotLabel(slot: Slot) {
 }
 
 function formatSlots(slots: Record<Slot, number>) {
-  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`;
+  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`;
 }
 
 function formatRoles(roles: Record<"G" | "A" | "C", number>) {

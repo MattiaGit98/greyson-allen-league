@@ -32,6 +32,8 @@ export type RosterEntry = {
   twoWayPromotionLocked?: boolean;
   playoffTeamOptionUsedSeason?: string;
   dpeAppliedSeasons?: string[];
+  /** Annate in cui la DPE è stata reintegrata automaticamente a Fine stagione. */
+  dpeSeasonEndReintegratedSeasons?: string[];
   scheduledSeasonEndCut?: string;
 };
 

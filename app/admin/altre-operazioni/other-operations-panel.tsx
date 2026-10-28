@@ -15,7 +15,7 @@ import { hasBlockingDpeCutCapViolation, salaryCapWarningsForSpaces } from "@/lib
 import {
   availableFreeReleaseReasons,
   freeReleaseReasonAvailability,
-  hadDpeInPreviousSeason,
+  hadSeasonEndDpeReintegrationInPreviousSeason,
   freeReleaseReasonLabels,
   freeReleaseReasonValues,
   type FreeReleaseReason,
@@ -33,7 +33,7 @@ const groups: { key: Slot | "cut"; label: string; limit?: number }[] = [
   { key: "regular", label: "Roster", limit: 15 },
   { key: "two_way", label: "Two-way", limit: 2 },
   { key: "g_league", label: "G-League", limit: 3 },
-  { key: "dpe", label: "Disabled player exception", limit: 1 },
+  { key: "dpe", label: "Disabled player exception" },
   { key: "cut", label: "Tagliati" },
 ];
 
@@ -59,7 +59,7 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
               .sort((left, right) => right.cost - left.cost || left.name.localeCompare(right.name, "it"));
             return (
               <section className="accordion-data-section other-operations-section" key={group.key}>
-                <p>{group.label}{group.limit ? ` (${rows.length}/${group.limit})` : ""}</p>
+                <p>{group.label}{group.limit ? ` (${rows.length}/${group.limit})` : group.key === "dpe" ? ` (${rows.length})` : ""}</p>
                 <div className="other-operations-table">
                   <div className="other-operations-head"><span>Giocatore</span><span>{group.key === "cut" ? "Stretch" : "Ruolo"}</span><span>Scadenza</span><span>Costo</span><span></span></div>
                   {rows.map((player) => {
@@ -104,20 +104,16 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
   const [operation, setOperation] = useState<Operation>(choices[0]?.value ?? "cut");
   const [confirmed, setConfirmed] = useState(false);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
-  const [dpeCutConfirmed, setDpeCutConfirmed] = useState(false);
-  const [dpeStretchYears, setDpeStretchYears] = useState<2 | 3 | null>(null);
+  const [cutStretchYears, setCutStretchYears] = useState<2 | 3 | null>(null);
   const stretchOptions = allowedStretchYears(player, props.seasonEndYear);
   const [installments, setInstallments] = useState<2 | 3>(stretchOptions[0] ?? 2);
   const [releaseReason, setReleaseReason] = useState<FreeReleaseReason | "">("");
   const oneCreditTeamOptionRelease = operation === "free_release"
     && freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
-  const occupiedDpePlayer = operation === "dpe_activate"
-    ? team.players.find((item) => item.state === "active" && item.slot === "dpe") ?? null
-    : null;
-  const dpeStretchOptions = occupiedDpePlayer ? contextualStretchYears(rosterEntryForPlayer(occupiedDpePlayer), props.seasonEndYear) : [];
-  const dpeStretchEligible = dpeStretchOptions.length > 0;
-  const effectiveDpeStretchYears = dpeStretchEligible ? dpeStretchYears : null;
-  const preview = operationPreview(operation, player, team, props, installments, confirmed, roleMinimumConfirmed, releaseReason, dpeCutConfirmed, effectiveDpeStretchYears);
+  const cutSelected = operation === "cut" && player.state === "active";
+  const cutStretchOptions = cutSelected ? contextualStretchYears(rosterEntryForPlayer(player), props.seasonEndYear) : [];
+  const effectiveCutStretchYears = cutStretchYears !== null && cutStretchOptions.includes(cutStretchYears) ? cutStretchYears : null;
+  const preview = operationPreview(operation, player, team, props, installments, confirmed, roleMinimumConfirmed, releaseReason, effectiveCutStretchYears);
   const formAction = operation === "extension"
     ? applyContractExtension
     : operation === "stretch"
@@ -138,9 +134,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <input type="hidden" name="scheduled_cut_operation" value={operation === "schedule_cut" ? "schedule" : operation === "cancel_scheduled_cut" ? "cancel" : ""} />
       <input type="hidden" name="requirements_confirmed" value={String(confirmed)} />
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
-      <input type="hidden" name="dpe_cut_confirmed" value={String(dpeCutConfirmed)} />
-      <input type="hidden" name="dpe_cut_player_name" value={occupiedDpePlayer?.name ?? ""} />
-      <input type="hidden" name="dpe_stretch_years" value={operation === "dpe_activate" ? effectiveDpeStretchYears ?? "" : ""} />
+      <input type="hidden" name="cut_stretch_years" value={effectiveCutStretchYears ?? ""} />
       <input type="hidden" name="confirmed" value={String(confirmed)} />
       <input type="hidden" name="installments" value={installments} />
 
@@ -152,7 +146,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <div className="auction-modal-body">
         <div className="auction-modal-fields single-column">
           <Field label="Operazione">
-            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setRoleMinimumConfirmed(false); setDpeCutConfirmed(false); setDpeStretchYears(null); setReleaseReason(""); }}>
+            <select value={operation} onChange={(event) => { setOperation(event.target.value as Operation); setConfirmed(false); setRoleMinimumConfirmed(false); setCutStretchYears(null); setReleaseReason(""); }}>
               {choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.label}</option>)}
             </select>
           </Field>
@@ -164,7 +158,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
               <span>Causa del rilascio</span>
               <div className="release-reason-list">
                 {freeReleaseReasonValues.filter((reason) => reason !== "one_credit_team_option"
-                  && !(reason === "under_half_games" && hadDpeInPreviousSeason(player, props.seasonName))).map((reason) => {
+                  && !(reason === "under_half_games" && hadSeasonEndDpeReintegrationInPreviousSeason(player, props.seasonName))).map((reason) => {
                   const availability = freeReleaseReasonAvailability(reason, props.leagueMoment, player, props.seasonName);
                   return (
                     <label className={availability.available ? "" : "disabled"} key={reason}>
@@ -189,26 +183,11 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
               {confirmationLabel(operation)}
             </label>
           )}
-          {operation === "dpe_activate" && occupiedDpePlayer && (
-            <section className="contextual-slot-resolution dpe-contextual-resolution" aria-label="Operazione contestuale per liberare lo slot DPE">
-              <header>
-                <span>Slot da liberare</span>
-                <strong>Completa l'operazione necessaria</strong>
-              </header>
-              <div className="contextual-slot-steps">
-                <fieldset className="contextual-slot-step">
-                  <legend><b>1</b><span>Libera lo slot DPE</span></legend>
-                  <label className={`dpe-contextual-cut-option${dpeCutConfirmed ? " selected" : ""}`}>
-                    <input type="checkbox" checked={dpeCutConfirmed} onChange={(event) => { setDpeCutConfirmed(event.target.checked); if (!event.target.checked) setDpeStretchYears(null); }} />
-                    <span>Taglia contestualmente <strong>{occupiedDpePlayer.name}</strong></span>
-                  </label>
-                  <div className="dpe-contextual-stretch">
-                    <label><input type="checkbox" aria-label={`Stretch provision per ${occupiedDpePlayer.name}`} checked={effectiveDpeStretchYears != null} disabled={!dpeCutConfirmed || !dpeStretchEligible} onChange={(event) => setDpeStretchYears(event.target.checked ? dpeStretchOptions[0] ?? null : null)} />Stretch provision</label>
-                    <select aria-label={`Durata stretch provision per ${occupiedDpePlayer.name}`} value={effectiveDpeStretchYears ?? dpeStretchOptions[0] ?? 2} disabled={effectiveDpeStretchYears == null || !dpeCutConfirmed} onChange={(event) => setDpeStretchYears(Number(event.target.value) as 2 | 3)}>{dpeStretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}</select>
-                  </div>
-                </fieldset>
-              </div>
-            </section>
+          {cutSelected && (
+            <div className="standalone-cut-stretch">
+              <label><input type="checkbox" checked={effectiveCutStretchYears !== null} disabled={!cutStretchOptions.length} onChange={(event) => setCutStretchYears(event.target.checked ? cutStretchOptions[0] ?? null : null)} />Stretch provision</label>
+              <select aria-label="Durata stretch provision del taglio" value={effectiveCutStretchYears ?? cutStretchOptions[0] ?? 2} disabled={effectiveCutStretchYears === null} onChange={(event) => setCutStretchYears(Number(event.target.value) as 2 | 3)}>{(cutStretchOptions.length ? cutStretchOptions : [2, 3]).map((years) => <option value={years} key={years}>{years} anni</option>)}</select>
+            </div>
           )}
           {preview.roleMinimumMissing > 0 && !preview.roleMinimumSlotError && (
             <label className="operation-check other-operation-check role-minimum-check">
@@ -233,7 +212,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${Math.ceil(player.cost * 1.25)}`} />}
           {operation === "buyout" && <Metric label="Nuovo contratto" value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
           {operation === "stretch" && <Metric label="Rata" value={preview.installment ?? "—"} />}
-          {operation === "dpe_activate" && occupiedDpePlayer && <Metric label="Taglio contestuale" value={occupiedDpePlayer.name} />}
+          {effectiveCutStretchYears !== null && <Metric label="Stretch provision" value={`${effectiveCutStretchYears} rate da ${preview.cutEntry?.cost} · scad. ${preview.cutEntry?.contract}`} />}
         </div>
         {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
         {preview.warnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
@@ -252,7 +231,6 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
 
 function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, props: AdminOperationContext): OperationChoice[] {
   const choices: OperationChoice[] = [];
-  const slots = slotCounts(team);
   const unresolvedTeamOption = isUnresolvedTeamOption(player, props.leagueMoment, props.seasonName);
   if (player.state === "active" && player.isExtensionEligible && player.expiryYear === props.seasonEndYear && operationWindows.extensions(props.leagueMoment)) choices.push({ value: "extension", label: "Estensione contrattuale" });
   if (player.state === "active" && !unresolvedTeamOption) choices.push({ value: "cut", label: "Taglio" });
@@ -269,7 +247,7 @@ function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, p
   if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player, props.seasonName).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
   if (player.state === "active" && operationWindows.buyout(props.leagueMoment) && player.expiryYear && player.expiryYear > props.seasonEndYear) choices.push({ value: "buyout", label: "Buyout" });
   if (canApplyStretchProvision(player, props.seasonEndYear)) choices.push({ value: "stretch", label: "Stretch provision" });
-  if (player.state === "active" && !unresolvedTeamOption && player.slot !== "dpe" && slots.dpe <= 1 && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
+  if (player.state === "active" && !unresolvedTeamOption && player.slot !== "dpe" && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
   if (player.state === "active" && !unresolvedTeamOption && player.slot === "dpe" && operationWindows.dpeReintegration(props.leagueMoment)) choices.push({ value: "dpe_reintegrate", label: "Reintegro anticipato dalla DPE" });
   return choices;
 }
@@ -283,11 +261,11 @@ function operationPreview(
   confirmed: boolean,
   roleMinimumConfirmed: boolean,
   releaseReason: FreeReleaseReason | "",
-  dpeCutConfirmed: boolean,
-  dpeStretchYears: 2 | 3 | null,
+  cutStretchYears: 2 | 3 | null,
 ) {
   const spacesBefore: ThreeYearValues = [team.space, team.nextSpace, team.followingSpace];
   const charges = playerCharges(player, props);
+  const cutEntry = operation === "cut" ? applyContextualContractCut(rosterEntryForPlayer(player), props.seasonEndYear, props.leagueMoment, cutStretchYears) : null;
   const buyoutTotalResidual = charges.reduce((total, charge) => total + charge, 0);
   let spacesAfter: ThreeYearValues = [...spacesBefore];
   let installment: number | undefined;
@@ -305,6 +283,7 @@ function operationPreview(
       kind: operation as "cut" | "free_release" | "buyout",
       spacesBefore,
       contractCharges: charges,
+      cutContractCharges: cutEntry ? entryCharges(cutEntry, props) : undefined,
       currentDpeExemption: player.state === "active" && player.slot === "dpe",
     });
   } else if (operation === "stretch") {
@@ -313,18 +292,6 @@ function operationPreview(
     installment = stretch.installment;
   } else if (operation === "dpe_activate") {
     spacesAfter = [spacesBefore[0] + player.currentCapCost, spacesBefore[1], spacesBefore[2]];
-    const occupiedDpePlayer = team.players.find((item) => item.state === "active" && item.slot === "dpe");
-    if (occupiedDpePlayer) {
-      const incumbentCharges = playerCharges(occupiedDpePlayer, props);
-      const cutEntry = applyContextualContractCut(rosterEntryForPlayer(occupiedDpePlayer), props.seasonEndYear, props.leagueMoment, dpeStretchYears);
-      spacesAfter = releaseCapSpaces({
-        kind: "cut",
-        spacesBefore: spacesAfter,
-        contractCharges: incumbentCharges,
-        cutContractCharges: entryCharges(cutEntry, props),
-        currentDpeExemption: true,
-      });
-    }
   } else if (operation === "dpe_reintegrate") {
     spacesAfter = [spacesBefore[0] - player.currentCapCost, spacesBefore[1], spacesBefore[2]];
   }
@@ -339,7 +306,7 @@ function operationPreview(
   }
   if (operation === "dpe_activate") {
     slotsAfter[player.slot] -= 1;
-    if (slotsBefore.dpe === 0) slotsAfter.dpe += 1;
+    slotsAfter.dpe += 1;
     if (player.role) rolesAfter[player.role] -= 1;
   }
   if (operation === "dpe_reintegrate") {
@@ -352,10 +319,6 @@ function operationPreview(
   const warnings: string[] = [];
   const capWarnings: string[] = [];
   if (requiresConfirmation(operation) && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
-  const occupiedDpePlayer = operation === "dpe_activate"
-    ? team.players.find((item) => item.state === "active" && item.slot === "dpe") ?? null
-    : null;
-  if (occupiedDpePlayer && !dpeCutConfirmed) errors.push(`Conferma il taglio contestuale di ${occupiedDpePlayer.name}.`);
   if (operation === "free_release") {
     const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
     if (!automaticOneCreditRelease) {
@@ -390,7 +353,6 @@ function operationPreview(
   if (slotsAfter.two_way > 2) errors.push("Sono superati i 2 slot Two-way.");
   if (slotsAfter.g_league > 3) errors.push("Sono superati i 3 slot G-League.");
   let roleMinimumMissing = 0;
-  if (slotsAfter.dpe > 1) errors.push("Lo slot DPE è già occupato.");
   if (roleMinimumChecksApply(props.phase as LeaguePhase, props.leagueMoment) && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
     const missingRoles = roleMinimumDeficits(rolesAfter);
     for (const role of ["G", "A", "C"] as const) {
@@ -417,6 +379,7 @@ function operationPreview(
     roleMinimumMissing,
     roleMinimumSlotError,
     installment,
+    cutEntry,
     buyoutTotalResidual,
     errors: [...new Set(errors)],
     warnings: [...new Set(warnings)],
@@ -466,21 +429,19 @@ function roleCounts(team: AdminRosterTeam, leagueMoment?: LeagueMoment) {
 
 function requiresConfirmation(operation: Operation) {
   return operation === "buyout"
-    || operation === "dpe_activate"
-    || operation === "dpe_reintegrate";
+    || operation === "dpe_activate";
 }
 
 function confirmationLabel(operation: Operation) {
   if (operation === "buyout") return "Il buyout è stato concordato con il giocatore";
-  if (operation === "dpe_activate") return "Ho verificato che NBC Sports riporti la certezza o il forte rischio dell'assenza per infortunio e che sia raggiunta la soglia regolamentare";
-  if (operation === "dpe_reintegrate") return "Ho verificato il ritorno in campo NBA entro la finestra regolamentare";
+  if (operation === "dpe_activate") return "Ho verificato che NBC Sports riporti la certezza o il forte rischio di saltare almeno 20 partite NBA";
   return "Sono verificati i requisiti richiesti";
 }
 
 function placementOf(player: AdminRosterPlayer): Slot | "cut" { return player.state === "cut" ? "cut" : player.slot; }
 function placementLabel(player: AdminRosterPlayer) { return player.state === "cut" ? "Tagliato" : slotLabel(player.slot); }
 function slotLabel(slot: Slot) { return slot === "regular" ? "Roster" : slot === "two_way" ? "Two-way" : slot === "g_league" ? "G-League" : "DPE"; }
-function formatSlots(slots: Record<Slot, number>) { return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`; }
+function formatSlots(slots: Record<Slot, number>) { return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`; }
 function formatRoles(roles: Record<"G" | "A" | "C", number>) { return `${roles.G} G · ${roles.A} A · ${roles.C} C`; }
 function seasonNameAt(name: string, distance: number) { const start = Number(name.slice(0, 4)) + distance; return `${start}/${String((start + 1) % 100).padStart(2, "0")}`; }
 function formatTeamName(name: string) { return name.toLocaleLowerCase("it-IT").replace(/(^|[\s'-])\p{L}/gu, (letter) => letter.toLocaleUpperCase("it-IT")); }

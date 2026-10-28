@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { renderStaticLeagueHtml } from "@/lib/static-league-html";
 import { requireActiveSeason } from "@/lib/active-season";
 import { backupFileTimestamp } from "@/lib/backup-file";
+import { leagueMomentFromSeason } from "@/lib/league-moments";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export async function GET() {
       exportedAt,
       seasonName,
       phaseName: phaseLabels[phase] ?? "Offseason",
+      leagueMoment: leagueMomentFromSeason(activeSeason.season),
       countTeamOptions: shouldCountTeamOptions(phase, activeSeason.season.team_options_resolved),
       teams: leagueState.teams,
       rosterEntries: leagueState.rosterEntries,

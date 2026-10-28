@@ -30,6 +30,28 @@ function payload(): ImportableLeaguePayload {
 }
 
 describe("backup importabile della lega", () => {
+  it("conserva DPE multiple e reintegri a fine stagione nello stato e nei movimenti", () => {
+    const source = payload();
+    const entries = [
+      { name: "DPE uno", teamCode: "AAA", cost: 10, contract: "28", state: "active" as const, slot: "dpe" as const,
+        dpeAppliedSeasons: ["2026/27"] },
+      { name: "DPE due", teamCode: "AAA", cost: 20, contract: "28", state: "active" as const, slot: "dpe" as const,
+        dpeAppliedSeasons: ["2026/27"], dpeSeasonEndReintegratedSeasons: ["2025/26"] },
+    ];
+    source.leagueState.rosterEntries = entries;
+    source.movements = [{
+      id: "8d45ba5f-fbe1-4d42-b5ef-744eb0a27ace", operation_type: "dpe_activate", summary: "Esercizio DPE",
+      before_state: { rosterEntries: [{ ...entries[1], slot: "regular" }] }, after_state: { rosterEntries: entries },
+      history_category: null, before_history: null, after_history: null, season_name: "2026/27", undo_before_moment: null,
+      reverts_movement_id: null, created_at: "2026-08-02T12:00:00.000Z", reverted_at: null,
+    }];
+    const backup = createImportableBackupDocument(source);
+    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(backup)));
+    expect(parsed.formatVersion).toBe(2);
+    expect(parsed.payload.leagueState.rosterEntries).toEqual(entries);
+    expect(parsed.payload.movements[0].after_state.rosterEntries).toEqual(entries);
+  });
+
   it("accetta un backup completo prodotto dal sistema", () => {
     const backup = createImportableBackupDocument(payload(), "2026-08-02T12:00:00.000Z");
     const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(backup)));

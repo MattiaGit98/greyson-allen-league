@@ -24,7 +24,7 @@ const groups: { key: GroupKey; label: string; limit?: number }[] = [
   { key: "regular", label: "Roster", limit: 15 },
   { key: "two_way", label: "Two-way", limit: 2 },
   { key: "g_league", label: "G-League", limit: 3 },
-  { key: "dpe", label: "Disabled player exception", limit: 1 },
+  { key: "dpe", label: "Disabled player exception" },
   { key: "cut", label: "Tagliati" },
 ];
 
@@ -376,7 +376,7 @@ function formatRoles(roles: Record<"G" | "A" | "C", number>) {
 }
 
 function formatSlots(slots: ReturnType<typeof countActiveRosterSlots>) {
-  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe}/1`;
+  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`;
 }
 
 function correctionOptionsForCurrentValue(

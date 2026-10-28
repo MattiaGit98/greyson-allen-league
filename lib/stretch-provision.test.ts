@@ -1,7 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { allowedStretchYears, applyContextualContractCut, canApplyStretchProvision, canStretchContextualCut, isStretchUnavailable } from "./stretch-provision";
+import { allowedStretchYears, applyContextualContractCut, canApplyStretchProvision, canStretchContextualCut, contextualStretchYears, isStretchUnavailable } from "./stretch-provision";
 
 describe("stretch provision", () => {
+  it.each(["regular", "two_way", "g_league", "dpe"] as const)("consente taglio e stretch in un unico risultato dallo slot %s", (slot) => {
+    const entry = { name: "Giocatore", cost: 11, contract: "27", state: "active" as const, slot, teamCode: "AAA" };
+    expect(contextualStretchYears(entry, 2027)).toEqual([2, 3]);
+    expect(applyContextualContractCut(entry, 2027, "contract_delivery", 2))
+      .toMatchObject({ state: "cut", slot: "regular", cost: 6, contract: "28", stretchProvisionApplied: true });
+    expect(applyContextualContractCut(entry, 2027, "contract_delivery", 3))
+      .toMatchObject({ state: "cut", slot: "regular", cost: 4, contract: "29", stretchProvisionApplied: true });
+    expect(entry.state).toBe("active");
+  });
+
+  it("mantiene le esclusioni anche nel taglio ordinario con stretch immediata", () => {
+    const entry = { name: "Giocatore", cost: 11, contract: "28", state: "active" as const, slot: "regular" as const, teamCode: "AAA" };
+    expect(contextualStretchYears(entry, 2027)).toEqual([3]);
+    for (const patch of [{ contract: "29" }, { buyoutApplied: true }, { stretchProvisionApplied: true }, { cost: 0 }]) {
+      expect(contextualStretchYears({ ...entry, ...patch }, 2027)).toEqual([]);
+      expect(() => applyContextualContractCut({ ...entry, ...patch }, 2027, "contract_delivery", 3)).toThrow(/non consentita/);
+    }
+  });
   it("permette il taglio contestuale di un pending, con rate arrotondate e blocco di una seconda stretch", () => {
     const entry = { name: "Pending", cost: 11, contract: "PENDING", state: "active" as const, slot: "regular" as const, teamCode: "AAA" };
     expect(canStretchContextualCut(entry, 2027)).toBe(true);

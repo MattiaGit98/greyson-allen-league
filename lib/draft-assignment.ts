@@ -1,7 +1,7 @@
 import type { EditableLeagueState } from "./league-state";
 import type { HistoryCompetitionEntry, HistoryDraftRow } from "./history-competitions";
 import { compareDraftPicks, draftOverallPosition } from "./draft-rules";
-import { findTeamSlotOverflows, slotOverflowMessage } from "./roster-slot-limits";
+import { findTeamSlotOverflows, slotOverflowMessage, rosterSlotLimits } from "./roster-slot-limits";
 import { removeRolelessPlayersByName } from "./roleless-player-list";
 import { annualTeamOptionContract } from "./team-option-contract";
 
@@ -9,7 +9,7 @@ export type DraftRosterSlot = "regular" | "two_way" | "g_league";
 export type DraftDestinationSlot = DraftRosterSlot | "immediate_cut" | "immediate_release";
 export type DraftSlotCounts = Record<DraftRosterSlot | "dpe", number>;
 
-export const draftSlotLimits: DraftSlotCounts = { regular: 15, two_way: 2, g_league: 3, dpe: 1 };
+export const draftSlotLimits: DraftSlotCounts = rosterSlotLimits;
 
 export function draftDestinationsForPrice(price: number | null): DraftRosterSlot[] {
   if (price === null || price > 10) return ["regular"];

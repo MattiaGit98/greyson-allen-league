@@ -10,6 +10,7 @@ import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { existingTradeClauseAgreements, tradePickId, tradePlayerId, tradeQualifyingOfferId } from "@/lib/trade-state";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { contextualStretchYears } from "@/lib/stretch-provision";
+import { tradeStretchContracts } from "@/lib/trade-stretch";
 
 export default async function TradeSimulatorPage() {
   const [activeSeason, leagueState] = await Promise.all([
@@ -41,6 +42,7 @@ export default async function TradeSimulatorPage() {
     leagueState.teams.map((team) => team.code),
   );
   const virtualFourthDraftPicks = fourthDraftVirtualPicks(leagueState.draftAssets, leagueState.teams);
+  const stretchContracts = tradeStretchContracts(leagueState.rosterEntries, seasonName, countTeamOptions);
 
   const teams = leagueState.teams.map((team) => {
     const teamEntries = leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code);
@@ -55,6 +57,7 @@ export default async function TradeSimulatorPage() {
     return {
       code: team.code,
       name: team.name,
+      stretchContracts: stretchContracts.filter((entry) => entry.teamCode === team.code),
       currentSeasonName: seasonName,
       currentCost: 1000 - calculateCapSpace({
         entries: teamEntries.filter((entry) => entry.state !== "active" || entry.slot !== "dpe"),

@@ -7,7 +7,7 @@ import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
 import { rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
-import { allowedStretchYears, canApplyStretchProvision } from "@/lib/stretch-provision";
+import { allowedStretchYears, canApplyStretchProvision, applyContextualContractCut } from "@/lib/stretch-provision";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { capOverrideSummary, hasBlockingDpeCutCapViolation, requireCapCompliance, salaryCapWarningsForSpaces } from "@/lib/cap-override";
@@ -17,7 +17,7 @@ import {
   isFreeReleaseReason,
   type FreeReleaseReason,
 } from "@/lib/free-release";
-import { applyStandardContractCut, isUnresolvedTeamOption } from "@/lib/team-option-contract";
+import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { roleMinimumRecoverySlotErrorForEntries, roleMinimumShortage } from "@/lib/role-minimums";
 
 export async function applyRosterExitOperation(formData: FormData) {
@@ -25,6 +25,8 @@ export async function applyRosterExitOperation(formData: FormData) {
   const teamCode = String(formData.get("team_code") ?? "").trim().toUpperCase();
   const playerName = String(formData.get("player_name") ?? "").trim();
   const kind = String(formData.get("operation_kind") ?? "") as ReleaseOperationKind;
+  const rawCutStretchYears = String(formData.get("cut_stretch_years") ?? "").trim();
+  const cutStretchYears = rawCutStretchYears === "" ? null : Number(rawCutStretchYears);
   const confirmed = formData.get("confirmed") === "true";
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const submittedReleaseReasons = formData.getAll("release_reason").map((value) => String(value));
@@ -38,6 +40,9 @@ export async function applyRosterExitOperation(formData: FormData) {
   const entryIndex = state.rosterEntries.findIndex((entry) => entry.teamCode === teamCode && entry.name === playerName);
   const entry = state.rosterEntries[entryIndex];
   if (!entry) operationError(returnPath, "Il giocatore non appartiene alla squadra selezionata.");
+  if (cutStretchYears !== null && (kind !== "cut" || entry.state !== "active" || ![2, 3].includes(cutStretchYears))) {
+    operationError(returnPath, "La stretch immediata richiede il taglio di un giocatore attivo idoneo.");
+  }
   const listedPlayer = state.playerList.find((player) => player.name === entry.name);
   const freeReleasePlayer = {
     ...entry,
@@ -94,9 +99,13 @@ export async function applyRosterExitOperation(formData: FormData) {
       scheduledSeasonEndCut: undefined,
     } : item);
   } else {
-    rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
-      ? applyStandardContractCut(item, currentEndYear, leagueMoment)
-      : item);
+    try {
+      rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex
+        ? applyContextualContractCut(item, currentEndYear, leagueMoment, cutStretchYears as 2 | 3 | null)
+        : item);
+    } catch (error) {
+      operationError(returnPath, error instanceof Error ? error.message : "Taglio con stretch non valido.");
+    }
   }
 
   const teamRosterAfter = rosterEntries.filter((item) => item.teamCode === teamCode);
@@ -111,6 +120,7 @@ export async function applyRosterExitOperation(formData: FormData) {
     kind,
     spacesBefore,
     contractCharges: charges,
+    cutContractCharges: kind === "cut" ? playerCharges(rosterEntries[entryIndex], season.name, season.status, season.team_options_resolved) : undefined,
     currentDpeExemption: dpeExemption,
   });
   const spacesAfter = teamCapSpaces(rosterEntries, teamCode, season.name, season.status, season.team_options_resolved);
@@ -139,10 +149,11 @@ export async function applyRosterExitOperation(formData: FormData) {
   const buyoutDetail = buyoutTotalResidual === null
     ? ""
     : ` · costo concentrato ${buyoutTotalResidual}, scadenza ${String(seasonEndYear(season.name)).slice(-2)}`;
-  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}`, capWarnings, false));
+  const stretchDetail = cutStretchYears === null ? "" : ` · stretch provision in ${cutStretchYears} anni: ${rosterEntries[entryIndex].cost} crediti, scadenza ${rosterEntries[entryIndex].contract}`;
+  const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}${stretchDetail}`, capWarnings, false));
   if (response.error) operationError(returnPath, response.error.message);
   revalidateOperationPaths();
-  redirect(`${returnPath}?updated=${encodeURIComponent(`${label}: ${playerName}.`)}`);
+  redirect(`${returnPath}?updated=${encodeURIComponent(`${label}: ${playerName}.${cutStretchYears === null ? "" : ` Stretch provision in ${cutStretchYears} anni.`}`)}`);
 }
 
 export async function applyStretchProvision(formData: FormData) {

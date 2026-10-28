@@ -12,6 +12,7 @@ import { buildSignAndTradeProvisional, type SignAndTradeRequest } from "@/lib/si
 import { requireActiveSeason } from "@/lib/active-season";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { contextualStretchYears } from "@/lib/stretch-provision";
+import { tradeStretchContracts } from "@/lib/trade-stretch";
 
 export default async function TradesPage({
   searchParams,
@@ -66,6 +67,7 @@ export default async function TradesPage({
     leagueState.teams.map((team) => team.code),
   );
   const virtualFourthDraftPicks = fourthDraftVirtualPicks(leagueState.draftAssets, leagueState.teams);
+  const stretchContracts = tradeStretchContracts(leagueState.rosterEntries, seasonName, countTeamOptions);
 
   const tradeTeams = leagueState.teams.map((team) => {
     const teamEntries = leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code);
@@ -80,6 +82,7 @@ export default async function TradesPage({
     return {
       code: team.code,
       name: team.name,
+      stretchContracts: stretchContracts.filter((entry) => entry.teamCode === team.code),
       currentSeasonName: seasonName,
       currentCost: 1000 - calculateCapSpace({
         entries: teamEntries.filter((entry) => (

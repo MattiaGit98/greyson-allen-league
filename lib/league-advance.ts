@@ -120,6 +120,9 @@ function calculateLeagueAdvanceCore(input: LeagueAdvanceInput) {
       dpeAppliedSeasons: entry.state === "active" && entry.slot === "dpe"
         ? [input.seasonName]
         : entry.dpeAppliedSeasons?.includes(input.seasonName) ? [input.seasonName] : undefined,
+      dpeSeasonEndReintegratedSeasons: entry.state === "active" && entry.slot === "dpe"
+        ? [input.seasonName]
+        : undefined,
     }));
 
   const reintegratedDpePlayers = retainedBeforeDpeReintegration

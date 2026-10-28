@@ -10,6 +10,7 @@ import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { normalizePhaseDates, playoffTeamOptionWindowOpen, todayInRome } from "@/lib/phase-calendar";
 import { capOverrideSummary, requireCapCompliance } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
+import { rosterSlotLimits } from "@/lib/roster-slot-limits";
 import {
   applyRookieExtension,
   exerciseOrdinaryTeamOption,
@@ -61,7 +62,7 @@ export async function saveRookieContractDecisions(formData: FormData) {
   }
 
   const active = nextState.rosterEntries.filter((entry) => entry.teamCode === teamCode && entry.state === "active");
-  const limits = { regular: 15, two_way: 2, g_league: 3, dpe: 1 } as const;
+  const limits = rosterSlotLimits;
   for (const slot of Object.keys(limits) as (keyof typeof limits)[]) {
     const count = active.filter((entry) => entry.slot === slot).length;
     if (count > limits[slot]) fail(`Le decisioni superano il limite dello slot ${slotLabel(slot)}.`);

@@ -15,8 +15,8 @@ export type FreeReleaseReason = (typeof freeReleaseReasonValues)[number];
 
 export const freeReleaseReasonLabels: Record<FreeReleaseReason, string> = {
   no_nba_roster: "Non fa ufficialmente parte di alcun roster NBA da almeno 10 giorni",
-  suspension_or_legal: "Squalifica o cause giudiziarie riportate da NBC Sports, con soglia regolamentare raggiunta",
-  under_half_games: "Meno del 40% delle partite nella precedente regular season NBA",
+  suspension_or_legal: "NBC Sports riporta la certezza o il forte rischio di saltare almeno 20 partite NBA per squalifica o cause giudiziarie",
+  under_half_games: "Meno della metà delle partite nella precedente regular season NBA",
   one_credit_team_option: "Team option o contratto da assegnare eleggibile per la team option da 1 credito",
 };
 
@@ -25,6 +25,7 @@ export type FreeReleasePlayer = {
   contract: string;
   state: "active" | "cut";
   dpeAppliedSeasons?: string[];
+  dpeSeasonEndReintegratedSeasons?: string[];
   rookie?: boolean;
   under23?: boolean;
   auctionPrice?: number;
@@ -32,8 +33,8 @@ export type FreeReleasePlayer = {
   contractStartSeason?: string;
 };
 
-export function hadDpeInPreviousSeason(player: FreeReleasePlayer, seasonName: string) {
-  return player.dpeAppliedSeasons?.includes(previousSeasonName(seasonName)) ?? false;
+export function hadSeasonEndDpeReintegrationInPreviousSeason(player: FreeReleasePlayer, seasonName: string) {
+  return player.dpeSeasonEndReintegratedSeasons?.includes(previousSeasonName(seasonName)) ?? false;
 }
 
 export function isFreeReleaseReason(value: string): value is FreeReleaseReason {
@@ -72,7 +73,7 @@ export function freeReleaseReasonAvailability(
     if (player.state !== "active") {
       return { available: false, unavailableReason: "Questa causale è riservata ai giocatori non ancora tagliati." };
     }
-    if (hadDpeInPreviousSeason(player, seasonName)) {
+    if (hadSeasonEndDpeReintegrationInPreviousSeason(player, seasonName)) {
       return { available: false };
     }
     const available = !hasReachedMoment(moment, "auction_start");

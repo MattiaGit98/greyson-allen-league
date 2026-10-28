@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { availableOperationsAt } from "./available-operations";
 
 describe("operazioni disponibili", () => {
+  it("mostra il reintegro anticipato già al Termine asta e lo chiude con la prima free agency", () => {
+    const label = "Reintegro anticipato DPE";
+    expect(labelsAt("offseason_start")).not.toContain(label);
+    expect(labelsAt("auction_start")).not.toContain(label);
+    expect(labelsAt("auction_completed")).toContain(label);
+    expect(labelsAt("contract_delivery")).toContain(label);
+    expect(labelsAt("free_agency_end")).not.toContain(label);
+    expect(labelsAt("free_agency_reopening")).not.toContain(label);
+  });
   it("mostra le estensioni solo prima dell'Inizio asta", () => {
     expect(labelsAt("offseason_start")).toContain("Estensioni contrattuali");
     expect(labelsAt("team_option_deadline")).toContain("Estensioni contrattuali");
@@ -28,7 +37,7 @@ describe("operazioni disponibili", () => {
 
   it("ordina alfabeticamente le operazioni con la stessa scadenza", () => {
     const labels = labelsAt("offseason_start");
-    expect(labels.indexOf("Estensioni contrattuali")).toBeLessThan(labels.indexOf("Rilasci: meno del 40% della stagione NBA"));
+    expect(labels.indexOf("Estensioni contrattuali")).toBeLessThan(labels.indexOf("Rilasci: meno della metà della stagione NBA"));
     expect(labels.slice(-2)).toEqual(["Stretch provision", "Tagli"]);
     expect(labels).not.toContain("Promozioni di slot");
   });

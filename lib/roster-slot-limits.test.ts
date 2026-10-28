@@ -37,7 +37,13 @@ describe("limiti globali degli slot", () => {
       ...entries("AAA", "dpe", 2),
     ];
     expect(findTeamSlotOverflows(roster, "AAA").map((item) => item.slot))
-      .toEqual(["regular", "two_way", "g_league", "dpe"]);
+      .toEqual(["regular", "two_way", "g_league"]);
+  });
+
+  it("non pone un limite al numero delle DPE", () => {
+    const roster = entries("AAA", "dpe", 20);
+    expect(countActiveRosterSlots(roster, "AAA").dpe).toBe(20);
+    expect(findTeamSlotOverflows(roster, "AAA")).toEqual([]);
   });
 
   it("limita il controllo alle squadre coinvolte nell'operazione", () => {
