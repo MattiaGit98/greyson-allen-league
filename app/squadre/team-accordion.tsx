@@ -783,7 +783,7 @@ function PlayerDataRow({
         {shouldShowDpeBadge(entry, seasonName, leagueMoment) && (
           <i
             className="player-flag roster-dpe-flag"
-            aria-label="DPE esercitata"
+            aria-label="Reintegrato automaticamente dalla DPE a fine stagione"
           >DPE</i>
         )}
         {entry.state === "active" && entry.playoffTeamOptionUsedSeason && (

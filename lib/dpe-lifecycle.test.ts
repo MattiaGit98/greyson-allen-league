@@ -59,9 +59,12 @@ describe("regressioni DPE lungo il ciclo della lega", () => {
 
   it("distingue il reintegro anticipato da quello automatico anche dopo uno scambio", () => {
     const entries = [player("Anticipato", { slot: "dpe", contract: "29" }), player("Automatico", { slot: "dpe", contract: "29" })];
+    for (const entry of entries) expect(shouldShowDpeBadge(entry, "2026/27", "free_agency_end")).toBe(false);
     const early = applyEarlyDpeReintegration({ rosterEntries: entries, teamCode: "AAA", playerName: "Anticipato",
       seasonName: "2026/27", leagueMoment: "auction_completed" });
     const advanced = calculateLeagueAdvance({ ...state(early), seasonName: "2026/27" });
+    expect(shouldShowDpeBadge(advanced.rosterEntries[0], "2027/28", "offseason_start")).toBe(false);
+    expect(shouldShowDpeBadge(advanced.rosterEntries[1], "2027/28", "offseason_start")).toBe(true);
     const traded = applyValidatedTrade(state(advanced.rosterEntries), {
       playerMoves: [{ stateIndex: 0, toTeamCode: "BBB", destinationSlot: "regular" }, { stateIndex: 1, toTeamCode: "BBB", destinationSlot: "regular" }],
       pickMoves: [], pickClauses: [], existingClauseChanges: [], qualifyingOfferMoves: [], cuts: [],
@@ -72,8 +75,9 @@ describe("regressioni DPE lungo il ciclo della lega", () => {
     expect(freeReleaseReasonAvailability("under_half_games", "team_option_deadline", earlyPlayer, "2027/28").available).toBe(true);
     expect(freeReleaseReasonAvailability("under_half_games", "team_option_deadline", automaticPlayer, "2027/28").available).toBe(false);
     expect(freeReleaseReasonAvailability("suspension_or_legal", "team_option_deadline", automaticPlayer, "2027/28").available).toBe(true);
+    expect(shouldShowDpeBadge(earlyPlayer, "2027/28", "team_option_deadline")).toBe(false);
+    expect(shouldShowDpeBadge(automaticPlayer, "2027/28", "team_option_deadline")).toBe(true);
     for (const entry of traded.rosterEntries) {
-      expect(shouldShowDpeBadge(entry, "2027/28", "team_option_deadline")).toBe(true);
       expect(shouldShowDpeBadge(entry, "2027/28", "auction_start")).toBe(false);
     }
     const following = calculateLeagueAdvance({ ...state(traded.rosterEntries), seasonName: "2027/28" });

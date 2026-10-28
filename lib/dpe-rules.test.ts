@@ -40,20 +40,33 @@ describe("impatto della disabled player exception", () => {
     expect(future).toBe(900);
   });
 
-  it("mostra il marchio nella stagione della DPE e fino all'inizio dell'asta successiva", () => {
-    const entry = { state: "active" as const, dpeAppliedSeasons: ["2026/27"] };
+  it("mostra il marchio solo dopo il reintegro automatico e fino all'inizio dell'asta successiva", () => {
+    const entry: RosterEntry = { ...disabledPlayer, slot: "regular", dpeAppliedSeasons: ["2026/27"], dpeSeasonEndReintegratedSeasons: ["2026/27"] };
 
-    expect(shouldShowDpeBadge(entry, "2026/27", "free_agency_end")).toBe(true);
+    expect(shouldShowDpeBadge(entry, "2026/27", "free_agency_end")).toBe(false);
     expect(shouldShowDpeBadge(entry, "2027/28", "offseason_start")).toBe(true);
     expect(shouldShowDpeBadge(entry, "2027/28", "team_option_deadline")).toBe(true);
     expect(shouldShowDpeBadge(entry, "2027/28", "auction_start")).toBe(false);
+    expect(shouldShowDpeBadge(entry, "2027/28", "auction_completed")).toBe(false);
+  });
+
+  it("rimuove i vecchi bollini basati sul solo esercizio della DPE, anche dopo rientro o nuova firma", () => {
+    const applied = { ...disabledPlayer, dpeAppliedSeasons: ["2026/27"] };
+    for (const slot of ["dpe", "regular"] as const) {
+      const entry = { ...applied, slot };
+      expect(shouldShowDpeBadge(entry, "2026/27", "contract_delivery")).toBe(false);
+      expect(shouldShowDpeBadge(entry, "2026/27", "free_agency_reopening")).toBe(false);
+      expect(shouldShowDpeBadge(entry, "2027/28", "offseason_start")).toBe(false);
+    }
+    const signing = { ...disabledPlayer, slot: "regular" as const, dpeAppliedSeasons: inheritedDpeSeasons([applied], applied.name) };
+    expect(shouldShowDpeBadge(signing, "2026/27", "contract_delivery")).toBe(false);
   });
 
   it("nasconde il marchio quando il giocatore viene tagliato o rilasciato", () => {
-    expect(shouldShowDpeBadge({ state: "cut", dpeAppliedSeasons: ["2026/27"] }, "2026/27", "free_agency_end")).toBe(false);
+    expect(shouldShowDpeBadge({ state: "cut", dpeSeasonEndReintegratedSeasons: ["2026/27"] }, "2027/28", "offseason_start")).toBe(false);
   });
 
   it("non mostra il marchio di una DPE più vecchia", () => {
-    expect(shouldShowDpeBadge({ state: "active", dpeAppliedSeasons: ["2025/26"] }, "2027/28", "offseason_start")).toBe(false);
+    expect(shouldShowDpeBadge({ state: "active", dpeSeasonEndReintegratedSeasons: ["2025/26"] }, "2027/28", "offseason_start")).toBe(false);
   });
 });
