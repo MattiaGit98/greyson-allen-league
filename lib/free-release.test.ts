@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableFreeReleaseReasons, freeReleaseReasonAvailability } from "./free-release";
+import { availableFreeReleaseReasons, freeReleaseReasonAvailability, freeReleaseReasonLabels, isFreeReleaseReason } from "./free-release";
 
 const ordinary = { cost: 20, contract: "28", state: "active" as const };
 const cut = { ...ordinary, state: "cut" as const };
@@ -10,16 +10,14 @@ describe("causali del rilascio gratuito", () => {
     expect(availableFreeReleaseReasons("offseason_start", ordinary, seasonName)).toEqual(["under_half_games"]);
     expect(availableFreeReleaseReasons("team_option_deadline", ordinary, seasonName)).toEqual([
       "no_nba_roster",
-      "suspension_or_legal",
       "under_half_games",
     ]);
   });
 
   it("chiude le causali alle rispettive scadenze", () => {
     expect(freeReleaseReasonAvailability("under_half_games", "auction_start", ordinary, seasonName).available).toBe(false);
-    expect(freeReleaseReasonAvailability("suspension_or_legal", "trade_deadline", ordinary, seasonName).available).toBe(true);
-    expect(freeReleaseReasonAvailability("suspension_or_legal", "buyout_end", ordinary, seasonName).available).toBe(true);
-    expect(freeReleaseReasonAvailability("suspension_or_legal", "free_agency_end", ordinary, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("no_nba_roster", "trade_deadline", ordinary, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("no_nba_roster", "buyout_end", ordinary, seasonName).available).toBe(true);
     expect(freeReleaseReasonAvailability("no_nba_roster", "free_agency_end", ordinary, seasonName).available).toBe(false);
   });
 
@@ -31,7 +29,6 @@ describe("causali del rilascio gratuito", () => {
     expect(availableFreeReleaseReasons("offseason_start", cut, seasonName)).toEqual([]);
     expect(availableFreeReleaseReasons("team_option_deadline", cut, seasonName)).toEqual([
       "no_nba_roster",
-      "suspension_or_legal",
     ]);
   });
 
@@ -50,7 +47,6 @@ describe("causali del rilascio gratuito", () => {
     expect(availableFreeReleaseReasons("offseason_start", formerDpe, seasonName)).toEqual([]);
     expect(availableFreeReleaseReasons("team_option_deadline", formerDpe, seasonName)).toEqual([
       "no_nba_roster",
-      "suspension_or_legal",
     ]);
     expect(availableFreeReleaseReasons("offseason_start", formerDpe, "2028/29")).toEqual(["under_half_games"]);
     expect(availableFreeReleaseReasons("offseason_start", {
@@ -67,9 +63,22 @@ describe("causali del rilascio gratuito", () => {
     expect(availableFreeReleaseReasons("auction_start", reintegratedEarly, seasonName)).toEqual([]);
   });
 
-  it("chiude durante l'asta i rilasci per assenza dal roster NBA e per squalifica", () => {
+  it("richiede 15 giorni senza squadra NBA e non riapre questa causale con la March Madness", () => {
+    expect(freeReleaseReasonLabels.no_nba_roster).toContain("almeno 15 giorni");
+    expect(freeReleaseReasonAvailability("no_nba_roster", "offseason_start", ordinary, seasonName).available).toBe(false);
     expect(freeReleaseReasonAvailability("no_nba_roster", "auction_start", ordinary, seasonName).available).toBe(false);
-    expect(freeReleaseReasonAvailability("suspension_or_legal", "auction_start", ordinary, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("no_nba_roster", "auction_completed", ordinary, seasonName).available).toBe(true);
+    expect(freeReleaseReasonAvailability("no_nba_roster", "free_agency_reopening", ordinary, seasonName).available).toBe(false);
+  });
+
+  it("rifiuta la vecchia causale per squalifica o cause giudiziarie anche da un modulo rimasto aperto", () => {
+    expect(isFreeReleaseReason("suspension_or_legal")).toBe(false);
+    for (const moment of ["offseason_start", "team_option_deadline", "auction_start", "auction_completed", "trade_deadline", "buyout_end", "free_agency_end", "free_agency_reopening"] as const) {
+      expect(freeReleaseReasonAvailability("suspension_or_legal", moment, ordinary, seasonName).available).toBe(false);
+      expect(availableFreeReleaseReasons(moment, ordinary, seasonName)).not.toContain("suspension_or_legal");
+    }
+    expect(freeReleaseReasonAvailability("suspension_or_legal", "auction_completed", { cost: 1, contract: "27 + T.O.", state: "active" }, seasonName).available).toBe(false);
+    expect(freeReleaseReasonAvailability("non prevista", "team_option_deadline", ordinary, seasonName).available).toBe(false);
   });
 
   it("limita la causale non garantita alle T.O. da 1 credito dalla relativa scadenza", () => {

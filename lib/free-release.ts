@@ -6,7 +6,6 @@ import type { AuctionAcquisitionKind } from "./league-types";
 
 export const freeReleaseReasonValues = [
   "no_nba_roster",
-  "suspension_or_legal",
   "under_half_games",
   "one_credit_team_option",
 ] as const;
@@ -14,8 +13,7 @@ export const freeReleaseReasonValues = [
 export type FreeReleaseReason = (typeof freeReleaseReasonValues)[number];
 
 export const freeReleaseReasonLabels: Record<FreeReleaseReason, string> = {
-  no_nba_roster: "Non fa ufficialmente parte di alcun roster NBA da almeno 10 giorni",
-  suspension_or_legal: "NBC Sports riporta la certezza o il forte rischio di saltare almeno 20 partite NBA per squalifica o cause giudiziarie",
+  no_nba_roster: "Non fa ufficialmente parte di alcun roster NBA da almeno 15 giorni",
   under_half_games: "Meno della metà delle partite nella precedente regular season NBA",
   one_credit_team_option: "Team option o contratto da assegnare eleggibile per la team option da 1 credito",
 };
@@ -42,25 +40,19 @@ export function isFreeReleaseReason(value: string): value is FreeReleaseReason {
 }
 
 export function freeReleaseReasonAvailability(
-  reason: FreeReleaseReason,
+  reason: string,
   moment: LeagueMoment,
   player: FreeReleasePlayer,
   seasonName: string,
 ): { available: boolean; unavailableReason?: string } {
+  if (!isFreeReleaseReason(reason)) {
+    return { available: false, unavailableReason: "Causale di rilascio non prevista dal regolamento." };
+  }
   if (player.state === "cut" && player.cost === 0) {
     return { available: false, unavailableReason: "Il giocatore è già stato rilasciato gratuitamente." };
   }
 
   if (reason === "no_nba_roster") {
-    const available = hasReachedMoment(moment, "team_option_deadline")
-      && !hasReachedMoment(moment, "free_agency_end")
-      && !tradesAreSuspendedForAuction(moment);
-    return available
-      ? { available: true }
-      : { available: false, unavailableReason: "Disponibile dalla scadenza delle T.O. alla Chiusura free agency, ma non durante l'asta." };
-  }
-
-  if (reason === "suspension_or_legal") {
     const available = hasReachedMoment(moment, "team_option_deadline")
       && !hasReachedMoment(moment, "free_agency_end")
       && !tradesAreSuspendedForAuction(moment);

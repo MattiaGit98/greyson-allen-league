@@ -35,12 +35,26 @@ describe("operazioni disponibili", () => {
     expect(labelsAt("auction_completed")).not.toContain("Assegnazione contratti");
   });
 
-  it("mantiene il rilascio per squalifica fino alla chiusura della prima free agency", () => {
-    const label = "Rilasci: senza squadra o squalifica";
+  it("mostra solo il rilascio senza squadra fino alla chiusura della prima free agency", () => {
+    const label = "Rilasci: senza squadra";
     expect(labelsAt("auction_start")).not.toContain(label);
     expect(labelsAt("trade_deadline")).toContain(label);
     expect(labelsAt("buyout_end")).toContain(label);
     expect(labelsAt("free_agency_end")).not.toContain(label);
+    expect(labelsAt("free_agency_reopening")).not.toContain(label);
+    expect(labelsAt("trade_deadline")).not.toContain("Rilasci: senza squadra o squalifica");
+  });
+
+  it("mantiene la DPE dopo la deadline, la evidenzia prima della Chiusura free agency e non la riapre", () => {
+    const label = "Esercizio DPE";
+    expect(labelsAt("offseason_start")).toContain(label);
+    expect(labelsAt("auction_start")).not.toContain(label);
+    expect(labelsAt("auction_completed")).toContain(label);
+    expect(labelsAt("trade_deadline")).toContain(label);
+    expect(labelsAt("buyout_end")).toContain(label);
+    expect(availableOperationsAt("buyout_end").find((item) => item.label === label)?.urgency).toBe("urgent");
+    expect(labelsAt("free_agency_end")).not.toContain(label);
+    expect(labelsAt("free_agency_reopening")).not.toContain(label);
   });
 
   it("ordina alfabeticamente le operazioni con la stessa scadenza", () => {
@@ -59,7 +73,7 @@ describe("operazioni disponibili", () => {
 
     const afterStart = availableOperationsAt("contract_delivery", dates, "2026-10-21");
     expect(afterStart.find((operation) => operation.label === "Scambi")?.urgency).toBe("urgent");
-    expect(afterStart.find((operation) => operation.label === "Esercizio DPE")?.urgency).toBe("urgent");
+    expect(afterStart.find((operation) => operation.label === "Esercizio DPE")?.urgency).not.toBe("urgent");
   });
 
   it("considera anche l'inizio postseason prima della riapertura free agency", () => {

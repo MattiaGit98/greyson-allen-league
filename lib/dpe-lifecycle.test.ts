@@ -74,7 +74,7 @@ describe("regressioni DPE lungo il ciclo della lega", () => {
     expect(automaticPlayer.dpeSeasonEndReintegratedSeasons).toEqual(["2026/27"]);
     expect(freeReleaseReasonAvailability("under_half_games", "team_option_deadline", earlyPlayer, "2027/28").available).toBe(true);
     expect(freeReleaseReasonAvailability("under_half_games", "team_option_deadline", automaticPlayer, "2027/28").available).toBe(false);
-    expect(freeReleaseReasonAvailability("suspension_or_legal", "team_option_deadline", automaticPlayer, "2027/28").available).toBe(true);
+    expect(freeReleaseReasonAvailability("no_nba_roster", "team_option_deadline", automaticPlayer, "2027/28").available).toBe(true);
     expect(shouldShowDpeBadge(earlyPlayer, "2027/28", "team_option_deadline")).toBe(false);
     expect(shouldShowDpeBadge(automaticPlayer, "2027/28", "team_option_deadline")).toBe(true);
     for (const entry of traded.rosterEntries) {

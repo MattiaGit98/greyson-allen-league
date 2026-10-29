@@ -220,7 +220,7 @@ export function buildPreAdvanceChecklist(input: {
         title: `${freeOneCreditOptions.length} contratti da 1 credito stanno per diventare garantiti`,
         message: "Dopo la consegna dei contratti non potranno più essere rimosse senza peso sul cap in base a questa eccezione.",
         items: groupPlayerEntries(freeOneCreditOptions),
-        article: "Art. 10(e)",
+        article: "Art. 10(d)",
         href: "/admin/altre-operazioni",
         actionLabel: "Controlla i giocatori",
       });
@@ -243,9 +243,9 @@ export function buildPreAdvanceChecklist(input: {
     add({
       id: "trade-deadline-closures",
       tone: "info",
-      title: "Il prossimo avanzamento chiude scambi e nuove DPE",
-      message: "Dopo la trade deadline i nuovi free agent avranno un annuale senza Q.O.",
-      article: "Art. 5(d); Art. 12(a); Art. 13(a)",
+      title: "Il prossimo avanzamento chiude gli scambi",
+      message: "La DPE resta disponibile fino alla Chiusura free agency della prima fase.",
+      article: "Art. 12(a); Art. 13(a)",
       href: "/admin/scambi",
       actionLabel: "Controlla gli scambi",
     });
@@ -258,7 +258,7 @@ export function buildPreAdvanceChecklist(input: {
       tone: "info",
       title: "Sta per terminare la finestra dei buyout",
       message: "Dopo il prossimo avanzamento non sarà più possibile applicare nuovi buyout.",
-      article: "Art. 10(f); Art. 9(c)",
+      article: "Art. 10(e); Art. 9(c)",
       href: "/admin/altre-operazioni",
       actionLabel: "Controlla i buyout",
     });
@@ -270,8 +270,8 @@ export function buildPreAdvanceChecklist(input: {
       id: "free-agency-closures",
       tone: "info",
       title: "Stanno per chiudersi free agency e operazioni collegate",
-      message: "Termineranno free agency, rilasci gratuiti e possibilità di reintegro anticipato dalla DPE.",
-      article: "Art. 5(a); Art. 10(b-c); Art. 12(d)",
+      message: "Termineranno free agency, rilasci gratuiti, esercizio e reintegro anticipato della DPE.",
+      article: "Art. 5(a); Art. 10(b); Art. 12(a,d)",
       href: "/admin/free-agent",
       actionLabel: "Controlla la free agency",
     });

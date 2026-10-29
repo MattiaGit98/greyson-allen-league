@@ -38,9 +38,9 @@ export async function applyDpeOperation(formData: FormData) {
     .maybeSingle();
   if (season.error || !season.data) fail(season.error?.message ?? "Nessuna stagione attiva.");
   const leagueMoment = leagueMomentFromSeason(season.data);
-  if (operation === "dpe_activate" && !operationWindows.dpeActivation(leagueMoment)) fail("La DPE è disponibile dall'inizio dell'offseason alla trade deadline, ma non durante l'asta.");
+  if (operation === "dpe_activate" && !operationWindows.dpeActivation(leagueMoment)) fail("La DPE è disponibile dall'inizio dell'offseason alla Chiusura free agency della prima fase, ma non durante l'asta.");
   if (operation === "dpe_reintegrate" && !operationWindows.dpeReintegration(leagueMoment)) fail("Il reintegro anticipato è disponibile durante la stagione, dal Termine asta alla Chiusura free agency.");
-  if (operation === "dpe_activate" && !confirmed) fail("Conferma che NBC Sports riporti la certezza o il forte rischio di saltare almeno 20 partite NBA.");
+  if (operation === "dpe_activate" && !confirmed) fail("Conferma che NBC Sports riporti, per infortunio, squalifica o cause giudiziarie, la certezza o il forte rischio di saltare almeno 20 partite NBA.");
 
   const state = await loadEditableLeagueState();
   const entryIndex = state.rosterEntries.findIndex((entry) => (

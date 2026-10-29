@@ -94,7 +94,7 @@ export const operationWindows = {
   freeRelease: (moment: LeagueMoment) => !hasReachedMoment(moment, "free_agency_end"),
   dpeActivation: (moment: LeagueMoment) => (
     (!hasReachedMoment(moment, "auction_start") || hasReachedMoment(moment, "auction_completed"))
-    && !hasReachedMoment(moment, "trade_deadline")
+    && !hasReachedMoment(moment, "free_agency_end")
   ),
   dpeReintegration: (moment: LeagueMoment) => (
     hasReachedMoment(moment, "auction_completed")

@@ -4,6 +4,15 @@ import { applyTeamOptionDeadline, buildLeagueTransitionPreview, closeCurrentSeas
 import { historyConfirmationForTransition } from "./phase-history-confirmation";
 
 describe("avvisi aggiornati su buyout e free agent", () => {
+  it("riapre la DPE dopo l'asta e la chiude soltanto con la prima free agency", () => {
+    const input = { seasonName: "2026/27", state: emptyLeagueState() };
+    const auction = buildLeagueTransitionPreview({ ...input, currentMoment: "auction_start" });
+    expect(auction.newPossibilities).toContain("Riapre l'esercizio della DPE fino alla Chiusura free agency della prima fase.");
+    const deadline = buildLeagueTransitionPreview({ ...input, currentMoment: "contract_delivery" });
+    expect(deadline.closedPossibilities.join(" ")).not.toContain("DPE");
+    const closing = buildLeagueTransitionPreview({ ...input, currentMoment: "buyout_end" });
+    expect(closing.closedPossibilities).toContain("Si chiudono l’esercizio della DPE e la possibilità di reintegro anticipato.");
+  });
   it("apre il buyout al Termine asta e non cambia i contratti alla deadline", () => {
     const input = { seasonName: "2026/27", state: emptyLeagueState() };
     const auction = buildLeagueTransitionPreview({ ...input, currentMoment: "auction_start" });

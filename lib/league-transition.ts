@@ -70,7 +70,7 @@ export function buildLeagueTransitionPreview(input: {
     preview.automaticActions.push("La macro-fase passerà da Offseason a Stagione.");
     preview.automaticActions.push("Per il cap corrente si applicherà la soglia prevista durante la stagione.");
     preview.newPossibilities.push("Si apre l’assegnazione dei contratti acquistati all’asta.");
-    preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla trade deadline.");
+    preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla Chiusura free agency della prima fase.");
     preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE fino alla Chiusura free agency.");
     preview.newPossibilities.push("Riaprono gli scambi fino alla trade deadline.");
     preview.newPossibilities.push("Si apre la finestra per i buyout, con riduzione del 20% del costo residuo.");
@@ -87,14 +87,14 @@ export function buildLeagueTransitionPreview(input: {
   }
 
   if (transition === "trade_deadline") {
-    preview.closedPossibilities.push("Si chiudono gli scambi e l’esercizio della DPE.");
+    preview.closedPossibilities.push("Si chiudono gli scambi.");
   }
 
   if (transition === "buyout_end") preview.closedPossibilities.push("Non sarà più possibile applicare il buyout.");
 
   if (transition === "free_agency_end") {
     preview.closedPossibilities.push("Si chiudono free agency e rilasci gratuiti.");
-    preview.closedPossibilities.push("Si chiude la possibilità di reintegro anticipato dalla DPE.");
+    preview.closedPossibilities.push("Si chiudono l’esercizio della DPE e la possibilità di reintegro anticipato.");
     preview.newPossibilities.push("Dalla data di Inizio postseason si potrà segnalare l'utilizzo nei playoff delle T.O. in G-League.");
   }
 

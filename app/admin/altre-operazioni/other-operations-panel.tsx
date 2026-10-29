@@ -179,7 +179,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           {operation === "dpe_activate" && (
             <label className="operation-check other-operation-check">
               <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-              Ho verificato che NBC Sports riporti la certezza o il forte rischio di saltare almeno 20 partite NBA
+              Ho verificato che NBC Sports riporti, per infortunio, squalifica o cause giudiziarie, la certezza o il forte rischio di saltare almeno 20 partite NBA
             </label>
           )}
           {cutSelected && (

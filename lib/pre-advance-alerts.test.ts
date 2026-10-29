@@ -44,6 +44,29 @@ function state(rosterEntries: RosterEntry[] = []): EditableLeagueState {
 }
 
 describe("avvisi prima dell’avanzamento della lega", () => {
+  it("alla trade deadline chiude solo gli scambi e non annuncia più la perdita della Q.O. dei FA", () => {
+    const result = buildPreAdvanceChecklist({ currentMoment: "contract_delivery", seasonName: "2026/27", state: state() });
+    const alert = result.alerts.find((alert) => alert.id === "trade-deadline-closures");
+    expect(alert?.title).toBe("Il prossimo avanzamento chiude gli scambi");
+    expect(alert?.message).toContain("La DPE resta disponibile");
+    expect(alert?.message).not.toContain("senza Q.O.");
+    expect(alert?.article).toBe("Art. 12(a); Art. 13(a)");
+  });
+
+  it("annuncia esercizio e reintegro DPE in chiusura solo alla fine della prima free agency", () => {
+    const result = buildPreAdvanceChecklist({ currentMoment: "buyout_end", seasonName: "2026/27", state: state() });
+    const alert = result.alerts.find((alert) => alert.id === "free-agency-closures");
+    expect(alert?.message).toContain("esercizio e reintegro anticipato della DPE");
+    expect(alert?.article).toBe("Art. 5(a); Art. 10(b); Art. 12(a,d)");
+    const buyout = buildPreAdvanceChecklist({ currentMoment: "trade_deadline", seasonName: "2026/27", state: state() });
+    expect(buyout.alerts.find((alert) => alert.id === "buyout-window-closing")?.article).toBe("Art. 10(e); Art. 9(c)");
+  });
+
+  it("riferisce la garanzia delle T.O. da 1 credito al comma rinumerato", () => {
+    const result = buildPreAdvanceChecklist({ currentMoment: "auction_completed", seasonName: "2026/27",
+      state: state([rosterEntry("Team option da 1", { contract: "27 + T.O." })]) });
+    expect(result.alerts.find((alert) => alert.id === "one-credit-options-guarantee")?.article).toBe("Art. 10(d)");
+  });
   it("blocca l'avanzamento se il team salary di una stagione futura supera 1000", () => {
     const input = {
       currentMoment: "contract_delivery",

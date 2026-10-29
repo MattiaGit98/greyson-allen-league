@@ -26,6 +26,16 @@ describe("esercizio DPE senza operazioni contestuali", () => {
     expect(() => applyDpeActivation({ ...input, playerName: disabled.name })).toThrow(/già nella DPE/);
     expect(() => applyDpeActivation({ ...input, rosterEntries: [{ ...target, contract: "T.O." }], leagueMoment: "offseason_start" })).toThrow(/contratto da rookie/);
   });
+
+  it.each(["trade_deadline", "buyout_end"] as const)("consente l'esercizio anche a %s, mantenendo costo e contratto", (leagueMoment) => {
+    expect(applyDpeActivation({ ...input, leagueMoment })[0]).toMatchObject({
+      name: target.name, cost: 20, contract: "28", slot: "dpe", dpeAppliedSeasons: ["2026/27"],
+    });
+  });
+
+  it.each(["free_agency_end", "free_agency_reopening"] as const)("rifiuta una nuova DPE a %s", (leagueMoment) => {
+    expect(() => applyDpeActivation({ ...input, leagueMoment })).toThrow(/finestra/);
+  });
 });
 
 describe("taglio ordinario DPE e stretch sullo stesso giocatore", () => {
