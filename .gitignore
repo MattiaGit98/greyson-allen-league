@@ -12,3 +12,32 @@ supabase/seed.sql
 .node-portable.zip
 *.tgz
 *.log
+
+# Local deployment metadata and credentials
+.vercel/
+credentials.json
+credentials.*.json
+signing_keys.json
+*.pem
+*.key
+*.p12
+*.pfx
+.pgpass
+.pg_service.conf
+.netrc
+
+# Local league exports and database backups (not versioned migrations)
+greyson-allen-league_ripristino*.json
+greyson-allen-league_visualizzazione*.html
+asta-emergenza_*.xlsx
+league-backup*.json
+league-backup*.sql
+/backup/
+/backups/
+/supabase/backups/
+/supabase/dump*.sql
+/supabase/dump*.sql.gz
+/database-backup*.sql
+/database-backup*.sql.gz
+*.dump
+*.backup
