@@ -16,11 +16,7 @@ Applicazione web per la gestione della Greyson Allen League, una lega di fantasy
 
 Le pagine pubbliche si aggiornano automaticamente quando cambiano i dati della lega. La PWA utilizza la stessa applicazione del sito: pagine e dati richiedono una connessione Internet e non vengono serviti da copie offline.
 
-## Dati per assistenti AI
-
-Per permettere ad assistenti AI di leggere i dati della Greyson Allen League, condividi con loro questo indirizzo:
-
-https://greyson-allen-league.vercel.app/ai-context
+Dalla homepage è possibile esportare uno snapshot JSON aggiornato di squadre, listone e regolamento.
 
 ## Architettura
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { HomeAiContext } from "@/components/home-ai-context";
+import { HomeDataExport } from "@/components/home-data-export";
 import { AvailableOperations } from "@/components/available-operations";
 import { HomeCompetitionFeature, HomeDraftFeature, HomeHonoursFeature } from "@/components/home-season-feature";
 import { HomeMovementList } from "@/components/home-movement-list";
@@ -131,7 +131,7 @@ export default async function HomePage() {
         {visibleDraft?.content.kind === "draft" && <HomeDraftFeature year={draftYear} firstRoundLastPosition={firstRoundLastPosition} rows={visibleDraft.content.rows.map((row) => ({ ...row, team: teamNames.get(row.team) ?? row.team }))} />}
         {selectedCompetition && <HomeCompetitionFeature name={selectedCompetition.name} content={selectedCompetition.content} teams={competitionState.teams} />}
       </div>
-      <HomeAiContext />
+      <HomeDataExport />
     </section>
   );
 }

@@ -35,7 +35,7 @@ function fixture(): EditableLeagueState {
   };
 }
 
-describe("contesto pubblico per assistenti AI", () => {
+describe("dati pubblici esportabili della lega", () => {
   it("espone solo i tre blocchi richiesti e i campi pubblici, senza modificare lo stato", () => {
     const state = fixture();
     Object.assign(state.teams[0], { internalAdminNote: "Not public" });
