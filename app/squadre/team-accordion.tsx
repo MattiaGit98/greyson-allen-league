@@ -7,7 +7,7 @@ import { entriesForDpeAdjustedCap, shouldShowDpeBadge } from "@/lib/dpe-rules";
 import type { LeagueMoment } from "@/lib/league-moments";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
-import { isFourthDraftPick } from "@/lib/future-draft-picks";
+import { hasVisibleFourthDraftClause, isFourthDraftPick, publicDraftCondition as draftCondition } from "@/lib/future-draft-picks";
 import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState as SortState } from "@/lib/roster-display-sort";
 import { isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
 import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
@@ -815,26 +815,6 @@ function PlayerDataRow({
 
 function normalizePlayerName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("it-IT");
-}
-
-function draftCondition(label: string) {
-  const counterparty = label.match(/^C\.p\. se 1a (\d{4}) ([A-Z]+) in top 5$/i);
-  if (counterparty) {
-    return `Contropartita se la 1ª scelta ${counterparty[1]} ${counterparty[2]} rientra in top 5`;
-  }
-  const protectedPick = label.match(/^Protetta top 5, 1a (\d{4}) ([A-Z]+)$/i);
-  if (protectedPick) {
-    return `Protetta top 5; contropartita: 1ª scelta ${protectedPick[1]} ${protectedPick[2]}`;
-  }
-  const swapSubject = label.match(/^Soggetta a dir swap con ([A-Z]+)$/i);
-  if (swapSubject) return `Subisce il diritto di swap con ${swapSubject[1]}`;
-  const swapRight = label.match(/^Diritto di swap con ([A-Z]+)$/i);
-  if (swapRight) return `Diritto di swap con ${swapRight[1]}`;
-  return "—";
-}
-
-function hasVisibleFourthDraftClause(asset: DraftAsset) {
-  return Boolean(asset.clauseResolution) || draftCondition(asset.label) !== "—";
 }
 
 function numericValue(value: string | number) {

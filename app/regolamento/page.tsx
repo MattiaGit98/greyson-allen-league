@@ -1,12 +1,9 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { ReactNode } from "react";
-import { articleId, parseRegulation } from "@/lib/regulation";
+import { articleId, loadRegulation } from "@/lib/regulation";
 import { RulesIndex } from "./rules-index";
 
 export default async function RegulationPage() {
-  const source = await readFile(join(process.cwd(), "content", "Regolamento.tex"), "utf8");
-  const articles = parseRegulation(source);
+  const articles = await loadRegulation();
   const articleNumbers = new Map(articles.map((article) => [article.label, article.number]));
 
   return (

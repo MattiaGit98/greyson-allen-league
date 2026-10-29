@@ -154,6 +154,12 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .home-movement strong { margin-bottom: 3px; color: var(--green); font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
 .home-movement span { overflow: hidden; color: var(--ink); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .home-empty { margin: 0; padding: 34px 18px; color: var(--muted); font-size: 11px; text-align: center; }
+.home-ai-context { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--line); background: rgba(255,255,255,.65); }
+.home-ai-context h2 { margin: 0 0 7px; color: var(--green); font-size: 14px; }
+.home-ai-context p { margin: 0 0 9px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.home-ai-context > div { display: flex; align-items: center; gap: 10px; }
+.home-ai-context > div > span { min-width: 0; flex: 1; overflow-wrap: anywhere; color: var(--green); font-size: 11px; line-height: 1.5; user-select: text; }
+.home-ai-context .button { flex-shrink: 0; min-height: 32px; padding: 0 11px; font-size: 10px; cursor: pointer; }
 .public-notices-page { max-width: 820px; margin: 0 auto; }
 .public-notice-editor { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,253,247,.84); box-shadow: 0 5px 15px rgba(24,63,52,.04); }
 .public-notice-editor > summary { padding: 15px 17px; background: #e7edce; color: #315044; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
@@ -1040,6 +1046,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .home-page { padding-top: 35px; }
   .home-page > .home-hero { margin-right: 10px; margin-left: 10px; }
   .home-public-notice { margin-right: 8px; margin-left: 8px; }
+  .home-ai-context { margin-right: 8px; margin-left: 8px; padding: 12px; }
   .home-league-alerts { margin-right: 8px; margin-left: 8px; }
   .home-teams-link { margin-right: 8px; margin-left: 8px; }
   .home-next-calendar-event { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label date" "title date" "link date"; gap: 5px 10px; margin-right: 8px; margin-left: 8px; padding: 14px 13px; }

@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 export type RegulationArticle = {
   number: number;
   title: string;
@@ -5,6 +8,11 @@ export type RegulationArticle = {
   id: string;
   clauses: string[];
 };
+
+export async function loadRegulation() {
+  const source = await readFile(join(process.cwd(), "content", "Regolamento.tex"), "utf8");
+  return parseRegulation(source);
+}
 
 export function parseRegulation(source: string): RegulationArticle[] {
   const articles = [...source.matchAll(

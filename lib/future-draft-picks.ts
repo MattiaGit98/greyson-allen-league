@@ -64,3 +64,23 @@ function draftOriginTeamCode(asset: DraftAsset) {
   if (asset.originTeamCode) return asset.originTeamCode;
   return typeof asset.originOrOverall === "string" ? asset.originOrOverall : null;
 }
+
+export function publicDraftCondition(label: string) {
+  const counterparty = label.match(/^C\.p\. se 1a (\d{4}) ([A-Z]+) in top 5$/i);
+  if (counterparty) {
+    return `Contropartita se la 1ª scelta ${counterparty[1]} ${counterparty[2]} rientra in top 5`;
+  }
+  const protectedPick = label.match(/^Protetta top 5, 1a (\d{4}) ([A-Z]+)$/i);
+  if (protectedPick) {
+    return `Protetta top 5; contropartita: 1ª scelta ${protectedPick[1]} ${protectedPick[2]}`;
+  }
+  const swapSubject = label.match(/^Soggetta a dir swap con ([A-Z]+)$/i);
+  if (swapSubject) return `Subisce il diritto di swap con ${swapSubject[1]}`;
+  const swapRight = label.match(/^Diritto di swap con ([A-Z]+)$/i);
+  if (swapRight) return `Diritto di swap con ${swapRight[1]}`;
+  return "—";
+}
+
+export function hasVisibleFourthDraftClause(asset: DraftAsset) {
+  return Boolean(asset.clauseResolution) || publicDraftCondition(asset.label) !== "—";
+}
