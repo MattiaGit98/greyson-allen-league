@@ -153,6 +153,7 @@ export function applyStandardContractCut<T extends RosterEntry>(
     slot: "regular",
     scheduledSeasonEndCut: undefined,
     playoffTeamOptionUsedSeason: undefined,
+    dpeActivatedAfterDeadline: undefined,
   };
 }
 

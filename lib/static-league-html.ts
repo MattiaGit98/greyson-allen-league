@@ -13,7 +13,7 @@ import { calculateCapSpace, followingSeasonName } from "./season-time";
 import type { LeagueMoment } from "./league-moments";
 import { dpeCountsForRoleMinimums } from "./role-minimums";
 import { countRosterRoles } from "./rules/roster";
-import { entriesForDpeAdjustedCap } from "./dpe-rules";
+import { entriesForDpeAdjustedCap, shouldShowDpeNoReintegrationBadge } from "./dpe-rules";
 
 export type StaticLeagueHtmlInput = {
   exportedAt: Date;
@@ -83,7 +83,7 @@ function renderTeams(input: StaticLeagueHtmlInput) {
         ${renderRosterGroup(`Two-way (${twoWay.length}/2)`, twoWay)}
         ${renderRosterGroup(`G-League (${gLeague.length}/3)`, gLeague)}
         ${renderDraftAssets(assets, nextDraftYear)}
-        ${renderRosterGroup("Disabled player exception", dpe)}
+        ${renderRosterGroup("Disabled player exception", dpe, false, input.leagueMoment)}
         ${renderRosterGroup("Tagliati", cut, true)}
         <h3>Qualifying offer</h3>${table(["Giocatore", "Importo"], rights.map((right) => [right.playerName, right.qualifyingAmount]))}
       </div>
@@ -91,9 +91,9 @@ function renderTeams(input: StaticLeagueHtmlInput) {
   }).join("")}</div>`;
 }
 
-function renderRosterGroup(title: string, entries: RosterEntry[], cutPlayers = false) {
+function renderRosterGroup(title: string, entries: RosterEntry[], cutPlayers = false, moment?: LeagueMoment) {
   return `<h3>${e(title)}</h3>${table(["Giocatore", cutPlayers ? "Stretch" : "Ruolo", "Scadenza", "Costo"], entries.map((entry) => [
-    entry.name,
+    entry.name + (moment && shouldShowDpeNoReintegrationBadge(entry, moment) ? " · NO R." : ""),
     cutPlayers ? (entry.stretchProvisionApplied || entry.buyoutApplied ? "X" : "—") : entry.role ?? "X",
     entry.contract || "—",
     entry.cost,

@@ -36,7 +36,7 @@ describe("backup importabile della lega", () => {
       { name: "DPE uno", teamCode: "AAA", cost: 10, contract: "28", state: "active" as const, slot: "dpe" as const,
         dpeAppliedSeasons: ["2026/27"] },
       { name: "DPE due", teamCode: "AAA", cost: 20, contract: "28", state: "active" as const, slot: "dpe" as const,
-        dpeAppliedSeasons: ["2026/27"], dpeSeasonEndReintegratedSeasons: ["2025/26"] },
+        dpeAppliedSeasons: ["2026/27"], dpeActivatedAfterDeadline: true, dpeSeasonEndReintegratedSeasons: ["2025/26"] },
     ];
     source.leagueState.rosterEntries = entries;
     source.movements = [{
@@ -59,6 +59,14 @@ describe("backup importabile della lega", () => {
     expect(parsed.payload.activeSeason.name).toBe("2026/27");
     expect(parsed.payload.activeSeason.phase_dates).toEqual({ team_option_deadline: "2026-09-30" });
     expect(parsed.payload.calendar).toEqual([{ event: "Asta", date: "Da definire" }]);
+  });
+
+  it("rifiuta un blocco di reintegro DPE non booleano, ma accetta i vecchi backup senza il campo", () => {
+    const source = payload();
+    source.leagueState.rosterEntries = [{ name: "DPE", cost: 10, contract: "28", state: "active", slot: "dpe", teamCode: "AAA", dpeActivatedAfterDeadline: "false" as never }];
+    expect(() => parseImportableLeagueBackup(createImportableBackupDocument(source))).toThrow(/roster/i);
+    delete source.leagueState.rosterEntries[0].dpeActivatedAfterDeadline;
+    expect(parseImportableLeagueBackup(createImportableBackupDocument(source)).payload.leagueState.rosterEntries).toEqual(source.leagueState.rosterEntries);
   });
 
   it("rifiuta una fase non supportata", () => {

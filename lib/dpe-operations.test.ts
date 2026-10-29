@@ -29,7 +29,7 @@ describe("esercizio DPE senza operazioni contestuali", () => {
 
   it.each(["trade_deadline", "buyout_end"] as const)("consente l'esercizio anche a %s, mantenendo costo e contratto", (leagueMoment) => {
     expect(applyDpeActivation({ ...input, leagueMoment })[0]).toMatchObject({
-      name: target.name, cost: 20, contract: "28", slot: "dpe", dpeAppliedSeasons: ["2026/27"],
+      name: target.name, cost: 20, contract: "28", slot: "dpe", dpeAppliedSeasons: ["2026/27"], dpeActivatedAfterDeadline: true,
     });
   });
 
@@ -74,8 +74,8 @@ describe("taglio ordinario DPE e stretch sullo stesso giocatore", () => {
 });
 
 describe("reintegro DPE anticipato", () => {
-  const input = { rosterEntries: [disabled], teamCode: "AAA", playerName: disabled.name, seasonName: "2026/27", leagueMoment: "auction_completed" as const };
-  it("reintegra il solo giocatore scelto dal Termine asta, conservando il marchio", () => {
+  const input = { rosterEntries: [disabled], teamCode: "AAA", playerName: disabled.name, seasonName: "2026/27", leagueMoment: "trade_deadline" as const };
+  it("reintegra il solo giocatore scelto dalla deadline, conservando la storia DPE", () => {
     const other = { ...disabled, name: "Altra DPE" };
     const result = applyEarlyDpeReintegration({ ...input, rosterEntries: [disabled, other] });
     expect(result[0]).toMatchObject({ slot: "regular", dpeAppliedSeasons: ["2026/27"] });
@@ -83,11 +83,28 @@ describe("reintegro DPE anticipato", () => {
     expect(result[1]).toEqual(other);
   });
   it("rispetta finestra operativa e disponibilità degli slot regolari", () => {
-    for (const leagueMoment of ["offseason_start", "auction_start", "free_agency_end", "free_agency_reopening"] as const) {
+    for (const leagueMoment of ["offseason_start", "team_option_deadline", "auction_start", "auction_completed", "contract_delivery", "free_agency_end", "free_agency_reopening"] as const) {
       expect(() => applyEarlyDpeReintegration({ ...input, leagueMoment })).toThrow(/finestra/);
     }
     const full = Array.from({ length: 15 }, (_, i) => ({ ...target, name: `Roster ${i}` }));
     expect(() => applyEarlyDpeReintegration({ ...input, rosterEntries: [disabled, ...full] })).toThrow(/slot roster libero/);
     expect(() => applyEarlyDpeReintegration({ ...input, teamCode: "BBB" })).toThrow(/non è più nella DPE/);
+  });
+
+  it("rifiuta sul server logico anche un reintegro di una DPE successiva alla deadline", () => {
+    const entries = applyDpeActivation({ ...input, rosterEntries: [target], playerName: target.name });
+    expect(entries[0].dpeActivatedAfterDeadline).toBe(true);
+    expect(() => applyEarlyDpeReintegration({ ...input, rosterEntries: entries, playerName: target.name }))
+      .toThrow(/esercitata dopo la trade deadline/);
+  });
+
+  it("aggiorna il blocco a ogni nuovo esercizio senza riusare la vecchia idoneità", () => {
+    const before = applyDpeActivation({ ...input, rosterEntries: [target], playerName: target.name, leagueMoment: "contract_delivery" });
+    expect(before[0].dpeActivatedAfterDeadline).toBe(false);
+    const early = applyEarlyDpeReintegration({ ...input, rosterEntries: before, playerName: target.name });
+    expect(early[0].dpeActivatedAfterDeadline).toBeUndefined();
+    const after = applyDpeActivation({ ...input, rosterEntries: early, playerName: target.name });
+    expect(after[0].dpeActivatedAfterDeadline).toBe(true);
+    expect(() => applyEarlyDpeReintegration({ ...input, rosterEntries: after, playerName: target.name })).toThrow(/non è consentito/);
   });
 });

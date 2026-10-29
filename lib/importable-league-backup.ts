@@ -505,6 +505,7 @@ function validRosterEntry(entry: EditableLeagueState["rosterEntries"][number]) {
     && Number.isFinite(entry.cost)
     && typeof entry.contract === "string"
     && (entry.state === "active" || entry.state === "cut")
+    && (entry.dpeActivatedAfterDeadline === undefined || typeof entry.dpeActivatedAfterDeadline === "boolean")
     && ["regular", "two_way", "g_league", "dpe"].includes(entry.slot),
   );
 }

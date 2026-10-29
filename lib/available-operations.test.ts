@@ -10,12 +10,15 @@ describe("operazioni disponibili", () => {
     expect(labelsAt("buyout_end")).not.toContain("Buyout");
     expect(labelsAt("free_agency_reopening")).not.toContain("Buyout");
   });
-  it("mostra il reintegro anticipato già al Termine asta e lo chiude con la prima free agency", () => {
+  it("mostra il reintegro anticipato soltanto dalla deadline e lo chiude con la prima free agency", () => {
     const label = "Reintegro anticipato DPE";
     expect(labelsAt("offseason_start")).not.toContain(label);
     expect(labelsAt("auction_start")).not.toContain(label);
-    expect(labelsAt("auction_completed")).toContain(label);
-    expect(labelsAt("contract_delivery")).toContain(label);
+    expect(labelsAt("auction_completed")).not.toContain(label);
+    expect(labelsAt("contract_delivery")).not.toContain(label);
+    expect(labelsAt("trade_deadline")).toContain(label);
+    expect(labelsAt("buyout_end")).toContain(label);
+    expect(availableOperationsAt("buyout_end").find((item) => item.label === label)?.urgency).toBe("urgent");
     expect(labelsAt("free_agency_end")).not.toContain(label);
     expect(labelsAt("free_agency_reopening")).not.toContain(label);
   });

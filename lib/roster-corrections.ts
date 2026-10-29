@@ -154,6 +154,7 @@ export function applyRosterCorrections({
       contract,
       state: "active",
       slot: addition.slot,
+      ...(addition.slot === "dpe" ? { dpeActivatedAfterDeadline: hasReachedMoment(leagueMoment, "trade_deadline") } : {}),
       teamCode,
       contractStartSeason: seasonName,
     }, seasonName);

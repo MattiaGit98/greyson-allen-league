@@ -8,8 +8,11 @@ describe("avvisi aggiornati su buyout e free agent", () => {
     const input = { seasonName: "2026/27", state: emptyLeagueState() };
     const auction = buildLeagueTransitionPreview({ ...input, currentMoment: "auction_start" });
     expect(auction.newPossibilities).toContain("Riapre l'esercizio della DPE fino alla Chiusura free agency della prima fase.");
+    expect(auction.newPossibilities.join(" ")).not.toContain("reintegro anticipato");
     const deadline = buildLeagueTransitionPreview({ ...input, currentMoment: "contract_delivery" });
     expect(deadline.closedPossibilities.join(" ")).not.toContain("DPE");
+    expect(deadline.newPossibilities).toContain("Si apre il reintegro anticipato, fino alla Chiusura free agency, delle sole DPE esercitate prima della trade deadline.");
+    expect(deadline.warnings.join(" ")).toContain("NO R.");
     const closing = buildLeagueTransitionPreview({ ...input, currentMoment: "buyout_end" });
     expect(closing.closedPossibilities).toContain("Si chiudono l’esercizio della DPE e la possibilità di reintegro anticipato.");
   });

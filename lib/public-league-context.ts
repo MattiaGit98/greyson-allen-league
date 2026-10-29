@@ -2,7 +2,7 @@ import type { ActiveSeason } from "./active-season";
 import type { EditableLeagueState } from "./league-state";
 import type { RosterEntry } from "./league-types";
 import type { RegulationArticle } from "./regulation";
-import { entriesForDpeAdjustedCap, shouldShowDpeBadge } from "./dpe-rules";
+import { entriesForDpeAdjustedCap, shouldShowDpeBadge, shouldShowDpeNoReintegrationBadge } from "./dpe-rules";
 import { hasVisibleFourthDraftClause, isFourthDraftPick, publicDraftCondition } from "./future-draft-picks";
 import { projectedDpeRosterOverflowByTeam } from "./league-advance";
 import { hasReachedMoment, leagueMomentFromSeason } from "./league-moments";
@@ -49,6 +49,7 @@ export function buildPublicLeagueContext(state: EditableLeagueState, season: Pub
           : publicContractText(entry.contract),
       costo: entry.cost,
       bollini: [
+        ...(shouldShowDpeNoReintegrationBadge(entry, moment) ? ["NO R."] : []),
         ...(shouldShowDpeBadge(entry, season.name, moment) ? ["DPE"] : []),
         ...(entry.state === "active" && entry.playoffTeamOptionUsedSeason ? ["PLAYOFF"] : []),
         ...(shouldShowScheduledCutBadge(entry, season.name, moment) ? ["T.P."] : []),

@@ -21,6 +21,7 @@ import {
   type FreeReleaseReason,
 } from "@/lib/free-release";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
+import { canReintegrateDpe, dpeRequirementsConfirmation } from "@/lib/dpe-rules";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { applyScheduledSeasonEndCut } from "@/app/admin/tagli-programmati/actions";
 import { roleMinimumDeficits, roleMinimums } from "@/lib/rules/roster";
@@ -179,7 +180,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           {operation === "dpe_activate" && (
             <label className="operation-check other-operation-check">
               <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-              Ho verificato che NBC Sports riporti, per infortunio, squalifica o cause giudiziarie, la certezza o il forte rischio di saltare almeno 20 partite NBA
+              {dpeRequirementsConfirmation}
             </label>
           )}
           {cutSelected && (
@@ -247,7 +248,7 @@ function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, p
   if (player.state === "active" && operationWindows.buyout(props.leagueMoment) && player.expiryYear && player.expiryYear > props.seasonEndYear) choices.push({ value: "buyout", label: "Buyout" });
   if (canApplyStretchProvision(player, props.seasonEndYear)) choices.push({ value: "stretch", label: "Stretch provision" });
   if (player.state === "active" && !unresolvedTeamOption && player.slot !== "dpe" && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
-  if (player.state === "active" && !unresolvedTeamOption && player.slot === "dpe" && operationWindows.dpeReintegration(props.leagueMoment)) choices.push({ value: "dpe_reintegrate", label: "Reintegro anticipato dalla DPE" });
+  if (!unresolvedTeamOption && canReintegrateDpe(player, props.leagueMoment)) choices.push({ value: "dpe_reintegrate", label: "Reintegro anticipato dalla DPE" });
   return choices;
 }
 
@@ -317,6 +318,8 @@ function operationPreview(
   const errors: string[] = [];
   const warnings: string[] = [];
   const capWarnings: string[] = [];
+  if (operation === "dpe_reintegrate" && !canReintegrateDpe(player, props.leagueMoment)) errors.push("Il reintegro anticipato non è consentito per questo giocatore in questa fase.");
+  if (operation === "dpe_activate" && !operationWindows.dpeActivation(props.leagueMoment)) errors.push("La finestra per esercitare la DPE non è aperta.");
   if (operation === "dpe_activate" && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
   if (operation === "free_release") {
     const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;

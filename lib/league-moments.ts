@@ -97,7 +97,7 @@ export const operationWindows = {
     && !hasReachedMoment(moment, "free_agency_end")
   ),
   dpeReintegration: (moment: LeagueMoment) => (
-    hasReachedMoment(moment, "auction_completed")
+    hasReachedMoment(moment, "trade_deadline")
     && !hasReachedMoment(moment, "free_agency_end")
   ),
   scheduledCut: (moment: LeagueMoment) => moment === "free_agency_reopening",

@@ -1,5 +1,6 @@
 import type { RosterEntry } from "./league-types";
-import { operationWindows, type LeagueMoment } from "./league-moments";
+import { hasReachedMoment, operationWindows, type LeagueMoment } from "./league-moments";
+import { canReintegrateDpe } from "./dpe-rules";
 import { isUnresolvedTeamOption } from "./team-option-contract";
 
 export function applyDpeActivation(input: {
@@ -25,6 +26,7 @@ export function applyDpeActivation(input: {
       return {
         ...entry,
         slot: "dpe" as const,
+        dpeActivatedAfterDeadline: hasReachedMoment(input.leagueMoment, "trade_deadline"),
         dpeAppliedSeasons: [...new Set([...(entry.dpeAppliedSeasons ?? []), input.seasonName])],
       };
     }
@@ -47,6 +49,9 @@ export function applyEarlyDpeReintegration(input: {
     && entry.state === "active" && entry.slot === "dpe"
   ));
   if (targetIndex < 0) throw new Error("Il giocatore non è più nella DPE della squadra selezionata.");
+  if (!canReintegrateDpe(input.rosterEntries[targetIndex], input.leagueMoment)) {
+    throw new Error("La DPE in essere è stata esercitata dopo la trade deadline: il reintegro anticipato non è consentito.");
+  }
   const regularPlayers = input.rosterEntries.filter((entry) => (
     entry.teamCode === input.teamCode && entry.state === "active" && entry.slot === "regular"
   )).length;
@@ -54,6 +59,7 @@ export function applyEarlyDpeReintegration(input: {
   return input.rosterEntries.map((entry, index) => index === targetIndex ? {
     ...entry,
     slot: "regular" as const,
+    dpeActivatedAfterDeadline: undefined,
     dpeAppliedSeasons: [...new Set([...(entry.dpeAppliedSeasons ?? []), input.seasonName])],
   } : entry);
 }

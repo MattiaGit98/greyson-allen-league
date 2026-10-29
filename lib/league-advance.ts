@@ -117,6 +117,7 @@ function calculateLeagueAdvanceCore(input: LeagueAdvanceInput) {
       contract: isAnnualTeamOptionContract(entry) ? "T.O." : entry.contract,
       endedPreviousSeasonInGLeague: entry.state === "active" && entry.slot === "g_league",
       twoWayPromotionLocked: false,
+      dpeActivatedAfterDeadline: undefined,
       dpeAppliedSeasons: entry.state === "active" && entry.slot === "dpe"
         ? [input.seasonName]
         : entry.dpeAppliedSeasons?.includes(input.seasonName) ? [input.seasonName] : undefined,

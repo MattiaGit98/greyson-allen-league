@@ -23,6 +23,7 @@ export function applyBuyout<T extends RosterEntry>(entry: T, currentSeasonEndYea
   return {
     ...entry, state: "cut", slot: "regular", cost: buyoutCost(charges), contract: String(currentSeasonEndYear).slice(-2),
     buyoutApplied: true, scheduledSeasonEndCut: undefined, playoffTeamOptionUsedSeason: undefined,
+    dpeActivatedAfterDeadline: undefined,
   };
 }
 
@@ -35,6 +36,7 @@ export function applyFreeRelease<T extends RosterEntry>(entry: T, currentSeasonE
     originalContractYears: pendingContract ? 1 : entry.originalContractYears,
     state: "cut",
     slot: "regular",
+    dpeActivatedAfterDeadline: undefined,
     scheduledSeasonEndCut: undefined,
     playoffTeamOptionUsedSeason: undefined,
   };

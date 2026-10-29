@@ -48,7 +48,8 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     const result = buildPreAdvanceChecklist({ currentMoment: "contract_delivery", seasonName: "2026/27", state: state() });
     const alert = result.alerts.find((alert) => alert.id === "trade-deadline-closures");
     expect(alert?.title).toBe("Il prossimo avanzamento chiude gli scambi");
-    expect(alert?.message).toContain("La DPE resta disponibile");
+    expect(alert?.message).toContain("La DPE resta esercitabile");
+    expect(alert?.message).toContain("reintegro anticipato delle sole DPE esercitate prima della trade deadline");
     expect(alert?.message).not.toContain("senza Q.O.");
     expect(alert?.article).toBe("Art. 12(a); Art. 13(a)");
   });

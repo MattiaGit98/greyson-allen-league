@@ -22,6 +22,15 @@ function state(): EditableLeagueState {
 }
 
 describe("rettifiche roster", () => {
+  it("segna anche una nuova aggiunta in DPE dopo la deadline senza alterare le DPE già presenti", () => {
+    for (const leagueMoment of ["contract_delivery", "trade_deadline"] as const) {
+      const input = state();
+      const result = applyRosterCorrections({ state: input, teamCode: "AAA", seasonName: "2026/27", leagueMoment,
+        corrections: [], addition: { playerName: "Libero", cost: 1, contract: "27", slot: "dpe" } });
+      expect(result.addition?.dpeActivatedAfterDeadline).toBe(leagueMoment === "trade_deadline");
+      expect(input.rosterEntries).toHaveLength(2);
+    }
+  });
   it("riconosce soltanto le notazioni contrattuali previste", () => {
     expect(normalizeRosterCorrectionContract(" 28 (q) ")).toBe("28 (Q)");
     expect(normalizeRosterCorrectionContract("T.O.")).toBe("T.O.");

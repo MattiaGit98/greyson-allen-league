@@ -71,7 +71,6 @@ export function buildLeagueTransitionPreview(input: {
     preview.automaticActions.push("Per il cap corrente si applicherà la soglia prevista durante la stagione.");
     preview.newPossibilities.push("Si apre l’assegnazione dei contratti acquistati all’asta.");
     preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla Chiusura free agency della prima fase.");
-    preview.newPossibilities.push("Si apre il reintegro anticipato dalla DPE fino alla Chiusura free agency.");
     preview.newPossibilities.push("Riaprono gli scambi fino alla trade deadline.");
     preview.newPossibilities.push("Si apre la finestra per i buyout, con riduzione del 20% del costo residuo.");
     preview.closedPossibilities.push("Si chiude l’asta.");
@@ -88,6 +87,8 @@ export function buildLeagueTransitionPreview(input: {
 
   if (transition === "trade_deadline") {
     preview.closedPossibilities.push("Si chiudono gli scambi.");
+    preview.newPossibilities.push("Si apre il reintegro anticipato, fino alla Chiusura free agency, delle sole DPE esercitate prima della trade deadline.");
+    preview.warnings.push("Le nuove DPE esercitate dopo la trade deadline non potranno essere reintegrate anticipatamente e mostreranno il bollino NO R. fino alla Chiusura free agency.");
   }
 
   if (transition === "buyout_end") preview.closedPossibilities.push("Non sarà più possibile applicare il buyout.");

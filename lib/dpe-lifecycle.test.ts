@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RosterEntry } from "./league-types";
 import { emptyLeagueState } from "./league-state";
 import { applyDpeActivation, applyEarlyDpeReintegration } from "./dpe-operations";
-import { entriesForDpeAdjustedCap, shouldShowDpeBadge } from "./dpe-rules";
+import { canReintegrateDpe, entriesForDpeAdjustedCap, shouldShowDpeBadge, shouldShowDpeNoReintegrationBadge } from "./dpe-rules";
 import { calculateCapSpace } from "./season-time";
 import { calculateLeagueAdvance } from "./league-advance";
 import { freeReleaseReasonAvailability } from "./free-release";
@@ -14,6 +14,7 @@ import { evaluateTrade } from "./rules/trade";
 import { evaluateFreeAgentSigning } from "./rules/free-agent";
 import { renderStaticLeagueHtml } from "./static-league-html";
 import { emptyHistoryCompetitionMap } from "./history-competitions";
+import { applyContextualContractCut } from "./stretch-provision";
 
 function player(name: string, patch: Partial<RosterEntry> = {}): RosterEntry {
   return { name, cost: 20, contract: "28", role: "G", state: "active", slot: "regular", teamCode: "AAA", ...patch };
@@ -32,12 +33,37 @@ function cap(entries: RosterEntry[], distance = 0) {
 }
 
 describe("regressioni DPE lungo il ciclo della lega", () => {
+  it("conserva il blocco nei trasferimenti e negli annullamenti e lo sostituisce solo a fine stagione col marchio DPE", () => {
+    const before = state([player("DPE tardiva", { contract: "28" })]);
+    const activated = applyDpeActivation({ rosterEntries: before.rosterEntries, teamCode: "AAA", playerName: "DPE tardiva", seasonName: "2026/27", leagueMoment: "trade_deadline" });
+    const after = { ...before, rosterEntries: activated };
+    expect(shouldShowDpeNoReintegrationBadge(activated[0], "trade_deadline")).toBe(true);
+    const undone = buildMovementReversal(after, before, after);
+    expect(undone.rosterEntries[0].dpeActivatedAfterDeadline).toBeUndefined();
+    const redone = buildMovementReversal(undone, after, before);
+    expect(canReintegrateDpe(redone.rosterEntries[0], "trade_deadline")).toBe(false);
+    // Rettifica/trasferimento di proprietà: non cambia il periodo di DPE in essere.
+    const transferred = applyValidatedTrade(after, { playerMoves: [{ stateIndex: 0, toTeamCode: "BBB", destinationSlot: "dpe" }], pickMoves: [], pickClauses: [], existingClauseChanges: [], qualifyingOfferMoves: [], cuts: [] });
+    const late = transferred.rosterEntries[0];
+    expect(late).toMatchObject({ teamCode: "BBB", dpeActivatedAfterDeadline: true });
+    expect(shouldShowDpeNoReintegrationBadge(late, "free_agency_end")).toBe(false);
+    const cut = applyContextualContractCut(late, 2027, "trade_deadline");
+    expect(cut.dpeActivatedAfterDeadline).toBeUndefined();
+    expect(shouldShowDpeNoReintegrationBadge(cut, "trade_deadline")).toBe(false);
+    const advanced = calculateLeagueAdvance({ ...transferred, seasonName: "2026/27" });
+    const automatic = advanced.rosterEntries[0];
+    expect(automatic).toMatchObject({ slot: "regular", dpeSeasonEndReintegratedSeasons: ["2026/27"] });
+    expect(automatic.dpeActivatedAfterDeadline).toBeUndefined();
+    expect(shouldShowDpeBadge(automatic, "2027/28", "offseason_start")).toBe(true);
+    expect(shouldShowDpeNoReintegrationBadge(automatic, "offseason_start")).toBe(false);
+    expect(freeReleaseReasonAvailability("under_half_games", "offseason_start", automatic, "2027/28").available).toBe(false);
+  });
   it("esenta tutte le DPE solo dal cap corrente e restituisce solo il costo del reintegrato", () => {
     const entries = [player("DPE 1", { slot: "dpe", cost: 100 }), player("DPE 2", { slot: "dpe", cost: 40 }), player("Roster")];
     expect(cap(entries)).toBe(980);
     expect(cap(entries, 1)).toBe(840);
     const after = applyEarlyDpeReintegration({ rosterEntries: entries, teamCode: "AAA", playerName: "DPE 2",
-      seasonName: "2026/27", leagueMoment: "contract_delivery" });
+      seasonName: "2026/27", leagueMoment: "trade_deadline" });
     expect(cap(after)).toBe(940);
     expect(cap(after, 1)).toBe(840);
   });
@@ -61,7 +87,7 @@ describe("regressioni DPE lungo il ciclo della lega", () => {
     const entries = [player("Anticipato", { slot: "dpe", contract: "29" }), player("Automatico", { slot: "dpe", contract: "29" })];
     for (const entry of entries) expect(shouldShowDpeBadge(entry, "2026/27", "free_agency_end")).toBe(false);
     const early = applyEarlyDpeReintegration({ rosterEntries: entries, teamCode: "AAA", playerName: "Anticipato",
-      seasonName: "2026/27", leagueMoment: "auction_completed" });
+      seasonName: "2026/27", leagueMoment: "trade_deadline" });
     const advanced = calculateLeagueAdvance({ ...state(early), seasonName: "2026/27" });
     expect(shouldShowDpeBadge(advanced.rosterEntries[0], "2027/28", "offseason_start")).toBe(false);
     expect(shouldShowDpeBadge(advanced.rosterEntries[1], "2027/28", "offseason_start")).toBe(true);
@@ -132,5 +158,8 @@ describe("regressioni DPE lungo il ciclo della lega", () => {
     expect(html).toContain("0 G / 0 A / 0 C");
     const reopened = renderStaticLeagueHtml({ ...input, leagueMoment: "free_agency_reopening" });
     expect(reopened).toContain("1 G / 1 A / 0 C");
+    const lateInput = { ...input, rosterEntries: input.rosterEntries.map((entry) => ({ ...entry, dpeActivatedAfterDeadline: true })) };
+    expect(renderStaticLeagueHtml({ ...lateInput, leagueMoment: "trade_deadline" })).toContain("DPE 1 · NO R.");
+    expect(renderStaticLeagueHtml({ ...lateInput, leagueMoment: "free_agency_end" })).not.toContain("NO R.");
   });
 });

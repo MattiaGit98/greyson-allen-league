@@ -401,6 +401,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .roster-player-identity { min-width: 0; display: flex; align-items: center; gap: 6px; }
 .roster-player-identity > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roster-dpe-flag { flex: 0 0 auto; background: #e7dff1; color: #684c80; font-style: normal; }
+.roster-no-reintegration-flag { flex: 0 0 auto; background: #f4dfdc; color: #93483f; font-style: normal; white-space: nowrap; }
 .roster-playoff-flag { flex: 0 0 auto; background: #e4ecf6; color: #315b86; font-style: normal; }
 .roster-scheduled-cut-flag { flex: 0 0 auto; background: #f4dfdc; color: #93483f; font-style: normal; }
 .real-team { color: #596158; font-size: 11px; letter-spacing: .04em; }

@@ -32,6 +32,8 @@ export type RosterEntry = {
   twoWayPromotionLocked?: boolean;
   playoffTeamOptionUsedSeason?: string;
   dpeAppliedSeasons?: string[];
+  /** Blocco riferito soltanto alla DPE attualmente in essere, esercitata dopo la deadline. */
+  dpeActivatedAfterDeadline?: boolean;
   /** Annate in cui la DPE è stata reintegrata automaticamente a Fine stagione. */
   dpeSeasonEndReintegratedSeasons?: string[];
   scheduledSeasonEndCut?: string;

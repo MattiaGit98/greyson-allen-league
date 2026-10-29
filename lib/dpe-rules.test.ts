@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RosterEntry } from "./league-types";
-import { entriesForDpeAdjustedCap, inheritedDpeSeasons, shouldShowDpeBadge } from "./dpe-rules";
+import { canReintegrateDpe, dpeRequirementsConfirmation, entriesForDpeAdjustedCap, inheritedDpeSeasons, shouldShowDpeBadge, shouldShowDpeNoReintegrationBadge } from "./dpe-rules";
 import { calculateCapSpace } from "./season-time";
 
 const disabledPlayer: RosterEntry = {
@@ -14,6 +14,39 @@ const disabledPlayer: RosterEntry = {
 };
 
 describe("impatto della disabled player exception", () => {
+  it("mostra NO R. soltanto per la DPE in essere dopo la deadline e prima della chiusura", () => {
+    const late = { ...disabledPlayer, dpeActivatedAfterDeadline: true };
+    for (const moment of ["trade_deadline", "buyout_end"] as const) {
+      expect(shouldShowDpeNoReintegrationBadge(late, moment)).toBe(true);
+      expect(canReintegrateDpe(late, moment)).toBe(false);
+      expect(canReintegrateDpe(disabledPlayer, moment)).toBe(true);
+      expect(canReintegrateDpe({ ...disabledPlayer, dpeActivatedAfterDeadline: false }, moment)).toBe(true);
+      expect(shouldShowDpeNoReintegrationBadge(disabledPlayer, moment)).toBe(false);
+    }
+    for (const moment of ["offseason_start", "team_option_deadline", "auction_start", "auction_completed", "contract_delivery", "free_agency_end", "free_agency_reopening"] as const) {
+      expect(shouldShowDpeNoReintegrationBadge(late, moment)).toBe(false);
+      expect(canReintegrateDpe(disabledPlayer, moment)).toBe(false);
+      expect(canReintegrateDpe(late, moment)).toBe(false);
+    }
+    expect(shouldShowDpeNoReintegrationBadge({ ...late, state: "cut" }, "trade_deadline")).toBe(false);
+    expect(shouldShowDpeNoReintegrationBadge({ ...late, slot: "regular" }, "trade_deadline")).toBe(false);
+  });
+
+  it("mantiene separati NO R. e il marchio del reintegro automatico", () => {
+    const late = { ...disabledPlayer, dpeActivatedAfterDeadline: true };
+    expect(shouldShowDpeBadge(late, "2026/27", "trade_deadline")).toBe(false);
+    const automatic = { ...late, slot: "regular" as const, dpeActivatedAfterDeadline: undefined, dpeSeasonEndReintegratedSeasons: ["2026/27"] };
+    expect(shouldShowDpeBadge(automatic, "2027/28", "offseason_start")).toBe(true);
+    expect(shouldShowDpeNoReintegrationBadge(automatic, "offseason_start")).toBe(false);
+  });
+
+  it("richiede una sola conferma con la nuova soglia, senza il vecchio minimo di 20 partite", () => {
+    expect(dpeRequirementsConfirmation).toContain("NBC Sports Edge");
+    expect(dpeRequirementsConfirmation).toContain("a partire da ora");
+    expect(dpeRequirementsConfirmation).toContain("giornate Dunkest");
+    expect(dpeRequirementsConfirmation).toContain("25 partite NBA");
+    expect(dpeRequirementsConfirmation).not.toContain("20 partite");
+  });
   it("conserva le annate DPE quando lo stesso giocatore viene rifirmato", () => {
     const entries: RosterEntry[] = [
       { ...disabledPlayer, name: "Mario Rossi", state: "cut", slot: "regular", dpeAppliedSeasons: ["2026/27"] },

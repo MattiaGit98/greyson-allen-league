@@ -244,7 +244,7 @@ export function buildPreAdvanceChecklist(input: {
       id: "trade-deadline-closures",
       tone: "info",
       title: "Il prossimo avanzamento chiude gli scambi",
-      message: "La DPE resta disponibile fino alla Chiusura free agency della prima fase.",
+      message: "La DPE resta esercitabile fino alla Chiusura free agency della prima fase. Si apre il reintegro anticipato delle sole DPE esercitate prima della trade deadline.",
       article: "Art. 12(a); Art. 13(a)",
       href: "/admin/scambi",
       actionLabel: "Controlla gli scambi",

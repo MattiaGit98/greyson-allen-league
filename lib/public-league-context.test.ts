@@ -36,6 +36,16 @@ function fixture(): EditableLeagueState {
 }
 
 describe("dati pubblici esportabili della lega", () => {
+  it("esporta NO R. come bollino pubblico, mai come metadato interno, e lo nasconde alla chiusura", () => {
+    const state = fixture();
+    state.rosterEntries[3].dpeActivatedAfterDeadline = true;
+    const late = buildPublicLeagueContext(state, { ...season, timeline_moment: "trade_deadline" }, []);
+    expect(late.squadre[0].dpe[0].bollini).toEqual(["NO R."]);
+    expect(JSON.stringify(late)).not.toContain("dpeActivatedAfterDeadline");
+    const closing = buildPublicLeagueContext(state, { ...season, timeline_moment: "free_agency_end" }, []);
+    expect(closing.squadre[0].dpe[0].bollini).toEqual([]);
+  });
+
   it("espone solo i tre blocchi richiesti e i campi pubblici, senza modificare lo stato", () => {
     const state = fixture();
     Object.assign(state.teams[0], { internalAdminNote: "Not public" });

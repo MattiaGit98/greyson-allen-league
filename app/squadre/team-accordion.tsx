@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DraftAsset, PlayerListEntry, QualifyingOfferRight, RosterEntry, TeamSummary } from "@/lib/league-types";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
-import { entriesForDpeAdjustedCap, shouldShowDpeBadge } from "@/lib/dpe-rules";
+import { entriesForDpeAdjustedCap, shouldShowDpeBadge, shouldShowDpeNoReintegrationBadge } from "@/lib/dpe-rules";
 import type { LeagueMoment } from "@/lib/league-moments";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
@@ -780,6 +780,9 @@ function PlayerDataRow({
     <div className={`data-row ${pendingAuctionContract ? "pending-auction-contract" : ""} ${highlighted ? "player-search-match" : ""}`}>
       <strong className="roster-player-identity">
         <span>{entry.name}</span>
+        {shouldShowDpeNoReintegrationBadge(entry, leagueMoment) && (
+          <i className="player-flag roster-no-reintegration-flag" aria-label="Reintegro anticipato non consentito">NO R.</i>
+        )}
         {shouldShowDpeBadge(entry, seasonName, leagueMoment) && (
           <i
             className="player-flag roster-dpe-flag"
