@@ -1,52 +1,91 @@
 # Greyson Allen League
 
-Gestionale web della lega Dunkest, sviluppato con Next.js, TypeScript e Supabase.
+Applicazione web per la gestione della Greyson Allen League, una lega di fantasy basket basata su Dunkest. Riunisce la consultazione pubblica della lega e gli strumenti amministrativi in un unico progetto, accessibile da desktop e dispositivi mobili e installabile come Progressive Web App (PWA).
 
-## Fonte dei dati
+[Applicazione](https://greyson-allen-league.vercel.app/) · [Regolamento](content/Regolamento.tex) · [Documentazione](docs/)
 
-Supabase è l'unica fonte dello stato corrente. Il repository non contiene fotografie, seed o copie locali della lega e il sito non ricostruisce lo stato confrontando situazioni passate:
+## Funzionalità
 
-- fase e annata arrivano dalla stagione attiva in `seasons`;
-- squadre, roster, scelte, Q.O. e listone arrivano da `league_state_overrides/current`;
-- calendario, competizioni e storico hanno tabelle dedicate;
-- i movimenti sono registrati al momento dell'operazione e non vengono dedotti a posteriori.
+- Consultazione di squadre, roster, contratti, salary cap e scelte draft.
+- Listone giocatori con ricerca, filtri e collegamenti alle squadre proprietarie.
+- Calendario, classifiche, tabelloni delle competizioni e storico della lega.
+- Simulatore pubblico di scambi con verifica dei vincoli e riepilogo condivisibile.
+- Area amministrativa riservata per asta, draft, free agency, scambi e operazioni sui contratti.
+- Avanzamento delle fasi della lega, controlli regolamentari, registro dei movimenti e annullamento delle operazioni consentite.
+- Backup ripristinabili e copie di consultazione in formato Excel e HTML.
 
-Un ambiente che non è collegato al progetto Supabase operativo non dispone di squadre, roster o altri dati della lega. Gli eventuali backup importabili devono essere conservati privatamente fuori dal repository.
+Le pagine pubbliche si aggiornano automaticamente quando cambiano i dati della lega. La PWA utilizza la stessa applicazione del sito: pagine e dati richiedono una connessione Internet e non vengono serviti da copie offline.
 
-## Avvio locale su questo PC
+## Architettura
 
-Aprire PowerShell nella cartella del progetto ed eseguire:
+- **Next.js 15, React 19 e TypeScript** per interfaccia, rendering e operazioni server.
+- **Supabase** per database PostgreSQL, autenticazione, Storage e aggiornamenti Realtime.
+- **Vercel** per il deploy dell'applicazione.
+- **Vitest** per i test automatici delle regole e dei flussi applicativi.
 
-```powershell
-$env:Path="$PWD\.node-runtime\node-v24.18.0-win-x64;$env:Path"
-npm.cmd run dev
+Sito web e PWA condividono repository, codice applicativo, deploy e backend. L'accesso amministrativo richiede un account autenticato e autorizzato.
+
+### Stato della lega
+
+Supabase è l'unica fonte dello stato corrente: annata, fase, squadre, roster, contratti, listone, calendario, competizioni e movimenti vengono letti dal backend. Il registro dei movimenti viene alimentato dalle operazioni effettuate, non ricostruito dal confronto tra versioni del repository.
+
+Il repository contiene il codice e le migration dello schema, **non una copia della lega, seed o dati dimostrativi**. Senza un backend correttamente configurato, l'applicazione segnala l'indisponibilità dei dati invece di mostrare uno stato iniziale o una copia obsoleta. I backup operativi devono essere conservati privatamente, fuori dal repository.
+
+## Sviluppo locale
+
+Sono necessari Node.js, npm e un progetto Supabase configurato. La verifica automatica su GitHub utilizza Node.js 22.
+
+Installare le dipendenze e predisporre la configurazione locale:
+
+```bash
+npm ci
+cp .env.example .env.local
 ```
 
-Poi aprire `http://localhost:3000`. Il file `.env.local` deve contenere l'URL e la chiave pubblicabile del progetto Supabase.
+Compilare `.env.local` con l'URL e la chiave pubblicabile del progetto Supabase di sviluppo. Le variabili richieste e le indicazioni per il deploy sono descritte nella [guida alla pubblicazione](docs/deployment.md).
 
-Con un'installazione normale di Node.js è sufficiente `npm run dev`.
+Avviare il server di sviluppo:
 
-## Controlli tecnici
-
-```powershell
-npm.cmd run check
-npm.cmd run build
+```bash
+npm run dev
 ```
 
-`check` esegue il controllo TypeScript e tutti i test automatici. `build` verifica anche la compilazione completa di produzione.
+L'applicazione è disponibile all'indirizzo `http://localhost:3000`.
 
-## Database
+Le migration in `supabase/migrations/` descrivono l'evoluzione dello schema e vanno applicate in ordine al database di destinazione. Non creano una lega preconfigurata. Per dati, autorizzazioni e ripristino consultare la documentazione dedicata; non inserire credenziali riservate o backup nel repository.
 
-In un database nuovo, eseguire le migration in `supabase/migrations` in ordine di nome. Le migration costruiscono lo schema ma non inizializzano una lega: i dati devono provenire da una configurazione amministrativa o da un backup privato compatibile. In un database già avviato vanno applicate soltanto le migration successive all'ultima registrata.
+## Verifica del progetto
 
-Prima di ogni avanzamento della lega il sito scarica un backup importabile dell’intera situazione e crea anche un punto di ripristino interno. La pagina **Importa dati** può ripristinare fase, roster, listone, calendario, competizioni, storico e movimenti; prima di applicare il file scarica automaticamente un nuovo backup della situazione corrente. Dalla pagina Backup sono disponibili il backup ripristinabile e le copie leggibili Excel e HTML statico di Squadre e Storico.
+```bash
+npm run check
+npm run build
+```
 
-## Struttura essenziale
+`check` esegue il controllo TypeScript e la suite di test. `build` genera la versione di produzione. Gli stessi comandi vengono eseguiti dal workflow [Verify](.github/workflows/verify.yml) su push e pull request.
 
-- `app/`: pagine pubbliche, amministrazione e operazioni server;
-- `components/`: componenti condivisi dell'interfaccia;
-- `lib/`: regole, calcoli e accesso allo stato corrente;
-- `supabase/migrations/`: evoluzione ordinata della struttura del database;
-- `data/`: dati statici generali dell'applicazione, mai lo stato della lega.
+Per eseguire soltanto i test:
 
-La documentazione operativa è in `docs/`.
+```bash
+npm test
+```
+
+## Struttura del repository
+
+```text
+app/                  Pagine pubbliche, area amministrativa e operazioni server
+components/           Componenti condivisi dell'interfaccia
+content/              Sorgente del regolamento
+data/                 Dati statici generali, non lo stato della lega
+lib/                  Regole, calcoli, accesso ai dati e test associati
+public/               Asset statici, icone PWA e service worker
+supabase/migrations/  Evoluzione versionata dello schema del database
+docs/                 Documentazione tecnica e operativa
+```
+
+## Documentazione
+
+- [Pubblicazione e configurazione](docs/deployment.md)
+- [Modello dei dati](docs/data-model.md)
+- [Guida amministratore](docs/admin-guide.md)
+- [Importazione dei dati](docs/import-guide.md)
+- [Backup e ripristino](docs/backup-restore.md)
