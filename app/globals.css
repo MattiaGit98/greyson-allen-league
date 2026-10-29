@@ -367,7 +367,6 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .filter-bar .player-check-filter label > span { display: inline; margin: 0; color: inherit; font: inherit; text-transform: none; letter-spacing: 0; }
 .filter-bar .player-check-filter input { flex: 0 0 13px; width: 13px; min-height: 13px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; accent-color: var(--green); }
 .player-check-filter label:has(input:checked) { border-color: #9cb4a8; background: #edf4ee; }
-.player-check-filter label:has(input:disabled) { cursor: default; }
 .filter-label-short { display: none; }
 .player-filter-reset { min-height: 42px; padding: 0 11px; border: 1px solid #b96754; border-radius: 10px; background: white; color: #9d3f22; font-size: 9px; font-weight: 900; cursor: pointer; white-space: nowrap; }
 .player-filter-reset:hover { background: #fff4ef; }
@@ -1155,7 +1154,9 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .player-filter-bar .player-check-filter > div { width: 100%; }
   .player-filter-bar .player-check-filter label { flex: 1 1 0; padding: 0 6px; }
   .player-filter-bar.is-post-auction .player-status-filter > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .player-filter-bar.is-post-auction.without-pending .player-status-filter label:last-child { grid-column: 1 / -1; }
+  .player-filter-bar.is-post-auction.without-pending .player-status-filter > div { display: flex; flex-wrap: wrap; }
+  .player-filter-bar.is-post-auction.without-pending .player-status-filter label { flex: 1 0 auto; }
+  .player-filter-bar.is-post-auction.without-pending .player-status-filter label[data-filter-value="fa"] { order: 1; }
   .player-filter-bar .filter-label-full { display: none; }
   .player-filter-bar .filter-label-short { display: inline; }
   .player-filter-bar .player-filter-reset { width: 100%; }

@@ -3,25 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { publicPlayerStatus, type PublicPlayerListRow as Row, type PublicPlayerStatus as PlayerStatusKind } from "@/lib/public-player-list";
-
-type PlayerCategory = "rookie" | "under23" | "veteran";
+import { matchesPublicPlayerFilters, togglePlayerFilterSelection, type PublicPlayerCategory as PlayerCategory } from "@/lib/public-player-filters";
 
 const allRoles: Row["role"][] = ["G", "A", "C", "X"];
 const preAuctionStatuses: PlayerStatusKind[] = ["fa", "qo", "roster"];
 const postAuctionStatuses: PlayerStatusKind[] = ["fa", "expiring", "not_expiring", "pending"];
-const allCategories: PlayerCategory[] = ["rookie", "under23", "veteran"];
-
-function categoryOf(row: Row): PlayerCategory {
-  if (row.rookie) return "rookie";
-  if (row.under23) return "under23";
-  return "veteran";
-}
-
-function toggleSelection<T>(selected: T[], value: T): T[] {
-  if (!selected.includes(value)) return [...selected, value];
-  if (selected.length === 1) return selected;
-  return selected.filter((item) => item !== value);
-}
 
 export function PlayerExplorer({ rows, seasonName, postAuction, showPendingFilter, showOrder, showRealTeam, showEligibility, showQualifyingOfferFilter }: {
   rows: Row[];
@@ -33,33 +19,22 @@ export function PlayerExplorer({ rows, seasonName, postAuction, showPendingFilte
   showEligibility: boolean;
   showQualifyingOfferFilter: boolean;
 }) {
-  const availableStatuses = postAuction
+  const availableStatuses = useMemo(() => postAuction
     ? showPendingFilter ? postAuctionStatuses : postAuctionStatuses.filter((status) => status !== "pending")
-    : preAuctionStatuses;
+    : preAuctionStatuses.filter((status) => status !== "qo" || showQualifyingOfferFilter), [postAuction, showPendingFilter, showQualifyingOfferFilter]);
   const [query, setQuery] = useState("");
-  const [roles, setRoles] = useState<Row["role"][]>(allRoles);
-  const [statuses, setStatuses] = useState<PlayerStatusKind[]>(availableStatuses);
-  const [categories, setCategories] = useState<PlayerCategory[]>(allCategories);
-  const filtered = useMemo(() => rows.filter((row) => {
-    const matchesQuery = row.name.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory = !showEligibility || categories.includes(categoryOf(row));
-    const status = publicPlayerStatus(row, seasonName, postAuction);
-    const matchesStatus = statuses.includes(status)
-      || (postAuction && status === "pending" && !showPendingFilter)
-      || (postAuction && status === "qo" && statuses.length === availableStatuses.length);
-    return matchesQuery
-      && roles.includes(row.role)
-      && matchesStatus
-      && matchesCategory;
-  }), [availableStatuses.length, categories, postAuction, query, roles, rows, seasonName, showEligibility, showPendingFilter, statuses]);
-  const filtersAreActive = roles.length !== allRoles.length
-    || statuses.length !== availableStatuses.length
-    || (showEligibility && categories.length !== allCategories.length);
+  const [roles, setRoles] = useState<Row["role"][]>([]);
+  const [statuses, setStatuses] = useState<PlayerStatusKind[]>([]);
+  const [categories, setCategories] = useState<PlayerCategory[]>([]);
+  const filtered = useMemo(() => rows.filter((row) => matchesPublicPlayerFilters(row, {
+    query, seasonName, postAuction, showEligibility, availableStatuses, roles, statuses, categories,
+  })), [availableStatuses, categories, postAuction, query, roles, rows, seasonName, showEligibility, statuses]);
+  const filtersAreActive = roles.length > 0 || statuses.length > 0 || (showEligibility && categories.length > 0);
 
   function resetFilters() {
-    setRoles(allRoles);
-    setStatuses(availableStatuses);
-    setCategories(allCategories);
+    setRoles([]);
+    setStatuses([]);
+    setCategories([]);
   }
 
   return (
@@ -85,7 +60,7 @@ export function PlayerExplorer({ rows, seasonName, postAuction, showPendingFilte
           label="Ruolo"
           options={allRoles.map((value) => ({ value, label: value }))}
           selected={roles}
-          onToggle={(value) => setRoles((current) => toggleSelection(current, value))}
+          onToggle={(value) => setRoles((current) => togglePlayerFilterSelection(current, value))}
         />
         <PlayerCheckFilter
           className="player-status-filter"
@@ -101,7 +76,7 @@ export function PlayerExplorer({ rows, seasonName, postAuction, showPendingFilte
             { value: "roster", label: "A roster" },
           ]}
           selected={statuses}
-          onToggle={(value) => setStatuses((current) => toggleSelection(current, value))}
+          onToggle={(value) => setStatuses((current) => togglePlayerFilterSelection(current, value))}
         />
         {showEligibility && <PlayerCheckFilter
           className="player-category-filter"
@@ -112,7 +87,7 @@ export function PlayerExplorer({ rows, seasonName, postAuction, showPendingFilte
             { value: "veteran", label: "Veterani" },
           ]}
           selected={categories}
-          onToggle={(value) => setCategories((current) => toggleSelection(current, value))}
+          onToggle={(value) => setCategories((current) => togglePlayerFilterSelection(current, value))}
         />}
         <button className="player-filter-reset" type="button" onClick={resetFilters} disabled={!filtersAreActive}>Azzera filtri</button>
       </div>
@@ -195,11 +170,10 @@ function PlayerCheckFilter<T extends string>({ className = "", label, options, s
         {options.map((option) => {
           const checked = selected.includes(option.value);
           return (
-            <label key={option.value}>
+            <label key={option.value} data-filter-value={option.value}>
               <input
                 type="checkbox"
                 checked={checked}
-                disabled={checked && selected.length === 1}
                 onChange={() => onToggle(option.value)}
               />
               <span>{option.label}</span>

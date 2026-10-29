@@ -135,7 +135,6 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
       <input type="hidden" name="requirements_confirmed" value={String(confirmed)} />
       <input type="hidden" name="role_minimum_confirmed" value={String(roleMinimumConfirmed)} />
       <input type="hidden" name="cut_stretch_years" value={effectiveCutStretchYears ?? ""} />
-      <input type="hidden" name="confirmed" value={String(confirmed)} />
       <input type="hidden" name="installments" value={installments} />
 
       <div className="auction-modal-header">
@@ -177,10 +176,10 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
               </div>
             </div>
           )}
-          {requiresConfirmation(operation) && (
+          {operation === "dpe_activate" && (
             <label className="operation-check other-operation-check">
               <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-              {confirmationLabel(operation)}
+              Ho verificato che NBC Sports riporti la certezza o il forte rischio di saltare almeno 20 partite NBA
             </label>
           )}
           {cutSelected && (
@@ -318,7 +317,7 @@ function operationPreview(
   const errors: string[] = [];
   const warnings: string[] = [];
   const capWarnings: string[] = [];
-  if (requiresConfirmation(operation) && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
+  if (operation === "dpe_activate" && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
   if (operation === "free_release") {
     const automaticOneCreditRelease = freeReleaseReasonAvailability("one_credit_team_option", props.leagueMoment, player, props.seasonName).available;
     if (!automaticOneCreditRelease) {
@@ -425,17 +424,6 @@ function roleCounts(team: AdminRosterTeam, leagueMoment?: LeagueMoment) {
   return team.players.filter((player) => (
     player.state === "active" && (player.slot !== "dpe" || dpeCountsForRoleMinimums(leagueMoment))
   )).reduce((counts, player) => { if (player.role) counts[player.role] += 1; return counts; }, { G: 0, A: 0, C: 0 });
-}
-
-function requiresConfirmation(operation: Operation) {
-  return operation === "buyout"
-    || operation === "dpe_activate";
-}
-
-function confirmationLabel(operation: Operation) {
-  if (operation === "buyout") return "Il buyout è stato concordato con il giocatore";
-  if (operation === "dpe_activate") return "Ho verificato che NBC Sports riporti la certezza o il forte rischio di saltare almeno 20 partite NBA";
-  return "Sono verificati i requisiti richiesti";
 }
 
 function placementOf(player: AdminRosterPlayer): Slot | "cut" { return player.state === "cut" ? "cut" : player.slot; }

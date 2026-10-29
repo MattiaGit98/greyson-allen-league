@@ -27,7 +27,6 @@ export async function applyRosterExitOperation(formData: FormData) {
   const kind = String(formData.get("operation_kind") ?? "") as ReleaseOperationKind;
   const rawCutStretchYears = String(formData.get("cut_stretch_years") ?? "").trim();
   const cutStretchYears = rawCutStretchYears === "" ? null : Number(rawCutStretchYears);
-  const confirmed = formData.get("confirmed") === "true";
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const submittedReleaseReasons = formData.getAll("release_reason").map((value) => String(value));
   if (!teamCode || !playerName || !["cut", "free_release", "buyout"].includes(kind)) {
@@ -56,7 +55,6 @@ export async function applyRosterExitOperation(formData: FormData) {
   if (kind === "buyout" && entry.state !== "active") {
     operationError(returnPath, "Il buyout richiede un giocatore ancora sotto contratto e attivo.");
   }
-  if (kind === "buyout" && !confirmed) operationError(returnPath, "Conferma i requisiti regolamentari.");
   if (kind === "buyout" && !operationWindows.buyout(leagueMoment)) operationError(returnPath, "La finestra dei buyout non è aperta.");
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
