@@ -20,7 +20,7 @@ Le pagine pubbliche si aggiornano automaticamente quando cambiano i dati della l
 
 Per permettere ad assistenti AI di leggere i dati della Greyson Allen League, condividi con loro questo indirizzo:
 
-https://greyson-allen-league.vercel.app/api/ai/context
+https://greyson-allen-league.vercel.app/ai-context
 
 ## Architettura
 

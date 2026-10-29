@@ -160,6 +160,15 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .home-ai-context > div { display: flex; align-items: center; gap: 10px; }
 .home-ai-context > div > span { min-width: 0; flex: 1; overflow-wrap: anywhere; color: var(--green); font-size: 11px; line-height: 1.5; user-select: text; }
 .home-ai-context .button { flex-shrink: 0; min-height: 32px; padding: 0 11px; font-size: 10px; cursor: pointer; }
+.ai-context-page { max-width: 1180px; margin: 0 auto; overflow-wrap: anywhere; line-height: 1.5; }
+.ai-context-page h1 { font-size: 28px; line-height: 1.2; letter-spacing: normal; }
+.ai-context-page h2 { margin-top: 32px; font-size: 24px; letter-spacing: normal; }
+.ai-context-page h3 { margin-top: 24px; font-size: 18px; }
+.ai-context-page dt { font-weight: 700; }
+.ai-context-page dd { margin: 0 0 8px 16px; }
+.ai-context-table { max-width: 100%; overflow-x: auto; margin-bottom: 12px; }
+.ai-context-page table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+.ai-context-page th, .ai-context-page td { padding: 6px 8px; border: 1px solid var(--line); vertical-align: top; }
 .public-notices-page { max-width: 820px; margin: 0 auto; }
 .public-notice-editor { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,253,247,.84); box-shadow: 0 5px 15px rgba(24,63,52,.04); }
 .public-notice-editor > summary { padding: 15px 17px; background: #e7edce; color: #315044; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }

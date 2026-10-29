@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const contextUrl = "https://greyson-allen-league.vercel.app/api/ai/context";
+const contextUrl = "https://greyson-allen-league.vercel.app/ai-context";
 
 export function HomeAiContext() {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");

@@ -6,6 +6,7 @@ vi.mock("@/lib/active-season", () => ({ requireActiveSeason: sources.season }));
 vi.mock("@/lib/league-state", () => ({ loadEditableLeagueState: sources.state }));
 vi.mock("@/lib/regulation", () => ({ loadRegulation: sources.regulation }));
 vi.mock("@/lib/public-league-context", async () => import("./public-league-context"));
+vi.mock("@/lib/load-public-league-context", async () => import("./load-public-league-context"));
 import * as route from "../app/api/ai/context/route";
 
 beforeEach(() => {

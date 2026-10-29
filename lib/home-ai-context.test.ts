@@ -30,7 +30,7 @@ describe("blocco AI della homepage", () => {
     const markup = renderToStaticMarkup(React.createElement(HomeAiContext));
     expect(markup).toContain("Analizza la lega con l’IA");
     expect(markup).toContain("Per permettere ad assistenti AI di leggere i dati della Greyson Allen League, condividi con loro questo indirizzo:");
-    expect(markup).toContain("<span>https://greyson-allen-league.vercel.app/api/ai/context</span>");
+    expect(markup).toContain("<span>https://greyson-allen-league.vercel.app/ai-context</span>");
     expect(markup).not.toContain("<a ");
     expect(markup).toContain(">Copia</button>");
   });
@@ -39,7 +39,7 @@ describe("blocco AI della homepage", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     await copyButton(HomeAiContext()).onClick();
-    expect(writeText).toHaveBeenCalledWith("https://greyson-allen-league.vercel.app/api/ai/context");
+    expect(writeText).toHaveBeenCalledWith("https://greyson-allen-league.vercel.app/ai-context");
     expect(setState).toHaveBeenCalledWith("copied");
   });
 
