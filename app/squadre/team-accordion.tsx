@@ -614,7 +614,6 @@ function TeamDetails({
 
       <DataSection tone="two_way" label={`Two-way (${twoWay.length}/${getRosterSlotLimits({ twoWaySlotLimit }).two_way})`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
         <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
-        {getRosterSlotLimits({ twoWaySlotLimit }).two_way < 3 && <div className="two-way-reserved-slot">3° slot · Disponibile dalla prossima stagione</div>}
       </DataSection>
 
       <DataSection tone="g_league" label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>

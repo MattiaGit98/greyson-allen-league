@@ -40,11 +40,11 @@ describe("Excel di emergenza asta", () => {
     const teamsSheet = loaded.getWorksheet("Squadre")!;
     expect(teamsSheet.getCell("A5").value).toBe("Roster");
     expect(teamsSheet.getCell("A21").value).toBe("Two-way");
-    expect(teamsSheet.getCell("A24").value).toBe("3° slot · Disponibile dalla prossima stagione");
-    expect(teamsSheet.getCell("A25").value).toBe("G-League");
-    expect(teamsSheet.getCell("A29").value).toBe("Tagliati");
-    expect(teamsSheet.getCell("A37").value).toBe("Q.O.");
-    for (const row of [7, 20, 23, 27, 28, 32, 36]) {
+    expect(teamsSheet.getCell("A24").value).toBe("G-League");
+    expect(teamsSheet.getCell("A28").value).toBe("Tagliati");
+    expect(teamsSheet.getCell("A36").value).toBe("Q.O.");
+    expect(JSON.stringify(teams)).not.toContain("Disponibile dalla prossima stagione");
+    for (const row of [7, 20, 23, 26, 27, 31, 35]) {
       expect(teamsSheet.getRow(row).getCell(1).value).toBeNull();
       expect(teamsSheet.getRow(row).getCell(1).border?.bottom).toBeDefined();
     }

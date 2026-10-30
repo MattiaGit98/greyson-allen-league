@@ -30,7 +30,7 @@ Il formato resta `greyson-allen-league-importable-backup`, versione `2`: tutti i
 
 ## Capacità Two-way della stagione
 
-Il backup conserva anche il limite Two-way della stagione nello stato della lega (`twoWaySlotLimit`). I backup precedenti, privi del campo, mantengono il limite di due slot. L’avanzamento a Fine stagione imposta tre slot utilizzabili per la nuova annata e per quelle successive, senza confronti con anni specifici. La riga del terzo slot riservato è soltanto informativa e non è un giocatore.
+Il backup conserva anche il limite Two-way della stagione nello stato della lega (`twoWaySlotLimit`). I backup precedenti, privi del campo, mantengono il limite di due slot. L’avanzamento a Fine stagione imposta tre slot utilizzabili per la nuova annata e per quelle successive, senza confronti con anni specifici. Prima di allora il terzo slot non viene mostrato.
 
 La migration `20261030001055_seasonal_two_way_capacity.sql` include questa impostazione nel controllo di concorrenza, così un pannello rimasto aperto con la vecchia capacità non può ripristinarla per errore.
 

@@ -83,7 +83,6 @@ function renderTeams(input: StaticLeagueHtmlInput) {
         <div class="metrics"><div><span>Cap libero ${e(capSeasons[1])}</span><b>${caps[1]}</b></div><div><span>Cap libero ${e(capSeasons[2])}</span><b>${caps[2]}</b></div><div><span>Ruoli</span><b>${roles.G} G / ${roles.A} A / ${roles.C} C</b></div></div>
         ${renderRosterGroup(`Roster (${regular.length}/15)`, regular)}
         ${renderRosterGroup(`Two-way (${twoWay.length}/${getRosterSlotLimits(input).two_way})`, twoWay)}
-        ${getRosterSlotLimits(input).two_way < 3 ? '<p class="two-way-reserved-slot">3° slot · Disponibile dalla prossima stagione</p>' : ""}
         ${renderRosterGroup(`G-League (${gLeague.length}/3)`, gLeague)}
         ${renderDraftAssets(assets, nextDraftYear)}
         ${renderRosterGroup("Disabled player exception", dpe, false, input.leagueMoment)}

@@ -111,15 +111,18 @@ describe("capacità Two-way stagionale senza dipendenze dall'annata", () => {
     expect(() => buildDraftAssignment({ ...input, state: { ...state, twoWaySlotLimit: 2 } })).toThrow(/slot Two-way è pieno/);
   });
 
-  it("avvisi di avanzamento e copia pubblica non scambiano la riga informativa per un giocatore", () => {
+  it("avvisi ed esportazioni usano la capacità effettiva senza mostrare il posto futuro", () => {
     const state = { ...fixture(2), rosterEntries: [entry(1), entry(2), entry(3)] };
     expect(buildPreAdvanceChecklist({ state, currentMoment: "contract_delivery", seasonName: "2029/30" }).alerts.some((alert) => alert.id === "slot-overflows")).toBe(true);
     expect(buildPreAdvanceChecklist({ state: { ...state, twoWaySlotLimit: 3 }, currentMoment: "contract_delivery", seasonName: "2029/30" }).alerts.some((alert) => alert.id === "slot-overflows")).toBe(false);
     const season = { name: "2029/30", status: "regular_season" as const, timeline_moment: "contract_delivery", team_options_resolved: true };
     const context = buildPublicLeagueContext(fixture(2), season, []);
-    expect(context.squadre[0]).toMatchObject({ slotTwoWayUtilizzabili: 2, terzoSlotTwoWay: "Disponibile dalla prossima stagione", twoWay: [] });
+    expect(context.squadre[0]).toMatchObject({ slotTwoWayUtilizzabili: 2, twoWay: [] });
+    expect(context.squadre[0]).not.toHaveProperty("terzoSlotTwoWay");
     const input = { ...fixture(2), exportedAt: new Date("2030-01-01"), seasonName: "2029/30", phaseName: "Stagione", leagueMoment: "contract_delivery" as const, countTeamOptions: true, history: emptyHistoryCompetitionMap() };
-    expect(renderStaticLeagueHtml(input)).toContain("3° slot · Disponibile dalla prossima stagione");
+    expect(renderStaticLeagueHtml(input)).not.toContain("Disponibile dalla prossima stagione");
+    expect(renderStaticLeagueHtml(input)).toContain("Two-way (0/2)");
+    expect(renderStaticLeagueHtml({ ...input, twoWaySlotLimit: 3 })).toContain("Two-way (0/3)");
     expect(renderStaticLeagueHtml({ ...input, twoWaySlotLimit: 3 })).not.toContain("Disponibile dalla prossima stagione");
     expect(JSON.stringify(context.squadre[0].twoWay)).not.toContain("Prox.");
   });
