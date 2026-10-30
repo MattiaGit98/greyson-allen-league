@@ -1,15 +1,13 @@
 import type { EditableLeagueState } from "./league-state";
 import type { HistoryCompetitionEntry, HistoryDraftRow } from "./history-competitions";
 import { compareDraftPicks, draftOverallPosition } from "./draft-rules";
-import { findTeamSlotOverflows, slotOverflowMessage, rosterSlotLimits } from "./roster-slot-limits";
+import { findTeamSlotOverflows, slotOverflowMessage, getRosterSlotLimits } from "./roster-slot-limits";
 import { removeRolelessPlayersByName } from "./roleless-player-list";
 import { annualTeamOptionContract } from "./team-option-contract";
 
 export type DraftRosterSlot = "regular" | "two_way" | "g_league";
 export type DraftDestinationSlot = DraftRosterSlot | "immediate_cut" | "immediate_release";
 export type DraftSlotCounts = Record<DraftRosterSlot | "dpe", number>;
-
-export const draftSlotLimits: DraftSlotCounts = rosterSlotLimits;
 
 export function draftDestinationsForPrice(price: number | null): DraftRosterSlot[] {
   if (price === null || price > 10) return ["regular"];
@@ -87,7 +85,7 @@ export function buildDraftAssignment({
   if (!state.teams.some((team) => team.code === pick.teamCode)) throw new Error("La squadra proprietaria della scelta non esiste.");
 
   const slotCounts = draftTeamSlotCounts(state, pick.teamCode);
-  const slotErrors = draftSlotAssignmentErrors({ slot: destinationSlot, price, counts: slotCounts });
+  const slotErrors = draftSlotAssignmentErrors({ slot: destinationSlot, price, counts: slotCounts, twoWaySlotLimit: state.twoWaySlotLimit });
   const blockingSlotErrors = allowTemporarySlotOverflow
     ? slotErrors.filter((error) => !error.startsWith("Lo slot "))
     : slotErrors;
@@ -164,7 +162,7 @@ export function buildDraftAssignment({
     : draftedState;
   const finalSlotErrors = destinationSlot === "immediate_cut" || destinationSlot === "immediate_release"
     ? []
-    : findTeamSlotOverflows(nextState.rosterEntries, pick.teamCode).map(slotOverflowMessage);
+    : findTeamSlotOverflows(nextState.rosterEntries, pick.teamCode, state).map(slotOverflowMessage);
   if (!allowTemporarySlotOverflow && finalSlotErrors.length) {
     throw new Error(`${finalSlotErrors.join(" ")} Libera prima uno slot adeguato e poi assegna il rookie.`);
   }
@@ -204,11 +202,14 @@ export function draftSlotAssignmentErrors({
   slot,
   price,
   counts,
+  twoWaySlotLimit,
 }: {
   slot: DraftDestinationSlot;
   price: number;
   counts: DraftSlotCounts;
+  twoWaySlotLimit?: number;
 }) {
+  const draftSlotLimits = getRosterSlotLimits({ twoWaySlotLimit });
   const errors: string[] = [];
   if (slot === "immediate_cut" || slot === "immediate_release") return errors;
   if (!(slot in draftSlotLimits)) return ["Seleziona uno slot valido."];

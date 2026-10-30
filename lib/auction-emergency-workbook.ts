@@ -3,6 +3,7 @@ import type { EditableLeagueState } from "./league-state";
 import type { PlayerListEntry, RosterEntry } from "./league-types";
 import { buildPublicPlayerListRows } from "./public-player-list";
 import { calculateCapSpace } from "./season-time";
+import { getRosterSlotLimits, futureTwoWaySlotLimit } from "./roster-slot-limits";
 
 type Input = {
   state: EditableLeagueState;
@@ -58,8 +59,14 @@ export function buildAuctionEmergencyWorkbook({ state, seasonName, exportedAt, c
         rowNumber,
         active.filter((entry) => entry.slot === slot),
         listRoleByName,
-        slot === "regular" ? 15 : slot === "two_way" ? 2 : 3,
+        getRosterSlotLimits(state)[slot],
       );
+      if (slot === "two_way" && getRosterSlotLimits(state).two_way < futureTwoWaySlotLimit) {
+        const reservedRow = teamsSheet.getRow(rowNumber++);
+        reservedRow.values = ["3° slot · Disponibile dalla prossima stagione", "", ""];
+        reservedRow.font = { size: 9, color: { argb: muted }, italic: true };
+        reservedRow.fill = solid(pale);
+      }
     }
 
     rowNumber = addSection(teamsSheet, rowNumber, "Tagliati");

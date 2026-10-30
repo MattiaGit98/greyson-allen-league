@@ -20,6 +20,7 @@ type PlayerOption = {
   qualifyingTeamCode: string | null;
 };
 type TeamOption = {
+  twoWaySlotLimit?: number;
   code: string;
   name: string;
   currentCost: number;
@@ -203,6 +204,7 @@ function FreeAgentDialog({
   };
   const roles = countRosterRoles(team?.rosterPlayers ?? [], dpeCountsForRoleMinimums(leagueMoment));
   const slotResolution = resolveContextualSlots({
+    twoWaySlotLimit: team?.twoWaySlotLimit,
     counts: { regular: slots.regular, two_way: slots.twoWay, g_league: slots.gLeague },
     incomingSlot: destination,
     players: slotResolutionPlayers,
@@ -231,6 +233,7 @@ function FreeAgentDialog({
   ));
   const outsideDuplicate = outsideList && allPlayers.some((item) => normalizeName(item.name) === normalizeName(outsideName));
   const preview = evaluateFreeAgentSigning({
+    twoWaySlotLimit: team?.twoWaySlotLimit,
     phase,
     enforceRoleMinimums,
     freeAgentThousandLimitApplies,
@@ -271,7 +274,7 @@ function FreeAgentDialog({
     ? roleMinimumRecoverySlotError({ ...roleMinimumShortageAfter, total: roleMinimumShortageAfter.G + roleMinimumShortageAfter.A + roleMinimumShortageAfter.C }, {
       regular: preview.calculated.slotsAfter.regular,
       twoWay: preview.calculated.slotsAfter.twoWay,
-    })
+    }, team ?? {})
     : null;
   const roleMinimumConfirmationMissing = roleMinimumConfirmationRequired && !roleMinimumConfirmed;
   const signAndTradeErrors = preview.errors.filter((error) => !error.code.startsWith("SLOT_"));
@@ -336,6 +339,7 @@ function FreeAgentDialog({
         </div>
 
         <ContextualSlotResolver
+          twoWaySlotLimit={team?.twoWaySlotLimit}
           counts={{ regular: slots.regular, two_way: slots.twoWay, g_league: slots.gLeague }}
           incomingSlot={destination}
           players={slotResolutionPlayers}

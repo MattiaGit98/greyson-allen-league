@@ -14,6 +14,7 @@ import {
   type TradeSlot,
 } from "@/lib/rules/trade";
 import { countRosterRoles } from "@/lib/rules/roster";
+import { getRosterSlotLimits } from "@/lib/roster-slot-limits";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import type { ExistingTradeClauseAgreement } from "@/lib/trade-state";
 import { signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
@@ -53,6 +54,7 @@ type QualifyingOffer = {
 };
 
 type TradeTeam = {
+  twoWaySlotLimit?: number;
   code: string;
   name: string;
   currentSeasonName: string;
@@ -164,6 +166,7 @@ export function TradeBuilder({
   mode?: "admin" | "simulator";
   registerAction?: (formData: FormData) => void | Promise<void>;
 }) {
+  const twoWaySlotLimit = getRosterSlotLimits(teams[0] ?? {}).two_way;
   const simulator = mode === "simulator";
   const [participantCodes, setParticipantCodes] = useState(() => {
     if (!signAndTrade) return teams.slice(0, 2).map((team) => team.code);
@@ -237,6 +240,7 @@ export function TradeBuilder({
   );
 
   const evaluation = useMemo(() => evaluateTrade({
+    twoWaySlotLimit,
     phase,
     tradeDeadlinePassed,
     tradesOpen,
@@ -271,7 +275,7 @@ export function TradeBuilder({
     cuts,
     promotions,
     stretches,
-  }), [cuts, stretches, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, includeDpeInRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen]);
+  }), [cuts, stretches, effectiveExistingClauseChanges, enforceOffseasonCap, enforceRoleMinimums, includeDpeInRoleMinimums, participants, phase, pickClauses, pickMoves, playerMoves, promotions, protectionCounterpartyDraftYears, qualifyingOfferMoves, qualifyingOfferTransfersOpen, tradableDraftYears, tradeDeadlinePassed, tradesOpen, twoWaySlotLimit]);
   const capWarnings = [...new Set([
     ...evaluation.warnings
       .filter((warning) => warning.code.includes("CAP"))
@@ -280,7 +284,7 @@ export function TradeBuilder({
   const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
   const roleMinimumConfirmationRequired = roleMinimumRestorations.length > 0;
   const roleMinimumSlotErrors = roleMinimumRestorations.flatMap((team) => {
-    const freeSlots = Math.max(0, 15 - team.slots.regular) + Math.max(0, 2 - team.slots.twoWay);
+    const freeSlots = Math.max(0, 15 - team.slots.regular) + Math.max(0, twoWaySlotLimit - team.slots.twoWay);
     return freeSlots >= team.requiredRoleFreeAgents
       ? []
       : [`${formatTeamName(teams.find((item) => item.code === team.code)?.name ?? team.code)}: servono ${team.requiredRoleFreeAgents} slot tra roster e Two-way per i free agent obbligatori, ma ne restano ${freeSlots}.`];
@@ -496,6 +500,7 @@ export function TradeBuilder({
         .map((code) => teams.find((team) => team.code === code))
         .filter((team): team is TradeTeam => Boolean(team));
       const importedEvaluation = evaluateTrade({
+        twoWaySlotLimit,
         phase,
         tradeDeadlinePassed,
         tradesOpen,
@@ -526,7 +531,7 @@ export function TradeBuilder({
         stretches: imported.stretches,
       });
       if (!importedEvaluation.valid || importedEvaluation.warnings.some((warning) => warning.code.includes("CAP"))
-        || importedEvaluation.calculated.teamResults.some((team) => team.requiredRoleFreeAgents > Math.max(0, 15 - team.slots.regular) + Math.max(0, 2 - team.slots.twoWay))) {
+        || importedEvaluation.calculated.teamResults.some((team) => team.requiredRoleFreeAgents > Math.max(0, 15 - team.slots.regular) + Math.max(0, twoWaySlotLimit - team.slots.twoWay))) {
         throw new Error("Lo scambio non rispetta più le regole correnti della lega.");
       }
       setParticipantCodes(imported.participantCodes);
@@ -689,7 +694,7 @@ export function TradeBuilder({
                 <span className="trade-summary-roles">Ruoli<b>{result.rolesBefore.G} G · {result.rolesBefore.A} A · {result.rolesBefore.C} C → {result.roles.G} G · {result.roles.A} A · {result.roles.C} C</b></span>
                 {result.requiredRoleFreeAgents > 0 && <span className="role-restoration-cap">Ripristino<b>+{result.requiredRoleFreeAgents} FA · {result.requiredRoleFreeAgents} cr</b></span>}
                 <span>Roster<b>{result.slotsBefore.regular} / 15 → {result.slots.regular} / 15</b></span>
-                <span>Two-way<b>{result.slotsBefore.twoWay} / 2 → {result.slots.twoWay} / 2</b></span>
+                <span>Two-way<b>{result.slotsBefore.twoWay} / {twoWaySlotLimit} → {result.slots.twoWay} / {twoWaySlotLimit}</b></span>
                 <span>G-League<b>{result.slotsBefore.gLeague} / 3 → {result.slots.gLeague} / 3</b></span>
                 <span>DPE<b>{result.slotsBefore.dpe} → {result.slots.dpe}</b></span>
               </div>

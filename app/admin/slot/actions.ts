@@ -67,7 +67,7 @@ export async function moveRosterSlot(formData: FormData) {
     const destination = changesByIndex.get(index);
     return destination ? moveRosterEntryToSlot(item, destination) : item;
   });
-  const slotErrors = findTeamSlotOverflows(rosterEntries, teamCode).map(slotOverflowMessage);
+  const slotErrors = findTeamSlotOverflows(rosterEntries, teamCode, state).map(slotOverflowMessage);
   if (slotErrors.length) fail(slotErrors.join(" "));
 
   const nextState = { ...state, rosterEntries };

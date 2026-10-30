@@ -70,7 +70,7 @@ export async function applyDpeOperation(formData: FormData) {
     fail(error instanceof Error ? error.message : "Operazione DPE non valida.");
   }
   const teamRosterAfter = rosterEntries.filter((item) => item.teamCode === teamCode);
-  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, season.data.status, leagueMoment);
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, season.data.status, leagueMoment, state);
   if (roleMinimumSlotError) fail(roleMinimumSlotError);
   if (roleMinimumShortage(teamRosterAfter, season.data.status, leagueMoment).total > 0 && !roleMinimumConfirmed) {
     fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");

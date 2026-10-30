@@ -118,6 +118,7 @@ export function allowedTradeDestinations(sourceSlot: TradeSlot): TradeSlot[] {
 }
 
 export function evaluateTrade(input: {
+  twoWaySlotLimit?: number;
   phase: string;
   tradeDeadlinePassed?: boolean;
   tradesOpen?: boolean;
@@ -545,7 +546,7 @@ export function evaluateTrade(input: {
       costAfter += Math.ceil(stretch.residualCost / stretch.years) - stretch.currentCapCost;
     }
 
-    const slotValidation = validateSlots(slots);
+    const slotValidation = validateSlots(slots, input);
     errors.push(...slotValidation.errors.map((error) => ({
       ...error,
       code: `${error.code}_${team.code}`,

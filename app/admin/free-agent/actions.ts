@@ -86,6 +86,7 @@ export async function signFreeAgent(formData: FormData) {
   ]));
   const managedActiveEntries = activeEntries.filter((entry) => entry.slot !== "dpe");
   const slotResolution = resolveContextualSlots({
+    twoWaySlotLimit: state.twoWaySlotLimit,
     counts: {
       regular: managedActiveEntries.filter((entry) => entry.slot === "regular").length,
       two_way: managedActiveEntries.filter((entry) => entry.slot === "two_way").length,
@@ -127,6 +128,7 @@ export async function signFreeAgent(formData: FormData) {
     countTeamOptions: true,
   });
   const evaluation = evaluateFreeAgentSigning({
+    twoWaySlotLimit: state.twoWaySlotLimit,
     phase: seasonResponse.data.status,
     enforceRoleMinimums: roleMinimumChecksApply(seasonResponse.data.status, moment),
     freeAgentThousandLimitApplies: !hasReachedMoment(moment, "free_agency_reopening"),
@@ -207,7 +209,7 @@ export async function signFreeAgent(formData: FormData) {
   if (roleMinimumReplacement && roleShortageAfter.total >= roleShortageBefore.total) {
     fail("L'assegnazione per carenza di ruolo deve ridurre effettivamente la carenza della squadra.");
   }
-  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, seasonResponse.data.status, moment);
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, seasonResponse.data.status, moment, state);
   if (roleMinimumSlotError) fail(roleMinimumSlotError);
   if (roleMinimumShortage(teamRosterAfter, seasonResponse.data.status, moment).total > 0 && !roleMinimumConfirmed) {
     fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");

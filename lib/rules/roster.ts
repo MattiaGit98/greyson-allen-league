@@ -1,5 +1,5 @@
 import { result } from "./types";
-import { rosterSlotLimits } from "../roster-slot-limits";
+import { getRosterSlotLimits, type SlotCapacityConfig } from "../roster-slot-limits";
 
 export type SlotCounts = { regular: number; twoWay: number; gLeague: number; dpe: number };
 export type RoleCounts = { G: number; A: number; C: number };
@@ -23,7 +23,8 @@ export function countRosterRoles(
   }, { G: 0, A: 0, C: 0 });
 }
 
-export function validateSlots(slots: SlotCounts) {
+export function validateSlots(slots: SlotCounts, config: SlotCapacityConfig = {}) {
+  const rosterSlotLimits = getRosterSlotLimits(config);
   const limits: SlotCounts = { regular: rosterSlotLimits.regular, twoWay: rosterSlotLimits.two_way, gLeague: rosterSlotLimits.g_league, dpe: rosterSlotLimits.dpe };
   const errors = (Object.keys(limits) as (keyof SlotCounts)[])
     .filter((key) => slots[key] > limits[key])

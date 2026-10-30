@@ -6,7 +6,7 @@ import { salaryCapWarningsForSpaces } from "@/lib/cap-override";
 import { entriesForDpeAdjustedCap } from "@/lib/dpe-rules";
 import type { LeaguePhase, PlayerListEntry, RosterEntry } from "@/lib/league-types";
 import { type LeagueMoment } from "@/lib/league-moments";
-import { countActiveRosterSlots, rosterSlotLimits } from "@/lib/roster-slot-limits";
+import { countActiveRosterSlots, getRosterSlotLimits } from "@/lib/roster-slot-limits";
 import { normalizeRosterCorrectionContract, rosterCorrectionContractOptions } from "@/lib/roster-corrections";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
@@ -36,6 +36,7 @@ export function RosterCorrectionPanel({
   phase,
   leagueMoment,
   countTeamOptions,
+  twoWaySlotLimit,
 }: {
   teams: { code: string; name: string }[];
   entries: CorrectionEntry[];
@@ -44,6 +45,7 @@ export function RosterCorrectionPanel({
   phase: LeaguePhase;
   leagueMoment: LeagueMoment;
   countTeamOptions: boolean;
+  twoWaySlotLimit?: number;
 }) {
   const [teamCode, setTeamCode] = useState(teams[0]?.code ?? "");
   const [drafts, setDrafts] = useState<Record<number, Draft>>(() => Object.fromEntries(
@@ -71,9 +73,10 @@ export function RosterCorrectionPanel({
     phase,
     leagueMoment,
     countTeamOptions,
+    twoWaySlotLimit,
     addition,
     freeAgents,
-  }), [teamEntries, drafts, team?.code, seasonNames, seasonName, phase, leagueMoment, countTeamOptions, addition, freeAgents]);
+  }), [teamEntries, drafts, team?.code, seasonNames, seasonName, phase, leagueMoment, countTeamOptions, addition, freeAgents, twoWaySlotLimit]);
 
   const changeSort = (key: SortKey) => {
     setSort((current) => current.key === key
@@ -113,7 +116,7 @@ export function RosterCorrectionPanel({
           const activeCount = preview.projectedEntries.filter((entry) => placementOf(entry) === group.key).length;
           return (
             <section className="accordion-data-section roster-correction-section" key={group.key}>
-              <p>{group.label} ({activeCount}{group.limit ? `/${group.limit}` : ""})</p>
+              <p>{group.label} ({activeCount}{group.limit ? `/${group.key === "two_way" ? getRosterSlotLimits({ twoWaySlotLimit }).two_way : group.limit}` : ""})</p>
               <div className="roster-correction-table">
                 <div className="roster-correction-head">
                   <SortButton label="Giocatore" sortKey="name" sort={sort} onClick={changeSort} />
@@ -220,7 +223,7 @@ export function RosterCorrectionPanel({
           </div>
           <div className="auction-modal-summary operation-comparison-summary">
             <Metric label="Ruoli" value={`${formatRoles(preview.rolesBefore)} → ${formatRoles(preview.roles)}`} />
-            <Metric label="Slot" value={`${formatSlots(preview.slotsBefore)} → ${formatSlots(preview.slots)}`} />
+            <Metric label="Slot" value={`${formatSlots(preview.slotsBefore, twoWaySlotLimit)} → ${formatSlots(preview.slots, twoWaySlotLimit)}`} />
           </div>
           {preview.errors.map((error) => <p className="validation error" key={error}>{error}</p>)}
           {preview.roleWarnings.map((warning) => <p className="validation warning" key={warning}>{warning}</p>)}
@@ -253,6 +256,7 @@ function buildPreview({
   phase,
   leagueMoment,
   countTeamOptions,
+  twoWaySlotLimit,
   addition,
   freeAgents,
 }: {
@@ -264,9 +268,11 @@ function buildPreview({
   phase: LeaguePhase;
   leagueMoment: LeagueMoment;
   countTeamOptions: boolean;
+  twoWaySlotLimit?: number;
   addition: AdditionDraft;
   freeAgents: PlayerListEntry[];
 }) {
+  const rosterSlotLimits = getRosterSlotLimits({ twoWaySlotLimit });
   const errors: string[] = [];
   const corrections = teamEntries.flatMap((entry) => {
     const draft = drafts[entry.sourceIndex];
@@ -338,7 +344,7 @@ function buildPreview({
   const roleMinimumMissing = roleMinimumsApply
     ? missingRoles.G + missingRoles.A + missingRoles.C
     : 0;
-  const freeRoleRecoverySlots = Math.max(0, 15 - slots.regular) + Math.max(0, 2 - slots.two_way);
+  const freeRoleRecoverySlots = Math.max(0, 15 - slots.regular) + Math.max(0, rosterSlotLimits.two_way - slots.two_way);
   const roleMinimumSlotError = roleMinimumMissing > freeRoleRecoverySlots
     ? `Servono ${roleMinimumMissing} slot tra roster e Two-way per ripristinare i minimi di ruolo, ma ne restano ${freeRoleRecoverySlots}.`
     : null;
@@ -375,8 +381,8 @@ function formatRoles(roles: Record<"G" | "A" | "C", number>) {
   return `${roles.G}/5 G · ${roles.A}/5 A · ${roles.C}/3 C`;
 }
 
-function formatSlots(slots: ReturnType<typeof countActiveRosterSlots>) {
-  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`;
+function formatSlots(slots: ReturnType<typeof countActiveRosterSlots>, twoWaySlotLimit?: number) {
+  return `${slots.regular}/15 · ${slots.two_way}/${getRosterSlotLimits({ twoWaySlotLimit }).two_way} · ${slots.g_league}/3 · ${slots.dpe} DPE`;
 }
 
 function correctionOptionsForCurrentValue(

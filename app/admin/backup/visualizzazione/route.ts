@@ -38,6 +38,7 @@ export async function GET() {
     const seasonName = activeSeason.season.name;
     const exportedAt = new Date();
     const html = renderStaticLeagueHtml({
+      twoWaySlotLimit: leagueState.twoWaySlotLimit,
       exportedAt,
       seasonName,
       phaseName: phaseLabels[phase] ?? "Offseason",

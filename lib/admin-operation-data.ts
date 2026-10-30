@@ -59,6 +59,7 @@ export type AdminRosterTeam = {
 };
 
 export type AdminOperationContext = {
+  twoWaySlotLimit?: number;
   phase: string;
   seasonName: string;
   seasonEndYear: number;
@@ -101,6 +102,7 @@ export async function getAdminOperationContext(): Promise<AdminOperationContext>
 
   return {
     phase,
+    twoWaySlotLimit: leagueState.twoWaySlotLimit,
     seasonName,
     teamOptionsResolved,
     tradeDeadlinePassed,

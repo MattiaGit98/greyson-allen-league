@@ -7,12 +7,12 @@ import {
   defaultDraftDestinationForPrice,
   draftDestinationsForPrice,
   draftSlotAssignmentErrors,
-  draftSlotLimits,
   type DraftDestinationSlot,
   type DraftSlotCounts,
 } from "@/lib/draft-assignment";
 import { draftOverallPosition } from "@/lib/draft-rules";
 import { assignDraftPlayer } from "./actions";
+import { getRosterSlotLimits } from "@/lib/roster-slot-limits";
 
 type DraftPickRow = DraftAsset & {
   id: string;
@@ -24,6 +24,7 @@ type DraftPickRow = DraftAsset & {
 };
 
 export function DraftPanel({
+  twoWaySlotLimit,
   draftYear,
   picks,
   players,
@@ -32,6 +33,7 @@ export function DraftPanel({
   draftOpen,
   orderFinalized,
 }: {
+  twoWaySlotLimit?: number;
   draftYear: number | null;
   picks: DraftPickRow[];
   players: PlayerListEntry[];
@@ -40,6 +42,7 @@ export function DraftPanel({
   draftOpen: boolean;
   orderFinalized: boolean;
 }) {
+  const draftSlotLimits = getRosterSlotLimits({ twoWaySlotLimit });
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [destinations, setDestinations] = useState<Record<string, DraftDestinationSlot>>({});
   const [immediateExits, setImmediateExits] = useState<Record<string, boolean>>({});
@@ -69,6 +72,7 @@ export function DraftPanel({
             ? pick.price === 1 ? "immediate_release" : "immediate_cut"
             : requestedDestination;
           const slotErrors = pick.price === null ? [] : draftSlotAssignmentErrors({
+            twoWaySlotLimit,
             slot: destination,
             price: pick.price,
             counts: pick.slots,

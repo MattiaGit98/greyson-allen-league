@@ -2,6 +2,7 @@ import type { PlayerListEntry, QualifyingOfferRight, RosterEntry } from "@/lib/l
 import { advanceSeasonName, seasonEndYear } from "./season-time";
 import { contractAfterRosterExitForEntry, isAnnualTeamOptionContract, isRookieExtensionContract } from "./team-option-contract";
 import { orderPlayerListByRole } from "./player-list-order";
+import { futureTwoWaySlotLimit } from "./roster-slot-limits";
 
 export type LeagueAdvanceInput = {
   seasonName: string;
@@ -32,6 +33,7 @@ export function calculateLeagueAdvance(input: LeagueAdvanceInput) {
   const remainingOverflowByTeam = regularRosterOverflowByTeam(advance.rosterEntries);
   return {
     ...advance,
+    twoWaySlotLimit: futureTwoWaySlotLimit,
     scheduledCutPlayers: plan.validScheduledCuts.map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode })),
     invalidScheduledCutPlayers: plan.invalidScheduledCuts.map((entry) => ({ playerName: entry.name, teamCode: entry.teamCode })),
     excessiveScheduledCutsByTeam: plan.excessiveScheduledCutsByTeam,

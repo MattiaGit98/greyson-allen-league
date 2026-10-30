@@ -1,4 +1,5 @@
 import type { ActiveSeason } from "./active-season";
+import { getRosterSlotLimits } from "./roster-slot-limits";
 import type { EditableLeagueState } from "./league-state";
 import type { RosterEntry } from "./league-types";
 import type { RegulationArticle } from "./regulation";
@@ -89,6 +90,8 @@ export function buildPublicLeagueContext(state: EditableLeagueState, season: Pub
           ? { slotRosterDaLiberarePerReintegroDpe: overflow[team.code] } : {}),
         roster: publicSlot("regular"),
         twoWay: publicSlot("two_way"),
+        slotTwoWayUtilizzabili: getRosterSlotLimits(state).two_way,
+        ...(getRosterSlotLimits(state).two_way < 3 ? { terzoSlotTwoWay: "Disponibile dalla prossima stagione" } : {}),
         gLeague: publicSlot("g_league"),
         dpe: publicSlot("dpe"),
         tagliati: entries.filter((entry) => entry.state === "cut").map(publicPlayer),

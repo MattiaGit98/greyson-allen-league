@@ -92,7 +92,7 @@ export function applyPostAuctionContractDrafts({
     };
   });
   const affectedTeams = new Set([...draftsByKey.values()].map((draft) => draft.teamCode));
-  const slotErrors = findAllSlotOverflows(rosterEntries, affectedTeams).map(slotOverflowMessage);
+  const slotErrors = findAllSlotOverflows(rosterEntries, affectedTeams, state).map(slotOverflowMessage);
   if (slotErrors.length) throw new Error(slotErrors.join(" "));
 
   for (const entry of rosterEntries.filter((item) => draftsByKey.has(postAuctionContractDraftKey(item.teamCode, item.name)))) {

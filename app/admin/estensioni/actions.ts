@@ -8,6 +8,7 @@ import { calculateCapSpace, followingSeasonName, previousSeasonName, seasonEndYe
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { leagueMomentFromSeason, operationWindows } from "@/lib/league-moments";
 import { requireCapCompliance } from "@/lib/cap-override";
+import { contractExtensionCost } from "@/lib/contract-extension";
 
 const defaultPath = "/admin/altre-operazioni";
 
@@ -50,7 +51,7 @@ export async function applyContractExtension(formData: FormData) {
   if (entry.lastExtensionSeason === previousSeasonName(activeSeasonName)) {
     fail(path, "Il contratto è già stato esteso nella stagione precedente.");
   }
-  const newCost = Math.ceil(entry.cost * 1.25);
+  const newCost = contractExtensionCost(entry.cost);
   const rosterEntries = state.rosterEntries.map((item, itemIndex) => itemIndex === index ? {
     ...item,
     cost: newCost,

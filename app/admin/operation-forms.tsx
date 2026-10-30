@@ -13,9 +13,10 @@ import { legalSlotDestinations, slotEligibilityErrors, slotMoveTimingErrors } fr
 import { destinationAfterTeamOptionExercise } from "@/lib/team-option-contract";
 import type { PostAuctionContractDraft } from "@/lib/post-auction-contracts";
 import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
-import { rosterSlotLimits } from "@/lib/roster-slot-limits";
+import { rosterSlotLimits, getRosterSlotLimits } from "@/lib/roster-slot-limits";
 
 type OperationProps = {
+  twoWaySlotLimit?: number;
   phase: string;
   seasonName: string;
   seasonEndYear: number;
@@ -51,8 +52,8 @@ function slotLabel(slot: Slot) {
   return "Roster";
 }
 
-function formatSlots(slots: Record<Slot, number>) {
-  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`;
+function formatSlots(slots: Record<Slot, number>, twoWaySlotLimit?: number) {
+  return `${slots.regular}/15 · ${slots.two_way}/${getRosterSlotLimits({ twoWaySlotLimit }).two_way} · ${slots.g_league}/3 · ${slots.dpe} DPE`;
 }
 
 function formatRoles(roles: Record<"G" | "A" | "C", number>) {
@@ -108,6 +109,7 @@ function Validation({ errors, warnings = [] }: { errors: string[]; warnings?: st
 }
 
 export function TeamOptionForm(props: OperationProps) {
+  const slotLimits = getRosterSlotLimits(props);
   const [teamCode, setTeamCode] = useState(props.teams[0]?.code ?? "");
   const [decisions, setDecisions] = useState<Record<string, "exercise" | "decline">>({});
   const [gLeagueDestinations, setGLeagueDestinations] = useState<Record<string, "two_way" | "regular">>({});
@@ -162,7 +164,7 @@ export function TeamOptionForm(props: OperationProps) {
       ? ["I contratti da rookie si possono risolvere soltanto in Offseason — prima della relativa scadenza."]
       : []),
     ...(after.regular > slotLimits.regular ? ["Le decisioni selezionate superano i 15 slot roster."] : []),
-    ...(after.two_way > slotLimits.two_way ? ["Le decisioni selezionate superano i 2 slot Two-way."] : []),
+    ...(after.two_way > slotLimits.two_way ? [`Le decisioni selezionate superano i ${slotLimits.two_way} slot Two-way.`] : []),
     ...(after.g_league > slotLimits.g_league ? ["Le decisioni selezionate superano i 3 slot G-League."] : []),
   ];
   const capWarnings = [
@@ -273,7 +275,7 @@ export function TeamOptionForm(props: OperationProps) {
             <Metric label={`Cap libero ${followingSeasonName}`} value={`${formatSpace(team?.followingSpace ?? 0)} → ${formatSpace(followingSpaceAfter)}`} />
           </div>
           <div className="auction-modal-summary operation-comparison-summary">
-            <Metric label="Slot" value={`${formatSlots(before)} → ${formatSlots(after)}`} />
+            <Metric label="Slot" value={`${formatSlots(before, props.twoWaySlotLimit)} → ${formatSlots(after, props.twoWaySlotLimit)}`} />
             <Metric label="Ruoli" value={`${formatRoles(rolesBefore)} → ${formatRoles(rolesAfter)}`} />
           </div>
         </>}
@@ -356,6 +358,7 @@ export function PlayoffTeamOptionForm(props: OperationProps) {
 
 
 export function SlotMoveForm(props: OperationProps) {
+  const slotLimits = getRosterSlotLimits(props);
   const [teamCode, setTeamCode] = useState(props.teams[0]?.code ?? "");
   const [destinations, setDestinations] = useState<Record<string, Exclude<Slot, "dpe">>>({});
   const team = props.teams.find((item) => item.code === teamCode) ?? props.teams[0];
@@ -392,7 +395,7 @@ export function SlotMoveForm(props: OperationProps) {
   const rolesBefore = roleCounts(team, props.leagueMoment);
   const slotGroups: { slot: Exclude<Slot, "dpe">; label: string; limit: number }[] = [
     { slot: "regular", label: "Roster", limit: 15 },
-    { slot: "two_way", label: "Two-way", limit: 2 },
+    { slot: "two_way", label: "Two-way", limit: slotLimits.two_way },
     { slot: "g_league", label: "G-League", limit: 3 },
   ];
 
@@ -470,7 +473,7 @@ export function SlotMoveForm(props: OperationProps) {
               {capSeasonNames.map((seasonName, index) => <Metric label={`Cap libero ${seasonName}`} value={`${formatSpace(capSpaces[index])} → ${formatSpace(capSpaces[index])}`} key={seasonName} />)}
             </div>
             <div className="auction-modal-summary operation-comparison-summary">
-              <Metric label="Slot" value={`${formatSlots(before)} → ${formatSlots(after)}`} />
+              <Metric label="Slot" value={`${formatSlots(before, props.twoWaySlotLimit)} → ${formatSlots(after, props.twoWaySlotLimit)}`} />
               <Metric label="Ruoli" value={`${formatRoles(rolesBefore)} → ${formatRoles(rolesBefore)}`} />
               <Metric label="Spostamenti" value={selectedMoves.length} />
             </div>

@@ -56,6 +56,7 @@ export default async function TradeSimulatorPage() {
     );
     return {
       code: team.code,
+      twoWaySlotLimit: leagueState.twoWaySlotLimit,
       name: team.name,
       stretchContracts: stretchContracts.filter((entry) => entry.teamCode === team.code),
       currentSeasonName: seasonName,

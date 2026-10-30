@@ -11,11 +11,13 @@ import type {
 } from "@/lib/history-competitions";
 import { calculateCapSpace, followingSeasonName } from "./season-time";
 import type { LeagueMoment } from "./league-moments";
+import { getRosterSlotLimits } from "./roster-slot-limits";
 import { dpeCountsForRoleMinimums } from "./role-minimums";
 import { countRosterRoles } from "./rules/roster";
 import { entriesForDpeAdjustedCap, shouldShowDpeNoReintegrationBadge } from "./dpe-rules";
 
 export type StaticLeagueHtmlInput = {
+  twoWaySlotLimit?: number;
   exportedAt: Date;
   seasonName: string;
   phaseName: string;
@@ -80,7 +82,8 @@ function renderTeams(input: StaticLeagueHtmlInput) {
         <div class="cap"><span>Cap libero ${e(capSeasons[0])}</span><strong>${caps[0]}</strong></div>
         <div class="metrics"><div><span>Cap libero ${e(capSeasons[1])}</span><b>${caps[1]}</b></div><div><span>Cap libero ${e(capSeasons[2])}</span><b>${caps[2]}</b></div><div><span>Ruoli</span><b>${roles.G} G / ${roles.A} A / ${roles.C} C</b></div></div>
         ${renderRosterGroup(`Roster (${regular.length}/15)`, regular)}
-        ${renderRosterGroup(`Two-way (${twoWay.length}/2)`, twoWay)}
+        ${renderRosterGroup(`Two-way (${twoWay.length}/${getRosterSlotLimits(input).two_way})`, twoWay)}
+        ${getRosterSlotLimits(input).two_way < 3 ? '<p class="two-way-reserved-slot">3° slot · Disponibile dalla prossima stagione</p>' : ""}
         ${renderRosterGroup(`G-League (${gLeague.length}/3)`, gLeague)}
         ${renderDraftAssets(assets, nextDraftYear)}
         ${renderRosterGroup("Disabled player exception", dpe, false, input.leagueMoment)}

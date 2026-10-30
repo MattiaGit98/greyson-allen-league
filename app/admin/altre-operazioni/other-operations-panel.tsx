@@ -22,6 +22,8 @@ import {
 } from "@/lib/free-release";
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { canReintegrateDpe, dpeRequirementsConfirmation } from "@/lib/dpe-rules";
+import { contractExtensionCost } from "@/lib/contract-extension";
+import { getRosterSlotLimits } from "@/lib/roster-slot-limits";
 import { dpeCountsForRoleMinimums, roleMinimumChecksApply } from "@/lib/role-minimums";
 import { applyScheduledSeasonEndCut } from "@/app/admin/tagli-programmati/actions";
 import { roleMinimumDeficits, roleMinimums } from "@/lib/rules/roster";
@@ -60,7 +62,7 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
               .sort((left, right) => right.cost - left.cost || left.name.localeCompare(right.name, "it"));
             return (
               <section className="accordion-data-section other-operations-section" key={group.key}>
-                <p>{group.label}{group.limit ? ` (${rows.length}/${group.limit})` : group.key === "dpe" ? ` (${rows.length})` : ""}</p>
+                <p>{group.label}{group.limit ? ` (${rows.length}/${group.key === "two_way" ? getRosterSlotLimits(props).two_way : group.limit})` : group.key === "dpe" ? ` (${rows.length})` : ""}</p>
                 <div className="other-operations-table">
                   <div className="other-operations-head"><span>Giocatore</span><span>{group.key === "cut" ? "Stretch" : "Ruolo"}</span><span>Scadenza</span><span>Costo</span><span></span></div>
                   {rows.map((player) => {
@@ -201,7 +203,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
           {preview.spacesAfter.map((space, index) => <Metric label={`Cap libero ${seasonNameAt(props.seasonName, index)}`} value={`${preview.spacesBefore[index]} → ${space}`} key={index} />)}
         </div>
         <div className="auction-modal-summary other-operation-summary">
-          <Metric label="Slot" value={`${formatSlots(preview.slotsBefore)} → ${formatSlots(preview.slotsAfter)}`} />
+          <Metric label="Slot" value={`${formatSlots(preview.slotsBefore, props.twoWaySlotLimit)} → ${formatSlots(preview.slotsAfter, props.twoWaySlotLimit)}`} />
           <Metric label="Ruoli" value={`${formatRoles(preview.rolesBefore)} → ${formatRoles(preview.rolesAfter)}`} />
           {(operation === "schedule_cut" || operation === "cancel_scheduled_cut") && (
             <Metric
@@ -209,7 +211,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
               value={`${team.seasonEndProjectedRegularSlotsAfterScheduledCuts} → ${team.seasonEndProjectedRegularSlotsAfterScheduledCuts + (operation === "schedule_cut" ? -1 : player.seasonEndCutEligible ? 1 : 0)}/15`}
             />
           )}
-          {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${Math.ceil(player.cost * 1.25)}`} />}
+          {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${contractExtensionCost(player.cost)}`} />}
           {operation === "buyout" && <Metric label="Nuovo contratto" value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
           {operation === "stretch" && <Metric label="Rata" value={preview.installment ?? "—"} />}
           {effectiveCutStretchYears !== null && <Metric label="Stretch provision" value={`${effectiveCutStretchYears} rate da ${preview.cutEntry?.cost} · scad. ${preview.cutEntry?.contract}`} />}
@@ -270,7 +272,7 @@ function operationPreview(
   let spacesAfter: ThreeYearValues = [...spacesBefore];
   let installment: number | undefined;
   if (operation === "extension") {
-    const newCost = Math.ceil(player.cost * 1.25);
+    const newCost = contractExtensionCost(player.cost);
     spacesAfter = [0, 1, 2].map((index) => {
       const targetEndYear = props.seasonEndYear + index;
       const excludedByCurrentDpe = index === 0 && player.slot === "dpe";
@@ -352,7 +354,7 @@ function operationPreview(
     }
   }
   if (slotsAfter.regular > 15) errors.push("Sono superati i 15 slot roster.");
-  if (slotsAfter.two_way > 2) errors.push("Sono superati i 2 slot Two-way.");
+  if (slotsAfter.two_way > getRosterSlotLimits(props).two_way) errors.push(`Sono superati i ${getRosterSlotLimits(props).two_way} slot Two-way.`);
   if (slotsAfter.g_league > 3) errors.push("Sono superati i 3 slot G-League.");
   let roleMinimumMissing = 0;
   if (roleMinimumChecksApply(props.phase as LeaguePhase, props.leagueMoment) && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
@@ -364,7 +366,7 @@ function operationPreview(
       );
     }
   }
-  const freeRoleRecoverySlots = Math.max(0, 15 - slotsAfter.regular) + Math.max(0, 2 - slotsAfter.two_way);
+  const freeRoleRecoverySlots = Math.max(0, 15 - slotsAfter.regular) + Math.max(0, getRosterSlotLimits(props).two_way - slotsAfter.two_way);
   const roleMinimumSlotError = roleMinimumMissing > 0
     && roleMinimumMissing > freeRoleRecoverySlots
     ? `Servono ${roleMinimumMissing} slot tra roster e Two-way per ripristinare i minimi di ruolo, ma ne restano ${freeRoleRecoverySlots}.`
@@ -432,7 +434,7 @@ function roleCounts(team: AdminRosterTeam, leagueMoment?: LeagueMoment) {
 function placementOf(player: AdminRosterPlayer): Slot | "cut" { return player.state === "cut" ? "cut" : player.slot; }
 function placementLabel(player: AdminRosterPlayer) { return player.state === "cut" ? "Tagliato" : slotLabel(player.slot); }
 function slotLabel(slot: Slot) { return slot === "regular" ? "Roster" : slot === "two_way" ? "Two-way" : slot === "g_league" ? "G-League" : "DPE"; }
-function formatSlots(slots: Record<Slot, number>) { return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`; }
+function formatSlots(slots: Record<Slot, number>, twoWaySlotLimit?: number) { return `${slots.regular}/15 · ${slots.two_way}/${getRosterSlotLimits({ twoWaySlotLimit }).two_way} · ${slots.g_league}/3 · ${slots.dpe} DPE`; }
 function formatRoles(roles: Record<"G" | "A" | "C", number>) { return `${roles.G} G · ${roles.A} A · ${roles.C} C`; }
 function seasonNameAt(name: string, distance: number) { const start = Number(name.slice(0, 4)) + distance; return `${start}/${String((start + 1) % 100).padStart(2, "0")}`; }
 function formatTeamName(name: string) { return name.toLocaleLowerCase("it-IT").replace(/(^|[\s'-])\p{L}/gu, (letter) => letter.toLocaleUpperCase("it-IT")); }

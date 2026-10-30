@@ -14,6 +14,7 @@ import {
 } from "./post-auction-contracts";
 import { isRookieExtensionDecisionDue } from "./team-option-contract";
 import { seasonEndYear } from "./season-time";
+import { getRosterSlotLimits, futureTwoWaySlotLimit } from "./roster-slot-limits";
 
 export type LeagueTransitionPreview = {
   transition: LeagueTransition;
@@ -112,6 +113,7 @@ export function buildLeagueTransitionPreview(input: {
         qualifyingOfferRights: input.state.qualifyingOfferRights,
         playerList: input.state.playerList,
       });
+      if (getRosterSlotLimits(input.state).two_way < futureTwoWaySlotLimit) preview.automaticActions.push(`Gli slot Two-way utilizzabili passeranno a ${futureTwoWaySlotLimit} per squadra.`);
       preview.automaticActions.push(`${advance.expiredContracts} contratti in scadenza saranno rimossi.`);
       preview.automaticActions.push(`${advance.generatedQualifyingOffers} diritti di Q.O. saranno generati.`);
       preview.automaticActions.push(`${advance.pendingRookieExtensions} contratti resteranno in attesa della decisione sulla rookie extension.`);

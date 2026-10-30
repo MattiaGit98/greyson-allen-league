@@ -1,6 +1,7 @@
 import type { LeaguePhase, RosterEntry } from "./league-types";
 import { hasReachedMoment, type LeagueMoment } from "./league-moments";
 import { countRosterRoles, roleMinimumDeficits } from "./rules/roster";
+import { getRosterSlotLimits, type SlotCapacityConfig } from "./roster-slot-limits";
 
 export type RoleMinimumShortage = { G: number; A: number; C: number; total: number };
 
@@ -39,21 +40,21 @@ export function roleMinimumAffectedTeamCodes(before: RosterEntry[], after: Roste
   ));
 }
 
-export function roleMinimumRecoverySlotError(shortage: RoleMinimumShortage, slots: { regular: number; twoWay: number }) {
-  const freeSlots = Math.max(0, 15 - slots.regular) + Math.max(0, 2 - slots.twoWay);
+export function roleMinimumRecoverySlotError(shortage: RoleMinimumShortage, slots: { regular: number; twoWay: number }, config: SlotCapacityConfig = {}) {
+  const freeSlots = Math.max(0, 15 - slots.regular) + Math.max(0, getRosterSlotLimits(config).two_way - slots.twoWay);
   return shortage.total > freeSlots
     ? `Servono ${shortage.total} slot tra roster e Two-way per ripristinare i minimi di ruolo, ma ne restano ${freeSlots}.`
     : null;
 }
 
-export function roleMinimumRecoverySlotErrorForEntries(entries: RosterEntry[], phase: LeaguePhase, moment?: LeagueMoment) {
+export function roleMinimumRecoverySlotErrorForEntries(entries: RosterEntry[], phase: LeaguePhase, moment?: LeagueMoment, config: SlotCapacityConfig = {}) {
   const slots = entries
     .filter((entry) => entry.state === "active")
     .reduce((counts, entry) => ({
       regular: counts.regular + Number(entry.slot === "regular"),
       twoWay: counts.twoWay + Number(entry.slot === "two_way"),
     }), { regular: 0, twoWay: 0 });
-  return roleMinimumRecoverySlotError(roleMinimumShortage(entries, phase, moment), slots);
+  return roleMinimumRecoverySlotError(roleMinimumShortage(entries, phase, moment), slots, config);
 }
 
 function activeRoleRosterSnapshot(entries: RosterEntry[], teamCode: string) {

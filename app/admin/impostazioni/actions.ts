@@ -203,6 +203,7 @@ async function performLeagueSeasonAdvance(
     const nextState = {
       ...state,
       rosterEntries: advance.rosterEntries,
+      twoWaySlotLimit: advance.twoWaySlotLimit,
       qualifyingOfferRights: advance.qualifyingOfferRights,
       playerList: advance.playerList,
       playerListStatus: "offseason" as const,

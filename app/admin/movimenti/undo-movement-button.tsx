@@ -4,6 +4,7 @@ import { useState } from "react";
 import { prepareMovementReversal, revertMovement } from "./actions";
 
 type ReversalPreviewTeam = {
+  twoWaySlotLimit?: number;
   code: string;
   name: string;
   slotsBefore: SlotCounts;
@@ -98,7 +99,7 @@ export function UndoMovementButton({
                   </div>
                   <div className="auction-modal-summary operation-comparison-summary">
                     <Metric label="Ruoli" value={`${formatRoles(team.rolesBefore)} → ${formatRoles(team.rolesAfter)}`} />
-                    <Metric label="Slot" value={`${formatSlots(team.slotsBefore)} → ${formatSlots(team.slotsAfter)}`} />
+                    <Metric label="Slot" value={`${formatSlots(team.slotsBefore, team.twoWaySlotLimit)} → ${formatSlots(team.slotsAfter, team.twoWaySlotLimit)}`} />
                   </div>
                 </article>
               ))}
@@ -139,6 +140,6 @@ function formatRoles(roles: RoleCounts) {
   return `${roles.G}/5 G · ${roles.A}/5 A · ${roles.C}/3 C`;
 }
 
-function formatSlots(slots: SlotCounts) {
-  return `${slots.regular}/15 · ${slots.two_way}/2 · ${slots.g_league}/3 · ${slots.dpe} DPE`;
+function formatSlots(slots: SlotCounts, twoWaySlotLimit = 2) {
+  return `${slots.regular}/15 · ${slots.two_way}/${twoWaySlotLimit} · ${slots.g_league}/3 · ${slots.dpe} DPE`;
 }

@@ -36,6 +36,7 @@ export default async function FreeAgentPage({ searchParams }: { searchParams: Pr
 
   const teamOptions = leagueState.teams.map((team) => ({
     code: team.code,
+    twoWaySlotLimit: leagueState.twoWaySlotLimit,
     name: team.name,
     currentCost: 1000 - calculateCapSpace({
       entries: leagueState.rosterEntries.filter((entry) => entry.teamCode === team.code && (entry.state !== "active" || entry.slot !== "dpe")),

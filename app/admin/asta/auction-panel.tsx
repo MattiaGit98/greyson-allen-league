@@ -7,11 +7,11 @@ import {
   isPostAuctionContractAssignmentCandidate,
   isAuctionablePlayerRole,
   qualifyingAuctionErrors,
-  auctionSlotLimits,
   type AuctionSlot,
   type QualifyingAuctionOutcome,
 } from "@/lib/auction-management";
 import type { AuctionAcquisitionKind } from "@/lib/league-types";
+import { getRosterSlotLimits } from "@/lib/roster-slot-limits";
 import { contractIncludesTeamOption, slotEligibilityErrors, slotMoveTimingErrors, type ManagedRosterSlot } from "@/lib/slot-eligibility";
 import { CapBlocker } from "@/app/admin/cap-force-control";
 import { ContextualSlotResolver } from "@/app/admin/contextual-slot-resolver";
@@ -21,6 +21,7 @@ import { annualTeamOptionContract, contractAfterRosterExit } from "@/lib/team-op
 import { modifyAuctionPlayer, purchaseAuctionPlayer } from "./actions";
 
 type AuctionTeam = {
+  twoWaySlotLimit?: number;
   code: string;
   name: string;
   spaces: [number, number, number];
@@ -90,7 +91,7 @@ export function AuctionPanel({
   assignmentUndos: Record<string, {
     movementId: string;
     summary: string;
-    preview: { code: string; name: string; slotsBefore: { regular: number; two_way: number; g_league: number; dpe: number }; slotsAfter: { regular: number; two_way: number; g_league: number; dpe: number }; rolesBefore: { G: number; A: number; C: number }; rolesAfter: { G: number; A: number; C: number }; capSpaces: { seasonName: string; before: number; after: number }[] }[];
+    preview: { code: string; name: string; twoWaySlotLimit?: number; slotsBefore: { regular: number; two_way: number; g_league: number; dpe: number }; slotsAfter: { regular: number; two_way: number; g_league: number; dpe: number }; rolesBefore: { G: number; A: number; C: number }; rolesAfter: { G: number; A: number; C: number }; capSpaces: { seasonName: string; before: number; after: number }[] }[];
     roleMinimumConfirmationRequired: boolean;
     disabled: boolean;
   }>;
@@ -223,6 +224,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     moveDestinations: player.moveDestinations,
   }));
   const slotResolution = resolveContextualSlots({
+    twoWaySlotLimit: team?.twoWaySlotLimit,
     counts: team?.slots ?? { regular: 0, two_way: 0, g_league: 0 },
     incomingSlot: effectiveSlot,
     players: slotResolutionPlayers,
@@ -271,7 +273,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
     if (futureSpaces.some((space) => space < 0)) capWarnings.push("La stretch provision contestuale non rispetta il cap delle stagioni future.");
   }
   const afterSlots = team ? slotResolution.countsAfter : null;
-  const slotLimit = effectiveSlot === "regular" ? 15 : effectiveSlot === "two_way" ? 2 : 3;
+  const slotLimit = getRosterSlotLimits(team ?? {})[effectiveSlot];
   const slotErrors = slotResolution.errors;
   const qoTeam = row.qualifying ? teams.find((item) => item.code === row.qualifying?.teamCode) : null;
 
@@ -331,6 +333,7 @@ function PurchasePlayerDialog({ row, teams, phase, seasonName, pendingDraftPicks
         </div>
 
         <ContextualSlotResolver
+          twoWaySlotLimit={team?.twoWaySlotLimit}
           counts={team?.slots ?? { regular: 0, two_way: 0, g_league: 0 }}
           incomingSlot={effectiveSlot}
           players={slotResolutionPlayers}
@@ -372,6 +375,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
     }
     : { regular: 0, two_way: 0, g_league: 0 };
   const slotResolution = resolveContextualSlots({
+    twoWaySlotLimit: team?.twoWaySlotLimit,
     counts: slotResolutionBaseCounts,
     incomingSlot: newSlot,
     players: slotResolutionPlayers,
@@ -456,6 +460,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
         </div>
         {kind === "slot" && (
           <ContextualSlotResolver
+          twoWaySlotLimit={team?.twoWaySlotLimit}
             counts={slotResolutionBaseCounts}
             incomingSlot={newSlot}
             players={slotResolutionPlayers}
@@ -470,7 +475,7 @@ function EditPlayerDialog({ row, rows, teams, phase, seasonName, pendingDraftPic
           {kind === "slot" && team && slotsAfterMove && slotSummarySlots.map((slot) => (
             <Metric
               label={`Slot ${slotLabel(slot)}`}
-              value={`${team.slots[slot]}/${auctionSlotLimits[slot]} → ${slotsAfterMove[slot]}/${auctionSlotLimits[slot]}`}
+              value={`${team.slots[slot]}/${getRosterSlotLimits(team ?? {})[slot]} → ${slotsAfterMove[slot]}/${getRosterSlotLimits(team ?? {})[slot]}`}
               key={slot}
             />
           ))}

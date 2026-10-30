@@ -14,6 +14,7 @@ import {
   type QualifyingAuctionOutcome,
 } from "@/lib/auction-management";
 import type { RosterEntry } from "@/lib/league-types";
+import { getRosterSlotLimits, type SlotCapacityConfig } from "@/lib/roster-slot-limits";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
@@ -82,6 +83,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     entry.teamCode === teamCode && entry.state === "active" && entry.slot !== "dpe"
   ));
   const slotResolution = resolveContextualSlots({
+    twoWaySlotLimit: state.twoWaySlotLimit,
     counts: {
       regular: teamActiveEntries.filter((entry) => entry.slot === "regular").length,
       two_way: teamActiveEntries.filter((entry) => entry.slot === "two_way").length,
@@ -159,7 +161,7 @@ export async function purchaseAuctionPlayer(formData: FormData) {
     }),
     rosterEntry,
   ];
-  const overflow = slotOverflow(rosterEntries, teamCode);
+  const overflow = slotOverflow(rosterEntries, teamCode, state);
   if (overflow.length) fail(`L'acquisto supera i limiti degli slot: ${overflow.join("; ")}. Seleziona un giocatore da tagliare.`);
   const afterSpace = capSpaces(rosterEntries, teamCode, season.name)[0];
   const capWarnings = afterSpace < 0 && price > 1
@@ -308,6 +310,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
       && item.slot !== "dpe"
     ));
     const slotResolution = resolveContextualSlots({
+    twoWaySlotLimit: state.twoWaySlotLimit,
       counts: {
         regular: remainingTeamEntries.filter((item) => item.slot === "regular").length,
         two_way: remainingTeamEntries.filter((item) => item.slot === "two_way").length,
@@ -365,7 +368,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
       return item;
     });
 
-    const overflow = slotOverflow(rosterEntries, requestedTeamCode);
+    const overflow = slotOverflow(rosterEntries, requestedTeamCode, state);
     if (overflow.length) {
       fail(`Lo spostamento supera i limiti degli slot: ${overflow.join("; ")}. Completa la sequenza necessaria per liberarli.`);
     }
@@ -402,7 +405,7 @@ export async function modifyAuctionPlayer(formData: FormData) {
     kind === "cut" ? "cut" : kind === "free_release" ? "free_release" : "spostamento_slot",
     capOverrideSummary(`${playerName}: ${detail}`, capWarnings, false),
   );
-  const overflow = slotOverflow(rosterEntries, requestedTeamCode);
+  const overflow = slotOverflow(rosterEntries, requestedTeamCode, state);
   success(`${playerName}: ${detail}.${overflow.length ? ` Attenzione: ${overflow.join("; ")}.` : ""}`, onlyAuctionable);
 }
 
@@ -462,15 +465,15 @@ function capSpaces(entries: RosterEntry[], teamCode: string, seasonName: string)
   })) as [number, number, number];
 }
 
-function slotOverflow(entries: RosterEntry[], teamCode: string) {
+function slotOverflow(entries: RosterEntry[], teamCode: string, config: SlotCapacityConfig) {
   const active = entries.filter((entry) => entry.teamCode === teamCode && entry.state === "active");
   const counts = {
     regular: active.filter((entry) => entry.slot === "regular").length,
     two_way: active.filter((entry) => entry.slot === "two_way").length,
     g_league: active.filter((entry) => entry.slot === "g_league").length,
   };
-  const limits = { regular: 15, two_way: 2, g_league: 3 };
-  return (Object.keys(limits) as AuctionSlot[])
+  const limits = getRosterSlotLimits(config);
+  return (["regular", "two_way", "g_league"] as AuctionSlot[])
     .filter((slot) => counts[slot] > limits[slot])
     .map((slot) => `${slotLabel(slot)} ${counts[slot]}/${limits[slot]}`);
 }

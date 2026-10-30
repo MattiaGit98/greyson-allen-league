@@ -13,12 +13,6 @@ export type AuctionSlotCounts = Record<AuctionSlot, number>;
 export type QualifyingAuctionOutcome = "normal" | AuctionAcquisitionKind;
 export type PostAuctionContractKind = "annual" | "biennial" | "triennial" | "team_option";
 
-export const auctionSlotLimits: AuctionSlotCounts = {
-  regular: 15,
-  two_way: 2,
-  g_league: 3,
-};
-
 export function isAuctionablePlayerRole(role: PlayerListEntry["role"]) {
   return role !== "X";
 }

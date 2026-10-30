@@ -18,7 +18,7 @@ import {
 } from "./post-auction-contracts";
 import { annualTeamOptionExpiryYear, isRookieExtensionDecisionDue } from "./team-option-contract";
 import { freeReleaseReasonAvailability } from "./free-release";
-import { rosterSlotLimits } from "./roster-slot-limits";
+import { getRosterSlotLimits } from "./roster-slot-limits";
 
 export type PreAdvanceAlertTone = "blocker" | "warning" | "info";
 
@@ -442,7 +442,7 @@ function addStructuralAlerts(
   seasonName: string,
   state: EditableLeagueState,
 ) {
-  const limits = rosterSlotLimits;
+  const limits = getRosterSlotLimits(state);
   const overflows = state.teams.flatMap((team) => {
     const active = state.rosterEntries.filter((entry) => entry.teamCode === team.code && entry.state === "active");
     return (Object.keys(limits) as (keyof typeof limits)[]).flatMap((slot) => {

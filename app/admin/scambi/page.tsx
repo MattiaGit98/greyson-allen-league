@@ -81,6 +81,7 @@ export default async function TradesPage({
     );
     return {
       code: team.code,
+      twoWaySlotLimit: leagueState.twoWaySlotLimit,
       name: team.name,
       stretchContracts: stretchContracts.filter((entry) => entry.teamCode === team.code),
       currentSeasonName: seasonName,

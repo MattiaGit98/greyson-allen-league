@@ -1,6 +1,6 @@
 import type { EditableLeagueState } from "./league-state";
 import type { LeagueMoment } from "./league-moments";
-import { countActiveRosterSlots } from "./roster-slot-limits";
+import { countActiveRosterSlots, getRosterSlotLimits } from "./roster-slot-limits";
 import { calculateCapSpace, followingSeasonName } from "./season-time";
 import { entriesForDpeAdjustedCap } from "./dpe-rules";
 import { dpeCountsForRoleMinimums } from "./role-minimums";
@@ -27,6 +27,7 @@ export function movementReversalPreview({
     const team = restored.teams.find((item) => item.code === teamCode) ?? current.teams.find((item) => item.code === teamCode);
     return [{
       code: teamCode,
+      twoWaySlotLimit: getRosterSlotLimits(current).two_way,
       name: team?.name ?? teamCode,
       slotsBefore: countActiveRosterSlots(current.rosterEntries, teamCode),
       slotsAfter: countActiveRosterSlots(restored.rosterEntries, teamCode),

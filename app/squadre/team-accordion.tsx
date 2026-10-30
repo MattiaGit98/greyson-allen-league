@@ -5,6 +5,7 @@ import type { DraftAsset, PlayerListEntry, QualifyingOfferRight, RosterEntry, Te
 import { calculateCapSpace, followingSeasonName } from "@/lib/season-time";
 import { entriesForDpeAdjustedCap, shouldShowDpeBadge, shouldShowDpeNoReintegrationBadge } from "@/lib/dpe-rules";
 import type { LeagueMoment } from "@/lib/league-moments";
+import { getRosterSlotLimits } from "@/lib/roster-slot-limits";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
 import { hasVisibleFourthDraftClause, isFourthDraftPick, publicDraftCondition as draftCondition } from "@/lib/future-draft-picks";
@@ -38,6 +39,7 @@ const sectionLabels: Record<DataSectionKey, string> = {
 };
 
 export function TeamAccordion({
+  twoWaySlotLimit,
   teams,
   rosterEntries,
   draftAssets,
@@ -59,6 +61,7 @@ export function TeamAccordion({
   recentAuctionCalls,
   showAuctionCallPanels,
 }: {
+  twoWaySlotLimit?: number;
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
   draftAssets: DraftAsset[];
@@ -472,6 +475,7 @@ export function TeamAccordion({
             </button>
             {expanded && (
               <TeamDetails
+                twoWaySlotLimit={twoWaySlotLimit}
                 entries={rosterEntries.filter((entry) => entry.teamCode === team.code)}
                 assets={displayedDraftAssets.filter((asset) => asset.teamCode === team.code)}
                 allDraftAssets={draftAssets}
@@ -520,6 +524,7 @@ function CapCurrent({ value, scale }: { value: number; scale: number }) {
 }
 
 function TeamDetails({
+  twoWaySlotLimit,
   entries,
   assets,
   allDraftAssets,
@@ -540,6 +545,7 @@ function TeamDetails({
   openSections,
   toggleSection,
 }: {
+  twoWaySlotLimit?: number;
   entries: RosterEntry[];
   assets: DraftAsset[];
   allDraftAssets: DraftAsset[];
@@ -606,8 +612,9 @@ function TeamDetails({
         <SimplePlayerTable entries={regular} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
       </DataSection>
 
-      <DataSection tone="two_way" label={`Two-way (${twoWay.length}/2)`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
+      <DataSection tone="two_way" label={`Two-way (${twoWay.length}/${getRosterSlotLimits({ twoWaySlotLimit }).two_way})`} expanded={openSections.includes("two_way")} onToggle={() => toggleSection("two_way")}>
         <SimplePlayerTable entries={twoWay} seasonName={capSeasonName} leagueMoment={leagueMoment} playerList={playerList} pendingAuctionContracts={pendingAuctionContracts} sort={sort} onSort={changeSort} />
+        {getRosterSlotLimits({ twoWaySlotLimit }).two_way < 3 && <div className="two-way-reserved-slot">3° slot · Disponibile dalla prossima stagione</div>}
       </DataSection>
 
       <DataSection tone="g_league" label={`G-League (${gLeague.length}/3)`} expanded={openSections.includes("g_league")} onToggle={() => toggleSection("g_league")}>

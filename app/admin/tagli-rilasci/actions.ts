@@ -101,7 +101,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   }
 
   const teamRosterAfter = rosterEntries.filter((item) => item.teamCode === teamCode);
-  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, season.status, leagueMoment);
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, season.status, leagueMoment, state);
   if (roleMinimumSlotError) operationError(returnPath, roleMinimumSlotError);
   if (roleMinimumShortage(teamRosterAfter, season.status, leagueMoment).total > 0 && !roleMinimumConfirmed) {
     operationError(returnPath, "Conferma il ripristino obbligatorio dei minimi di ruolo.");

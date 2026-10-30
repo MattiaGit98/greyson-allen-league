@@ -77,7 +77,7 @@ export async function prepareMovementReversal(movementId: string) {
       if (capErrors.length) return { ok: false, reason: `${capErrors.join(" ")} L'annullamento non rispetterebbe il salary cap.` } as const;
       const roleSlotErrors = roleMinimumAffectedTeamCodes(current.rosterEntries, restored.rosterEntries)
         .flatMap((teamCode) => {
-          const error = roleMinimumRecoverySlotErrorForEntries(restored.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, currentMoment);
+          const error = roleMinimumRecoverySlotErrorForEntries(restored.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, currentMoment, current);
           return error ? [`${teamCode}: ${error}`] : [];
         });
       if (roleSlotErrors.length) return { ok: false, reason: `${roleSlotErrors.join(" ")} L'annullamento non lascerebbe slot sufficienti per ripristinare i ruoli.` } as const;
@@ -154,7 +154,7 @@ export async function revertMovement(formData: FormData) {
   if (!isAuctionAssignmentUndo) {
   const roleMinimumSlotErrors = roleMinimumAffectedTeamCodes(current.rosterEntries, restored.rosterEntries)
     .flatMap((teamCode) => {
-      const error = roleMinimumRecoverySlotErrorForEntries(restored.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, currentMoment);
+      const error = roleMinimumRecoverySlotErrorForEntries(restored.rosterEntries.filter((entry) => entry.teamCode === teamCode), season.status, currentMoment, current);
       return error ? [`${teamCode}: ${error}`] : [];
   });
   if (roleMinimumSlotErrors.length) fail(path, roleMinimumSlotErrors.join(" "));

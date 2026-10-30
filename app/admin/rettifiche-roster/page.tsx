@@ -37,6 +37,7 @@ export default async function RosterCorrectionsPage({
       {query.updated && <p className="notice success">Rettifiche registrate: {query.updated}.</p>}
       {query.error && <p className="notice error">Salvataggio non riuscito: {query.error}</p>}
       <RosterCorrectionPanel
+        twoWaySlotLimit={state.twoWaySlotLimit}
         teams={state.teams.map((team) => ({ code: team.code, name: team.name }))}
         entries={entries}
         freeAgents={freeAgents}

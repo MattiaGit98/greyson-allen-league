@@ -447,6 +447,7 @@ export async function registerTrade(formData: FormData) {
     };
   });
   const evaluation = evaluateTrade({
+    twoWaySlotLimit: state.twoWaySlotLimit,
     phase: season.status,
     tradeDeadlinePassed: tradeDeadlineHasPassed(moment),
     tradesOpen: operationWindows.trades(moment),
@@ -468,7 +469,7 @@ export async function registerTrade(formData: FormData) {
   if (!evaluation.valid) fail(evaluation.errors.map((issue) => issue.message).join(" "));
   const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
   const roleMinimumSlotErrors = roleMinimumRestorations.flatMap((team) => {
-    const error = roleMinimumRecoverySlotError({ ...team.missingRoles, total: team.requiredRoleFreeAgents }, team.slots);
+    const error = roleMinimumRecoverySlotError({ ...team.missingRoles, total: team.requiredRoleFreeAgents }, team.slots, state);
     return error ? [`${team.code}: ${error}`] : [];
   });
   if (roleMinimumSlotErrors.length) fail(roleMinimumSlotErrors.join(" "));

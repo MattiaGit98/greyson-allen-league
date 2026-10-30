@@ -83,7 +83,7 @@ export default async function DraftAdminPage({
       {draftWindowOpen && draftYear !== null && draftYear !== activeDraftYear && (
         <p className="notice">Il Draft {draftYear} è visibile come prossimo Draft, ma potrà essere assegnato nell'annata {draftYear}/{String((draftYear + 1) % 100).padStart(2, "0")}.</p>
       )}
-      <DraftPanel draftYear={draftYear} picks={picks} players={players} assignedCount={assignedCount} expectedCount={expectedCount} draftOpen={draftOpen && orderFinalized} orderFinalized={orderFinalized} />
+      <DraftPanel twoWaySlotLimit={leagueState.twoWaySlotLimit} draftYear={draftYear} picks={picks} players={players} assignedCount={assignedCount} expectedCount={expectedCount} draftOpen={draftOpen && orderFinalized} orderFinalized={orderFinalized} />
     </section>
   );
 }

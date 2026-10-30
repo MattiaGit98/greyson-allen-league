@@ -30,6 +30,20 @@ function payload(): ImportableLeaguePayload {
 }
 
 describe("backup importabile della lega", () => {
+  it.each([2, 3])("ripristina esattamente la capacità stagionale di %i Two-way", (twoWaySlotLimit) => {
+    const source = payload();
+    source.leagueState.twoWaySlotLimit = twoWaySlotLimit;
+    const exported = createImportableBackupDocument(source);
+    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(exported)));
+    expect(parsed.payload.leagueState.twoWaySlotLimit).toBe(twoWaySlotLimit);
+    expect(parsed.payload.leagueState.rosterEntries).toEqual([]);
+  });
+
+  it("rifiuta una capacità Two-way non supportata anziché cambiare silenziosamente la regola", () => {
+    const source = payload();
+    source.leagueState.twoWaySlotLimit = 4;
+    expect(() => parseImportableLeagueBackup(createImportableBackupDocument(source))).toThrow(/Limite degli slot Two-way non valido/);
+  });
   it("conserva DPE multiple e reintegri a fine stagione nello stato e nei movimenti", () => {
     const source = payload();
     const entries = [

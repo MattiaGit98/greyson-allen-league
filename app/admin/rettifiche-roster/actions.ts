@@ -48,7 +48,7 @@ export async function saveRosterCorrections(formData: FormData) {
     fail(error instanceof Error ? error.message : "Rettifiche non valide.");
   }
   const teamRosterAfter = applied.state.rosterEntries.filter((entry) => entry.teamCode === teamCode);
-  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, activeSeason.season.status, leagueMoment);
+  const roleMinimumSlotError = roleMinimumRecoverySlotErrorForEntries(teamRosterAfter, activeSeason.season.status, leagueMoment, state);
   if (roleMinimumSlotError) fail(roleMinimumSlotError);
   if (roleMinimumShortage(teamRosterAfter, activeSeason.season.status, leagueMoment).total > 0 && !roleMinimumConfirmed) {
     fail("Conferma il ripristino obbligatorio dei minimi di ruolo.");

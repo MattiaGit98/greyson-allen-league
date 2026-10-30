@@ -63,6 +63,7 @@ export default async function AuctionAdminPage({
     }));
     return {
       code: team.code,
+      twoWaySlotLimit: leagueState.twoWaySlotLimit,
       name: team.name,
       spaces: spaces as [number, number, number],
       slots: {
@@ -274,6 +275,7 @@ function movementPreview(
     const currentEntries = current.rosterEntries.filter((entry) => entry.teamCode === teamCode);
     return [{
       code: teamCode,
+      twoWaySlotLimit: current.twoWaySlotLimit,
       name: team?.name ?? teamCode,
       slotsBefore: countActiveRosterSlots(current.rosterEntries, teamCode),
       slotsAfter: countActiveRosterSlots(restored.rosterEntries, teamCode),

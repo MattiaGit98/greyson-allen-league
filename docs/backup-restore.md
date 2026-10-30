@@ -28,6 +28,12 @@ Il file temporaneo viene eliminato dopo il tentativo di ripristino, sia in caso 
 
 Il formato resta `greyson-allen-league-importable-backup`, versione `2`: tutti i movimenti restano nell'export con `before_state` e `after_state`, sufficienti per gli annullamenti. Le voci non modificate e ripetute in ciascuno snapshot non vengono esportate; il backup conserva separatamente lo stato completo della lega.
 
+## Capacità Two-way della stagione
+
+Il backup conserva anche il limite Two-way della stagione nello stato della lega (`twoWaySlotLimit`). I backup precedenti, privi del campo, mantengono il limite di due slot. L’avanzamento a Fine stagione imposta tre slot utilizzabili per la nuova annata e per quelle successive, senza confronti con anni specifici. La riga del terzo slot riservato è soltanto informativa e non è un giocatore.
+
+La migration `20261030001055_seasonal_two_way_capacity.sql` include questa impostazione nel controllo di concorrenza, così un pannello rimasto aperto con la vecchia capacità non può ripristinarla per errore.
+
 ## Sicurezza
 
 Conservare almeno una copia dei backup fuori dal PC e da Supabase. Prima di migration o rettifiche estese, creare sempre un export manuale. Un HTML o un Excel non sostituiscono il JSON né un backup completo del database offerto dal provider.

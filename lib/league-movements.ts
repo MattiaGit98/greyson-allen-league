@@ -32,7 +32,7 @@ export async function persistLeagueMovement(
 ) {
   const cleanedAfter = removeRolelessPlayersLeavingRosters(before, after);
   const affectedTeams = changedSlotTeamCodes(before.rosterEntries, cleanedAfter.rosterEntries);
-  const slotErrors = findAllSlotOverflows(cleanedAfter.rosterEntries, affectedTeams).map(slotOverflowMessage);
+  const slotErrors = findAllSlotOverflows(cleanedAfter.rosterEntries, affectedTeams, before).map(slotOverflowMessage);
   if (slotErrors.length) {
     return {
       data: null,
@@ -63,7 +63,7 @@ export async function persistLeagueMovements(
     .forEach((name) => removedNames.add(name)));
   const cleanedAfter = removeRolelessPlayersByName(after, removedNames);
   const affectedTeams = changedSlotTeamCodes(before.rosterEntries, cleanedAfter.rosterEntries);
-  const slotErrors = findAllSlotOverflows(cleanedAfter.rosterEntries, affectedTeams).map(slotOverflowMessage);
+  const slotErrors = findAllSlotOverflows(cleanedAfter.rosterEntries, affectedTeams, before).map(slotOverflowMessage);
   if (slotErrors.length) {
     return {
       data: null,
@@ -229,7 +229,7 @@ export function movementReversalSlotErrors(
   restored: EditableLeagueState,
 ) {
   const affectedTeams = changedSlotTeamCodes(current.rosterEntries, restored.rosterEntries);
-  return findAllSlotOverflows(restored.rosterEntries, affectedTeams).map(slotOverflowMessage);
+  return findAllSlotOverflows(restored.rosterEntries, affectedTeams, current).map(slotOverflowMessage);
 }
 
 export function movementReversalCapErrors(

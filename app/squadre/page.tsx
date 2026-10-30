@@ -59,6 +59,7 @@ export default async function TeamsPage({
   return (
     <section className="section teams-page">
       <TeamAccordion
+        twoWaySlotLimit={leagueState.twoWaySlotLimit}
         teams={leagueState.teams}
         rosterEntries={leagueState.rosterEntries}
         draftAssets={leagueState.draftAssets}

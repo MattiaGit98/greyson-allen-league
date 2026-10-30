@@ -11,6 +11,7 @@ export function automaticFreeAgentContract(seasonName: string, roleMinimumReplac
 }
 
 export function evaluateFreeAgentSigning(input: {
+  twoWaySlotLimit?: number;
   phase: string;
   enforceRoleMinimums?: boolean;
   freeAgentThousandLimitApplies?: boolean;
@@ -98,7 +99,7 @@ export function evaluateFreeAgentSigning(input: {
     if (move.destinationSlot === "two_way") slotsAfter.twoWay += 1;
     if (move.destinationSlot === "g_league") slotsAfter.gLeague += 1;
   }
-  const slotCheck = validateSlots(slotsAfter);
+  const slotCheck = validateSlots(slotsAfter, input);
   const rolesAfter = { ...input.roles };
   if (input.playerRole) rolesAfter[input.playerRole] += 1;
   for (const cut of contextualCuts) {

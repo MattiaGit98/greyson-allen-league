@@ -1,3 +1,5 @@
+import { getRosterSlotLimits } from "./roster-slot-limits";
+
 export type ContextualSlot = "regular" | "two_way" | "g_league";
 
 export type ContextualSlotCounts = Record<ContextualSlot, number>;
@@ -31,23 +33,20 @@ export type ContextualSlotResolutionStep = {
   moveCandidates: ContextualSlotPlayer[];
 };
 
-export const contextualSlotLimits: ContextualSlotCounts = {
-  regular: 15,
-  two_way: 2,
-  g_league: 3,
-};
-
 export function resolveContextualSlots({
   counts,
   incomingSlot,
   players,
   decisions,
+  twoWaySlotLimit,
 }: {
   counts: ContextualSlotCounts;
   incomingSlot: ContextualSlot;
   players: ContextualSlotPlayer[];
   decisions: ContextualSlotDecision[];
+  twoWaySlotLimit?: number;
 }) {
+  const limits = getRosterSlotLimits({ twoWaySlotLimit });
   const countsAfter = { ...counts, [incomingSlot]: counts[incomingSlot] + 1 };
   const currentSlots = new Map(players.map((player) => [player.name, player.slot]));
   const usedPlayers = new Set<string>();
@@ -56,7 +55,7 @@ export function resolveContextualSlots({
   const errors: string[] = [];
 
   for (let index = 0; index <= decisions.length; index += 1) {
-    const overflowingSlots = contextualSlotOrder.filter((slot) => countsAfter[slot] > contextualSlotLimits[slot]);
+    const overflowingSlots = contextualSlotOrder.filter((slot) => countsAfter[slot] > limits[slot]);
     if (!overflowingSlots.length) {
       if (decisions.length > index) errors.push("Sono state inserite operazioni contestuali non necessarie.");
       return { complete: errors.length === 0, countsAfter, operations, steps, errors };

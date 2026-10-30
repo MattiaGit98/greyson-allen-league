@@ -10,19 +10,21 @@ import {
 } from "@/lib/contextual-slot-resolution";
 
 export function ContextualSlotResolver({
+  twoWaySlotLimit,
   counts,
   incomingSlot,
   players,
   value,
   onChange,
 }: {
+  twoWaySlotLimit?: number;
   counts: ContextualSlotCounts;
   incomingSlot: "regular" | "two_way" | "g_league";
   players: ContextualSlotPlayer[];
   value: ContextualSlotDecision[];
   onChange: (value: ContextualSlotDecision[]) => void;
 }) {
-  const resolution = resolveContextualSlots({ counts, incomingSlot, players, decisions: value });
+  const resolution = resolveContextualSlots({ counts, incomingSlot, players, decisions: value, twoWaySlotLimit });
   if (!resolution.steps.length) return null;
 
   function replaceDecision(index: number, decision: ContextualSlotDecision) {

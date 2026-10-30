@@ -11,8 +11,10 @@ import type { SavedDraftOrderAssignment } from "./draft-positions";
 import { countTradeEligibleDraftAssets } from "./future-draft-picks";
 import { competitionNames, type CompetitionName } from "./competitions";
 import { orderPlayerListByRole } from "./player-list-order";
+import { getRosterSlotLimits } from "./roster-slot-limits";
 
 export type EditableLeagueState = {
+  twoWaySlotLimit?: number;
   teams: TeamSummary[];
   rosterEntries: RosterEntry[];
   draftAssets: DraftAsset[];
@@ -72,6 +74,7 @@ export function normalizeState(value: unknown, fallback = emptyLeagueState()): E
 
   return {
     teams,
+    ...(input.twoWaySlotLimit === undefined ? {} : { twoWaySlotLimit: getRosterSlotLimits(input).two_way }),
     rosterEntries,
     draftAssets,
     qualifyingOfferRights,
