@@ -95,6 +95,7 @@ export function buildLeagueTransitionPreview(input: {
   if (transition === "buyout_end") preview.closedPossibilities.push("Non sarà più possibile applicare il buyout.");
 
   if (transition === "free_agency_end") {
+    if (getRosterSlotLimits(input.state).two_way < futureTwoWaySlotLimit) preview.automaticActions.push(`Gli slot Two-way utilizzabili passeranno a ${futureTwoWaySlotLimit} per squadra.`);
     preview.closedPossibilities.push("Si chiudono free agency e rilasci gratuiti.");
     preview.closedPossibilities.push("Si chiudono l’esercizio della DPE e la possibilità di reintegro anticipato.");
     preview.newPossibilities.push("Dalla data di Inizio postseason si potrà segnalare l'utilizzo nei playoff delle T.O. in G-League.");
@@ -113,7 +114,6 @@ export function buildLeagueTransitionPreview(input: {
         qualifyingOfferRights: input.state.qualifyingOfferRights,
         playerList: input.state.playerList,
       });
-      if (getRosterSlotLimits(input.state).two_way < futureTwoWaySlotLimit) preview.automaticActions.push(`Gli slot Two-way utilizzabili passeranno a ${futureTwoWaySlotLimit} per squadra.`);
       preview.automaticActions.push(`${advance.expiredContracts} contratti in scadenza saranno rimossi.`);
       preview.automaticActions.push(`${advance.generatedQualifyingOffers} diritti di Q.O. saranno generati.`);
       preview.automaticActions.push(`${advance.pendingRookieExtensions} contratti resteranno in attesa della decisione sulla rookie extension.`);
@@ -142,6 +142,10 @@ export function buildLeagueTransitionPreview(input: {
   if (!preview.automaticActions.length) preview.automaticActions.push("Nessuna modifica automatica a roster, contratti o listone.");
   preview.warnings.push("Prima dell’operazione sarà scaricato il backup ripristinabile; sarà inoltre creato un punto di ripristino interno.");
   return preview;
+}
+
+export function applyFreeAgencyEnd(state: EditableLeagueState): EditableLeagueState {
+  return { ...state, twoWaySlotLimit: futureTwoWaySlotLimit };
 }
 
 export function applyTeamOptionDeadline(state: EditableLeagueState, seasonName: string) {

@@ -15,7 +15,7 @@ import {
   tradeDeadlineHasPassed,
 } from "@/lib/league-moments";
 import { loadEditableLeagueState, type EditableLeagueState } from "@/lib/league-state";
-import { applyTeamOptionDeadline, buildLeagueTransitionPreview, closeCurrentSeasonExtensionWindow } from "@/lib/league-transition";
+import { applyFreeAgencyEnd, applyTeamOptionDeadline, buildLeagueTransitionPreview, closeCurrentSeasonExtensionWindow } from "@/lib/league-transition";
 import { historyConfirmationForTransition } from "@/lib/phase-history-confirmation";
 import { savePhaseBackup } from "@/lib/phase-backups";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -122,6 +122,7 @@ export async function advanceLeaguePhaseStep(formData: FormData) {
     }
   }
   if (transition === "auction_start") nextState = closeCurrentSeasonExtensionWindow(nextState, season.name);
+  if (transition === "free_agency_end") nextState = applyFreeAgencyEnd(nextState);
   if (transition === "auction_completed" && state.qualifyingOfferRights.length) {
     nextState = { ...nextState, qualifyingOfferRights: [] };
   }
@@ -203,7 +204,6 @@ async function performLeagueSeasonAdvance(
     const nextState = {
       ...state,
       rosterEntries: advance.rosterEntries,
-      twoWaySlotLimit: advance.twoWaySlotLimit,
       qualifyingOfferRights: advance.qualifyingOfferRights,
       playerList: advance.playerList,
       playerListStatus: "offseason" as const,

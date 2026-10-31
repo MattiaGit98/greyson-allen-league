@@ -4,7 +4,7 @@ import type { RosterEntry } from "./league-types";
 import { emptyLeagueState, normalizeState } from "./league-state";
 import { getRosterSlotLimits, findTeamSlotOverflows } from "./roster-slot-limits";
 import { calculateLeagueAdvance } from "./league-advance";
-import { buildLeagueTransitionPreview } from "./league-transition";
+import { applyFreeAgencyEnd, buildLeagueTransitionPreview } from "./league-transition";
 import { roleMinimumRecoverySlotError } from "./role-minimums";
 import { resolveContextualSlots } from "./contextual-slot-resolution";
 import { evaluateFreeAgentSigning } from "./rules/free-agent";
@@ -37,17 +37,40 @@ describe("capacità Two-way stagionale senza dipendenze dall'annata", () => {
     expect(() => normalizeState(fixture(4))).toThrow(/Two-way non valido/);
   });
 
-  it.each(["2029/30", "2034/35"])("attiva tre slot a Fine stagione di %s e li mantiene nelle annate successive", (seasonName) => {
+  it.each(["2029/30", "2034/35"])("attiva tre slot alla Chiusura free agency di %s e li mantiene nelle annate successive", (seasonName) => {
     const initial = fixture(2);
-    const first = calculateLeagueAdvance({ ...initial, seasonName });
-    const after = { ...initial, ...first };
+    const after = applyFreeAgencyEnd(initial);
     expect(getRosterSlotLimits(after).two_way).toBe(3);
-    const second = calculateLeagueAdvance({ ...after, seasonName: first.nextSeasonName });
-    expect(second.twoWaySlotLimit).toBe(3);
-    const preview = buildLeagueTransitionPreview({ state: initial, currentMoment: "free_agency_reopening", seasonName });
+    expect(initial.twoWaySlotLimit).toBe(2);
+    expect(after).toEqual({ ...initial, twoWaySlotLimit: 3 });
+    const first = calculateLeagueAdvance({ ...after, seasonName });
+    const second = calculateLeagueAdvance({ ...after, ...first, seasonName: first.nextSeasonName });
+    expect(getRosterSlotLimits({ ...after, ...first, ...second }).two_way).toBe(3);
+    const preview = buildLeagueTransitionPreview({ state: initial, currentMoment: "buyout_end", seasonName });
     expect(preview.automaticActions).toContain("Gli slot Two-way utilizzabili passeranno a 3 per squadra.");
+    expect(buildLeagueTransitionPreview({ state: initial, currentMoment: "trade_deadline", seasonName }).automaticActions.join(" ")).not.toContain("Two-way");
+    expect(buildLeagueTransitionPreview({ state: after, currentMoment: "buyout_end", seasonName }).automaticActions.join(" ")).not.toContain("Two-way");
+    expect(buildLeagueTransitionPreview({ state: after, currentMoment: "free_agency_reopening", seasonName }).automaticActions.join(" ")).not.toContain("Two-way");
     const action = readFileSync("app/admin/impostazioni/actions.ts", "utf8");
-    expect(action).toContain("twoWaySlotLimit: advance.twoWaySlotLimit");
+    expect(action).toContain('if (transition === "free_agency_end") nextState = applyFreeAgencyEnd(nextState);');
+    expect(action).toContain("next_state_payload: nextState");
+    expect(action).not.toContain("twoWaySlotLimit: advance.twoWaySlotLimit");
+    expect(action.slice(action.indexOf("async function performLeagueSeasonAdvance("))).not.toContain("twoWaySlotLimit:");
+  });
+
+  it.each([undefined, 2, 3])("Fine stagione conserva il limite esistente (%s) senza attivare slot", (twoWaySlotLimit) => {
+    const state = fixture(twoWaySlotLimit);
+    const advance = calculateLeagueAdvance({ ...state, seasonName: "2029/30" });
+    expect(advance).not.toHaveProperty("twoWaySlotLimit");
+    expect(getRosterSlotLimits({ ...state, ...advance }).two_way).toBe(getRosterSlotLimits(state).two_way);
+    expect(buildLeagueTransitionPreview({ state, currentMoment: "free_agency_reopening", seasonName: "2029/30" }).automaticActions.join(" ")).not.toContain("Two-way");
+  });
+
+  it("la chiusura attiva anche gli stati precedenti ed è ripetibile senza cambiare i dati", () => {
+    const legacy = fixture();
+    const activated = applyFreeAgencyEnd(legacy);
+    expect(activated).toEqual({ ...legacy, twoWaySlotLimit: 3 });
+    expect(applyFreeAgencyEnd(activated)).toEqual(activated);
   });
 
   it("il terzo posto non è utilizzabile prima del cambio, il quarto resta sempre vietato", () => {
@@ -82,7 +105,7 @@ describe("capacità Two-way stagionale senza dipendenze dall'annata", () => {
     expect(resolveContextualSlots({ ...input, twoWaySlotLimit: 3, counts: { ...input.counts, two_way: 3 } }).complete).toBe(false);
   });
 
-  it("il posto riservato non può colmare una carenza di ruolo prima della prossima stagione", () => {
+  it("il terzo posto non può colmare una carenza di ruolo prima della sua attivazione", () => {
     const shortage = { G: 1, A: 0, C: 0, total: 1 };
     const full = { regular: 15, twoWay: 2 };
     expect(roleMinimumRecoverySlotError(shortage, full, fixture(2))).not.toBeNull();
