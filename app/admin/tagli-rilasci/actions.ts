@@ -52,9 +52,6 @@ export async function applyRosterExitOperation(formData: FormData) {
     operationError(returnPath, "Un contratto da rookie ancora da risolvere può essere gestito soltanto nel pannello Contratti da rookie.");
   }
   if (kind === "cut" && entry.state !== "active") operationError(returnPath, "Puoi tagliare soltanto un giocatore attivo.");
-  if (kind === "buyout" && entry.state !== "active") {
-    operationError(returnPath, "Il buyout richiede un giocatore ancora sotto contratto e attivo.");
-  }
   if (kind === "buyout" && !operationWindows.buyout(leagueMoment)) operationError(returnPath, "La finestra dei buyout non è aperta.");
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
@@ -114,6 +111,7 @@ export async function applyRosterExitOperation(formData: FormData) {
     contractCharges: charges,
     cutContractCharges: kind === "cut" ? playerCharges(rosterEntries[entryIndex], season.name, season.status, season.team_options_resolved) : undefined,
     currentDpeExemption: dpeExemption,
+    buyoutAlreadyCut: entry.state === "cut",
   });
   const spacesAfter = teamCapSpaces(rosterEntries, teamCode, season.name, season.status, season.team_options_resolved);
   if (spacesAfter.some((space, index) => space !== expectedSpaces[index])) operationError(returnPath, "Il calcolo del cap non è coerente: aggiorna la pagina.");
@@ -140,7 +138,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   const releaseDetail = releaseReason ? ` · ${freeReleaseReasonLabels[releaseReason]}` : "";
   const buyoutDetail = buyoutTotalResidual === null
     ? ""
-    : ` · residuo ${charges.reduce((total, charge) => total + charge, 0)}, riduzione 20%, costo concentrato ${buyoutTotalResidual}, scadenza ${String(currentEndYear).slice(-2)}`;
+    : ` · residuo ${charges.reduce((total, charge) => total + charge, 0)}, ${entry.state === "cut" ? "già tagliato, nessuno sconto" : "riduzione 20%"}, costo concentrato ${buyoutTotalResidual}, scadenza ${String(currentEndYear).slice(-2)}`;
   const stretchDetail = cutStretchYears === null ? "" : ` · stretch provision in ${cutStretchYears} anni: ${rosterEntries[entryIndex].cost} crediti, scadenza ${rosterEntries[entryIndex].contract}`;
   const response = await persistLeagueMovement(supabase, state, nextState, kind, capOverrideSummary(`${label}: ${playerName} (${teamCode}) · costo ${entry.cost}, contratto ${entry.contract}${releaseDetail}${buyoutDetail}${stretchDetail}`, capWarnings, false));
   if (response.error) operationError(returnPath, response.error.message);

@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { emptyLeagueState, type EditableLeagueState } from "./league-state";
 import { buildPublicLeagueContext } from "./public-league-context";
 import { loadRegulation, parseRegulation } from "./regulation";
+import { renderStaticLeagueHtml } from "./static-league-html";
+import { emptyHistoryCompetitionMap } from "./history-competitions";
+import { readFileSync } from "node:fs";
 
 const season = { name: "2026/27", status: "regular_season" as const, timeline_moment: "auction_completed", team_options_resolved: true };
 
@@ -36,6 +39,26 @@ function fixture(): EditableLeagueState {
 }
 
 describe("dati pubblici esportabili della lega", () => {
+  it.each(["stretchProvisionApplied", "buyoutApplied"] as const)("mostra la stessa X S.P./B.O. per %s senza introdurre bollini sul free agent", (marker) => {
+    const state = fixture();
+    Object.assign(state.rosterEntries.at(-1)!, { stretchProvisionApplied: false, buyoutApplied: false, [marker]: true });
+    const context = buildPublicLeagueContext(state, season, []);
+    expect(context.squadre[0].tagliati[0]).toMatchObject({ stretchNonDisponibile: true });
+    expect(context.squadre[0].tagliati[0].bollini).toEqual([]);
+    const html = renderStaticLeagueHtml({ ...state, seasonName: season.name, phaseName: "Stagione", leagueMoment: "trade_deadline",
+      exportedAt: new Date("2027-01-01"), countTeamOptions: true, history: emptyHistoryCompetitionMap() });
+    expect(html).toContain("<th>S.P./B.O.</th>");
+    expect(html).toContain("<td>Cut</td><td>X</td>");
+  });
+
+  it("usa la dicitura S.P./B.O. anche nell'intestazione sostitutiva mobile", () => {
+    const css = readFileSync("app/globals.css", "utf8");
+    expect(css).toMatch(/\.cut-player-table \.data-head > :nth-child\(2\)::after\s*\{ content: "S\.P\.\/B\.O\."/);
+    for (const file of ["app/squadre/team-accordion.tsx", "app/admin/altre-operazioni/other-operations-panel.tsx"]) {
+      expect(readFileSync(file, "utf8")).toContain('"S.P./B.O."');
+    }
+  });
+
   it("esporta NO R. come bollino pubblico, mai come metadato interno, e lo nasconde alla chiusura", () => {
     const state = fixture();
     state.rosterEntries[3].dpeActivatedAfterDeadline = true;

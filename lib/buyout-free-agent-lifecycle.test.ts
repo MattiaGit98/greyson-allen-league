@@ -24,6 +24,24 @@ function spaces(entries: RosterEntry[]): ThreeYearValues {
 }
 
 describe("ciclo buyout e nuove firme FA", () => {
+  it.each([2, 3])("allinea cap e anteprima senza sconto per un tagliato con %i anni residui", (years) => {
+    const original = { ...entry, state: "cut" as const, contract: String(2027 + years - 1).slice(-2) };
+    const charges: ThreeYearValues = [47, 47, years === 3 ? 47 : 0];
+    const after = applyBuyout(original, 2027, charges);
+    expect(after.cost).toBe(47 * years);
+    expect(releaseCapSpaces({ kind: "buyout", spacesBefore: spaces([original]), contractCharges: charges,
+      currentDpeExemption: false, buyoutAlreadyCut: true })).toEqual(spaces([after]));
+    expect(allowedStretchYears(after, 2027)).toEqual([]);
+    const state = { ...emptyLeagueState(), rosterEntries: [original] };
+    const restored = buildMovementReversal({ ...state, rosterEntries: [after] }, state, { ...state, rosterEntries: [after] });
+    expect(restored.rosterEntries).toEqual([original]);
+  });
+
+  it("usa soltanto le stagioni residue di un contratto già iniziato", () => {
+    const original = { ...entry, state: "cut" as const, contract: "29", contractStartSeason: "2026/27" };
+    expect(applyBuyout(original, 2028, [47, 47, 0]).cost).toBe(94);
+  });
+
   it.each(["regular", "dpe"] as const)("allinea anteprima e cap effettivo per il buyout dallo slot %s", (slot) => {
     const original = { ...entry, slot };
     const after = applyBuyout(original, 2027, [47, 47, 47]);
@@ -37,7 +55,7 @@ describe("ciclo buyout e nuove firme FA", () => {
     const other = { ...entry, name: "Altro contratto", cost: otherCost, contract: "27" };
     const after = applyBuyout(entry, 2027, [47, 47, 47]);
     const warnings = salaryCapWarningsForSpaces({ before: spaces([entry, other]), after: spaces([after, other]),
-      phase: "regular_season", currentMoment: "auction_completed", currentLimit: 1000,
+      phase: "regular_season", currentMoment: "trade_deadline", currentLimit: 1000,
       seasonNames: [seasonName, "2027/28", "2028/29"] });
     expect(warnings.length > 0).toBe(blocked);
   });

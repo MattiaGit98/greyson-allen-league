@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { availableOperationsAt } from "./available-operations";
 
 describe("operazioni disponibili", () => {
-  it("mostra il buyout dal Termine asta, non soltanto dopo la deadline", () => {
+  it("mostra il buyout soltanto dalla Trade deadline al Termine buyout", () => {
     expect(labelsAt("auction_start")).not.toContain("Buyout");
-    expect(labelsAt("auction_completed")).toContain("Buyout");
-    expect(labelsAt("contract_delivery")).toContain("Buyout");
+    expect(labelsAt("auction_completed")).not.toContain("Buyout");
+    expect(labelsAt("contract_delivery")).not.toContain("Buyout");
     expect(labelsAt("trade_deadline")).toContain("Buyout");
+    expect(availableOperationsAt("trade_deadline").find((item) => item.label === "Buyout")?.urgency).toBe("urgent");
     expect(labelsAt("buyout_end")).not.toContain("Buyout");
     expect(labelsAt("free_agency_reopening")).not.toContain("Buyout");
   });

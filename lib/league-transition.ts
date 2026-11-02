@@ -73,7 +73,6 @@ export function buildLeagueTransitionPreview(input: {
     preview.newPossibilities.push("Si apre l’assegnazione dei contratti acquistati all’asta.");
     preview.newPossibilities.push("Riapre l'esercizio della DPE fino alla Chiusura free agency della prima fase.");
     preview.newPossibilities.push("Riaprono gli scambi fino alla trade deadline.");
-    preview.newPossibilities.push("Si apre la finestra per i buyout, con riduzione del 20% del costo residuo.");
     preview.closedPossibilities.push("Si chiude l’asta.");
   }
 
@@ -87,6 +86,7 @@ export function buildLeagueTransitionPreview(input: {
   }
 
   if (transition === "trade_deadline") {
+    preview.newPossibilities.push("Si apre la finestra per i buyout, anche sui contratti già tagliati; lo sconto del 20% sul residuo si applica solo ai giocatori ancora attivi.");
     preview.closedPossibilities.push("Si chiudono gli scambi.");
     preview.newPossibilities.push("Si apre il reintegro anticipato, fino alla Chiusura free agency, delle sole DPE esercitate prima della trade deadline.");
     preview.warnings.push("Le nuove DPE esercitate dopo la trade deadline non potranno essere reintegrate anticipatamente e mostreranno il bollino NO R. fino alla Chiusura free agency.");

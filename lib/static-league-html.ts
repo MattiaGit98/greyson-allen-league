@@ -94,7 +94,7 @@ function renderTeams(input: StaticLeagueHtmlInput) {
 }
 
 function renderRosterGroup(title: string, entries: RosterEntry[], cutPlayers = false, moment?: LeagueMoment) {
-  return `<h3>${e(title)}</h3>${table(["Giocatore", cutPlayers ? "Stretch" : "Ruolo", "Scadenza", "Costo"], entries.map((entry) => [
+  return `<h3>${e(title)}</h3>${table(["Giocatore", cutPlayers ? "S.P./B.O." : "Ruolo", "Scadenza", "Costo"], entries.map((entry) => [
     entry.name + (moment && shouldShowDpeNoReintegrationBadge(entry, moment) ? " · NO R." : ""),
     cutPlayers ? (entry.stretchProvisionApplied || entry.buyoutApplied ? "X" : "—") : entry.role ?? "X",
     entry.contract || "—",

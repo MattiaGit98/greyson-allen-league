@@ -6,7 +6,7 @@ import { applyContractExtension } from "@/app/admin/estensioni/actions";
 import { applyRosterExitOperation, applyStretchProvision } from "@/app/admin/tagli-rilasci/actions";
 import type { AdminOperationContext, AdminRosterPlayer, AdminRosterTeam } from "@/lib/admin-operation-data";
 import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
-import { buyoutCost, releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
+import { buyoutCost, canApplyBuyout, releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
 import { allowedStretchYears, applyContextualContractCut, canApplyStretchProvision, contextualStretchYears } from "@/lib/stretch-provision";
 import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
@@ -64,7 +64,7 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
               <section className="accordion-data-section other-operations-section" key={group.key}>
                 <p>{group.label}{group.limit ? ` (${rows.length}/${group.key === "two_way" ? getRosterSlotLimits(props).two_way : group.limit})` : group.key === "dpe" ? ` (${rows.length})` : ""}</p>
                 <div className="other-operations-table">
-                  <div className="other-operations-head"><span>Giocatore</span><span>{group.key === "cut" ? "Stretch" : "Ruolo"}</span><span>Scadenza</span><span>Costo</span><span></span></div>
+                  <div className="other-operations-head"><span>Giocatore</span><span>{group.key === "cut" ? "S.P./B.O." : "Ruolo"}</span><span>Scadenza</span><span>Costo</span><span></span></div>
                   {rows.map((player) => {
                     const choices = availableOperations(player, team, props);
                     return (
@@ -212,7 +212,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
             />
           )}
           {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${contractExtensionCost(player.cost)}`} />}
-          {operation === "buyout" && <Metric label="Nuovo contratto" value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
+          {operation === "buyout" && <Metric label={player.state === "cut" ? "Buyout · senza sconto" : "Buyout · sconto 20%"} value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
           {operation === "stretch" && <Metric label="Rata" value={preview.installment ?? "—"} />}
           {effectiveCutStretchYears !== null && <Metric label="Stretch provision" value={`${effectiveCutStretchYears} rate da ${preview.cutEntry?.cost} · scad. ${preview.cutEntry?.contract}`} />}
         </div>
@@ -247,7 +247,7 @@ function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, p
     choices.push({ value: "schedule_cut", label: "Taglio programmato" });
   }
   if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player, props.seasonName).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
-  if (player.state === "active" && operationWindows.buyout(props.leagueMoment) && player.expiryYear && player.expiryYear > props.seasonEndYear) choices.push({ value: "buyout", label: "Buyout" });
+  if (operationWindows.buyout(props.leagueMoment) && canApplyBuyout(player, props.seasonEndYear, playerCharges(player, props))) choices.push({ value: "buyout", label: "Buyout" });
   if (canApplyStretchProvision(player, props.seasonEndYear)) choices.push({ value: "stretch", label: "Stretch provision" });
   if (player.state === "active" && !unresolvedTeamOption && player.slot !== "dpe" && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
   if (!unresolvedTeamOption && canReintegrateDpe(player, props.leagueMoment)) choices.push({ value: "dpe_reintegrate", label: "Reintegro anticipato dalla DPE" });
@@ -268,7 +268,7 @@ function operationPreview(
   const spacesBefore: ThreeYearValues = [team.space, team.nextSpace, team.followingSpace];
   const charges = playerCharges(player, props);
   const cutEntry = operation === "cut" ? applyContextualContractCut(rosterEntryForPlayer(player), props.seasonEndYear, props.leagueMoment, cutStretchYears) : null;
-  const buyoutTotalResidual = buyoutCost(charges);
+  const buyoutTotalResidual = buyoutCost(charges, player.state === "cut");
   let spacesAfter: ThreeYearValues = [...spacesBefore];
   let installment: number | undefined;
   if (operation === "extension") {
@@ -287,6 +287,7 @@ function operationPreview(
       contractCharges: charges,
       cutContractCharges: cutEntry ? entryCharges(cutEntry, props) : undefined,
       currentDpeExemption: player.state === "active" && player.slot === "dpe",
+      buyoutAlreadyCut: player.state === "cut",
     });
   } else if (operation === "stretch") {
     const stretch = stretchCapSpaces(spacesBefore, charges, installments);
@@ -320,6 +321,7 @@ function operationPreview(
   const errors: string[] = [];
   const warnings: string[] = [];
   const capWarnings: string[] = [];
+  if (operation === "buyout" && (!operationWindows.buyout(props.leagueMoment) || !canApplyBuyout(player, props.seasonEndYear, charges))) errors.push("Il buyout non è consentito per questo contratto in questa fase.");
   if (operation === "dpe_reintegrate" && !canReintegrateDpe(player, props.leagueMoment)) errors.push("Il reintegro anticipato non è consentito per questo giocatore in questa fase.");
   if (operation === "dpe_activate" && !operationWindows.dpeActivation(props.leagueMoment)) errors.push("La finestra per esercitare la DPE non è aperta.");
   if (operation === "dpe_activate" && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");

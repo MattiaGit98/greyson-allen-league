@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyBuyout, buyoutCost, applyFreeRelease, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
+import { applyBuyout, canApplyBuyout, buyoutCost, applyFreeRelease, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
 import type { RosterEntry } from "./league-types";
 import { allowedStretchYears } from "./stretch-provision";
 
@@ -139,8 +139,26 @@ describe("buyout scontato", () => {
     expect(() => applyBuyout({ ...entry, contract }, 2027, [47, 47, 0])).toThrow("più di una stagione");
   });
 
-  it("rifiuta i tagliati e chi ha un solo addebito residuo", () => {
-    expect(() => applyBuyout({ ...entry, state: "cut" }, 2027, [47, 47, 47])).toThrow();
+  it("concentra il residuo dei tagliati senza alcuno sconto", () => {
+    const original = { ...entry, state: "cut" as const, contract: "29" };
+    expect(canApplyBuyout(original, 2027, [47, 47, 47])).toBe(true);
+    expect(buyoutCost([47, 47, 47], true)).toBe(141);
+    const result = applyBuyout(original, 2027, [47, 47, 47]);
+    expect(result).toMatchObject({ cost: 141, contract: "27", state: "cut", buyoutApplied: true });
+    expect(original).toMatchObject({ cost: 47, contract: "29" });
+    expect(original).not.toHaveProperty("buyoutApplied");
+    expect(allowedStretchYears(result, 2027)).toEqual([]);
+  });
+
+  it.each(["active", "cut"] as const)("rifiuta stretch e buyout già applicati anche se il contratto %s è pluriennale", (state) => {
+    for (const marker of ["stretchProvisionApplied", "buyoutApplied"] as const) {
+      const blocked = { ...entry, state, [marker]: true };
+      expect(canApplyBuyout(blocked, 2027, [47, 47, 47])).toBe(false);
+      expect(() => applyBuyout(blocked, 2027, [47, 47, 47])).toThrow(/stretch provision o buyout/);
+    }
+  });
+
+  it("rifiuta chi ha un solo addebito residuo", () => {
     expect(() => applyBuyout(entry, 2027, [47, 0, 0])).toThrow();
   });
 });

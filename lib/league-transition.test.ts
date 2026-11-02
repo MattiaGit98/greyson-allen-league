@@ -16,12 +16,12 @@ describe("avvisi aggiornati su buyout e free agent", () => {
     const closing = buildLeagueTransitionPreview({ ...input, currentMoment: "buyout_end" });
     expect(closing.closedPossibilities).toContain("Si chiudono l’esercizio della DPE e la possibilità di reintegro anticipato.");
   });
-  it("apre il buyout al Termine asta e non cambia i contratti alla deadline", () => {
+  it("apre il buyout alla Trade deadline e non modifica automaticamente i contratti", () => {
     const input = { seasonName: "2026/27", state: emptyLeagueState() };
     const auction = buildLeagueTransitionPreview({ ...input, currentMoment: "auction_start" });
-    expect(auction.newPossibilities).toContain("Si apre la finestra per i buyout, con riduzione del 20% del costo residuo.");
+    expect(auction.newPossibilities.join(" ")).not.toMatch(/buyout/i);
     const deadline = buildLeagueTransitionPreview({ ...input, currentMoment: "contract_delivery" });
-    expect(deadline.newPossibilities.join(" ")).not.toMatch(/buyout|prime otto/);
+    expect(deadline.newPossibilities).toContain("Si apre la finestra per i buyout, anche sui contratti già tagliati; lo sconto del 20% sul residuo si applica solo ai giocatori ancora attivi.");
     expect(deadline.automaticActions.join(" ")).not.toMatch(/senza Q.O./);
   });
 });
