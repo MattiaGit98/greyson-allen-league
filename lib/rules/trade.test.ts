@@ -415,7 +415,7 @@ describe("trade rules", () => {
     expect(result.errors.some((error) => error.code === "TRADE_PICK_ALREADY_CONDITIONED")).toBe(true);
   });
 
-  it("blocks a protection on a pick that is not transferred in the same trade", () => {
+  it("allows a protection on a pick that is not transferred in the same trade", () => {
     const result = evaluateTrade({
       phase: "offseason",
       tradableDraftYears: [2027, 2028, 2029],
@@ -432,21 +432,19 @@ describe("trade rules", () => {
         round: "1° giro",
         hasExistingCondition: false,
         clause: "protected_top_5",
-        counterpartyPickId: "aaa-2030",
+        counterpartyPickId: "bbb-2030",
         counterpartyYear: 2030,
         counterpartyRound: "1° giro",
         counterpartyHasExistingCondition: false,
-        counterpartyOwnerTeamCode: "AAA",
-        subjectWasTraded: false,
-        subjectTradeFromTeamCode: null,
+        counterpartyOwnerTeamCode: "BBB",
       }],
       cuts: [],
     });
 
-    expect(result.errors.some((error) => error.code === "TRADE_PROTECTION_SUBJECT_NOT_TRADED")).toBe(true);
+    expect(result.valid).toBe(true);
   });
 
-  it("allows a protection only with a later pick retained by the transferring team", () => {
+  it("allows protecting a transferred pick for the owner of the later counterparty", () => {
     const result = evaluateTrade({
       phase: "offseason",
       tradableDraftYears: [2027, 2028, 2029],
@@ -470,7 +468,7 @@ describe("trade rules", () => {
         id: "protection-one",
         pickId: "aaa-pick",
         pickOwnerTeamCode: "AAA",
-        beneficiaryTeamCode: "BBB",
+        beneficiaryTeamCode: "AAA",
         year: 2027,
         round: "1° giro",
         hasExistingCondition: false,
@@ -482,8 +480,6 @@ describe("trade rules", () => {
         counterpartyOwnerTeamCode: "AAA",
         postTradeOwnerTeamCode: "BBB",
         counterpartyPostTradeOwnerTeamCode: "AAA",
-        subjectWasTraded: true,
-        subjectTradeFromTeamCode: "AAA",
       }],
       cuts: [],
     });
@@ -513,8 +509,6 @@ describe("trade rules", () => {
         counterpartyOwnerTeamCode: "BBB",
         postTradeOwnerTeamCode: "AAA",
         counterpartyPostTradeOwnerTeamCode: "AAA",
-        subjectWasTraded: false,
-        subjectTradeFromTeamCode: null,
       }],
       cuts: [],
     });
@@ -522,7 +516,7 @@ describe("trade rules", () => {
     expect(result.errors.some((error) => error.code === "TRADE_SWAP_COUNTERPART_OWNER_INVALID")).toBe(true);
   });
 
-  it("rejects a protection with another team's counterparty", () => {
+  it("rejects a protection whose counterparty does not belong to its beneficiary", () => {
     const result = evaluateTrade({
       phase: "offseason",
       teams: teams.slice(0, 2),
@@ -532,7 +526,7 @@ describe("trade rules", () => {
         id: "invalid-protection",
         pickId: "aaa-pick",
         pickOwnerTeamCode: "AAA",
-        beneficiaryTeamCode: "BBB",
+        beneficiaryTeamCode: "AAA",
         year: 2027,
         round: "1° giro",
         hasExistingCondition: false,

@@ -86,6 +86,16 @@ export function tradeMovementPresentation(summary: string): { concise: string; f
       continue;
     }
 
+    const clauseOwners = part.match(/^proprietari finali ([A-Z0-9_-]+)\s*↔\s*([A-Z0-9_-]+)$/i);
+    if (clauseOwners && sharedClauses.length && teams.has(clauseOwners[1]) && teams.has(clauseOwners[2])) {
+      let detail = sharedClauses.pop()!;
+      if (/^a favore di [A-Z0-9_-]+$/i.test(parts[index + 1] ?? "")) detail += `; ${parts[++index]}`;
+      teams.get(clauseOwners[1])!.clauses.push(detail);
+      if (clauseOwners[1] !== clauseOwners[2]) teams.get(clauseOwners[2])!.clauses.push(detail);
+      listed[listed.length - 1] += ` (${clauseOwners[1]}, ${clauseOwners[2]})`;
+      continue;
+    }
+
     if (/^Clausola su scelta /i.test(part)) listed.push(part.replace(/^Clausola su scelta /i, "clausola su scelta "));
 
     if (/^Clausola su scelta |^Clausola (?:eliminata|modificata):/i.test(part)) {

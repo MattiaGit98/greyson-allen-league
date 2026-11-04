@@ -88,8 +88,6 @@ export type TradePickClauseAgreement = {
   counterpartyOwnerTeamCode?: string | null;
   postTradeOwnerTeamCode?: string;
   counterpartyPostTradeOwnerTeamCode?: string | null;
-  subjectWasTraded?: boolean;
-  subjectTradeFromTeamCode?: string | null;
 };
 
 export type TradeExistingClauseChange = {
@@ -319,22 +317,29 @@ export function evaluateTrade(input: {
     const subjectPostTradeOwner = agreement.postTradeOwnerTeamCode ?? agreement.pickOwnerTeamCode;
     const counterpartyPostTradeOwner = agreement.counterpartyPostTradeOwnerTeamCode
       ?? agreement.counterpartyOwnerTeamCode;
-    const protectionTeam = agreement.subjectTradeFromTeamCode ?? agreement.pickOwnerTeamCode;
-    if (agreement.clause.startsWith("protected_top_") && agreement.subjectWasTraded === false) {
+    if (!input.teams.some((team) => team.code === subjectPostTradeOwner)
+      || !input.teams.some((team) => team.code === counterpartyPostTradeOwner)
+      || !input.teams.some((team) => team.code === agreement.beneficiaryTeamCode)) {
       errors.push({
-        code: "TRADE_PROTECTION_SUBJECT_NOT_TRADED",
-        message: "Una protezione può essere inserita soltanto su una scelta ceduta nello stesso scambio.",
+        code: "TRADE_CLAUSE_OWNER_NOT_PARTICIPATING",
+        message: "Le scelte e il beneficiario della clausola devono appartenere alle squadre coinvolte nello scambio.",
       });
     }
     if (
       agreement.clause.startsWith("protected_top_")
       && counterpartyPostTradeOwner
-      && counterpartyPostTradeOwner !== protectionTeam
+      && counterpartyPostTradeOwner !== agreement.beneficiaryTeamCode
     ) {
       errors.push({
         code: "TRADE_PROTECTION_COUNTERPART_OWNER_INVALID",
-        message: "La contropartita della protezione deve appartenere alla squadra che sta cedendo la scelta protetta.",
+        message: "La contropartita della protezione deve appartenere alla squadra che inserisce la clausola a proprio favore.",
       });
+    }
+    if (agreement.clause.startsWith("protected_top_") && subjectPostTradeOwner === agreement.beneficiaryTeamCode) {
+      errors.push({ code: "TRADE_PROTECTION_SUBJECT_OWNER_INVALID", message: "La scelta protetta deve appartenere a un'altra squadra dopo lo scambio." });
+    }
+    if (agreement.clause === "swap" && subjectPostTradeOwner !== agreement.beneficiaryTeamCode) {
+      errors.push({ code: "TRADE_SWAP_BENEFICIARY_INVALID", message: "Il diritto di swap deve essere inserito su una scelta della squadra beneficiaria dopo lo scambio." });
     }
     if (
       agreement.clause === "swap"

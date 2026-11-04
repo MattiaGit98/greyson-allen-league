@@ -32,6 +32,7 @@ import { buildSignAndTradeProvisional, signAndTradeTransfersNewSigning, type Sig
 import { isUnresolvedTeamOption } from "@/lib/team-option-contract";
 import { applyContextualContractCut, contextualStretchYears } from "@/lib/stretch-provision";
 import { resolveTradeStretches } from "@/lib/trade-stretch";
+import { tradeClauseBeneficiary } from "@/lib/trade-clause-selection";
 import {
   applyValidatedTrade,
   existingTradeClauseAgreements,
@@ -249,6 +250,12 @@ export async function registerTrade(formData: FormData) {
       releasedClausePickIndexes.add(agreement.counterpartyIndex);
     }
   }
+  for (const move of pickMoves) {
+    const source = picks.get(move.id);
+    if (source && conditionIsRemovedInThisTrade(source.stateIndex)) {
+      move.hasExistingCondition = false;
+    }
+  }
 
   const pickClauseChanges: ValidatedTradeChanges["pickClauses"] = [];
   const pickClauses: TradePickClauseAgreement[] = payload.pickClauses.map((requested) => {
@@ -260,12 +267,13 @@ export async function registerTrade(formData: FormData) {
     if (!counterpart) fail("Seleziona la scelta di contropartita della clausola.");
     if (requested.counterpartyTeamCode !== counterpart.pick.teamCode) fail("Proprietario della contropartita non valido.");
     if (!participants.has(counterpart.pick.teamCode)) fail("La contropartita deve appartenere a una squadra coinvolta nello scambio.");
-    const subjectMove = pickMoveById.get(requested.pickId);
     const subjectPostTradeOwner = postTradePickOwner(requested.pickId, subject.pick.teamCode);
     const counterpartyPostTradeOwner = postTradePickOwner(requested.counterpartyPickId!, counterpart.pick.teamCode);
+    if (subjectPostTradeOwner === counterpartyPostTradeOwner) fail("Le due scelte della clausola devono appartenere a squadre diverse dopo lo scambio.");
+    if (requested.beneficiaryTeamCode !== tradeClauseBeneficiary(requested.clause, subjectPostTradeOwner, counterpartyPostTradeOwner)) {
+      fail("Il beneficiario della clausola non corrisponde ai proprietari delle scelte dopo lo scambio.");
+    }
     if (requested.clause.startsWith("protected_top_")) {
-      if (!subjectMove) fail("Una protezione può essere inserita soltanto su una scelta ceduta nello stesso scambio.");
-      if (counterpartyPostTradeOwner !== subjectMove.fromTeamCode) fail("La contropartita della protezione deve appartenere, dopo lo scambio, alla squadra che cede la scelta protetta.");
       if (!isLaterDraftPick(counterpart.pick.year, counterpart.pick.round, subject.pick.year, subject.pick.round)) {
         fail("La contropartita della protezione deve manifestarsi dopo la scelta protetta.");
       }
@@ -296,8 +304,6 @@ export async function registerTrade(formData: FormData) {
       counterpartyOwnerTeamCode: counterpart?.pick.teamCode ?? null,
       postTradeOwnerTeamCode: subjectPostTradeOwner,
       counterpartyPostTradeOwnerTeamCode: counterpartyPostTradeOwner,
-      subjectWasTraded: Boolean(subjectMove),
-      subjectTradeFromTeamCode: subjectMove?.fromTeamCode ?? null,
     };
   });
 
@@ -525,7 +531,7 @@ export async function registerTrade(formData: FormData) {
     ...pickClauseChanges.flatMap((change, index) => {
       const subject = tradeState.draftAssets[change.subjectIndex];
       const counterparty = change.counterpartyIndex === null ? null : tradeState.draftAssets[change.counterpartyIndex];
-      return subject ? [`Clausola su scelta ${tradePickLabel(subject)}: ${tradeClauseLabel(change.clause)}${counterparty ? `; contropartita ${tradePickLabel(counterparty)}` : ""}; a favore di ${pickClauses[index].beneficiaryTeamCode}`] : [];
+      return subject ? [`Clausola su scelta ${tradePickLabel(subject)}: ${tradeClauseLabel(change.clause)}${counterparty ? `; contropartita ${tradePickLabel(counterparty)}` : ""}; proprietari finali ${pickClauses[index].postTradeOwnerTeamCode} ↔ ${pickClauses[index].counterpartyPostTradeOwnerTeamCode}; a favore di ${pickClauses[index].beneficiaryTeamCode}`] : [];
     }),
     ...evaluatedExistingClauseChanges.map((change) => (
       change.action === "remove"
