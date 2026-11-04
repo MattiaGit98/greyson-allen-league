@@ -86,17 +86,21 @@ export function buildLeagueTransitionPreview(input: {
   }
 
   if (transition === "trade_deadline") {
-    preview.newPossibilities.push("Si apre la finestra per i buyout, anche sui contratti già tagliati; lo sconto del 20% sul residuo si applica solo ai giocatori ancora attivi.");
+    preview.newPossibilities.push("Si aprono i buyout dei giocatori attivi, con sconto del 20% sul residuo, e l'estinzione anticipata dei contratti già tagliati, senza sconto.");
     preview.closedPossibilities.push("Si chiudono gli scambi.");
     preview.newPossibilities.push("Si apre il reintegro anticipato, fino alla Chiusura free agency, delle sole DPE esercitate prima della trade deadline.");
     preview.warnings.push("Le nuove DPE esercitate dopo la trade deadline non potranno essere reintegrate anticipatamente e mostreranno il bollino NO R. fino alla Chiusura free agency.");
   }
 
-  if (transition === "buyout_end") preview.closedPossibilities.push("Non sarà più possibile applicare il buyout.");
+  if (transition === "buyout_end") {
+    preview.closedPossibilities.push("Non sarà più possibile applicare il buyout.");
+    preview.newPossibilities.push("Resta disponibile l'estinzione anticipata dei contratti già tagliati fino alla Chiusura free agency.");
+  }
 
   if (transition === "free_agency_end") {
     if (getRosterSlotLimits(input.state).two_way < futureTwoWaySlotLimit) preview.automaticActions.push(`Gli slot Two-way utilizzabili passeranno a ${futureTwoWaySlotLimit} per squadra.`);
     preview.closedPossibilities.push("Si chiudono free agency e rilasci gratuiti.");
+    preview.closedPossibilities.push("Si chiude l'estinzione anticipata dei contratti già tagliati.");
     preview.closedPossibilities.push("Si chiudono l’esercizio della DPE e la possibilità di reintegro anticipato.");
     preview.newPossibilities.push("Dalla data di Inizio postseason si potrà segnalare l'utilizzo nei playoff delle T.O. in G-League.");
   }

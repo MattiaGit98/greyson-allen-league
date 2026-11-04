@@ -6,7 +6,7 @@ import { applyContractExtension } from "@/app/admin/estensioni/actions";
 import { applyRosterExitOperation, applyStretchProvision } from "@/app/admin/tagli-rilasci/actions";
 import type { AdminOperationContext, AdminRosterPlayer, AdminRosterTeam } from "@/lib/admin-operation-data";
 import type { LeaguePhase, RosterEntry } from "@/lib/league-types";
-import { buyoutCost, canApplyBuyout, releaseCapSpaces, stretchCapSpaces, type ThreeYearValues } from "@/lib/release-operations";
+import { buyoutCost, canApplyBuyout, canApplyEarlyTermination, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace } from "@/lib/season-time";
 import { allowedStretchYears, applyContextualContractCut, canApplyStretchProvision, contextualStretchYears } from "@/lib/stretch-provision";
 import { operationWindows, type LeagueMoment } from "@/lib/league-moments";
@@ -29,7 +29,7 @@ import { applyScheduledSeasonEndCut } from "@/app/admin/tagli-programmati/action
 import { roleMinimumDeficits, roleMinimums } from "@/lib/rules/roster";
 
 type Slot = "regular" | "two_way" | "g_league" | "dpe";
-type Operation = "extension" | "cut" | "free_release" | "buyout" | "stretch" | "dpe_activate" | "dpe_reintegrate" | "schedule_cut" | "cancel_scheduled_cut";
+type Operation = "extension" | ReleaseOperationKind | "stretch" | "dpe_activate" | "dpe_reintegrate" | "schedule_cut" | "cancel_scheduled_cut";
 type OperationChoice = { value: Operation; label: string };
 
 const groups: { key: Slot | "cut"; label: string; limit?: number }[] = [
@@ -64,7 +64,7 @@ export function OtherOperationsPanel(props: AdminOperationContext) {
               <section className="accordion-data-section other-operations-section" key={group.key}>
                 <p>{group.label}{group.limit ? ` (${rows.length}/${group.key === "two_way" ? getRosterSlotLimits(props).two_way : group.limit})` : group.key === "dpe" ? ` (${rows.length})` : ""}</p>
                 <div className="other-operations-table">
-                  <div className="other-operations-head"><span>Giocatore</span><span>{group.key === "cut" ? "S.P./B.O." : "Ruolo"}</span><span>Scadenza</span><span>Costo</span><span></span></div>
+                  <div className="other-operations-head"><span>Giocatore</span><span>{group.key === "cut" ? "S.P./B.O./E.A." : "Ruolo"}</span><span>Scadenza</span><span>Costo</span><span></span></div>
                   {rows.map((player) => {
                     const choices = availableOperations(player, team, props);
                     return (
@@ -212,7 +212,7 @@ function OperationDialog({ player, team, props, onClose }: { player: AdminRoster
             />
           )}
           {operation === "extension" && <Metric label="Nuovo contratto" value={`${props.seasonEndYear + 1} · ${contractExtensionCost(player.cost)}`} />}
-          {operation === "buyout" && <Metric label={player.state === "cut" ? "Buyout · senza sconto" : "Buyout · sconto 20%"} value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
+          {(operation === "buyout" || operation === "early_termination") && <Metric label={operation === "early_termination" ? "Estinzione anticipata · senza sconto" : "Buyout · sconto 20%"} value={`${String(props.seasonEndYear).slice(-2)} · ${preview.buyoutTotalResidual}`} />}
           {operation === "stretch" && <Metric label="Rata" value={preview.installment ?? "—"} />}
           {effectiveCutStretchYears !== null && <Metric label="Stretch provision" value={`${effectiveCutStretchYears} rate da ${preview.cutEntry?.cost} · scad. ${preview.cutEntry?.contract}`} />}
         </div>
@@ -248,6 +248,7 @@ function availableOperations(player: AdminRosterPlayer, team: AdminRosterTeam, p
   }
   if (!unresolvedTeamOption && availableFreeReleaseReasons(props.leagueMoment, player, props.seasonName).length) choices.push({ value: "free_release", label: "Rilascio gratuito" });
   if (operationWindows.buyout(props.leagueMoment) && canApplyBuyout(player, props.seasonEndYear, playerCharges(player, props))) choices.push({ value: "buyout", label: "Buyout" });
+  if (operationWindows.earlyTermination(props.leagueMoment) && canApplyEarlyTermination(player, props.seasonEndYear, playerCharges(player, props))) choices.push({ value: "early_termination", label: "Estinzione anticipata" });
   if (canApplyStretchProvision(player, props.seasonEndYear)) choices.push({ value: "stretch", label: "Stretch provision" });
   if (player.state === "active" && !unresolvedTeamOption && player.slot !== "dpe" && operationWindows.dpeActivation(props.leagueMoment)) choices.push({ value: "dpe_activate", label: "Esercita DPE" });
   if (!unresolvedTeamOption && canReintegrateDpe(player, props.leagueMoment)) choices.push({ value: "dpe_reintegrate", label: "Reintegro anticipato dalla DPE" });
@@ -280,14 +281,13 @@ function operationPreview(
       const extendedCost = !excludedByCurrentDpe && targetEndYear <= (player.expiryYear ?? 0) + 1 ? newCost : 0;
       return spacesBefore[index] + oldCost - extendedCost;
     }) as ThreeYearValues;
-  } else if (["cut", "free_release", "buyout"].includes(operation)) {
+  } else if (["cut", "free_release", "buyout", "early_termination"].includes(operation)) {
     spacesAfter = releaseCapSpaces({
-      kind: operation as "cut" | "free_release" | "buyout",
+      kind: operation as ReleaseOperationKind,
       spacesBefore,
       contractCharges: charges,
       cutContractCharges: cutEntry ? entryCharges(cutEntry, props) : undefined,
       currentDpeExemption: player.state === "active" && player.slot === "dpe",
-      buyoutAlreadyCut: player.state === "cut",
     });
   } else if (operation === "stretch") {
     const stretch = stretchCapSpaces(spacesBefore, charges, installments);
@@ -322,6 +322,7 @@ function operationPreview(
   const warnings: string[] = [];
   const capWarnings: string[] = [];
   if (operation === "buyout" && (!operationWindows.buyout(props.leagueMoment) || !canApplyBuyout(player, props.seasonEndYear, charges))) errors.push("Il buyout non è consentito per questo contratto in questa fase.");
+  if (operation === "early_termination" && (!operationWindows.earlyTermination(props.leagueMoment) || !canApplyEarlyTermination(player, props.seasonEndYear, charges))) errors.push("L'estinzione anticipata non è consentita per questo contratto in questa fase.");
   if (operation === "dpe_reintegrate" && !canReintegrateDpe(player, props.leagueMoment)) errors.push("Il reintegro anticipato non è consentito per questo giocatore in questa fase.");
   if (operation === "dpe_activate" && !operationWindows.dpeActivation(props.leagueMoment)) errors.push("La finestra per esercitare la DPE non è aperta.");
   if (operation === "dpe_activate" && !confirmed) errors.push("Conferma i requisiti regolamentari richiesti.");
@@ -347,7 +348,7 @@ function operationPreview(
       seasonNames: [0, 1, 2].map((index) => seasonNameAt(props.seasonName, index)),
       phase: props.phase,
       currentMoment: props.leagueMoment,
-      currentLimit: operation === "buyout" ? 1000 : undefined,
+      currentLimit: operation === "buyout" || operation === "early_termination" ? 1000 : undefined,
     });
     if (hasBlockingDpeCutCapViolation(operation === "cut" && player.slot === "dpe", calculatedCapWarnings)) {
       errors.push(...calculatedCapWarnings.map((warning) => `Taglio dalla DPE non consentito: ${warning}`));
@@ -359,7 +360,7 @@ function operationPreview(
   if (slotsAfter.two_way > getRosterSlotLimits(props).two_way) errors.push(`Sono superati i ${getRosterSlotLimits(props).two_way} slot Two-way.`);
   if (slotsAfter.g_league > 3) errors.push("Sono superati i 3 slot G-League.");
   let roleMinimumMissing = 0;
-  if (roleMinimumChecksApply(props.phase as LeaguePhase, props.leagueMoment) && ["cut", "free_release", "buyout", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
+  if (roleMinimumChecksApply(props.phase as LeaguePhase, props.leagueMoment) && ["cut", "free_release", "buyout", "early_termination", "dpe_activate", "dpe_reintegrate"].includes(operation)) {
     const missingRoles = roleMinimumDeficits(rolesAfter);
     for (const role of ["G", "A", "C"] as const) {
       roleMinimumMissing += missingRoles[role];

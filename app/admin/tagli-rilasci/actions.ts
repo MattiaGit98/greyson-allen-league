@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { RosterEntry } from "@/lib/league-types";
 import { loadEditableLeagueState } from "@/lib/league-state";
 import { persistLeagueMovement } from "@/lib/league-movements";
-import { applyBuyout, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
+import { applyBuyout, applyEarlyTermination, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces, type ReleaseOperationKind, type ThreeYearValues } from "@/lib/release-operations";
 import { calculateCapSpace, followingSeasonName, seasonEndYear } from "@/lib/season-time";
 import { allowedStretchYears, canApplyStretchProvision, applyContextualContractCut } from "@/lib/stretch-provision";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -29,7 +29,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   const cutStretchYears = rawCutStretchYears === "" ? null : Number(rawCutStretchYears);
   const roleMinimumConfirmed = formData.get("role_minimum_confirmed") === "true";
   const submittedReleaseReasons = formData.getAll("release_reason").map((value) => String(value));
-  if (!teamCode || !playerName || !["cut", "free_release", "buyout"].includes(kind)) {
+  if (!teamCode || !playerName || !["cut", "free_release", "buyout", "early_termination"].includes(kind)) {
     operationError(returnPath, "Operazione non valida.");
   }
 
@@ -53,6 +53,7 @@ export async function applyRosterExitOperation(formData: FormData) {
   }
   if (kind === "cut" && entry.state !== "active") operationError(returnPath, "Puoi tagliare soltanto un giocatore attivo.");
   if (kind === "buyout" && !operationWindows.buyout(leagueMoment)) operationError(returnPath, "La finestra dei buyout non è aperta.");
+  if (kind === "early_termination" && !operationWindows.earlyTermination(leagueMoment)) operationError(returnPath, "La finestra dell'estinzione anticipata non è aperta.");
   let releaseReason: FreeReleaseReason | null = null;
   if (kind === "free_release") {
     const oneCreditTeamOptionRelease = freeReleaseReasonAvailability("one_credit_team_option", leagueMoment, freeReleasePlayer, season.name);
@@ -78,14 +79,14 @@ export async function applyRosterExitOperation(formData: FormData) {
   if (kind === "free_release") {
     if (!releaseReason) operationError(returnPath, "Seleziona una causa di rilascio gratuito.");
     rosterEntries = rosterAfterFreeRelease(state.rosterEntries, entryIndex, currentEndYear);
-  } else if (kind === "buyout") {
-    if (season.status !== "regular_season") operationError(returnPath, "Il buyout è disponibile soltanto durante la regular season.");
+  } else if (kind === "buyout" || kind === "early_termination") {
+    if (season.status !== "regular_season") operationError(returnPath, "Buyout ed estinzione anticipata sono disponibili soltanto durante la regular season.");
     try {
-      const boughtOut = applyBuyout(entry, currentEndYear, charges);
+      const boughtOut = kind === "buyout" ? applyBuyout(entry, currentEndYear, charges) : applyEarlyTermination(entry, currentEndYear, charges);
       buyoutTotalResidual = boughtOut.cost;
       rosterEntries = state.rosterEntries.map((item, index) => index === entryIndex ? boughtOut : item);
     } catch (error) {
-      operationError(returnPath, error instanceof Error ? error.message : "Buyout non valido.");
+      operationError(returnPath, error instanceof Error ? error.message : "Buyout o estinzione anticipata non validi.");
     }
   } else {
     try {
@@ -111,7 +112,6 @@ export async function applyRosterExitOperation(formData: FormData) {
     contractCharges: charges,
     cutContractCharges: kind === "cut" ? playerCharges(rosterEntries[entryIndex], season.name, season.status, season.team_options_resolved) : undefined,
     currentDpeExemption: dpeExemption,
-    buyoutAlreadyCut: entry.state === "cut",
   });
   const spacesAfter = teamCapSpaces(rosterEntries, teamCode, season.name, season.status, season.team_options_resolved);
   if (spacesAfter.some((space, index) => space !== expectedSpaces[index])) operationError(returnPath, "Il calcolo del cap non è coerente: aggiorna la pagina.");
@@ -121,7 +121,7 @@ export async function applyRosterExitOperation(formData: FormData) {
     seasonNames: [0, 1, 2].map((distance) => followingSeasonName(season.name, distance)),
     phase: season.status,
     currentMoment: leagueMoment,
-    currentLimit: kind === "buyout" ? 1000 : undefined,
+    currentLimit: kind === "buyout" || kind === "early_termination" ? 1000 : undefined,
   });
   if (hasBlockingDpeCutCapViolation(kind === "cut" && dpeExemption, capWarnings)) {
     operationError(returnPath, `Taglio dalla DPE non consentito: ${capWarnings.join(" ")}`);
@@ -134,7 +134,7 @@ export async function applyRosterExitOperation(formData: FormData) {
       right.teamCode !== teamCode || right.playerName !== playerName
     )),
   };
-  const label = kind === "cut" ? "Taglio registrato" : kind === "free_release" ? "Rilascio gratuito registrato" : "Buyout registrato";
+  const label = kind === "cut" ? "Taglio registrato" : kind === "free_release" ? "Rilascio gratuito registrato" : kind === "buyout" ? "Buyout registrato" : "Estinzione anticipata registrata";
   const releaseDetail = releaseReason ? ` · ${freeReleaseReasonLabels[releaseReason]}` : "";
   const buyoutDetail = buyoutTotalResidual === null
     ? ""

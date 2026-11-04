@@ -25,6 +25,7 @@ export function availableOperationsAt(moment: LeagueMoment, phaseDates: PhaseDat
   add("Free agent", operationWindows.freeAgency(moment), hasReachedMoment(moment, "free_agency_reopening") ? "season_end" : "free_agency_end");
   add("Estensioni contrattuali", operationWindows.extensions(moment), "auction_start");
   add("Buyout", operationWindows.buyout(moment), "buyout_end");
+  add("Estinzione anticipata", operationWindows.earlyTermination(moment), "free_agency_end");
   add("Esercizio DPE", operationWindows.dpeActivation(moment), "free_agency_end");
   add("Reintegro anticipato DPE", operationWindows.dpeReintegration(moment), "free_agency_end");
   add("Segnalazione utilizzo G-League nei playoff", playoffTeamOptionWindowOpen(moment, phaseDates, today), "free_agency_reopening");

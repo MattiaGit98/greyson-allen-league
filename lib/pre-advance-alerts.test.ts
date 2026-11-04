@@ -58,9 +58,11 @@ describe("avvisi prima dell’avanzamento della lega", () => {
     const result = buildPreAdvanceChecklist({ currentMoment: "buyout_end", seasonName: "2026/27", state: state() });
     const alert = result.alerts.find((alert) => alert.id === "free-agency-closures");
     expect(alert?.message).toContain("esercizio e reintegro anticipato della DPE");
-    expect(alert?.article).toBe("Art. 5(a); Art. 10(b); Art. 12(a,d)");
+    expect(alert?.article).toBe("Art. 5(a); Art. 10(b,f); Art. 12(a,d)");
+    expect(alert?.message).toContain("estinzione anticipata");
     const buyout = buildPreAdvanceChecklist({ currentMoment: "trade_deadline", seasonName: "2026/27", state: state() });
     expect(buyout.alerts.find((alert) => alert.id === "buyout-window-closing")?.article).toBe("Art. 10(e); Art. 9(c)");
+    expect(buyout.alerts.find((alert) => alert.id === "buyout-window-closing")?.message).toContain("L'estinzione anticipata dei contratti già tagliati resta disponibile");
   });
 
   it("riferisce la garanzia delle T.O. da 1 credito al comma rinumerato", () => {

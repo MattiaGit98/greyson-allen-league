@@ -19,6 +19,7 @@ export type RosterEntry = {
   slot: "regular" | "two_way" | "g_league" | "dpe";
   teamCode: string;
   stretchProvisionApplied?: boolean;
+  /** Buyout o estinzione anticipata: il contratto non può più essere dilazionato. */
   buyoutApplied?: boolean;
   auctionAcquisition?: AuctionAcquisitionKind;
   auctionPrice?: number;

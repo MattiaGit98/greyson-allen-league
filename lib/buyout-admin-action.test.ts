@@ -19,11 +19,11 @@ vi.mock("@/lib/role-minimums", async () => import("./role-minimums"));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(decodeURIComponent(url)); } }));
 
-function form(confirmed = false) {
+function form(confirmed = false, kind = "buyout") {
   const data = new FormData();
   data.set("team_code", "AAA");
   data.set("player_name", "Target");
-  data.set("operation_kind", "buyout");
+  data.set("operation_kind", kind);
   data.set("role_minimum_confirmed", String(confirmed));
   return data;
 }
@@ -66,11 +66,12 @@ describe("controlli server buyout", () => {
 
   it("concentra il contratto già tagliato senza sconto e senza toccare roster o ruoli", async () => {
     const before = setup("trade_deadline", { state: "cut" });
-    const data = form();
+    const data = form(false, "early_termination");
     data.set("discount", "true"); // Un campo client non può ottenere lo sconto.
-    await expect(applyRosterExitOperation(data)).rejects.toThrow(/updated=.*Buyout registrato/);
+    await expect(applyRosterExitOperation(data)).rejects.toThrow(/updated=.*Estinzione anticipata registrata/);
     const args = mocks.persist.mock.calls[0];
     expect(args[2].rosterEntries.at(-1)).toMatchObject({ state: "cut", cost: 141, contract: "27", buyoutApplied: true });
+    expect(args[3]).toBe("early_termination");
     expect(args[2].rosterEntries.filter((entry: RosterEntry) => entry.state === "active"))
       .toEqual(before.rosterEntries.filter((entry) => entry.state === "active"));
     expect(args[4]).toContain("già tagliato, nessuno sconto");
@@ -79,7 +80,7 @@ describe("controlli server buyout", () => {
 
   it.each(["stretchProvisionApplied", "buyoutApplied"] as const)("non permette di aggirare %s tramite invio diretto del form", async (marker) => {
     setup("trade_deadline", { state: "cut", [marker]: true });
-    await expect(applyRosterExitOperation(form())).rejects.toThrow(/nessuna stretch provision o buyout/);
+    await expect(applyRosterExitOperation(form(false, "early_termination"))).rejects.toThrow(/nessuna stretch provision o buyout/);
     expect(mocks.persist).not.toHaveBeenCalled();
   });
 
@@ -89,14 +90,14 @@ describe("controlli server buyout", () => {
     expect(mocks.persist).not.toHaveBeenCalled();
   });
 
-  it.each([859, 860])("applica il limite di 1000 anche al buyout senza sconto, con altri costi %i", async (otherCosts) => {
-    const state = setup("trade_deadline", { state: "cut" });
+  it.each([["trade_deadline", 859], ["trade_deadline", 860], ["buyout_end", 859], ["buyout_end", 860]] as const)("applica il limite di 1000 all'estinzione a %s, con altri costi %i", async (moment, otherCosts) => {
+    const state = setup(moment, { state: "cut" });
     state.rosterEntries[0].cost = otherCosts - 12;
     if (otherCosts === 859) {
-      await expect(applyRosterExitOperation(form())).rejects.toThrow(/updated=.*Buyout registrato/);
+      await expect(applyRosterExitOperation(form(false, "early_termination"))).rejects.toThrow(/updated=.*Estinzione anticipata registrata/);
       expect(mocks.persist).toHaveBeenCalledOnce();
     } else {
-      await expect(applyRosterExitOperation(form())).rejects.toThrow(/non rispetta il salary cap/);
+      await expect(applyRosterExitOperation(form(false, "early_termination"))).rejects.toThrow(/non rispetta il salary cap/);
       expect(mocks.persist).not.toHaveBeenCalled();
     }
   });
@@ -122,5 +123,41 @@ describe("controlli server buyout", () => {
     setup("trade_deadline", {}, false);
     await expect(applyRosterExitOperation(form())).rejects.toThrow(/Sessione scaduta/);
     expect(mocks.persist).not.toHaveBeenCalled();
+  });
+
+  it("consente solo l'estinzione dei tagliati dopo il Termine buyout", async () => {
+    setup("buyout_end", { state: "cut" });
+    await expect(applyRosterExitOperation(form())).rejects.toThrow(/finestra dei buyout/);
+    expect(mocks.persist).not.toHaveBeenCalled();
+    await expect(applyRosterExitOperation(form(false, "early_termination"))).rejects.toThrow(/updated=.*Estinzione anticipata registrata/);
+    expect(mocks.persist).toHaveBeenCalledOnce();
+  });
+
+  it.each(["offseason_start", "auction_start", "auction_completed", "contract_delivery", "free_agency_end", "free_agency_reopening"] as const)("rifiuta l'estinzione fuori finestra a %s", async (moment) => {
+    setup(moment, { state: "cut" });
+    await expect(applyRosterExitOperation(form(false, "early_termination"))).rejects.toThrow(/finestra dell'estinzione anticipata non è aperta/);
+    expect(mocks.persist).not.toHaveBeenCalled();
+  });
+
+  it.each([["buyout", "cut"], ["early_termination", "active"]] as const)("rifiuta %s su stato %s, senza fidarsi del client", async (kind, state) => {
+    setup("trade_deadline", { state });
+    await expect(applyRosterExitOperation(form(false, kind))).rejects.toThrow(/richiede un giocatore/);
+    expect(mocks.persist).not.toHaveBeenCalled();
+  });
+
+  it.each(["27", "PENDING", "27 + T.O.", "27 + R.E."])("rifiuta l'estinzione del contratto %s", async (contract) => {
+    setup("buyout_end", { state: "cut", contract });
+    await expect(applyRosterExitOperation(form(false, "early_termination"))).rejects.toThrow(/più di una stagione/);
+    expect(mocks.persist).not.toHaveBeenCalled();
+  });
+
+  it("impedisce la stretch dopo l'estinzione anticipata", async () => {
+    setup("buyout_end", { state: "cut" });
+    await expect(applyRosterExitOperation(form(false, "early_termination"))).rejects.toThrow(/updated=/);
+    mocks.load.mockResolvedValue(mocks.persist.mock.calls[0][2]);
+    const data = form();
+    data.set("installments", "3");
+    await expect(applyStretchProvision(data)).rejects.toThrow(/non è idoneo alla stretch/);
+    expect(mocks.persist).toHaveBeenCalledOnce();
   });
 });

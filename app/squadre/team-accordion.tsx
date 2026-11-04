@@ -747,7 +747,7 @@ function SimplePlayerTable({
           <RosterSortButton label="Costo" sortKey="cost" sort={sort} onClick={onSort} />
         </> : <>
           <span>Giocatore</span>
-          <span>{cutPlayers ? "S.P./B.O." : "Ruolo"}</span>
+          <span>{cutPlayers ? "S.P./B.O./E.A." : "Ruolo"}</span>
           <span>Scadenza</span>
           <span>Costo</span>
         </>}

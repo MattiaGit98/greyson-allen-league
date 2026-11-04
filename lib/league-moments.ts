@@ -91,6 +91,7 @@ export const operationWindows = {
   ),
   extensions: (moment: LeagueMoment) => !hasReachedMoment(moment, "auction_start"),
   buyout: (moment: LeagueMoment) => hasReachedMoment(moment, "trade_deadline") && !hasReachedMoment(moment, "buyout_end"),
+  earlyTermination: (moment: LeagueMoment) => hasReachedMoment(moment, "trade_deadline") && !hasReachedMoment(moment, "free_agency_end"),
   freeRelease: (moment: LeagueMoment) => !hasReachedMoment(moment, "free_agency_end"),
   dpeActivation: (moment: LeagueMoment) => (
     (!hasReachedMoment(moment, "auction_start") || hasReachedMoment(moment, "auction_completed"))

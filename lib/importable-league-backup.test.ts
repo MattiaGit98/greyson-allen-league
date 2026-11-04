@@ -8,6 +8,7 @@ import {
 } from "./importable-league-backup";
 import { emptyLeagueState } from "./league-state";
 import { compactMovementSnapshotsForBackup } from "./movement-snapshot-compaction";
+import { applyEarlyTermination } from "./release-operations";
 
 function payload(): ImportableLeaguePayload {
   return {
@@ -30,6 +31,23 @@ function payload(): ImportableLeaguePayload {
 }
 
 describe("backup importabile della lega", () => {
+  it("conserva estinzioni, vecchi buyout e il blocco stretch senza cambiare formato", () => {
+    const source = payload();
+    const before = { name: "Tagliato", teamCode: "AAA", cost: 47, contract: "29", state: "cut" as const, slot: "regular" as const };
+    // La RPC salva JSON: i campi opzionali azzerati non sono presenti nello stato riletto.
+    const after = JSON.parse(JSON.stringify(applyEarlyTermination(before, 2027, [47, 47, 47])));
+    source.leagueState.rosterEntries = [after];
+    source.movements = ["buyout", "early_termination"].map((operation_type, index) => ({
+      id: `8d45ba5f-fbe1-4d42-b5ef-744eb0a27ac${index}`, operation_type, summary: operation_type,
+      before_state: { rosterEntries: [before] }, after_state: { rosterEntries: [after] },
+      history_category: null, before_history: null, after_history: null, season_name: "2026/27", undo_before_moment: null,
+      reverts_movement_id: null, created_at: "2027-02-02T12:00:00.000Z", reverted_at: null,
+    }));
+    const parsed = parseImportableLeagueBackup(JSON.parse(JSON.stringify(createImportableBackupDocument(source))));
+    expect(parsed.formatVersion).toBe(2);
+    expect(parsed.payload.leagueState.rosterEntries).toEqual([after]);
+    expect(parsed.payload.movements).toEqual(source.movements);
+  });
   it.each([2, 3])("ripristina esattamente la capacità stagionale di %i Two-way", (twoWaySlotLimit) => {
     const source = payload();
     source.leagueState.twoWaySlotLimit = twoWaySlotLimit;

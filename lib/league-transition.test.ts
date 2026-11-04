@@ -21,8 +21,18 @@ describe("avvisi aggiornati su buyout e free agent", () => {
     const auction = buildLeagueTransitionPreview({ ...input, currentMoment: "auction_start" });
     expect(auction.newPossibilities.join(" ")).not.toMatch(/buyout/i);
     const deadline = buildLeagueTransitionPreview({ ...input, currentMoment: "contract_delivery" });
-    expect(deadline.newPossibilities).toContain("Si apre la finestra per i buyout, anche sui contratti già tagliati; lo sconto del 20% sul residuo si applica solo ai giocatori ancora attivi.");
+    expect(deadline.newPossibilities).toContain("Si aprono i buyout dei giocatori attivi, con sconto del 20% sul residuo, e l'estinzione anticipata dei contratti già tagliati, senza sconto.");
     expect(deadline.automaticActions.join(" ")).not.toMatch(/senza Q.O./);
+  });
+  it("annuncia separatamente le due chiusure senza riaprirle nella seconda free agency", () => {
+    const input = { seasonName: "2026/27", state: emptyLeagueState() };
+    const buyout = buildLeagueTransitionPreview({ ...input, currentMoment: "trade_deadline" });
+    expect(buyout.closedPossibilities).toContain("Non sarà più possibile applicare il buyout.");
+    expect(buyout.newPossibilities.join(" ")).toContain("Resta disponibile l'estinzione anticipata");
+    const closing = buildLeagueTransitionPreview({ ...input, currentMoment: "buyout_end" });
+    expect(closing.closedPossibilities).toContain("Si chiude l'estinzione anticipata dei contratti già tagliati.");
+    const reopening = buildLeagueTransitionPreview({ ...input, currentMoment: "free_agency_end" });
+    expect(reopening.newPossibilities.join(" ")).not.toMatch(/buyout|estinzione/i);
   });
 });
 

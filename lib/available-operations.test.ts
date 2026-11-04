@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { availableOperationsAt } from "./available-operations";
+import { operationWindows } from "./league-moments";
 
 describe("operazioni disponibili", () => {
+  it("tiene aperta l'estinzione dopo il Termine buyout e la chiude con la prima free agency", () => {
+    for (const moment of ["offseason_start", "team_option_deadline", "auction_start", "auction_completed", "contract_delivery", "free_agency_end", "free_agency_reopening"] as const) {
+      expect(operationWindows.earlyTermination(moment)).toBe(false);
+      expect(labelsAt(moment)).not.toContain("Estinzione anticipata");
+    }
+    for (const moment of ["trade_deadline", "buyout_end"] as const) {
+      expect(operationWindows.earlyTermination(moment)).toBe(true);
+      expect(labelsAt(moment)).toContain("Estinzione anticipata");
+    }
+    expect(availableOperationsAt("trade_deadline").find((item) => item.label === "Estinzione anticipata")?.urgency).toBe("upcoming");
+    expect(availableOperationsAt("buyout_end").find((item) => item.label === "Estinzione anticipata")?.urgency).toBe("urgent");
+  });
   it("mostra il buyout soltanto dalla Trade deadline al Termine buyout", () => {
     expect(labelsAt("auction_start")).not.toContain("Buyout");
     expect(labelsAt("auction_completed")).not.toContain("Buyout");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyBuyout, canApplyBuyout, buyoutCost, applyFreeRelease, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
+import { applyBuyout, applyEarlyTermination, canApplyBuyout, canApplyEarlyTermination, buyoutCost, applyFreeRelease, rosterAfterFreeRelease, releaseCapSpaces, stretchCapSpaces } from "./release-operations";
 import type { RosterEntry } from "./league-types";
 import { allowedStretchYears } from "./stretch-provision";
 
@@ -141,9 +141,10 @@ describe("buyout scontato", () => {
 
   it("concentra il residuo dei tagliati senza alcuno sconto", () => {
     const original = { ...entry, state: "cut" as const, contract: "29" };
-    expect(canApplyBuyout(original, 2027, [47, 47, 47])).toBe(true);
+    expect(canApplyBuyout(original, 2027, [47, 47, 47])).toBe(false);
+    expect(canApplyEarlyTermination(original, 2027, [47, 47, 47])).toBe(true);
     expect(buyoutCost([47, 47, 47], true)).toBe(141);
-    const result = applyBuyout(original, 2027, [47, 47, 47]);
+    const result = applyEarlyTermination(original, 2027, [47, 47, 47]);
     expect(result).toMatchObject({ cost: 141, contract: "27", state: "cut", buyoutApplied: true });
     expect(original).toMatchObject({ cost: 47, contract: "29" });
     expect(original).not.toHaveProperty("buyoutApplied");
@@ -154,12 +155,23 @@ describe("buyout scontato", () => {
     for (const marker of ["stretchProvisionApplied", "buyoutApplied"] as const) {
       const blocked = { ...entry, state, [marker]: true };
       expect(canApplyBuyout(blocked, 2027, [47, 47, 47])).toBe(false);
+      expect(canApplyEarlyTermination(blocked, 2027, [47, 47, 47])).toBe(false);
       expect(() => applyBuyout(blocked, 2027, [47, 47, 47])).toThrow(/stretch provision o buyout/);
+      expect(() => applyEarlyTermination(blocked, 2027, [47, 47, 47])).toThrow(/stretch provision o buyout/);
     }
   });
 
   it("rifiuta chi ha un solo addebito residuo", () => {
     expect(() => applyBuyout(entry, 2027, [47, 0, 0])).toThrow();
+  });
+
+  it("non permette di scambiare le due operazioni per ottenere uno sconto sui tagliati", () => {
+    expect(() => applyBuyout({ ...entry, state: "cut" }, 2027, [47, 47, 0])).toThrow(/giocatore attivo/);
+    expect(() => applyEarlyTermination(entry, 2027, [47, 47, 0])).toThrow(/già tagliato/);
+  });
+
+  it.each(["27", "27 (Q)", "27 + T.O.", "27 + R.E.", "PENDING", "T.O.", "R.E."])("non estingue anni opzionali o bozze di %s", (contract) => {
+    expect(canApplyEarlyTermination({ ...entry, state: "cut", contract }, 2027, [47, 0, 0])).toBe(false);
   });
 });
 

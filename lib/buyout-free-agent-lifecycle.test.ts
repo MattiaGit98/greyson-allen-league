@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RosterEntry } from "./league-types";
 import { emptyLeagueState } from "./league-state";
-import { applyBuyout, releaseCapSpaces, type ThreeYearValues } from "./release-operations";
+import { applyBuyout, applyEarlyTermination, releaseCapSpaces, type ThreeYearValues } from "./release-operations";
 import { calculateCapSpace, followingSeasonName } from "./season-time";
 import { entriesForDpeAdjustedCap } from "./dpe-rules";
 import { salaryCapWarningsForSpaces } from "./cap-override";
@@ -27,10 +27,10 @@ describe("ciclo buyout e nuove firme FA", () => {
   it.each([2, 3])("allinea cap e anteprima senza sconto per un tagliato con %i anni residui", (years) => {
     const original = { ...entry, state: "cut" as const, contract: String(2027 + years - 1).slice(-2) };
     const charges: ThreeYearValues = [47, 47, years === 3 ? 47 : 0];
-    const after = applyBuyout(original, 2027, charges);
+    const after = applyEarlyTermination(original, 2027, charges);
     expect(after.cost).toBe(47 * years);
-    expect(releaseCapSpaces({ kind: "buyout", spacesBefore: spaces([original]), contractCharges: charges,
-      currentDpeExemption: false, buyoutAlreadyCut: true })).toEqual(spaces([after]));
+    expect(releaseCapSpaces({ kind: "early_termination", spacesBefore: spaces([original]), contractCharges: charges,
+      currentDpeExemption: false })).toEqual(spaces([after]));
     expect(allowedStretchYears(after, 2027)).toEqual([]);
     const state = { ...emptyLeagueState(), rosterEntries: [original] };
     const restored = buildMovementReversal({ ...state, rosterEntries: [after] }, state, { ...state, rosterEntries: [after] });
@@ -39,7 +39,7 @@ describe("ciclo buyout e nuove firme FA", () => {
 
   it("usa soltanto le stagioni residue di un contratto già iniziato", () => {
     const original = { ...entry, state: "cut" as const, contract: "29", contractStartSeason: "2026/27" };
-    expect(applyBuyout(original, 2028, [47, 47, 0]).cost).toBe(94);
+    expect(applyEarlyTermination(original, 2028, [47, 47, 0]).cost).toBe(94);
   });
 
   it.each(["regular", "dpe"] as const)("allinea anteprima e cap effettivo per il buyout dallo slot %s", (slot) => {

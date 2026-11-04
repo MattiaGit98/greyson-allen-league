@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { conciseMovementDetail, fullMovementDetail, movementOperationLabel, movementOperationTypesForFilter, movementSearchFilter, normalizeMovementSearchQuery } from "./movement-display";
 
 describe("visualizzazione sintetica dei movimenti", () => {
+  it("distingue i nuovi movimenti di estinzione senza riclassificare i buyout storici", () => {
+    expect(movementOperationLabel("early_termination")).toBe("Estinzione anticipata");
+    expect(movementOperationLabel("buyout")).toBe("Buyout");
+    expect(movementOperationTypesForFilter("tagli_rilasci")).toEqual(expect.arrayContaining(["buyout", "early_termination"]));
+    expect(conciseMovementDetail("early_termination", "Estinzione anticipata registrata: Player (AAA) · costo 47, contratto 29 · residuo 141, nessuno sconto"))
+      .toBe("Estinzione anticipata registrata: Player (AAA)");
+    expect(fullMovementDetail("early_termination", "Dettaglio integrale")).toBe("Dettaglio integrale");
+    expect(movementSearchFilter("estinzione anticipata")).toContain("early_termination");
+  });
   it("abbrevia una team option mantenendo giocatore e squadra", () => {
     expect(conciseMovementDetail(
       "team_option",

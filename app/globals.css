@@ -1142,7 +1142,7 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
   .roster-data-table .data-head > :nth-child(3),
   .roster-data-table .data-head > :nth-child(4) { font-size: 0; }
   .roster-data-table .data-head > :nth-child(2)::after { content: "Ruolo"; font-size: 9px; }
-  .cut-player-table .data-head > :nth-child(2)::after { content: "S.P./B.O."; font-size: 9px; }
+  .cut-player-table .data-head > :nth-child(2)::after { content: "S.P./B.O./E.A."; font-size: 8px; letter-spacing: 0; }
   .roster-data-table .data-head > :nth-child(3)::after { content: "SCAD."; font-size: 9px; }
   .roster-data-table .data-head > :nth-child(4)::after { content: "COSTO"; font-size: 9px; }
   .roster-data-table .data-row > strong:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -2,7 +2,7 @@ import type { RosterEntry } from "./league-types";
 import { contractAfterRosterExitForEntry, isPendingContractAssignment } from "./team-option-contract";
 import { isStretchUnavailable } from "./stretch-provision";
 
-export type ReleaseOperationKind = "cut" | "free_release" | "buyout";
+export type ReleaseOperationKind = "cut" | "free_release" | "buyout" | "early_termination";
 export type ThreeYearValues = [number, number, number];
 
 /** Lo sconto del 20% si applica soltanto ai contratti non ancora tagliati. */
@@ -19,6 +19,22 @@ export function canApplyBuyout(
   currentSeasonEndYear: number,
   charges: readonly number[],
 ) {
+  return entry.state === "active" && canConsolidateContract(entry, currentSeasonEndYear, charges);
+}
+
+export function canApplyEarlyTermination(
+  entry: Pick<RosterEntry, "state" | "contract" | "stretchProvisionApplied" | "buyoutApplied">,
+  currentSeasonEndYear: number,
+  charges: readonly number[],
+) {
+  return entry.state === "cut" && canConsolidateContract(entry, currentSeasonEndYear, charges);
+}
+
+function canConsolidateContract(
+  entry: Pick<RosterEntry, "state" | "contract" | "stretchProvisionApplied" | "buyoutApplied">,
+  currentSeasonEndYear: number,
+  charges: readonly number[],
+) {
   const shortExpiry = entry.contract.match(/\d{2}/)?.[0];
   const expiry = shortExpiry ? Math.floor(currentSeasonEndYear / 100) * 100 + Number(shortExpiry) : null;
   return !isStretchUnavailable(entry) && !isPendingContractAssignment(entry.contract)
@@ -28,10 +44,21 @@ export function canApplyBuyout(
 
 export function applyBuyout<T extends RosterEntry>(entry: T, currentSeasonEndYear: number, charges: readonly number[]): T {
   if (!canApplyBuyout(entry, currentSeasonEndYear, charges)) {
-    throw new Error("Il buyout richiede più di una stagione residua già contrattualizzata e nessuna stretch provision o buyout già applicati.");
+    throw new Error("Il buyout richiede un giocatore attivo con più di una stagione residua già contrattualizzata e nessuna stretch provision o buyout/estinzione anticipata già applicati.");
   }
+  return consolidatedContract(entry, currentSeasonEndYear, buyoutCost(charges));
+}
+
+export function applyEarlyTermination<T extends RosterEntry>(entry: T, currentSeasonEndYear: number, charges: readonly number[]): T {
+  if (!canApplyEarlyTermination(entry, currentSeasonEndYear, charges)) {
+    throw new Error("L'estinzione anticipata richiede un giocatore già tagliato con più di una stagione residua già contrattualizzata e nessuna stretch provision o buyout/estinzione anticipata già applicati.");
+  }
+  return consolidatedContract(entry, currentSeasonEndYear, buyoutCost(charges, true));
+}
+
+function consolidatedContract<T extends RosterEntry>(entry: T, currentSeasonEndYear: number, cost: number): T {
   return {
-    ...entry, state: "cut", slot: "regular", cost: buyoutCost(charges, entry.state === "cut"), contract: String(currentSeasonEndYear).slice(-2),
+    ...entry, state: "cut", slot: "regular", cost, contract: String(currentSeasonEndYear).slice(-2),
     buyoutApplied: true, scheduledSeasonEndCut: undefined, playoffTeamOptionUsedSeason: undefined,
     dpeActivatedAfterDeadline: undefined,
   };
@@ -66,14 +93,12 @@ export function releaseCapSpaces({
   contractCharges,
   cutContractCharges,
   currentDpeExemption,
-  buyoutAlreadyCut = false,
 }: {
   kind: ReleaseOperationKind;
   spacesBefore: ThreeYearValues;
   contractCharges: ThreeYearValues;
   cutContractCharges?: ThreeYearValues;
   currentDpeExemption: boolean;
-  buyoutAlreadyCut?: boolean;
 }): ThreeYearValues {
   const after: ThreeYearValues = [...spacesBefore];
   if (kind === "cut") {
@@ -92,7 +117,7 @@ export function releaseCapSpaces({
   }
 
   const currentCharge = currentDpeExemption ? 0 : contractCharges[0];
-  after[0] += currentCharge - buyoutCost(contractCharges, buyoutAlreadyCut);
+  after[0] += currentCharge - buyoutCost(contractCharges, kind === "early_termination");
   after[1] += contractCharges[1];
   after[2] += contractCharges[2];
   return after;
