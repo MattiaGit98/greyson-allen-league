@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import {
   competitionNames,
+  cupGroupValidationErrors,
   normalizeCompetitionContent,
   type CompetitionName,
 } from "@/lib/competitions";
@@ -39,6 +40,10 @@ export async function saveCompetitionContent(
     (teamResponse.data ?? []).map((team) => team.code),
   );
   if (!content) return { error: "I dati inseriti non sono validi." };
+  if (content.kind === "cup_group") {
+    const errors = cupGroupValidationErrors(content, (teamResponse.data ?? []).map((team) => team.code));
+    if (errors.length) return { error: errors.join(" ") };
+  }
 
   const { error } = await supabase.rpc("replace_active_competition_content", {
     target_name: competitionName,

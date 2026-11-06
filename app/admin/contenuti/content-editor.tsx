@@ -4,6 +4,7 @@ import { useActionState, useState, type CSSProperties } from "react";
 import {
   bracketUnknownTeamCode,
   competitionNames,
+  cupGroupValidationErrors,
   cupTeamResult,
   emptyBracketMatch,
   formatCompetitionNumber,
@@ -73,6 +74,7 @@ function CompetitionForm({
   onChange: (content: CompetitionContent) => void;
 }) {
   const [state, action, pending] = useActionState(saveCompetitionContent, initialState);
+  const validationErrors = content.kind === "cup_group" ? cupGroupValidationErrors(content, teams.map((team) => team.code)) : [];
   return (
     <form action={action} className="content-editor-form competition-editor-form">
       <input type="hidden" name="competition_name" value={name} />
@@ -80,9 +82,13 @@ function CompetitionForm({
       {content.kind === "ranking" && <RankingEditor content={content} teams={teams} onChange={onChange} />}
       {content.kind === "cup_group" && <CupGroupEditor content={content} teams={teams} onChange={onChange} />}
       {content.kind === "bracket" && <BracketEditor content={content} teams={teams} onChange={onChange} />}
+      {validationErrors.length > 0 && <div className="notice error cup-validation-errors" role="alert">
+        <strong>Salvataggio bloccato</strong>
+        <ul>{validationErrors.map((error) => <li key={error}>{error}</li>)}</ul>
+      </div>}
       {state.error && <p className="notice error">{state.error}</p>}
       {state.message && <p className="notice success">{state.message}</p>}
-      <button className="button primary content-save-button" type="submit" disabled={pending}>
+      <button className="button primary content-save-button" type="submit" disabled={pending || validationErrors.length > 0}>
         {pending ? "Salvataggio…" : "Salva modifiche"}
       </button>
     </form>
@@ -213,7 +219,12 @@ function CupGroupEditor({
               {Array.from({ length: content.rounds }, (_, round) => (
                 <div className="cup-round-inputs" key={round}>
                   <b>G{round + 1}</b>
-                  <label><span>Vittoria</span><select value={result.wins[round] ?? ""} onChange={(event) => updateResult(team.code, "wins", round, event.target.value)}><option value="">—</option><option value="1">1</option><option value="0">0</option></select></label>
+                  <div className="cup-outcome-options" role="group" aria-label={`Esito ${team.name}, G${round + 1}`}>
+                    {([1, 0] as const).map((outcome) => <label key={outcome}>
+                      <input type="checkbox" checked={result.wins[round] === outcome} aria-label={`${outcome === 1 ? "Vittoria" : "Sconfitta"} ${team.name}, G${round + 1}`} onChange={(event) => updateResult(team.code, "wins", round, event.target.checked ? String(outcome) : "")} />
+                      <span>{outcome === 1 ? "W" : "L"}</span>
+                    </label>)}
+                  </div>
                   <label><span>Punteggio</span><input inputMode="decimal" value={result.scores[round]} onChange={(event) => updateResult(team.code, "scores", round, event.target.value)} placeholder="—" /></label>
                 </div>
               ))}

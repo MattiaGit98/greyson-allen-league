@@ -146,6 +146,22 @@ export function cupTeamResult(content: CupGroupContent, code: string): CupTeamRe
   };
 }
 
+/** Controlli di salvataggio: non modifica né nasconde eventuali dati già presenti. */
+export function cupGroupValidationErrors(content: CupGroupContent, teamCodes: readonly string[]): string[] {
+  const results = teamCodes.map((code) => cupTeamResult(content, code));
+  return Array.from({ length: content.rounds }, (_, round) => {
+    const hasData = results.some((result) => result.wins[round] !== null || result.scores[round].trim() !== "");
+    if (!hasData) return null;
+    const complete = results.filter((result) => (result.wins[round] === 0 || result.wins[round] === 1) && result.scores[round].trim() !== "").length;
+    if (complete !== results.length) {
+      return `G${round + 1}: giornata incompleta (${complete}/${results.length} squadre complete). Compila W/L e punteggio per tutte le squadre oppure svuota l'intera giornata.`;
+    }
+    const wins = results.filter((result) => result.wins[round] === 1).length;
+    const losses = results.filter((result) => result.wins[round] === 0).length;
+    return wins === losses ? null : `G${round + 1}: vittorie ${wins}, sconfitte ${losses}. Il numero di vittorie deve essere uguale al numero di sconfitte.`;
+  }).filter((error): error is string => error !== null);
+}
+
 export function cupTotals(result: CupTeamResult) {
   return {
     wins: result.wins.reduce<number>((total, value) => total + (value ?? 0), 0),
