@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { startPageLoadRecovery } from "@/lib/page-load-recovery";
 
 export default function GlobalError({ error }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -35,12 +36,23 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
     };
   }, [error]);
 
+  if (retrying) {
+    return (
+      <section className="league-state-screen league-loading-screen" role="status" aria-live="polite" aria-busy="true" aria-label="Caricamento della lega">
+        <div className="league-loading-content">
+          <Image className="league-loading-logo" src="/icons/icon-192.png" alt="Greyson Allen League" width={128} height={128} priority unoptimized />
+          <p>Caricamento della lega…</p>
+          <span className="league-loading-spinner" aria-hidden="true" />
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="section page-top">
-      <div className={`notice league-data-error${retrying ? "" : " error"}`} role={retrying ? "status" : "alert"} aria-busy={retrying}>
-        <strong>{retrying ? "Caricamento della lega…" : "Dati della lega temporaneamente non disponibili."}</strong>
-        <span>{retrying ? "Nuovo tentativo di connessione in corso." : "Il sito non mostra copie iniziali o dati vecchi al posto dello stato corrente."}</span>
-        {!retrying && <button className="button secondary" type="button" onClick={() => window.location.reload()}>Aggiorna la pagina</button>}
+    <section className="league-state-screen league-error-screen" role="alert" aria-labelledby="league-error-title">
+      <div className="league-error-content">
+        <h1 id="league-error-title">Impossibile caricare la lega</h1>
+        <button className="button primary league-reload-button" type="button" onClick={() => window.location.reload()}>Clicca qui per ricaricare la pagina</button>
       </div>
     </section>
   );

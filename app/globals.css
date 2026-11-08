@@ -1724,9 +1724,32 @@ form[data-live-submitting="true"] button, form[data-live-submitting="true"] inpu
 .contract-choice-list small { color: var(--orange); font-size: 8px; font-weight: 900; }
 .contract-choice-list > button { padding: 0 7px; border: 0; background: transparent; color: #8d432f; font-size: 8px; font-weight: 900; cursor: pointer; }
 .contract-choice-list > button:disabled { color: var(--muted); opacity: .45; cursor: not-allowed; }
-.league-data-error { display: grid; justify-items: start; gap: 8px; }
-.league-data-error strong { color: inherit; font-size: 12px; }
-.league-data-error span { font-size: 10px; }
+.league-state-screen { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; overflow: auto; overscroll-behavior: contain; padding: max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px)); background: var(--paper); color: var(--green); text-align: center; }
+.league-loading-content { width: min(100%, 320px); display: grid; justify-items: center; gap: 24px; transform: translateY(-4vh); }
+.league-error-content { width: min(100%, 420px); display: grid; justify-items: center; gap: 24px; transform: translateY(-4vh); }
+.league-error-content h1 { max-width: 100%; margin: 0; color: #963d32; font-size: clamp(22px, 3vw, 30px); line-height: 1.25; font-weight: 800; letter-spacing: -.03em; }
+.league-reload-button { max-width: 100%; min-height: 46px; padding: 12px 18px; font-size: 12px; line-height: 1.35; text-align: center; }
+.league-loading-logo { display: block; width: clamp(112px, 24vw, 136px); height: auto; aspect-ratio: 1; border-radius: 24px; }
+.league-loading-content p { margin: 0; font-size: clamp(16px, 2.5vw, 19px); line-height: 1.4; font-weight: 700; letter-spacing: -.02em; }
+.league-loading-spinner { width: 22px; height: 22px; border: 2px solid #d1dcd2; border-top-color: var(--green); border-radius: 50%; animation: league-loading-spin 1s linear infinite; }
+body:has(.league-state-screen) { overflow: hidden; }
+body:has(.league-state-screen) .site-header,
+body:has(.league-state-screen) .public-navigation,
+body:has(.league-state-screen) .public-navigation-backdrop,
+body:has(.league-state-screen) .section-nav,
+body:has(.league-state-screen) .admin-session-bar,
+body:has(.league-state-screen) .admin-success-feedback,
+body:has(.league-state-screen) .live-update-notice { display: none; }
+body:has(.league-state-screen) > main,
+body:has(.league-state-screen) .public-navigation ~ main { min-height: 100dvh; margin-left: 0; transition: none; }
+@keyframes league-loading-spin { to { transform: rotate(360deg); } }
+@media (max-height: 400px) {
+  .league-loading-content, .league-error-content { gap: 14px; transform: none; }
+  .league-loading-logo { width: 88px; border-radius: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .league-loading-spinner { animation: none; }
+}
 
 @media (max-width: 850px) {
   .pre-advance-checklist { margin-right: 8px; margin-left: 8px; border-radius: 14px; }

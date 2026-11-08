@@ -77,8 +77,21 @@ describe("operazioni disponibili", () => {
   it("ordina alfabeticamente le operazioni con la stessa scadenza", () => {
     const labels = labelsAt("offseason_start");
     expect(labels.indexOf("Estensioni contrattuali")).toBeLessThan(labels.indexOf("Rilasci: meno della metà della stagione NBA"));
-    expect(labels.slice(-2)).toEqual(["Stretch provision", "Tagli"]);
+    expect(labels.at(-1)).toBe("Tagli e stretch provision");
+    expect(labels).not.toContain("Tagli");
+    expect(labels).not.toContain("Stretch provision");
     expect(labels).not.toContain("Promozioni di slot");
+  });
+
+  it("rinomina la firma dei free agent mantenendo le finestre e le scadenze", () => {
+    expect(labelsAt("auction_start")).not.toContain("Firma free agent");
+    expect(labelsAt("contract_delivery")).toContain("Firma free agent");
+    expect(labelsAt("buyout_end")).toContain("Firma free agent");
+    expect(labelsAt("free_agency_end")).not.toContain("Firma free agent");
+    expect(labelsAt("free_agency_reopening")).toContain("Firma free agent");
+    expect(labelsAt("contract_delivery")).not.toContain("Free agent");
+    expect(availableOperationsAt("buyout_end").find((item) => item.label === "Firma free agent")?.urgency).toBe("urgent");
+    expect(availableOperationsAt("free_agency_reopening").find((item) => item.label === "Firma free agent")?.urgency).toBe("urgent");
   });
 
   it("non colora gli scambi di rosso prima della data informativa di inizio campionato", () => {

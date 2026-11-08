@@ -22,7 +22,7 @@ export function availableOperationsAt(moment: LeagueMoment, phaseDates: PhaseDat
 
   add("Contratti da rookie", operationWindows.teamOption(moment), "team_option_deadline");
   add("Scambi", operationWindows.trades(moment), "trade_deadline");
-  add("Free agent", operationWindows.freeAgency(moment), hasReachedMoment(moment, "free_agency_reopening") ? "season_end" : "free_agency_end");
+  add("Firma free agent", operationWindows.freeAgency(moment), hasReachedMoment(moment, "free_agency_reopening") ? "season_end" : "free_agency_end");
   add("Estensioni contrattuali", operationWindows.extensions(moment), "auction_start");
   add("Buyout", operationWindows.buyout(moment), "buyout_end");
   add("Estinzione anticipata", operationWindows.earlyTermination(moment), "free_agency_end");
@@ -33,10 +33,7 @@ export function availableOperationsAt(moment: LeagueMoment, phaseDates: PhaseDat
   add("Rilasci: T.O. da 1 credito", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "contract_delivery"), "contract_delivery");
   add("Rilasci: senza squadra", hasReachedMoment(moment, "team_option_deadline") && !hasReachedMoment(moment, "free_agency_end") && !tradesAreSuspendedForAuction(moment), "free_agency_end");
 
-  available.push(
-    { label: "Tagli" },
-    { label: "Stretch provision" },
-  );
+  available.push({ label: "Tagli e stretch provision" });
 
   const nextTransition = nextLeagueTransition(moment);
   const nextEvent = nextPhaseDate(phaseDates, moment, today)?.transition ?? nextTransition;
