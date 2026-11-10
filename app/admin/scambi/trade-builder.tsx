@@ -114,6 +114,7 @@ type TradeImportPayload = {
   pickClauses: Pick<TradePickClauseAgreement, "pickId" | "clause" | "counterpartyPickId">[];
   existingClauseAgreementIds: string[];
   stretches?: TradeStretchRequest[];
+  playerSnapshots?: ReturnType<typeof tradePlayerImportSnapshot>[];
 };
 
 type ImportedTradeState = {
@@ -491,7 +492,9 @@ export function TradeBuilder({
         ...imported,
         existingClauseAgreements,
       });
-      if (recap !== expectedRecap) throw new Error("Il testo non coincide esattamente con uno scambio simulato valido.");
+      if ((recap !== expectedRecap || !payload.playerSnapshots) && recap !== tradeSimulationRecap({ teams, ...imported, existingClauseAgreements }, "legacy")) {
+        throw new Error("Il testo non coincide esattamente con uno scambio simulato valido.");
+      }
       const importedTeams = imported.participantCodes
         .map((code) => teams.find((team) => team.code === code))
         .filter((team): team is TradeTeam => Boolean(team));
@@ -634,8 +637,8 @@ export function TradeBuilder({
 
       <div className="trade-team-grid">
         {participants.map((team) => (
+          <div className="trade-team-column" key={team.code}>
           <TradeTeamCard
-            key={team.code}
             team={team}
             allTeams={teams}
             participants={participants}
@@ -671,43 +674,25 @@ export function TradeBuilder({
             onAddStretch={(stretch) => { invalidateTradeConfirmations(); setStretches((current) => [...current, stretch]); }}
             onRemoveStretch={(id) => { invalidateTradeConfirmations(); setStretches((current) => current.filter((stretch) => stretch.id !== id)); }}
             onUpdateStretch={(id, years) => { invalidateTradeConfirmations(); setStretches((current) => current.map((stretch) => stretch.id === id ? { ...stretch, years } : stretch)); }}
-            onAddPromotion={(promotion) => { invalidateTradeConfirmations(); setPromotions((current) => [...current, promotion]); }}
-            onRemovePromotion={(id) => { invalidateTradeConfirmations(); setPromotions((current) => current.filter((promotion) => promotion.id !== id)); }}
+            onAddPromotion={(promotion) => {
+              invalidateTradeConfirmations();
+              if (playerMoves.some((move) => move.id === promotion.id && move.toTeamCode === promotion.teamCode)) {
+                // Per un ricevuto lo slot finale è già salvato sul trasferimento: niente doppio conteggio.
+                setPlayerMoves((current) => current.map((move) => move.id === promotion.id ? { ...move, destinationSlot: promotion.destinationSlot } : move));
+              } else setPromotions((current) => [...current, promotion]);
+            }}
+            onRemovePromotion={(id) => {
+              invalidateTradeConfirmations();
+              setPlayerMoves((current) => current.map((move) => move.id === id ? { ...move, destinationSlot: move.sourceSlot } : move));
+              setPromotions((current) => current.filter((promotion) => promotion.id !== id));
+            }}
             onAddPickClause={addPickClause}
             onRemovePickClause={(id) => { invalidateTradeConfirmations(); setPickClauses((current) => current.filter((clause) => clause.id !== id)); }}
             onToggleExistingClause={setExistingClauseRemoval}
           />
+          <TradeTeamSummary team={team} result={evaluation.calculated.teamResults.find((result) => result.code === team.code)} twoWaySlotLimit={twoWaySlotLimit} />
+          </div>
         ))}
-      </div>
-
-      <div className="trade-summary-grid">
-        {evaluation.calculated.teamResults.map((result) => {
-          const team = teams.find((item) => item.code === result.code);
-          return (
-            <article className="trade-summary-card" key={result.code}>
-              <strong>{formatTeamName(team?.name ?? result.code)}</strong>
-              <div>
-                <span>
-                  Spazio {team?.currentSeasonName ?? "attuale"}
-                  <b>{formatSpace(result.spaceBefore)} → {formatSpace(result.spaceAfter)}</b>
-                </span>
-                {result.futureCaps.map((future) => (
-                  <span key={future.seasonName}>
-                    Spazio {future.seasonName}
-                    <b>{formatSpace(future.spaceBefore)} → {formatSpace(future.spaceAfter)}</b>
-                  </span>
-                ))}
-                <span className="trade-summary-roles">Ruoli<b>{result.rolesBefore.G} G · {result.rolesBefore.A} A · {result.rolesBefore.C} C → {result.roles.G} G · {result.roles.A} A · {result.roles.C} C</b></span>
-                {result.requiredRoleFreeAgents > 0 && <span className="role-restoration-cap">Ripristino<b>+{result.requiredRoleFreeAgents} FA · {result.requiredRoleFreeAgents} cr</b></span>}
-                <span>Roster<b>{result.slotsBefore.regular} / 15 → {result.slots.regular} / 15</b></span>
-                <span>Two-way<b>{result.slotsBefore.twoWay} / {twoWaySlotLimit} → {result.slots.twoWay} / {twoWaySlotLimit}</b></span>
-                <span>G-League<b>{result.slotsBefore.gLeague} / 3 → {result.slots.gLeague} / 3</b></span>
-                <span>DPE<b>{result.slotsBefore.dpe} → {result.slots.dpe}</b></span>
-              </div>
-              <p className="manual-cut-check">Verifica manualmente che i giocatori acquisiti non compaiano tra i tagliati:<br />{team?.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}</p>
-            </article>
-          );
-        })}
       </div>
 
       {!simulator && <TradeValidation errors={validationErrors} warnings={validationWarnings} />}
@@ -776,6 +761,30 @@ export function TradeBuilder({
         </>
       )}
     </form>
+  );
+}
+
+function TradeTeamSummary({ team, result, twoWaySlotLimit }: {
+  team: TradeTeam;
+  result: ReturnType<typeof evaluateTrade>["calculated"]["teamResults"][number] | undefined;
+  twoWaySlotLimit: number;
+}) {
+  if (!result) return null;
+  return (
+    <article className="trade-summary-card" aria-label={`Riepilogo ${formatTeamName(team.name)}`}>
+      <strong>{formatTeamName(team.name)}</strong>
+      <div>
+        <span>Spazio {team.currentSeasonName}<b>{formatSpace(result.spaceBefore)} → {formatSpace(result.spaceAfter)}</b></span>
+        {result.futureCaps.map((future) => <span key={future.seasonName}>Spazio {future.seasonName}<b>{formatSpace(future.spaceBefore)} → {formatSpace(future.spaceAfter)}</b></span>)}
+        <span className="trade-summary-roles">Ruoli<b>{result.rolesBefore.G} G · {result.rolesBefore.A} A · {result.rolesBefore.C} C → {result.roles.G} G · {result.roles.A} A · {result.roles.C} C</b></span>
+        {result.requiredRoleFreeAgents > 0 && <span className="role-restoration-cap">Ripristino<b>+{result.requiredRoleFreeAgents} FA · {result.requiredRoleFreeAgents} cr</b></span>}
+        <span>Roster<b>{result.slotsBefore.regular} / 15 → {result.slots.regular} / 15</b></span>
+        <span>Two-way<b>{result.slotsBefore.twoWay} / {twoWaySlotLimit} → {result.slots.twoWay} / {twoWaySlotLimit}</b></span>
+        <span>G-League<b>{result.slotsBefore.gLeague} / 3 → {result.slots.gLeague} / 3</b></span>
+        <span>DPE<b>{result.slotsBefore.dpe} → {result.slots.dpe}</b></span>
+      </div>
+      <p className="manual-cut-check">Verifica manualmente che i giocatori acquisiti non compaiano tra i tagliati:<br />{team.cutPlayerNames.length ? team.cutPlayerNames.join(" · ") : "nessun giocatore tagliato"}</p>
+    </article>
   );
 }
 
@@ -925,16 +934,28 @@ function TradeTeamCard({
   onToggleExistingClause: (agreement: ExistingTradeClauseAgreement, remove: boolean) => void;
 }) {
   const [playerId, setPlayerId] = useState("");
-  const [destinationSlot, setDestinationSlot] = useState<TradeSlot>("regular");
   const [pickId, setPickId] = useState("");
   const [qualifyingOfferId, setQualifyingOfferId] = useState("");
   const [cutId, setCutId] = useState("");
   const [stretchId, setStretchId] = useState("");
   const [stretchYears, setStretchYears] = useState<2 | 3>(2);
-  const availableStretchContracts = team.stretchContracts.filter((entry) => !stretches.some((stretch) => stretch.id === entry.id));
+  // Per i nuovi tagli la stretch rimane sul taglio stesso: rimuovendolo sparisce anche la stretch.
+  // Si preservano così payload, importazione e controlli atomici già esistenti.
+  const stretchContracts = [
+    ...team.stretchContracts.map((entry) => ({ ...entry, contextual: false as const, years: stretches.find((stretch) => stretch.id === entry.id)?.years ?? null })),
+    ...cuts.filter((cut) => cut.teamCode === team.code && cut.stretchOptions?.length).map((cut) => ({
+      id: cut.id, name: cut.name, cost: allTeams.flatMap((candidate) => candidate.players).find((player) => player.id === cut.id)?.cost ?? cut.cost,
+      contract: cut.contract, stretchOptions: cut.stretchOptions ?? [], residualCost: cut.stretchResidualCost ?? cut.cost,
+      contextual: true as const, years: cut.stretchYears ?? null,
+    })),
+  ];
+  const availableStretchContracts = stretchContracts.filter((entry) => entry.years === null);
   const selectedStretchContract = availableStretchContracts.find((entry) => entry.id === stretchId);
   const selectedStretchYears = selectedStretchContract?.stretchOptions.includes(stretchYears) ? stretchYears : selectedStretchContract?.stretchOptions[0];
-  const teamStretches = stretches.filter((stretch) => stretch.teamCode === team.code);
+  const teamStretches = stretchContracts.flatMap((entry) => entry.years === null ? [] : [{ ...entry, years: entry.years }]);
+  useEffect(() => {
+    if (stretchId && !selectedStretchContract) setStretchId("");
+  }, [stretchId, selectedStretchContract]);
   const [promotionId, setPromotionId] = useState("");
   const [promotionDestinationSlot, setPromotionDestinationSlot] = useState<Exclude<TradeSlot, "dpe">>("regular");
 
@@ -979,19 +1000,30 @@ function TradeTeamCard({
   const receivedPlayers = playerMoves.filter((move) => move.toTeamCode === team.code);
   const receivedCutCandidates = receivedPlayers.filter((move) => (
     !cuts.some((cut) => cut.id === move.id)
+    && move.destinationSlot === move.sourceSlot
     && !promotions.some((promotion) => promotion.id === move.id)
     && otherParticipants.some((participant) => participant.players.some((player) => player.id === move.id && player.cuttable))
   ));
   const selectedCut = availableOwnPlayers.find((player) => player.id === cutId && player.cuttable);
   const selectedReceivedCut = receivedCutCandidates.find((move) => move.id === cutId);
-  const selectedPromotion = team.players.find((player) => player.id === promotionId);
-  const allowedDestinations = selectedPlayer
-    ? selectedPlayer.allowedDestinations
-    : ["regular" as TradeSlot];
+  const availablePromotionPlayers = [
+    ...availableOwnPlayers,
+    ...receivedPlayers.flatMap((move) => {
+      if (move.destinationSlot !== move.sourceSlot || cuts.some((cut) => cut.id === move.id)) return [];
+      const source = otherParticipants.flatMap((participant) => participant.players).find((player) => player.id === move.id);
+      return source ? [source] : [];
+    }),
+  ].filter((player) => player.movementDestinations.length > 0);
+  const selectedPromotion = availablePromotionPlayers.find((player) => player.id === promotionId);
   const receivedPicks = pickMoves.filter((move) => move.toTeamCode === team.code);
   const receivedQualifyingOffers = qualifyingOfferMoves.filter((move) => move.toTeamCode === team.code);
   const teamCuts = cuts.filter((cut) => cut.teamCode === team.code);
-  const teamPromotions = promotions.filter((promotion) => promotion.teamCode === team.code);
+  const teamPromotions: PromotionMove[] = [
+    ...promotions.filter((promotion) => promotion.teamCode === team.code),
+    ...receivedPlayers.flatMap((move) => move.destinationSlot === move.sourceSlot || move.sourceSlot === "dpe" || move.destinationSlot === "dpe" ? [] : [{
+      id: move.id, name: move.name, teamCode: team.code, sourceSlot: move.sourceSlot, destinationSlot: move.destinationSlot,
+    }]),
+  ];
   const movementDestinations = selectedPromotion?.movementDestinations ?? [];
   const [pickClause, setPickClause] = useState<TradePickClause>("none");
   const [clausePickId, setClausePickId] = useState("");
@@ -1009,13 +1041,6 @@ function TradeTeamCard({
     && (agreement.clause === "swap" ? postTradeOwner(agreement.counterpartyPickId) : postTradeOwner(agreement.subjectPickId)) === team.code
   ));
 
-  function selectPlayer(nextId: string) {
-    setPlayerId(nextId);
-    const player = otherParticipants.flatMap((participant) => participant.players)
-      .find((item) => item.id === nextId);
-    setDestinationSlot(player ? player.allowedDestinations[0] : "regular");
-  }
-
   function addPlayer() {
     if (!selectedPlayer || !selectedPlayerSource) return;
     onAddPlayer({
@@ -1029,13 +1054,12 @@ function TradeTeamCard({
       stretchOptions: selectedPlayer.stretchOptions,
       role: selectedPlayer.role,
       sourceSlot: selectedPlayer.slot,
-      destinationSlot,
+      destinationSlot: selectedPlayer.slot,
       allowedDestinationSlots: selectedPlayer.allowedDestinations,
       fromTeamCode: selectedPlayerSource.code,
       toTeamCode: team.code,
     });
     setPlayerId("");
-    setDestinationSlot("regular");
   }
 
   function addPick() {
@@ -1088,7 +1112,7 @@ function TradeTeamCard({
 
   function selectPromotion(nextId: string) {
     setPromotionId(nextId);
-    const player = team.players.find((item) => item.id === nextId);
+    const player = availablePromotionPlayers.find((item) => item.id === nextId);
     setPromotionDestinationSlot(player?.movementDestinations[0] ?? "regular");
   }
 
@@ -1141,8 +1165,8 @@ function TradeTeamCard({
 
       <section className="trade-asset-section">
         <span className="trade-section-label">Giocatori ricevuti</span>
-        <div className="trade-composer player">
-          <select value={playerId} onChange={(event) => selectPlayer(event.target.value)}>
+        <div className="trade-composer simple">
+          <select value={playerId} onChange={(event) => setPlayerId(event.target.value)}>
             <option value="">Seleziona giocatore</option>
             {availablePlayersByTeam.map(({ team: sourceTeam, players }) => (
               <optgroup label={formatTeamName(sourceTeam.name)} key={sourceTeam.code}>
@@ -1154,23 +1178,13 @@ function TradeTeamCard({
               </optgroup>
             ))}
           </select>
-          <select
-            value={destinationSlot}
-            onChange={(event) => setDestinationSlot(event.target.value as TradeSlot)}
-            disabled={!selectedPlayer}
-            aria-label="Slot di destinazione"
-          >
-            {allowedDestinations.map((slot) => (
-              <option value={slot} key={slot}>{slotLabel(slot)}</option>
-            ))}
-          </select>
           <button type="button" onClick={addPlayer} disabled={!selectedPlayer}>Aggiungi</button>
         </div>
         <AssetList
           items={receivedPlayers.map((move) => ({
             id: move.id,
             primary: move.name,
-            secondary: `da ${teamName(move.fromTeamCode, allTeams)} · ${slotLabel(move.destinationSlot)} · ${move.cost} · ${move.contract}${move.newSigning ? " · Nuova firma" : ""}`,
+            secondary: `da ${teamName(move.fromTeamCode, allTeams)} · ${slotLabel(move.sourceSlot)} · ${move.cost} · ${move.contract}${move.newSigning ? " · Nuova firma" : ""}`,
           }))}
           empty="Nessun giocatore ricevuto"
           onRemove={onRemovePlayer}
@@ -1266,49 +1280,47 @@ function TradeTeamCard({
         </div>
         {teamCuts.length ? (
           <div className="trade-asset-list trade-cut-list">
-            {teamCuts.map((cut) => {
-              const source = allTeams.flatMap((candidate) => candidate.players).find((player) => player.id === cut.id);
-              return (
+            {teamCuts.map((cut) => (
                 <div className="trade-cut-entry" key={cut.id}>
                   <p><span><strong>{cut.name}</strong><small>libera {slotLabel(cut.slot)} · resta a cap</small></span><button type="button" onClick={() => onRemoveCut(cut.id)} aria-label={`Rimuovi ${cut.name}`}>×</button></p>
-                  <div className="trade-cut-stretch">
-                    <label><input type="checkbox" checked={cut.stretchYears != null} disabled={!source?.stretchOptions.length} onChange={(event) => onUpdateCut(cut.id, event.target.checked ? source?.stretchOptions[0] ?? null : null)} />Stretch provision</label>
-                    <select aria-label={`Durata stretch provision per ${cut.name}`} value={cut.stretchYears ?? source?.stretchOptions[0] ?? 2} disabled={cut.stretchYears == null || !source?.stretchOptions.length} onChange={(event) => onUpdateCut(cut.id, Number(event.target.value) as 2 | 3)}>{(source?.stretchOptions.length ? source.stretchOptions : [2, 3]).map((years) => <option value={years} key={years}>{years} anni</option>)}</select>
-                  </div>
                 </div>
-              );
-            })}
+            ))}
           </div>
         ) : <small className="trade-empty">Nessun taglio</small>}
       </section>
 
-      {team.stretchContracts.length > 0 && <section className="trade-asset-section cut">
-        <span className="trade-section-label">Stretch dei tagliati</span>
+      {stretchContracts.length > 0 && <section className="trade-asset-section cut">
+        <span className="trade-section-label">Stretch contestuali</span>
         <div className="trade-composer promotion">
-          <select aria-label="Contratto già tagliato da distribuire" value={stretchId} onChange={(event) => { setStretchId(event.target.value); setStretchYears(2); }}>
+          <select aria-label="Contratto tagliato da distribuire" value={selectedStretchContract?.id ?? ""} onChange={(event) => { setStretchId(event.target.value); setStretchYears(2); }}>
             <option value="">Seleziona contratto tagliato</option>
-            {availableStretchContracts.map((entry) => <option value={entry.id} key={entry.id}>{entry.name} · {entry.cost} crediti · {entry.contract}</option>)}
+            {availableStretchContracts.map((entry) => <option value={entry.id} key={entry.id}>{entry.name} · {entry.cost} crediti · {entry.contract}{entry.contextual ? " · taglio contestuale" : ""}</option>)}
           </select>
           <select aria-label="Rate stretch del contratto tagliato" value={selectedStretchYears ?? 2} disabled={!selectedStretchContract} onChange={(event) => setStretchYears(Number(event.target.value) as 2 | 3)}>
             {(selectedStretchContract?.stretchOptions ?? [2, 3]).map((years) => <option value={years} key={years}>{years} anni</option>)}
           </select>
           <button type="button" disabled={!selectedStretchContract || !selectedStretchYears} onClick={() => {
             if (!selectedStretchContract || !selectedStretchYears) return;
-            onAddStretch({ ...selectedStretchContract, years: selectedStretchYears }); setStretchId(""); setStretchYears(2);
+            if (selectedStretchContract.contextual) onUpdateCut(selectedStretchContract.id, selectedStretchYears);
+            else {
+              const { contextual: _contextual, years: _years, ...contract } = selectedStretchContract;
+              onAddStretch({ ...contract, years: selectedStretchYears });
+            }
+            setStretchId(""); setStretchYears(2);
           }}>Aggiungi</button>
         </div>
         {teamStretches.map((stretch) => <div className="trade-cut-entry" key={stretch.id}>
-          <p><span><strong>{stretch.name}</strong><small>già tagliato · {stretch.cost} crediti · {stretch.contract}</small></span><button type="button" onClick={() => onRemoveStretch(stretch.id)} aria-label={`Rimuovi stretch di ${stretch.name}`}>×</button></p>
-          <div className="trade-cut-stretch trade-existing-stretch"><label>Rate<select aria-label={`Rate stretch di ${stretch.name}`} value={stretch.years} onChange={(event) => onUpdateStretch(stretch.id, Number(event.target.value) as 2 | 3)}>{stretch.stretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}</select></label><small>{Math.ceil(stretch.residualCost / stretch.years)} crediti/anno</small></div>
+          <p><span><strong>{stretch.name}</strong><small>{stretch.contextual ? "tagliato nello scambio" : "già tagliato"} · {stretch.cost} crediti · {stretch.contract}</small></span><button type="button" onClick={() => stretch.contextual ? onUpdateCut(stretch.id, null) : onRemoveStretch(stretch.id)} aria-label={`Rimuovi stretch di ${stretch.name}`}>×</button></p>
+          <div className="trade-cut-stretch trade-existing-stretch"><label>Rate<select aria-label={`Rate stretch di ${stretch.name}`} value={stretch.years} onChange={(event) => stretch.contextual ? onUpdateCut(stretch.id, Number(event.target.value) as 2 | 3) : onUpdateStretch(stretch.id, Number(event.target.value) as 2 | 3)}>{stretch.stretchOptions.map((years) => <option value={years} key={years}>{years} anni</option>)}</select></label><small>{Math.ceil(stretch.residualCost / stretch.years)} crediti/anno</small></div>
         </div>)}
       </section>}
 
       <section className="trade-asset-section cut">
         <span className="trade-section-label">Spostamenti contestuali</span>
         <div className="trade-composer promotion">
-          <select value={promotionId} onChange={(event) => selectPromotion(event.target.value)}>
+          <select value={selectedPromotion?.id ?? ""} onChange={(event) => selectPromotion(event.target.value)}>
             <option value="">Seleziona giocatore</option>
-            {availableOwnPlayers.filter((player) => player.movementDestinations.length > 0).map((player) => (
+            {availablePromotionPlayers.map((player) => (
               <option value={player.id} key={player.id}>
                 {playerOptionLabel(player)}
               </option>
@@ -1485,15 +1497,19 @@ export function tradeSimulationRecap({
   promotions: PromotionMove[];
   existingClauseAgreements: ExistingTradeClauseAgreement[];
   stretches?: TradeStretchMove[];
-}) {
+}, format: "current" | "legacy" = "current") {
   const lines: string[] = [];
   const movedPickIds = new Set(pickMoves.map((move) => move.id));
+  const describeStretch = (name: string, years: number, total: number) => {
+    const installment = Math.ceil(total / years);
+    return `${name}: ${years} rate da ${installment} ${installment === 1 ? "credito" : "crediti"}`;
+  };
 
   participantCodes.forEach((teamCode) => {
     const outgoing = [
       ...playerMoves
         .filter((move) => move.fromTeamCode === teamCode)
-        .map((move) => `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.sourceSlot)})`),
+        .map((move) => format === "legacy" ? `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.sourceSlot)})` : move.name),
       ...pickMoves
         .filter((move) => move.fromTeamCode === teamCode)
         .map((move) => `Scelta ${pickTitle(move)}`),
@@ -1504,7 +1520,7 @@ export function tradeSimulationRecap({
     const incoming = [
       ...playerMoves
         .filter((move) => move.toTeamCode === teamCode)
-        .map((move) => `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.destinationSlot)})`),
+        .map((move) => format === "legacy" ? `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.destinationSlot)})` : move.name),
       ...pickMoves
         .filter((move) => move.toTeamCode === teamCode)
         .map((move) => `Scelta ${pickTitle(move)}`),
@@ -1538,28 +1554,54 @@ export function tradeSimulationRecap({
         }
         return [];
       }),
-      ...existingClauseChanges.flatMap((change) => {
+    ];
+    const removedClauses = existingClauseChanges.flatMap((change) => {
         const agreement = existingClauseAgreements.find((item) => item.agreementId === change.agreementId);
         if (!agreement || (agreement.subjectOwnerTeamCode !== teamCode && agreement.counterpartyOwnerTeamCode !== teamCode)) return [];
         return [`Clausola rimossa: ${agreement.label}`];
-      }),
-    ];
+      });
 
     if (lines.length) lines.push("");
     lines.push(teamName(teamCode, teams).toUpperCase());
     lines.push(`Cede: ${outgoing.length ? outgoing.join("; ") : "—"}`);
     lines.push(`Riceve: ${incoming.length ? incoming.join("; ") : "—"}`);
-    if (operations.length) lines.push(`Operazioni contestuali: ${operations.join("; ")}`);
-    if (clauses.length) lines.push(`Clausole: ${clauses.join("; ")}`);
+    if (format === "legacy") {
+      if (operations.length) lines.push(`Operazioni contestuali: ${operations.join("; ")}`);
+      if (clauses.length || removedClauses.length) lines.push(`Clausole: ${[...clauses, ...removedClauses].join("; ")}`);
+    } else {
+      const teamCuts = cuts.filter((cut) => cut.teamCode === teamCode);
+      const teamMovements = [
+        ...promotions.filter((move) => move.teamCode === teamCode),
+        ...playerMoves.filter((move) => move.toTeamCode === teamCode && move.sourceSlot !== move.destinationSlot),
+      ].map((move) => `${move.name}: ${slotLabel(move.sourceSlot)} → ${slotLabel(move.destinationSlot)}`);
+      const teamStretches = [
+        ...stretches.filter((stretch) => stretch.teamCode === teamCode)
+          .map((stretch) => describeStretch(stretch.name, stretch.years, stretch.residualCost)),
+        ...teamCuts.flatMap((cut) => cut.stretchYears ? [describeStretch(cut.name, cut.stretchYears, cut.stretchResidualCost ?? cut.cost)] : []),
+      ];
+      if (teamCuts.length) lines.push(`Tagli contestuali: ${teamCuts.map((cut) => cut.name).join("; ")}`);
+      if (teamMovements.length) lines.push(`Spostamenti contestuali: ${teamMovements.join("; ")}`);
+      if (teamStretches.length) lines.push(`Stretch contestuali: ${teamStretches.join("; ")}`);
+      if (clauses.length) lines.push(`Clausole inserite: ${clauses.join("; ")}`);
+      if (removedClauses.length) lines.push(`Clausole rimosse: ${removedClauses.map((label) => label.replace(/^Clausola rimossa: /, "")).join("; ")}`);
+    }
   });
   return lines.join("\n");
 }
 
-export function tradeImportPayload(input: Omit<TradeImportPayload, "version" | "existingClauseAgreementIds"> & { existingClauseChanges: TradeExistingClauseChange[] }): TradeImportPayload {
+function tradePlayerImportSnapshot(move: PlayerMove) {
+  return { id: move.id, name: move.name, cost: move.cost, contract: move.contract, role: move.role,
+    sourceSlot: move.sourceSlot, capCost: move.capCost, futureCapCosts: move.futureCapCosts ?? {} };
+}
+
+export function tradeImportPayload(input: Omit<TradeImportPayload, "version" | "existingClauseAgreementIds" | "playerSnapshots" | "playerMoves"> & {
+  existingClauseChanges: TradeExistingClauseChange[]; playerMoves: PlayerMove[];
+}): TradeImportPayload {
   return {
     version: 1,
     participantCodes: input.participantCodes,
     playerMoves: input.playerMoves.map(({ id, fromTeamCode, toTeamCode, destinationSlot }) => ({ id, fromTeamCode, toTeamCode, destinationSlot })),
+    playerSnapshots: input.playerMoves.map(tradePlayerImportSnapshot),
     pickMoves: input.pickMoves.map(({ id, fromTeamCode, toTeamCode }) => ({ id, fromTeamCode, toTeamCode })),
     qualifyingOfferMoves: input.qualifyingOfferMoves.map(({ id, fromTeamCode, toTeamCode }) => ({ id, fromTeamCode, toTeamCode })),
     cuts: input.cuts.map(({ id, teamCode, stretchYears }) => ({ id, teamCode, stretchYears: stretchYears ?? null })),
@@ -1615,6 +1657,7 @@ function validateTradeImportPayload(value: unknown): TradeImportPayload {
   ];
   if (arrays.some((item) => !Array.isArray(item))) throw new Error("Codice di importazione incompleto.");
   if (payload.stretches !== undefined && !Array.isArray(payload.stretches)) throw new Error("Stretch dei tagliati non valida.");
+  if (payload.playerSnapshots !== undefined && !Array.isArray(payload.playerSnapshots)) throw new Error("Dati dei giocatori incompleti.");
   return payload as TradeImportPayload;
 }
 
@@ -1645,12 +1688,16 @@ export function hydrateTradeImport(
   };
 
   ensureUnique(payload.playerMoves.map((move) => move.id), "Lo stesso giocatore compare più volte nel testo.");
+  if (payload.playerSnapshots && (payload.playerSnapshots.length !== payload.playerMoves.length
+    || new Set(payload.playerSnapshots.map((snapshot) => snapshot?.id)).size !== payload.playerMoves.length)) {
+    throw new Error("I dati dei giocatori nel testo sono incompleti.");
+  }
   const playerMoves = payload.playerMoves.map((move): PlayerMove => {
     const source = playerById.get(move.id);
     if (!source || source.team.code !== move.fromTeamCode || !participants.has(move.fromTeamCode) || !participants.has(move.toTeamCode) || move.fromTeamCode === move.toTeamCode || !source.player.allowedDestinations.includes(move.destinationSlot)) {
       throw new Error("Un giocatore del testo non è più trasferibile con la stessa destinazione.");
     }
-    return {
+    const hydrated: PlayerMove = {
       id: source.player.id,
       name: source.player.name,
       contract: source.player.contract,
@@ -1665,6 +1712,14 @@ export function hydrateTradeImport(
       fromTeamCode: move.fromTeamCode,
       toTeamCode: move.toTeamCode,
     };
+    if (payload.playerSnapshots) {
+      const snapshot = payload.playerSnapshots.find((item) => item?.id === move.id);
+      const current = tradePlayerImportSnapshot(hydrated);
+      if (!snapshot || JSON.stringify(snapshot) !== JSON.stringify(current)) {
+        throw new Error("I dati di un giocatore sono cambiati dopo la simulazione. Genera nuovamente il testo.");
+      }
+    }
+    return hydrated;
   });
 
   ensureUnique(payload.pickMoves.map((move) => move.id), "La stessa scelta compare più volte nel testo.");

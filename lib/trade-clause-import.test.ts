@@ -29,6 +29,86 @@ function recap(imported: ReturnType<typeof hydrateTradeImport>) {
 }
 
 describe("testo e importazione delle nuove clausole", () => {
+  it("separa tutte le operazioni nel recap e lascia solo i nomi nelle cessioni e negli arrivi", () => {
+    const player = { id: "BBB:player:Mobile", name: "Mobile", cost: 3, capCost: 3, futureCapCosts: {}, contract: "PENDING", role: "G" as const,
+      slot: "two_way" as const, cuttable: true, stretchOptions: [2, 3] as (2 | 3)[], movementDestinations: ["regular" as const, "g_league" as const], allowedDestinations: ["regular" as const, "two_way" as const, "g_league" as const] };
+    const own = { ...player, id: "AAA:player:Own", name: "Own" };
+    const cut = { ...player, id: "AAA:player:Cut", name: "Cut", slot: "regular" as const };
+    const old = { id: "AAA:cut:0:Old", name: "Old", teamCode: "AAA", cost: 30, contract: "27", stateIndex: 0, currentCapCost: 30, residualCost: 30, futureCapCosts: {}, stretchOptions: [2, 3] as (2 | 3)[] };
+    const withPlayers = teams.map((team) => ({ ...team, players: team.code === "AAA" ? [own, cut] : team.code === "BBB" ? [player] : [], stretchContracts: team.code === "AAA" ? [old] : [] }));
+    const agreements: Parameters<typeof hydrateTradeImport>[2] = [{ agreementId: "old", subjectPickId: "AAA-later", counterpartyPickId: "BBB-later", subjectOwnerTeamCode: "AAA", counterpartyOwnerTeamCode: "BBB", subjectYear: 2028, counterpartyYear: 2028, subjectRound: "2° giro", counterpartyRound: "2° giro", clause: "swap", label: "Swap precedente", subjectIndex: 1, counterpartyIndex: 4 }];
+    const imported = hydrateTradeImport(payload({ playerMoves: [{ id: player.id, fromTeamCode: "BBB", toTeamCode: "AAA", destinationSlot: "g_league" }],
+      cuts: [{ id: cut.id, teamCode: "AAA", stretchYears: 3 }], promotions: [{ id: own.id, teamCode: "AAA", sourceSlot: "two_way", destinationSlot: "regular" }],
+      stretches: [{ id: old.id, teamCode: "AAA", cost: old.cost, contract: old.contract, years: 2 }], existingClauseAgreementIds: ["old"],
+    }), withPlayers, agreements);
+    const text = tradeSimulationRecap({ ...imported, teams: withPlayers, existingClauseAgreements: agreements });
+    const [aaa, bbb, ccc] = text.split("\n\n");
+    expect(aaa).toContain("Cede: —\nRiceve: Mobile\n");
+    expect(bbb).toContain("Cede: Mobile\nRiceve: —");
+    expect(aaa).toContain("\nTagli contestuali: Cut\n");
+    expect(aaa).toContain("\nSpostamenti contestuali: Own: Two-way → Roster; Mobile: Two-way → G-League\n");
+    expect(aaa).toContain("\nStretch contestuali: Old: 2 rate da 15 crediti; Cut: 3 rate da 1 credito\n");
+    expect(aaa).toContain("\nClausole inserite:");
+    expect(aaa).toContain("\nClausole rimosse: Swap precedente");
+    expect(bbb).toContain("Clausole rimosse: Swap precedente");
+    expect(ccc).not.toContain("Clausole");
+    expect(text).not.toContain("Operazioni contestuali:");
+    expect(text).not.toContain("Clausole:");
+    expect(text).not.toContain("PENDING");
+    const decoded = readTradeImportPayload(withTradeImportPayload(text, tradeImportPayload(imported)));
+    const restored = hydrateTradeImport(decoded.payload, withPlayers, agreements);
+    expect(tradeSimulationRecap({ ...restored, teams: withPlayers, existingClauseAgreements: agreements })).toBe(text);
+  });
+
+  it.each(["cost", "contract", "role", "capCost", "futureCapCosts"] as const)("rifiuta l'importazione se %s cambia anche se non è più scritto accanto al nome", (field) => {
+    const player = { id: "BBB:player:Mobile", name: "Mobile", cost: 3, capCost: 3, futureCapCosts: {}, contract: "PENDING", role: "G" as const,
+      slot: "regular" as const, cuttable: true, stretchOptions: [2, 3] as (2 | 3)[], movementDestinations: [], allowedDestinations: ["regular" as const] };
+    const withPlayer = teams.map((team) => ({ ...team, players: team.code === "BBB" ? [player] : [] }));
+    const imported = hydrateTradeImport(payload({ pickClauses: [], playerMoves: [{ id: player.id, fromTeamCode: "BBB", toTeamCode: "AAA", destinationSlot: "regular" }] }), withPlayer, []);
+    const serialized = tradeImportPayload(imported);
+    const changes = { cost: 4, contract: "28", role: "A", capCost: 4, futureCapCosts: { "2027/28": 3 } };
+    const changed = withPlayer.map((team) => ({ ...team, players: team.players.map((entry) => ({ ...entry, [field]: changes[field] })) }));
+    expect(() => hydrateTradeImport(serialized, changed, [])).toThrow(/cambiati dopo la simulazione/);
+  });
+
+  it("mantiene lo slot finale di un ricevuto spostato senza introdurre un secondo spostamento nel payload", () => {
+    const id = "BBB:player:Mobile";
+    const withPlayer = teams.map((team) => ({ ...team, players: team.code === "BBB" ? [{
+      id, name: "Mobile", cost: 3, capCost: 3, futureCapCosts: {}, contract: "PENDING", role: "G" as const,
+      slot: "two_way" as const, cuttable: true, stretchOptions: [2, 3] as (2 | 3)[], movementDestinations: ["regular" as const, "g_league" as const],
+      allowedDestinations: ["regular" as const, "two_way" as const, "g_league" as const],
+    }] : [] }));
+    const imported = hydrateTradeImport(payload({ pickClauses: [], playerMoves: [{ id, fromTeamCode: "BBB", toTeamCode: "AAA", destinationSlot: "g_league" }] }), withPlayer, []);
+    const text = tradeSimulationRecap({ ...imported, teams: withPlayer, existingClauseAgreements: [] });
+    expect(text).toContain("G-League");
+    const decoded = readTradeImportPayload(withTradeImportPayload(text, tradeImportPayload(imported)));
+    const restored = hydrateTradeImport(decoded.payload, withPlayer, []);
+    expect(restored.playerMoves[0]).toMatchObject({ sourceSlot: "two_way", destinationSlot: "g_league" });
+    expect(restored.promotions).toEqual([]);
+    expect(tradeSimulationRecap({ ...restored, teams: withPlayer, existingClauseAgreements: [] })).toBe(text);
+  });
+
+  it("mantiene nel round-trip la stretch di un giocatore ricevuto e tagliato nello stesso scambio", () => {
+    const id = "BBB:player:Nuovo";
+    const withPlayer = teams.map((team) => ({ ...team, players: team.code === "BBB" ? [{
+      id, name: "Nuovo", cost: 31, capCost: 31, futureCapCosts: {}, contract: "PENDING", role: "G" as const,
+      slot: "regular" as const, cuttable: true, stretchOptions: [2, 3] as (2 | 3)[], movementDestinations: [], allowedDestinations: ["regular" as const],
+    }] : [] }));
+    const imported = hydrateTradeImport(payload({ pickClauses: [],
+      playerMoves: [{ id, fromTeamCode: "BBB", toTeamCode: "AAA", destinationSlot: "regular" }],
+      cuts: [{ id, teamCode: "AAA", stretchYears: 3 }],
+    }), withPlayer, []);
+    const text = tradeSimulationRecap({ ...imported, teams: withPlayer, existingClauseAgreements: [] });
+    expect(text).toContain("Tagli contestuali: Nuovo");
+    expect(text).toContain("Stretch contestuali: Nuovo: 3 rate da 11 crediti");
+    const encoded = withTradeImportPayload(text, tradeImportPayload(imported));
+    const decoded = readTradeImportPayload(encoded);
+    const restored = hydrateTradeImport(decoded.payload, withPlayer, []);
+    expect(restored.cuts).toEqual(imported.cuts);
+    expect(restored.stretches).toEqual([]);
+    expect(tradeSimulationRecap({ ...restored, teams: withPlayer, existingClauseAgreements: [] })).toBe(text);
+  });
+
   it("importa una protezione senza trasferimenti e la attribuisce al titolare della contropartita", () => {
     const imported = hydrateTradeImport(payload(), teams, []);
     expect(imported.pickClauses[0]).toMatchObject({ beneficiaryTeamCode: "AAA", postTradeOwnerTeamCode: "BBB", counterpartyPostTradeOwnerTeamCode: "AAA" });
