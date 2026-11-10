@@ -15,11 +15,10 @@ import {
 } from "@/lib/rules/trade";
 import { countRosterRoles } from "@/lib/rules/roster";
 import { getRosterSlotLimits } from "@/lib/roster-slot-limits";
-import { CapBlocker } from "@/app/admin/cap-force-control";
 import type { ExistingTradeClauseAgreement } from "@/lib/trade-state";
 import { signAndTradeTransfersNewSigning, type SignAndTradeRequest } from "@/lib/sign-and-trade";
-import { hydrateTradeStretches, type TradeStretchContract, type TradeStretchMove, type TradeStretchRequest } from "@/lib/trade-stretch";
-import { reconcileTradePickClauses, tradeClauseBeneficiary, tradeClausePickOptions } from "@/lib/trade-clause-selection";
+import type { TradeStretchContract, TradeStretchMove } from "@/lib/trade-stretch";
+import { reconcileTradePickClauses, tradeClausePickOptions } from "@/lib/trade-clause-selection";
 
 type RosterPlayer = {
   id: string;
@@ -103,34 +102,6 @@ type PromotionMove = TradePromotion & {
   name: string;
 };
 
-type TradeImportPayload = {
-  version: 1;
-  participantCodes: string[];
-  playerMoves: Pick<TradePlayerMove, "id" | "fromTeamCode" | "toTeamCode" | "destinationSlot">[];
-  pickMoves: Pick<TradePickMove, "id" | "fromTeamCode" | "toTeamCode">[];
-  qualifyingOfferMoves: TradeQualifyingOfferMove[];
-  cuts: Pick<TradeCut, "id" | "teamCode" | "stretchYears">[];
-  promotions: TradePromotion[];
-  pickClauses: Pick<TradePickClauseAgreement, "pickId" | "clause" | "counterpartyPickId">[];
-  existingClauseAgreementIds: string[];
-  stretches?: TradeStretchRequest[];
-  playerSnapshots?: ReturnType<typeof tradePlayerImportSnapshot>[];
-};
-
-type ImportedTradeState = {
-  stretches: TradeStretchMove[];
-  participantCodes: string[];
-  playerMoves: PlayerMove[];
-  pickMoves: PickMove[];
-  qualifyingOfferMoves: QualifyingOfferMove[];
-  cuts: CutMove[];
-  promotions: PromotionMove[];
-  pickClauses: PickClauseAgreement[];
-  existingClauseChanges: TradeExistingClauseChange[];
-};
-
-const tradeImportMarker = "\u2063\u2063";
-
 export function TradeBuilder({
   phase,
   tradeDeadlinePassed,
@@ -184,9 +155,6 @@ export function TradeBuilder({
   const [promotions, setPromotions] = useState<PromotionMove[]>([]);
   const [existingClauseChanges, setExistingClauseChanges] = useState<TradeExistingClauseChange[]>([]);
   const [roleMinimumConfirmed, setRoleMinimumConfirmed] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [importText, setImportText] = useState("");
-  const [importError, setImportError] = useState("");
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [recordAsCorrection, setRecordAsCorrection] = useState(false);
 
@@ -289,12 +257,13 @@ export function TradeBuilder({
   ])];
   const roleMinimumRestorations = evaluation.calculated.teamResults.filter((team) => team.requiredRoleFreeAgents > 0);
   const roleMinimumConfirmationRequired = roleMinimumRestorations.length > 0;
-  const roleMinimumSlotErrors = roleMinimumRestorations.flatMap((team) => {
+  const roleMinimumSlotIssues = roleMinimumRestorations.flatMap((team) => {
     const freeSlots = Math.max(0, 15 - team.slots.regular) + Math.max(0, twoWaySlotLimit - team.slots.twoWay);
     return freeSlots >= team.requiredRoleFreeAgents
       ? []
-      : [`${formatTeamName(teams.find((item) => item.code === team.code)?.name ?? team.code)}: servono ${team.requiredRoleFreeAgents} slot tra roster e Two-way per i free agent obbligatori, ma ne restano ${freeSlots}.`];
+      : [{ teamCode: team.code, message: `${formatTeamName(teams.find((item) => item.code === team.code)?.name ?? team.code)}: servono ${team.requiredRoleFreeAgents} slot tra roster e Two-way per i free agent obbligatori, ma ne restano ${freeSlots}.` }];
   });
+  const roleMinimumSlotErrors = roleMinimumSlotIssues.map((issue) => issue.message);
   const simulatorRoleMinimumSlotError = simulator && roleMinimumSlotErrors.length > 0;
   const signAndTradePlayerTransferred = !signAndTrade || signAndTradeTransfersNewSigning(
     playerMoves,
@@ -329,30 +298,21 @@ export function TradeBuilder({
       existingClauseAgreements,
     })
     : "";
-  const simulationRecap = simulator && readableTradeRecap
-    ? withTradeImportPayload(readableTradeRecap, tradeImportPayload({
-      stretches,
-      participantCodes,
-      playerMoves,
-      pickMoves,
-      qualifyingOfferMoves,
-      cuts,
-      promotions,
-      pickClauses,
-      existingClauseChanges: effectiveExistingClauseChanges,
-    }))
-    : "";
-  const validationErrors = [
-    ...evaluation.errors.map((error) => displayIssue(error.message, teams)),
-    ...(!signAndTradePlayerTransferred ? ["Il sign and trade deve trasferire il giocatore appena firmato a un’altra squadra."] : []),
-    ...(simulator ? capWarnings.map((warning) => `Scambio non valido: ${warning}`) : []),
-    ...roleMinimumSlotErrors.map((error) => `Scambio non valido: ${error}`),
+  // L'associazione usa il codice originale, non il nome visualizzato (che può essere uguale fra squadre).
+  const displayScopedIssue = (issue: { message: string }) => ({
+    teamCode: participants.find((team) => issue.message.startsWith(`${team.code}:`))?.code,
+    message: displayIssue(issue.message, teams),
+  });
+  const errorNotices = [
+    ...evaluation.errors.map(displayScopedIssue),
+    ...(!signAndTradePlayerTransferred ? [{ teamCode: signAndTrade?.signerTeamCode, message: "Il sign and trade deve trasferire il giocatore appena firmato a un’altra squadra." }] : []),
+    ...evaluation.warnings.filter((warning) => warning.code.includes("CAP"))
+      .map(displayScopedIssue).map((issue) => ({ ...issue, message: `Scambio non valido: ${issue.message}` })),
+    ...roleMinimumSlotIssues.map((issue) => ({ ...issue, message: `Scambio non valido: ${issue.message}` })),
   ];
-  const validationWarnings = [
-    ...evaluation.warnings
-      .filter((warning) => !simulator || !warning.code.includes("CAP"))
-      .map((warning) => displayIssue(warning.message, teams)),
-  ];
+  const warningNotices = evaluation.warnings.filter((warning) => !warning.code.includes("CAP")).map(displayScopedIssue);
+  const validationErrors = errorNotices.map((issue) => issue.message);
+  const validationWarnings = warningNotices.map((issue) => issue.message);
 
   function changeParticipant(previousCode: string, nextCode: string) {
     if (previousCode === signAndTrade?.signerTeamCode) return;
@@ -483,74 +443,6 @@ export function TradeBuilder({
     });
   }
 
-  function importTradeText() {
-    try {
-      const { recap, payload } = readTradeImportPayload(importText);
-      const imported = hydrateTradeImport(payload, teams, existingClauseAgreements);
-      const expectedRecap = tradeSimulationRecap({
-        teams,
-        ...imported,
-        existingClauseAgreements,
-      });
-      if ((recap !== expectedRecap || !payload.playerSnapshots) && recap !== tradeSimulationRecap({ teams, ...imported, existingClauseAgreements }, "legacy")) {
-        throw new Error("Il testo non coincide esattamente con uno scambio simulato valido.");
-      }
-      const importedTeams = imported.participantCodes
-        .map((code) => teams.find((team) => team.code === code))
-        .filter((team): team is TradeTeam => Boolean(team));
-      const importedEvaluation = evaluateTrade({
-        twoWaySlotLimit,
-        phase,
-        tradeDeadlinePassed,
-        tradesOpen,
-        enforceOffseasonCap,
-        tradableDraftYears,
-        protectionCounterpartyDraftYears,
-        teams: importedTeams.map((team) => ({
-          code: team.code,
-          currentCost: team.currentCost,
-          futureCosts: team.futureCosts,
-          slots: {
-            regular: team.players.filter((player) => player.slot === "regular").length,
-            twoWay: team.players.filter((player) => player.slot === "two_way").length,
-            gLeague: team.players.filter((player) => player.slot === "g_league").length,
-            dpe: team.players.filter((player) => player.slot === "dpe").length,
-          },
-          roles: countRosterRoles(team.players, includeDpeInRoleMinimums),
-        })),
-        playerMoves: imported.playerMoves,
-        pickMoves: imported.pickMoves,
-        pickClauses: imported.pickClauses,
-        existingClauseChanges: imported.existingClauseChanges,
-        qualifyingOfferMoves: imported.qualifyingOfferMoves,
-        qualifyingOfferTransfersOpen,
-        enforceRoleMinimums,
-        cuts: imported.cuts,
-        promotions: imported.promotions,
-        stretches: imported.stretches,
-      });
-      if (!importedEvaluation.valid || importedEvaluation.warnings.some((warning) => warning.code.includes("CAP"))
-        || importedEvaluation.calculated.teamResults.some((team) => team.requiredRoleFreeAgents > Math.max(0, 15 - team.slots.regular) + Math.max(0, twoWaySlotLimit - team.slots.twoWay))) {
-        throw new Error("Lo scambio non rispetta più le regole correnti della lega.");
-      }
-      setParticipantCodes(imported.participantCodes);
-      setPlayerMoves(imported.playerMoves);
-      setPickMoves(imported.pickMoves);
-      setQualifyingOfferMoves(imported.qualifyingOfferMoves);
-      setCuts(imported.cuts);
-      setPromotions(imported.promotions);
-      setStretches(imported.stretches);
-      setPickClauses(imported.pickClauses);
-      setExistingClauseChanges(imported.existingClauseChanges);
-      setRoleMinimumConfirmed(false);
-      setImportText("");
-      setImportError("");
-      setImportOpen(false);
-    } catch (error) {
-      setImportError(error instanceof Error ? error.message : "Testo dello scambio non valido.");
-    }
-  }
-
   return (
     <form
       action={simulator ? undefined : registerAction}
@@ -595,26 +487,6 @@ export function TradeBuilder({
           <a href="/admin/free-agent">Annulla</a>
         </section>
       )}
-      {!simulator && !signAndTrade && <div className="trade-toolbar">
-        <button className="button secondary" type="button" onClick={() => { setImportOpen(true); setImportError(""); }}>
-          Importa scambio tramite testo
-        </button>
-      </div>}
-
-      {!simulator && importOpen && (
-        <section className="trade-import-panel">
-          <label>
-            <span>Testo dello scambio simulato</span>
-            <textarea value={importText} onChange={(event) => setImportText(event.target.value)} placeholder="Incolla qui il testo copiato dal simulatore…" />
-          </label>
-          {importError && <p className="validation error">{importError}</p>}
-          <div>
-            <button className="button secondary" type="button" onClick={() => setImportOpen(false)}>Annulla</button>
-            <button className="button primary" type="button" onClick={importTradeText}>Importa</button>
-          </div>
-        </section>
-      )}
-
       <section className="trade-participants" aria-labelledby="trade-participants-title">
         <div className="trade-participants-heading">
           <h2 id="trade-participants-title">Squadre coinvolte</h2>
@@ -691,13 +563,12 @@ export function TradeBuilder({
             onToggleExistingClause={setExistingClauseRemoval}
           />
           <TradeTeamSummary team={team} result={evaluation.calculated.teamResults.find((result) => result.code === team.code)} twoWaySlotLimit={twoWaySlotLimit} />
+          <TradeValidation title={`Errori e avvisi ${formatTeamName(team.name)}`}
+            errors={errorNotices.filter((issue) => issue.teamCode === team.code).map((issue) => issue.message)}
+            warnings={warningNotices.filter((issue) => issue.teamCode === team.code).map((issue) => issue.message)} />
           </div>
         ))}
       </div>
-
-      {!simulator && <TradeValidation errors={validationErrors} warnings={validationWarnings} />}
-
-      {!simulator && <CapBlocker warnings={capWarnings} />}
 
       {roleMinimumConfirmationRequired && roleMinimumSlotErrors.length === 0 && (
         <section className="trade-role-restoration" aria-label="Ripristino obbligatorio dei ruoli">
@@ -711,9 +582,10 @@ export function TradeBuilder({
       )}
 
       {simulator ? (
-        <TradeSimulationStatus valid={simulationValid} recap={simulationRecap} errors={validationErrors} warnings={validationWarnings} />
+        <TradeSimulationStatus valid={simulationValid} recap={readableTradeRecap} errors={validationErrors} warnings={validationWarnings} />
       ) : (
         <>
+          <TradeValidation title="Riepilogo errori e avvisi" errors={validationErrors} warnings={validationWarnings} />
           <button
             className="button primary trade-submit"
             type="button"
@@ -794,12 +666,14 @@ function roleMinimumLabel(missing: { G: number; A: number; C: number }) {
     .join(" · ");
 }
 
-function TradeValidation({ errors, warnings }: { errors: string[]; warnings: string[] }) {
+function TradeValidation({ title, errors, warnings }: { title: string; errors: string[]; warnings: string[] }) {
+  if (!errors.length && !warnings.length) return null;
   return (
-    <div className="trade-validation">
+    <section className={`trade-validation ${errors.length ? "has-errors" : "has-warnings"}`} aria-label={title}>
+      <strong>{title}</strong>
       {warnings.map((warning, index) => <p className="validation warning" key={`warning-${index}`}>{warning}</p>)}
       {errors.map((error, index) => <p className="validation error" key={`error-${index}`}>{error}</p>)}
-    </div>
+    </section>
   );
 }
 
@@ -823,6 +697,7 @@ function TradeSimulationStatus({ valid, recap, errors, warnings }: { valid: bool
       {valid && <span>Tutti i controlli sono superati.</span>}
       {(errors.length > 0 || warnings.length > 0) && (
         <div className="trade-simulation-validation">
+          <strong>Riepilogo errori e avvisi</strong>
           {errors.map((error, index) => <p className="validation error" key={`simulation-error-${index}`}>{error}</p>)}
           {warnings.map((warning, index) => <p className="validation warning" key={`simulation-warning-${index}`}>{warning}</p>)}
         </div>
@@ -834,7 +709,6 @@ function TradeSimulationStatus({ valid, recap, errors, warnings }: { valid: bool
             <textarea value={recap} readOnly aria-label="Recap testuale dello scambio simulato" />
           </label>
           <div className="trade-simulation-copy-row">
-            <small>Se lo scambio viene ufficializzato, invia all’admin della lega il testo copiato con questo tasto, senza modificarlo.</small>
             <button className="trade-simulation-copy" type="button" onClick={copyRecap}>Copia testo</button>
           </div>
           {copyState === "copied" && <small className="trade-simulation-copy-status">Testo copiato.</small>}
@@ -940,7 +814,7 @@ function TradeTeamCard({
   const [stretchId, setStretchId] = useState("");
   const [stretchYears, setStretchYears] = useState<2 | 3>(2);
   // Per i nuovi tagli la stretch rimane sul taglio stesso: rimuovendolo sparisce anche la stretch.
-  // Si preservano così payload, importazione e controlli atomici già esistenti.
+  // Si preservano così payload e controlli atomici già esistenti.
   const stretchContracts = [
     ...team.stretchContracts.map((entry) => ({ ...entry, contextual: false as const, years: stretches.find((stretch) => stretch.id === entry.id)?.years ?? null })),
     ...cuts.filter((cut) => cut.teamCode === team.code && cut.stretchOptions?.length).map((cut) => ({
@@ -1497,7 +1371,7 @@ export function tradeSimulationRecap({
   promotions: PromotionMove[];
   existingClauseAgreements: ExistingTradeClauseAgreement[];
   stretches?: TradeStretchMove[];
-}, format: "current" | "legacy" = "current") {
+}) {
   const lines: string[] = [];
   const movedPickIds = new Set(pickMoves.map((move) => move.id));
   const describeStretch = (name: string, years: number, total: number) => {
@@ -1509,7 +1383,7 @@ export function tradeSimulationRecap({
     const outgoing = [
       ...playerMoves
         .filter((move) => move.fromTeamCode === teamCode)
-        .map((move) => format === "legacy" ? `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.sourceSlot)})` : move.name),
+        .map((move) => move.name),
       ...pickMoves
         .filter((move) => move.fromTeamCode === teamCode)
         .map((move) => `Scelta ${pickTitle(move)}`),
@@ -1520,23 +1394,13 @@ export function tradeSimulationRecap({
     const incoming = [
       ...playerMoves
         .filter((move) => move.toTeamCode === teamCode)
-        .map((move) => format === "legacy" ? `${move.name} (${move.cost} crediti, ${move.contract}; ${slotLabel(move.destinationSlot)})` : move.name),
+        .map((move) => move.name),
       ...pickMoves
         .filter((move) => move.toTeamCode === teamCode)
         .map((move) => `Scelta ${pickTitle(move)}`),
       ...qualifyingOfferMoves
         .filter((move) => move.toTeamCode === teamCode)
         .map((move) => `Q.O. ${move.playerName} (${move.amount} crediti)`),
-    ];
-    const operations = [
-      ...stretches.filter((stretch) => stretch.teamCode === teamCode)
-        .map((stretch) => `Stretch su tagliato: ${stretch.name} (${stretch.cost} crediti, ${stretch.contract}; ${stretch.years} rate da ${Math.ceil(stretch.residualCost / stretch.years)} crediti)`),
-      ...cuts
-        .filter((cut) => cut.teamCode === teamCode)
-        .map((cut) => `Taglio contestuale: ${cut.name}${cut.stretchYears ? ` (stretch provision in ${cut.stretchYears} anni)` : ""}`),
-      ...promotions
-        .filter((promotion) => promotion.teamCode === teamCode)
-        .map((promotion) => `Spostamento: ${promotion.name}, ${slotLabel(promotion.sourceSlot)} -> ${slotLabel(promotion.destinationSlot)}`),
     ];
     const clauses = [
       ...pickClauses.flatMap((clause) => {
@@ -1556,292 +1420,36 @@ export function tradeSimulationRecap({
       }),
     ];
     const removedClauses = existingClauseChanges.flatMap((change) => {
-        const agreement = existingClauseAgreements.find((item) => item.agreementId === change.agreementId);
-        if (!agreement || (agreement.subjectOwnerTeamCode !== teamCode && agreement.counterpartyOwnerTeamCode !== teamCode)) return [];
-        return [`Clausola rimossa: ${agreement.label}`];
-      });
+      const agreement = existingClauseAgreements.find((item) => item.agreementId === change.agreementId);
+      if (!agreement || (agreement.subjectOwnerTeamCode !== teamCode && agreement.counterpartyOwnerTeamCode !== teamCode)) return [];
+      return [agreement.label];
+    });
 
     if (lines.length) lines.push("");
     lines.push(teamName(teamCode, teams).toUpperCase());
     lines.push(`Cede: ${outgoing.length ? outgoing.join("; ") : "—"}`);
     lines.push(`Riceve: ${incoming.length ? incoming.join("; ") : "—"}`);
-    if (format === "legacy") {
-      if (operations.length) lines.push(`Operazioni contestuali: ${operations.join("; ")}`);
-      if (clauses.length || removedClauses.length) lines.push(`Clausole: ${[...clauses, ...removedClauses].join("; ")}`);
-    } else {
-      const teamCuts = cuts.filter((cut) => cut.teamCode === teamCode);
-      const teamMovements = [
-        ...promotions.filter((move) => move.teamCode === teamCode),
-        ...playerMoves.filter((move) => move.toTeamCode === teamCode && move.sourceSlot !== move.destinationSlot),
-      ].map((move) => `${move.name}: ${slotLabel(move.sourceSlot)} → ${slotLabel(move.destinationSlot)}`);
-      const teamStretches = [
-        ...stretches.filter((stretch) => stretch.teamCode === teamCode)
-          .map((stretch) => describeStretch(stretch.name, stretch.years, stretch.residualCost)),
-        ...teamCuts.flatMap((cut) => cut.stretchYears ? [describeStretch(cut.name, cut.stretchYears, cut.stretchResidualCost ?? cut.cost)] : []),
-      ];
-      if (teamCuts.length) lines.push(`Tagli contestuali: ${teamCuts.map((cut) => cut.name).join("; ")}`);
-      if (teamMovements.length) lines.push(`Spostamenti contestuali: ${teamMovements.join("; ")}`);
-      if (teamStretches.length) lines.push(`Stretch contestuali: ${teamStretches.join("; ")}`);
-      if (clauses.length) lines.push(`Clausole inserite: ${clauses.join("; ")}`);
-      if (removedClauses.length) lines.push(`Clausole rimosse: ${removedClauses.map((label) => label.replace(/^Clausola rimossa: /, "")).join("; ")}`);
-    }
+    const teamCuts = cuts.filter((cut) => cut.teamCode === teamCode);
+    const teamMovements = [
+      ...promotions.filter((move) => move.teamCode === teamCode),
+      ...playerMoves.filter((move) => move.toTeamCode === teamCode && move.sourceSlot !== move.destinationSlot),
+    ].map((move) => `${move.name}: ${slotLabel(move.sourceSlot)} → ${slotLabel(move.destinationSlot)}`);
+    const teamStretches = [
+      ...stretches.filter((stretch) => stretch.teamCode === teamCode)
+        .map((stretch) => describeStretch(stretch.name, stretch.years, stretch.residualCost)),
+      ...teamCuts.flatMap((cut) => cut.stretchYears ? [describeStretch(cut.name, cut.stretchYears, cut.stretchResidualCost ?? cut.cost)] : []),
+    ];
+    if (teamCuts.length) lines.push(`Tagli contestuali: ${teamCuts.map((cut) => cut.name).join("; ")}`);
+    if (teamMovements.length) lines.push(`Spostamenti contestuali: ${teamMovements.join("; ")}`);
+    if (teamStretches.length) lines.push(`Stretch contestuali: ${teamStretches.join("; ")}`);
+    if (clauses.length) lines.push(`Clausole inserite: ${clauses.join("; ")}`);
+    if (removedClauses.length) lines.push(`Clausole rimosse: ${removedClauses.join("; ")}`);
   });
   return lines.join("\n");
 }
 
-function tradePlayerImportSnapshot(move: PlayerMove) {
-  return { id: move.id, name: move.name, cost: move.cost, contract: move.contract, role: move.role,
-    sourceSlot: move.sourceSlot, capCost: move.capCost, futureCapCosts: move.futureCapCosts ?? {} };
-}
-
-export function tradeImportPayload(input: Omit<TradeImportPayload, "version" | "existingClauseAgreementIds" | "playerSnapshots" | "playerMoves"> & {
-  existingClauseChanges: TradeExistingClauseChange[]; playerMoves: PlayerMove[];
-}): TradeImportPayload {
-  return {
-    version: 1,
-    participantCodes: input.participantCodes,
-    playerMoves: input.playerMoves.map(({ id, fromTeamCode, toTeamCode, destinationSlot }) => ({ id, fromTeamCode, toTeamCode, destinationSlot })),
-    playerSnapshots: input.playerMoves.map(tradePlayerImportSnapshot),
-    pickMoves: input.pickMoves.map(({ id, fromTeamCode, toTeamCode }) => ({ id, fromTeamCode, toTeamCode })),
-    qualifyingOfferMoves: input.qualifyingOfferMoves.map(({ id, fromTeamCode, toTeamCode }) => ({ id, fromTeamCode, toTeamCode })),
-    cuts: input.cuts.map(({ id, teamCode, stretchYears }) => ({ id, teamCode, stretchYears: stretchYears ?? null })),
-    promotions: input.promotions.map(({ id, teamCode, sourceSlot, destinationSlot }) => ({ id, teamCode, sourceSlot, destinationSlot })),
-    pickClauses: input.pickClauses.map(({ pickId, clause, counterpartyPickId }) => ({ pickId, clause, counterpartyPickId })),
-    existingClauseAgreementIds: input.existingClauseChanges.map((change) => change.agreementId),
-    stretches: input.stretches?.map(({ id, teamCode, years, cost, contract }) => ({ id, teamCode, years, cost, contract })),
-  };
-}
-
-export function withTradeImportPayload(recap: string, payload: TradeImportPayload) {
-  const bytes = new TextEncoder().encode(JSON.stringify(payload));
-  const encoded = Array.from(bytes, (byte) => byte
-    .toString(2)
-    .padStart(8, "0")
-    .replaceAll("0", "\u200B")
-    .replaceAll("1", "\u200C"))
-    .join("");
-  return `${recap}${tradeImportMarker}${encoded}`;
-}
-
-export function readTradeImportPayload(text: string) {
-  const normalized = text.replace(/\r\n?/g, "\n");
-  const markerIndex = normalized.lastIndexOf(tradeImportMarker);
-  if (markerIndex <= 0) throw new Error("Incolla il testo copiato direttamente dal simulatore.");
-  const recap = normalized.slice(0, markerIndex);
-  const encoded = normalized.slice(markerIndex + tradeImportMarker.length);
-  if (!encoded || encoded.length % 8 !== 0 || /[^\u200B\u200C]/u.test(encoded)) throw new Error("Il testo importato è incompleto.");
-  try {
-    const bytes = Uint8Array.from({ length: encoded.length / 8 }, (_, index) => (
-      Number.parseInt(encoded.slice(index * 8, index * 8 + 8).replaceAll("\u200B", "0").replaceAll("\u200C", "1"), 2)
-    ));
-    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
-    return { recap, payload: validateTradeImportPayload(parsed) };
-  } catch {
-    throw new Error("Il testo non contiene un codice di importazione valido.");
-  }
-}
-
-function validateTradeImportPayload(value: unknown): TradeImportPayload {
-  if (!value || typeof value !== "object") throw new Error("Codice di importazione non valido.");
-  const payload = value as Partial<TradeImportPayload>;
-  if (payload.version !== 1) throw new Error("Formato dello scambio non supportato.");
-  const arrays = [
-    payload.participantCodes,
-    payload.playerMoves,
-    payload.pickMoves,
-    payload.qualifyingOfferMoves,
-    payload.cuts,
-    payload.promotions,
-    payload.pickClauses,
-    payload.existingClauseAgreementIds,
-  ];
-  if (arrays.some((item) => !Array.isArray(item))) throw new Error("Codice di importazione incompleto.");
-  if (payload.stretches !== undefined && !Array.isArray(payload.stretches)) throw new Error("Stretch dei tagliati non valida.");
-  if (payload.playerSnapshots !== undefined && !Array.isArray(payload.playerSnapshots)) throw new Error("Dati dei giocatori incompleti.");
-  return payload as TradeImportPayload;
-}
-
-export function hydrateTradeImport(
-  payload: TradeImportPayload,
-  teams: TradeTeam[],
-  existingClauseAgreements: ExistingTradeClauseAgreement[],
-): ImportedTradeState {
-  const participantCodes = payload.participantCodes;
-  if (participantCodes.length < 2 || new Set(participantCodes).size !== participantCodes.length || participantCodes.some((code) => !teams.some((team) => team.code === code))) {
-    throw new Error("Le squadre indicate nel testo non sono più valide.");
-  }
-  const participants = new Set(participantCodes);
-  const stretches = hydrateTradeStretches(payload.stretches ?? [], teams.flatMap((team) => team.stretchContracts), participantCodes);
-  const players = teams.flatMap((team) => team.players.map((player) => ({ team, player })));
-  const picks = teams.flatMap((team) => team.picks.map((pick) => ({ team, pick })));
-  const offers = teams.flatMap((team) => team.qualifyingOffers.map((offer) => ({ team, offer })));
-  const playerById = new Map(players.map((item) => [item.player.id, item]));
-  const pickById = new Map(picks.map((item) => [item.pick.id, item]));
-  const offerById = new Map(offers.map((item) => [item.offer.id, item]));
-  const removedAgreements = payload.existingClauseAgreementIds.map((id) => existingClauseAgreements.find((agreement) => agreement.agreementId === id));
-  if (removedAgreements.some((agreement) => !agreement) || new Set(payload.existingClauseAgreementIds).size !== payload.existingClauseAgreementIds.length) {
-    throw new Error("Una clausola da rimuovere non corrisponde più allo stato della lega.");
-  }
-  const removedClausePickIds = new Set((removedAgreements as ExistingTradeClauseAgreement[]).flatMap((agreement) => [agreement.subjectPickId, agreement.counterpartyPickId]));
-  const ensureUnique = (ids: string[], message: string) => {
-    if (new Set(ids).size !== ids.length) throw new Error(message);
-  };
-
-  ensureUnique(payload.playerMoves.map((move) => move.id), "Lo stesso giocatore compare più volte nel testo.");
-  if (payload.playerSnapshots && (payload.playerSnapshots.length !== payload.playerMoves.length
-    || new Set(payload.playerSnapshots.map((snapshot) => snapshot?.id)).size !== payload.playerMoves.length)) {
-    throw new Error("I dati dei giocatori nel testo sono incompleti.");
-  }
-  const playerMoves = payload.playerMoves.map((move): PlayerMove => {
-    const source = playerById.get(move.id);
-    if (!source || source.team.code !== move.fromTeamCode || !participants.has(move.fromTeamCode) || !participants.has(move.toTeamCode) || move.fromTeamCode === move.toTeamCode || !source.player.allowedDestinations.includes(move.destinationSlot)) {
-      throw new Error("Un giocatore del testo non è più trasferibile con la stessa destinazione.");
-    }
-    const hydrated: PlayerMove = {
-      id: source.player.id,
-      name: source.player.name,
-      contract: source.player.contract,
-      newSigning: source.player.newSigning,
-      cost: source.player.cost,
-      capCost: source.player.capCost,
-      futureCapCosts: source.player.futureCapCosts,
-      role: source.player.role,
-      sourceSlot: source.player.slot,
-      destinationSlot: move.destinationSlot,
-      allowedDestinationSlots: source.player.allowedDestinations,
-      fromTeamCode: move.fromTeamCode,
-      toTeamCode: move.toTeamCode,
-    };
-    if (payload.playerSnapshots) {
-      const snapshot = payload.playerSnapshots.find((item) => item?.id === move.id);
-      const current = tradePlayerImportSnapshot(hydrated);
-      if (!snapshot || JSON.stringify(snapshot) !== JSON.stringify(current)) {
-        throw new Error("I dati di un giocatore sono cambiati dopo la simulazione. Genera nuovamente il testo.");
-      }
-    }
-    return hydrated;
-  });
-
-  ensureUnique(payload.pickMoves.map((move) => move.id), "La stessa scelta compare più volte nel testo.");
-  const pickMoves = payload.pickMoves.map((move): PickMove => {
-    const source = pickById.get(move.id);
-    if (!source || source.team.code !== move.fromTeamCode || !source.pick.tradable || !participants.has(move.fromTeamCode) || !participants.has(move.toTeamCode) || move.fromTeamCode === move.toTeamCode) {
-      throw new Error("Una scelta del testo non è più trasferibile.");
-    }
-    return {
-      ...source.pick,
-      fromTeamCode: move.fromTeamCode,
-      toTeamCode: move.toTeamCode,
-      hasExistingCondition: source.pick.hasExistingCondition && !removedClausePickIds.has(source.pick.id),
-      clause: "none",
-      counterpartyPickId: null,
-      counterpartyYear: null,
-      counterpartyRound: null,
-      counterpartyHasExistingCondition: false,
-      counterpartyTitle: null,
-      counterpartyTeamCode: null,
-    };
-  });
-
-  ensureUnique(payload.qualifyingOfferMoves.map((move) => move.id), "La stessa qualifying offer compare più volte nel testo.");
-  const qualifyingOfferMoves = payload.qualifyingOfferMoves.map((move): QualifyingOfferMove => {
-    const source = offerById.get(move.id);
-    if (!source || source.team.code !== move.fromTeamCode || !participants.has(move.fromTeamCode) || !participants.has(move.toTeamCode) || move.fromTeamCode === move.toTeamCode) {
-      throw new Error("Una qualifying offer del testo non è più trasferibile.");
-    }
-    return { ...move, playerName: source.offer.playerName, amount: source.offer.amount };
-  });
-
-  ensureUnique(payload.cuts.map((cut) => cut.id), "Lo stesso taglio compare più volte nel testo.");
-  const cuts = payload.cuts.map((cut): CutMove => {
-    const source = playerById.get(cut.id);
-    const receivedMove = playerMoves.find((move) => move.id === cut.id);
-    const ownerCode = receivedMove?.toTeamCode ?? source?.team.code;
-    if (!source || ownerCode !== cut.teamCode || !participants.has(cut.teamCode) || !source.player.cuttable || (cut.stretchYears != null && !source.player.stretchOptions.includes(cut.stretchYears))) throw new Error("Un taglio contestuale non è più consentito.");
-    return {
-      id: source.player.id, teamCode: cut.teamCode, name: source.player.name,
-      cost: source.player.capCost, contract: source.player.contract, role: source.player.role,
-      slot: receivedMove?.destinationSlot ?? source.player.slot, stretchYears: cut.stretchYears ?? null,
-      stretchOptions: source.player.stretchOptions,
-      stretchResidualCost: source.player.cost * (source.player.stretchOptions.length === 1 && source.player.stretchOptions[0] === 3 ? 2 : 1),
-      futureCapCosts: source.player.futureCapCosts,
-    };
-  });
-
-  ensureUnique(payload.promotions.map((promotion) => promotion.id), "Lo stesso spostamento compare più volte nel testo.");
-  const promotions = payload.promotions.map((promotion): PromotionMove => {
-    const source = playerById.get(promotion.id);
-    if (!source || source.team.code !== promotion.teamCode || !participants.has(promotion.teamCode) || source.player.slot === "dpe" || source.player.slot !== promotion.sourceSlot || !source.player.movementDestinations.includes(promotion.destinationSlot)) {
-      throw new Error("Uno spostamento contestuale non è più consentito.");
-    }
-    return { ...promotion, name: source.player.name, allowedDestinationSlots: source.player.movementDestinations };
-  });
-
-  const unavailablePlayerIds = new Set([...playerMoves, ...cuts, ...promotions].map((move) => move.id));
-  const allowedReceivedCuts = cuts.filter((cut) => playerMoves.some((move) => move.id === cut.id && move.toTeamCode === cut.teamCode));
-  if (unavailablePlayerIds.size !== playerMoves.length + cuts.length + promotions.length - allowedReceivedCuts.length) throw new Error("Un giocatore è indicato per operazioni incompatibili.");
-  const pickMoveById = new Map(pickMoves.map((move) => [move.id, move]));
-  const postTradeOwner = (pickId: string) => pickMoveById.get(pickId)?.toTeamCode ?? pickById.get(pickId)?.team.code ?? "";
-  const conditionedPickIds = new Set<string>();
-  const pickClauses = payload.pickClauses.map((intent, index): PickClauseAgreement => {
-    const subject = pickById.get(intent.pickId);
-    const counterpart = intent.counterpartyPickId ? pickById.get(intent.counterpartyPickId) : undefined;
-    if (!subject || !counterpart || intent.clause === "none" || conditionedPickIds.has(subject.pick.id) || conditionedPickIds.has(counterpart.pick.id)) throw new Error("Le clausole del testo sono incomplete o in conflitto.");
-    const subjectOwner = postTradeOwner(subject.pick.id);
-    const counterpartOwner = postTradeOwner(counterpart.pick.id);
-    if (!participants.has(subjectOwner) || !participants.has(counterpartOwner)) throw new Error("Una clausola riguarda una squadra non coinvolta.");
-    if (intent.clause === "swap") {
-      if (subjectOwner === counterpartOwner || subject.pick.year !== counterpart.pick.year || subject.pick.round !== counterpart.pick.round) throw new Error("Uno swap del testo non è più valido.");
-    } else if (subjectOwner === counterpartOwner || !isLaterDraftPick(counterpart.pick.year, counterpart.pick.round, subject.pick.year, subject.pick.round)) {
-      throw new Error("Una protezione del testo non è più valida.");
-    }
-    conditionedPickIds.add(subject.pick.id);
-    conditionedPickIds.add(counterpart.pick.id);
-    return {
-      id: `import:${index}:${subject.pick.id}`,
-      pickId: subject.pick.id,
-      pickOwnerTeamCode: subject.team.code,
-      beneficiaryTeamCode: tradeClauseBeneficiary(intent.clause, subjectOwner, counterpartOwner),
-      year: subject.pick.year,
-      round: subject.pick.round,
-      hasExistingCondition: subject.pick.hasExistingCondition && !removedClausePickIds.has(subject.pick.id),
-      clause: intent.clause,
-      counterpartyPickId: counterpart.pick.id,
-      counterpartyYear: counterpart.pick.year,
-      counterpartyRound: counterpart.pick.round,
-      counterpartyHasExistingCondition: counterpart.pick.hasExistingCondition && !removedClausePickIds.has(counterpart.pick.id),
-      pickTitle: pickTitle(subject.pick),
-      pickOwnerName: formatTeamName(subject.team.name),
-      counterpartyTitle: pickTitle(counterpart.pick),
-      counterpartyTeamCode: counterpart.team.code,
-      postTradeOwnerTeamCode: subjectOwner,
-      counterpartyPostTradeOwnerTeamCode: counterpartOwner,
-    };
-  });
-
-  const existingClauseChanges = (removedAgreements as ExistingTradeClauseAgreement[]).map((agreement): TradeExistingClauseChange => ({
-    agreementId: agreement.agreementId,
-    subjectOwnerTeamCode: agreement.subjectOwnerTeamCode,
-    counterpartyOwnerTeamCode: agreement.counterpartyOwnerTeamCode,
-    subjectYear: agreement.subjectYear,
-    counterpartyYear: agreement.counterpartyYear,
-    subjectRound: agreement.subjectRound,
-    counterpartyRound: agreement.counterpartyRound,
-    action: "remove",
-    clause: null,
-  }));
-  return { participantCodes, playerMoves, pickMoves, qualifyingOfferMoves, cuts, promotions, pickClauses, existingClauseChanges, stretches };
-}
-
 function pickTitle(pick: Pick<PickMove, "year" | "round" | "originOrOverall">) {
   return `${pick.year} · ${pick.round} · ${pick.originOrOverall}`;
-}
-
-function isLaterDraftPick(counterpartyYear: number, counterpartyRound: string, subjectYear: number, subjectRound: string) {
-  if (counterpartyYear > subjectYear) return true;
-  return counterpartyYear === subjectYear
-    && subjectRound.trim().startsWith("1")
-    && counterpartyRound.trim().startsWith("2");
 }
 
 function pickOptionLabel(pick: DraftPick) {

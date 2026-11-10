@@ -2,7 +2,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TradeBuilder, hydrateTradeImport, tradeImportPayload, tradeSimulationRecap, withTradeImportPayload } from "../app/admin/scambi/trade-builder";
+import { TradeBuilder } from "../app/admin/scambi/trade-builder";
 import type { ExistingTradeClauseAgreement } from "./trade-state";
 
 const hooks = vi.hoisted(() => ({ active: false, cursor: 0, values: [] as unknown[] }));
@@ -24,7 +24,6 @@ vi.mock("react", async () => {
 vi.mock("@/lib/rules/trade", async () => import("./rules/trade"));
 vi.mock("@/lib/rules/roster", async () => import("./rules/roster"));
 vi.mock("@/lib/roster-slot-limits", async () => import("./roster-slot-limits"));
-vi.mock("@/app/admin/cap-force-control", () => ({ CapBlocker: () => null }));
 vi.mock("@/lib/sign-and-trade", async () => import("./sign-and-trade"));
 vi.mock("@/lib/trade-stretch", async () => import("./trade-stretch"));
 vi.mock("@/lib/trade-clause-selection", async () => import("./trade-clause-selection"));
@@ -109,7 +108,7 @@ describe("squadre e clausole nel pannello condiviso degli scambi", () => {
   it("allinea il riquadro squadre agli altri riquadri sui dispositivi mobili", () => {
     const css = readFileSync("app/globals.css", "utf8");
     const mobile = css.slice(css.indexOf("@media (max-width: 850px)"), css.indexOf("@media (max-width: 560px)"));
-    expect(mobile).toContain(".trade-toolbar, .trade-participants, .trade-import-panel, .trade-validation, .trade-submit { margin-right: 8px; margin-left: 8px; }");
+    expect(mobile).toContain(".trade-participants, .trade-validation, .trade-submit { margin-right: 8px; margin-left: 8px; }");
     expect(mobile).toContain(".trade-team-column > .trade-summary-card { margin-right: 8px; margin-left: 8px; }");
   });
 
@@ -119,7 +118,7 @@ describe("squadre e clausole nel pannello condiviso degli scambi", () => {
     expect(columns).toHaveLength(2);
     for (const [index, column] of columns.entries()) {
       const children = React.Children.toArray(column.props.children as React.ReactNode) as React.ReactElement<{ team: { code: string } }>[];
-      expect(children).toHaveLength(2);
+      expect(children).toHaveLength(3);
       expect(children[0].props.team.code).toBe(teams[index].code);
       expect(children[1].props.team.code).toBe(teams[index].code);
       expect(renderToStaticMarkup(children[1])).toContain(`aria-label="Riepilogo ${index === 0 ? "Aaa" : "Bbb"}"`);
@@ -136,6 +135,38 @@ describe("squadre e clausole nel pannello condiviso degli scambi", () => {
     expect(headers).toHaveLength(2);
     expect(headers.every((header) => header.includes("<strong>") && !header.includes("<select"))).toBe(true);
     expect(html).not.toContain('aria-label="Rimuovi Aaa"');
+    expect(html).not.toContain("Importa scambio");
+    expect(html).not.toContain("trade-import-panel");
+  });
+
+  it("copia solo il testo visibile, senza codice nascosto né istruzioni per l'admin", async () => {
+    const player: Props["teams"][number]["players"][number] = { id: "AAA-player", name: "Giocatore", cost: 3, capCost: 3,
+      futureCapCosts: {}, contract: "PENDING", role: "G", slot: "regular", cuttable: true, stretchOptions: [2, 3],
+      movementDestinations: [], allowedDestinations: ["regular"] };
+    const input = props({ mode: "simulator", teams: teams.map((team) => ({ ...team, currentCost: team.code === "AAA" ? 3 : 0, players: team.code === "AAA" ? [player] : [] })) });
+    draw(input);
+    hooks.values[1] = [{ ...player, sourceSlot: "regular", destinationSlot: "regular", fromTeamCode: "AAA", toTeamCode: "BBB" }];
+    const node = draw(input);
+    const status = find<{ recap: string }>(node, (element) => typeof element.props.recap === "string");
+    const visible = "AAA\nCede: Giocatore\nRiceve: —\n\nBBB\nCede: —\nRiceve: Giocatore";
+    expect(status.props.recap).toBe(visible);
+    const Component = status.type as (props: typeof status.props) => React.ReactNode;
+    const previous = hooks.values;
+    hooks.active = true;
+    hooks.cursor = 0;
+    hooks.values = [];
+    let screen: React.ReactNode;
+    try { screen = Component(status.props); } finally { hooks.active = false; hooks.values = previous; }
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    vi.stubGlobal("window", { setTimeout: vi.fn() });
+    await find<{ onClick: () => Promise<void> }>(screen, (element) => element.type === "button" && element.props.children === "Copia testo").props.onClick();
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(visible);
+    expect(visible).not.toMatch(/[\u200B\u200C\u2063]/u);
+    const html = renderToStaticMarkup(node);
+    expect(html).toContain("Copia testo");
+    expect(html).not.toContain("invia all’admin");
+    expect(html).not.toContain("senza modificarlo");
   });
 
   it("aggiunge e rimuove squadre dai due punti senza scendere sotto due partecipanti", () => {
@@ -397,57 +428,81 @@ describe("slot originario e spostamento dei giocatori ricevuti", () => {
   });
 });
 
-describe("importazione del recap compatto e precedente", () => {
-  function fixture(format: "current" | "legacy" = "current", omitSnapshots = false) {
-    const player: Props["teams"][number]["players"][number] = {
-      id: "BBB:player:Importato", name: "Importato", cost: 3, capCost: 3, futureCapCosts: {}, contract: "PENDING", role: "G",
-      slot: "regular", cuttable: true, stretchOptions: [2, 3], movementDestinations: [], allowedDestinations: ["regular"],
-    };
-    const input = props({ teams: teams.map((team) => ({ ...team, currentCost: team.code === "BBB" ? 3 : 0, players: team.code === "BBB" ? [player] : [] })) });
-    const imported = hydrateTradeImport({ version: 1, participantCodes: ["AAA", "BBB"], playerMoves: [{ id: player.id, fromTeamCode: "BBB", toTeamCode: "AAA", destinationSlot: "regular" }], pickMoves: [], qualifyingOfferMoves: [], cuts: [], promotions: [], pickClauses: [], existingClauseAgreementIds: [] }, input.teams, []);
-    const payload = tradeImportPayload(imported);
-    if (omitSnapshots) delete payload.playerSnapshots;
-    const text = tradeSimulationRecap({ ...imported, teams: input.teams, existingClauseAgreements: [] }, format);
-    return { input, text: withTradeImportPayload(text, payload) };
+describe("errori della singola squadra e riepilogo finale", () => {
+  function columns(node: React.ReactNode) {
+    return elements(node).filter((element) => element.props.className === "trade-team-column");
   }
-  function importText(input: Props, text: string) {
-    find<{ onClick: () => void }>(draw(input), (element) => element.type === "button" && element.props.children === "Importa scambio tramite testo").props.onClick();
-    const panel = find<Record<string, unknown>>(draw(input), (element) => element.props.className === "trade-import-panel");
-    find<{ onChange: (event: { target: { value: string } }) => void }>(panel, (element) => element.type === "textarea").props.onChange({ target: { value: text } });
-    find<{ onClick: () => void }>(draw(input), (element) => element.type === "button" && element.props.children === "Importa").props.onClick();
+  function player(id: string): Props["teams"][number]["players"][number] {
+    return { id, name: id, cost: 3, capCost: 3, futureCapCosts: {}, contract: "27", role: "G", slot: "regular",
+      cuttable: true, stretchOptions: [2, 3], movementDestinations: [], allowedDestinations: ["regular"] };
   }
-
-  it.each(["current", "legacy"] as const)("importa integralmente il formato %s", (format) => {
-    const { input, text } = fixture(format, format === "legacy");
-    importText(input, text);
-    expect(hooks.values[1]).toEqual([expect.objectContaining({ name: "Importato", toTeamCode: "AAA", destinationSlot: "regular" })]);
-    expect(hooks.values[10]).toBe(false);
-    expect(hooks.values[12]).toBe("");
-  });
-
-  it("rifiuta il testo visibile modificato e non compila nulla", () => {
-    const { input, text } = fixture();
-    importText(input, text.replace("Riceve: Importato", "Riceve: Diverso"));
-    expect(hooks.values[1]).toEqual([]);
-    expect(hooks.values[10]).toBe(true);
-    expect(hooks.values[12]).toMatch(/non coincide esattamente/);
-  });
-
-  it("rifiuta il nuovo testo privo dei dati di confronto dei giocatori", () => {
-    const { input, text } = fixture("current", true);
-    importText(input, text);
-    expect(hooks.values[1]).toEqual([]);
-    expect(hooks.values[12]).toMatch(/non coincide esattamente/);
-  });
-
-  it("rifiuta una situazione cambiata senza alterare lo scambio già compilato", () => {
-    const { input, text } = fixture();
+  it.each(["admin", "simulator"] as const)("duplica l'errore di cap solo nella squadra interessata e nel riquadro finale in %s", (mode) => {
+    const received = player("BBB:player:Received");
+    const input = props({ mode, teams: teams.map((team) => ({ ...team, currentCost: team.code === "AAA" ? 999 : 3,
+      players: team.code === "BBB" ? [received] : [] })) });
     draw(input);
-    hooks.values[2] = [{ ...teams[0].picks[0], fromTeamCode: "AAA", toTeamCode: "BBB", clause: "none" }];
-    const before = structuredClone(hooks.values.slice(0, 9));
-    const changed = { ...input, teams: input.teams.map((team) => ({ ...team, players: team.players.map((player) => ({ ...player, cost: 4 })) })) };
-    importText(changed, text);
-    expect(hooks.values.slice(0, 9)).toEqual(before);
-    expect(hooks.values[12]).toMatch(/cambiati dopo la simulazione/);
+    hooks.values[1] = [{ ...received, fromTeamCode: "BBB", toTeamCode: "AAA", sourceSlot: "regular", destinationSlot: "regular" }];
+    const node = draw(input);
+    const [aaa, bbb] = columns(node).map((column) => renderToStaticMarkup(column));
+    const message = "Scambio non valido: Aaa: lo scambio porterebbe lo spazio libero sotto zero.";
+    expect(aaa).toContain(message);
+    expect(aaa.indexOf('aria-label="Riepilogo Aaa"')).toBeLessThan(aaa.indexOf('aria-label="Errori e avvisi Aaa"'));
+    expect(bbb).not.toContain(message);
+    expect(bbb).not.toContain('aria-label="Errori e avvisi Bbb"');
+    const html = renderToStaticMarkup(node);
+    expect(html.split(message)).toHaveLength(3);
+    expect(html).toContain("Riepilogo errori e avvisi");
+    expect(html).not.toContain("cap-force-control");
+    if (mode === "admin") expect(find<{ disabled: boolean }>(node, (element) => element.props.className === "button primary trade-submit").props.disabled).toBe(true);
+  });
+
+  it("non associa un errore globale a una squadra e non mostra riquadri locali vuoti", () => {
+    const node = draw();
+    for (const column of columns(node)) expect(renderToStaticMarkup(column)).not.toContain("trade-validation");
+    const final = find<Record<string, unknown>>(node, (element) => element.props.title === "Riepilogo errori e avvisi");
+    expect(renderToStaticMarkup(final)).toContain("Aggiungi almeno un elemento allo scambio.");
+  });
+
+  it("attribuisce alla squadra corretta anche il superamento degli slot", () => {
+    const input = props({ teams: teams.map((team) => ({ ...team, players: team.code === "AAA" ? Array.from({ length: 16 }, (_, index) => player(`AAA:${index}`)) : [] })) });
+    const node = draw(input);
+    const [aaa, bbb] = columns(node).map((column) => renderToStaticMarkup(column));
+    const message = "Aaa: Superato il limite per lo slot regular.";
+    expect(aaa).toContain(message);
+    expect(bbb).not.toContain(message);
+    expect(renderToStaticMarkup(node).split(message)).toHaveLength(3);
+  });
+
+  it("duplica carenze di ruolo e insufficienza di slot per i FA di ripristino", () => {
+    const input = props({ enforceRoleMinimums: true, teams: teams.map((team) => ({ ...team,
+      players: team.code === "AAA" ? Array.from({ length: 15 }, (_, index) => player(`AAA:${index}`))
+        : team.code === "BBB" ? Array.from({ length: 13 }, (_, index) => ({ ...player(`BBB:${index}`), role: (index < 5 ? "G" : index < 10 ? "A" : "C") as "G" | "A" | "C" })) : [],
+    })) });
+    const node = draw(input);
+    const [aaa, bbb] = columns(node).map((column) => renderToStaticMarkup(column));
+    expect(aaa).toContain("mancano 5 giocatori di ruolo A");
+    expect(aaa).toContain("mancano 3 giocatori di ruolo C");
+    expect(aaa).toContain("servono 8 slot tra roster e Two-way");
+    expect(bbb).not.toContain("servono 8 slot");
+    expect(renderToStaticMarkup(node).split("servono 8 slot tra roster e Two-way")).toHaveLength(3);
+  });
+
+  it("usa il codice per l'attribuzione anche quando due squadre hanno lo stesso nome", () => {
+    const input = props({ teams: teams.map((team) => ({ ...team, name: "Uguale", currentCost: team.code === "BBB" ? 1001 : 0,
+      futureCosts: team.code === "BBB" ? [{ seasonName: "2027/28", currentCost: 1001 }] : [] })) });
+    const node = draw(input);
+    const [aaa, bbb] = columns(node).map((column) => renderToStaticMarkup(column));
+    expect(aaa).not.toContain("sotto zero");
+    expect(bbb).toContain("spazio libero 2027/28 sotto zero");
+  });
+
+  it("segnala localmente il nuovo giocatore mancante nel sign and trade, oltre al riepilogo finale", () => {
+    const input = props({ signAndTrade: { signerTeamCode: "BBB", signingEntryId: "new", playerName: "Fixture", label: "Firma", request: {} as NonNullable<Props["signAndTrade"]>["request"] } });
+    const node = draw(input);
+    const [signer, other] = columns(node).map((column) => renderToStaticMarkup(column));
+    const message = "Il sign and trade deve trasferire il giocatore appena firmato a un’altra squadra.";
+    expect(signer).toContain(message);
+    expect(other).not.toContain(message);
+    expect(renderToStaticMarkup(node).split(message)).toHaveLength(3);
   });
 });
