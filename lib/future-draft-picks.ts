@@ -84,3 +84,17 @@ export function publicDraftCondition(label: string) {
 export function hasVisibleFourthDraftClause(asset: DraftAsset) {
   return Boolean(asset.clauseResolution) || publicDraftCondition(asset.label) !== "—";
 }
+
+/** Dicitura nei roster: non cambia i testi salvati né quelli degli scambi. */
+export function teamDraftCondition(asset: DraftAsset) {
+  const resolution = asset.clauseResolution;
+  if (resolution?.role === "protection_counterparty") {
+    const round = resolution.subjectRound?.trim().startsWith("2") ? "2ª" : "1ª";
+    return `Include protezione top ${resolution.threshold ?? 1} su ${round} scelta ${resolution.subjectYear} ${resolution.subjectOriginTeamCode}`;
+  }
+  const counterpart = asset.label.match(/^Contropartita se la ([12])ª scelta (\d{4}) ([A-Z]+) rientra in top (\d+)$/i);
+  if (counterpart) return `Include protezione top ${counterpart[4]} su ${counterpart[1]}ª scelta ${counterpart[2]} ${counterpart[3]}`;
+  const legacy = asset.label.match(/^C\.p\. se 1a (\d{4}) ([A-Z]+) in top 5$/i);
+  if (legacy) return `Include protezione top 5 su 1ª scelta ${legacy[1]} ${legacy[2]}`;
+  return publicDraftCondition(asset.label);
+}

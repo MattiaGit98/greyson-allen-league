@@ -8,7 +8,7 @@ import type { LeagueMoment } from "@/lib/league-moments";
 import { getRosterSlotLimits } from "@/lib/roster-slot-limits";
 import { isStretchUnavailable } from "@/lib/stretch-provision";
 import { highlightedDraftYear } from "@/lib/draft-positions";
-import { hasVisibleFourthDraftClause, isFourthDraftPick, publicDraftCondition as draftCondition } from "@/lib/future-draft-picks";
+import { hasVisibleFourthDraftClause, isFourthDraftPick, teamDraftCondition as draftCondition } from "@/lib/future-draft-picks";
 import { sortPlayerEntries, type RosterSortKey as SortKey, type RosterSortState as SortState } from "@/lib/roster-display-sort";
 import { isRookieExtensionDecisionDue } from "@/lib/team-option-contract";
 import { dpeCountsForRoleMinimums } from "@/lib/role-minimums";
@@ -640,7 +640,7 @@ function TeamDetails({
                   ? <i className={isHighlightedDraft ? "draft-position" : "draft-origin"}>#{numericalPosition}</i>
                   : <i className={`draft-origin ${isHighlightedDraft ? "draft-origin-next" : ""}`}>{asset.originOrOverall}</i>}
               </strong>
-              <span>{isNonTradableFuturePick ? `Non scambiabile · ${draftCondition(asset.label)}` : draftCondition(asset.label)}</span>
+              <span>{isNonTradableFuturePick ? `Non scambiabile · ${draftCondition(asset)}` : draftCondition(asset)}</span>
             </div>
           )})}
         </div>}

@@ -70,3 +70,26 @@ export function startPageLoadRecovery(environment: RecoveryEnvironment): () => v
   }, pageLoadRecoveryDelay);
   return () => clearTimeout(timer);
 }
+
+/** Un clic esplicito avvia un nuovo ciclo; il breve ritardo lascia apparire il caricamento. */
+export function startManualPageLoadRecovery(environment: {
+  pathname: string;
+  storage: () => Pick<Storage, "removeItem">;
+  reload: () => void;
+  onRetrying: (retrying: boolean) => void;
+}): () => void {
+  environment.onRetrying(true);
+  const timer = setTimeout(() => {
+    try {
+      environment.storage().removeItem(`${storagePrefix}${environment.pathname}`);
+    } catch {
+      // Lo storage non deve impedire una ricarica richiesta esplicitamente.
+    }
+    try {
+      environment.reload();
+    } catch {
+      environment.onRetrying(false);
+    }
+  }, 150);
+  return () => clearTimeout(timer);
+}

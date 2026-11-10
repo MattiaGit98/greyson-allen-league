@@ -592,19 +592,11 @@ export function TradeBuilder({
           <a href="/admin/free-agent">Annulla</a>
         </section>
       )}
-      <div className="trade-toolbar">
-        {!simulator && !signAndTrade && <button className="button secondary" type="button" onClick={() => { setImportOpen(true); setImportError(""); }}>
+      {!simulator && !signAndTrade && <div className="trade-toolbar">
+        <button className="button secondary" type="button" onClick={() => { setImportOpen(true); setImportError(""); }}>
           Importa scambio tramite testo
-        </button>}
-        <button
-          className="button secondary"
-          type="button"
-          onClick={addParticipant}
-          disabled={participantCodes.length === teams.length}
-        >
-          + Aggiungi squadra
         </button>
-      </div>
+      </div>}
 
       {!simulator && importOpen && (
         <section className="trade-import-panel">
@@ -619,6 +611,26 @@ export function TradeBuilder({
           </div>
         </section>
       )}
+
+      <section className="trade-participants" aria-labelledby="trade-participants-title">
+        <div className="trade-participants-heading">
+          <h2 id="trade-participants-title">Squadre coinvolte</h2>
+          <button className="button secondary" type="button" onClick={addParticipant} disabled={participantCodes.length >= teams.length}>+ Aggiungi squadra</button>
+        </div>
+        <div className="trade-participant-grid">
+          {participants.map((team, index) => (
+            <div className="trade-participant-row" key={team.code}>
+              <label>
+                <span>Squadra {index + 1}</span>
+                <select aria-label={`Squadra ${index + 1}`} value={team.code} disabled={team.code === signAndTrade?.signerTeamCode} onChange={(event) => changeParticipant(team.code, event.target.value)}>
+                  {teams.map((option) => <option value={option.code} key={option.code} disabled={option.code !== team.code && participantCodes.includes(option.code)}>{formatTeamName(option.name)}</option>)}
+                </select>
+              </label>
+              {participants.length > 2 && team.code !== signAndTrade?.signerTeamCode && <button type="button" onClick={() => removeParticipant(team.code)} aria-label={`Rimuovi ${formatTeamName(team.name)}`}>×</button>}
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="trade-team-grid">
         {participants.map((team) => (
@@ -646,8 +658,6 @@ export function TradeBuilder({
             postTradeOwner={postTradeOwner}
             canReuseConditionedPick={canReuseConditionedPick}
             canRemove={participants.length > 2 && team.code !== signAndTrade?.signerTeamCode}
-            locked={team.code === signAndTrade?.signerTeamCode}
-            onTeamChange={(nextCode) => changeParticipant(team.code, nextCode)}
             onRemove={() => removeParticipant(team.code)}
             onAddPlayer={(move) => { invalidateTradeConfirmations(); setPlayerMoves((current) => [...current, move]); }}
             onRemovePlayer={(id) => { invalidateTradeConfirmations(); setPlayerMoves((current) => current.filter((move) => move.id !== id)); setCuts((current) => current.filter((cut) => cut.id !== id)); }}
@@ -849,8 +859,6 @@ function TradeTeamCard({
   postTradeOwner,
   canReuseConditionedPick,
   canRemove,
-  locked,
-  onTeamChange,
   onRemove,
   onAddPlayer,
   onRemovePlayer,
@@ -892,8 +900,6 @@ function TradeTeamCard({
   postTradeOwner: (pickId: string) => string;
   canReuseConditionedPick: (pick: DraftPick) => boolean;
   canRemove: boolean;
-  locked: boolean;
-  onTeamChange: (teamCode: string) => void;
   onRemove: () => void;
   onAddPlayer: (move: PlayerMove) => void;
   onRemovePlayer: (id: string) => void;
@@ -1000,7 +1006,7 @@ function TradeTeamCard({
   const teamExistingClauses = existingClauseAgreements.filter((agreement) => (
     participantCodes.includes(agreement.subjectOwnerTeamCode)
     && participantCodes.includes(agreement.counterpartyOwnerTeamCode)
-    && tradeClauseBeneficiary(agreement.clause, postTradeOwner(agreement.subjectPickId), postTradeOwner(agreement.counterpartyPickId)) === team.code
+    && (agreement.clause === "swap" ? postTradeOwner(agreement.counterpartyPickId) : postTradeOwner(agreement.subjectPickId)) === team.code
   ));
 
   function selectPlayer(nextId: string) {
@@ -1127,17 +1133,7 @@ function TradeTeamCard({
   return (
     <article className="trade-team-card">
       <div className="trade-team-header">
-        <select value={team.code} disabled={locked} onChange={(event) => onTeamChange(event.target.value)}>
-          {allTeams.map((option) => (
-            <option
-              value={option.code}
-              key={option.code}
-              disabled={option.code !== team.code && participantCodes.includes(option.code)}
-            >
-              {formatTeamName(option.name)}
-            </option>
-          ))}
-        </select>
+        <strong>{formatTeamName(team.name)}</strong>
         {canRemove && (
           <button type="button" onClick={onRemove} aria-label={`Rimuovi ${formatTeamName(team.name)}`}>×</button>
         )}

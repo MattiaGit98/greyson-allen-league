@@ -2,12 +2,24 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { startPageLoadRecovery } from "@/lib/page-load-recovery";
+import { startManualPageLoadRecovery, startPageLoadRecovery } from "@/lib/page-load-recovery";
 
 export default function GlobalError({ error }: { error: Error & { digest?: string }; reset: () => void }) {
   const [retrying, setRetrying] = useState(true);
+  const [manualRetry, setManualRetry] = useState(false);
 
   useEffect(() => {
+    if (manualRetry) {
+      return startManualPageLoadRecovery({
+        pathname: window.location.pathname,
+        storage: () => window.sessionStorage,
+        reload: () => window.location.reload(),
+        onRetrying: (value) => {
+          setRetrying(value);
+          if (!value) setManualRetry(false);
+        },
+      });
+    }
     console.error(error);
     const environment = {
       snapshot: () => ({
@@ -34,7 +46,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
       window.removeEventListener("online", retryWhenReady);
       document.removeEventListener("visibilitychange", retryWhenReady);
     };
-  }, [error]);
+  }, [error, manualRetry]);
 
   if (retrying) {
     return (
@@ -52,7 +64,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
     <section className="league-state-screen league-error-screen" role="alert" aria-labelledby="league-error-title">
       <div className="league-error-content">
         <h1 id="league-error-title">Impossibile caricare la lega</h1>
-        <button className="button primary league-reload-button" type="button" onClick={() => window.location.reload()}>Clicca qui per ricaricare la pagina</button>
+        <button className="button primary league-reload-button" type="button" onClick={() => { setRetrying(true); setManualRetry(true); }}>Clicca qui per ricaricare la pagina</button>
       </div>
     </section>
   );

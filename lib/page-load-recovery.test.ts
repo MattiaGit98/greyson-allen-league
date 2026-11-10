@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { pageLoadRecoveryDelay, startPageLoadRecovery } from "./page-load-recovery";
+import { pageLoadRecoveryDelay, startManualPageLoadRecovery, startPageLoadRecovery } from "./page-load-recovery";
 
 const now = Date.parse("2026-11-06T12:00:00Z");
 
@@ -13,6 +13,55 @@ function fixture(pathname = "/") {
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(now); });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+describe("riavvio manuale del caricamento", () => {
+  it("mostra il caricamento prima di ricaricare e riabilita un solo tentativo automatico", () => {
+    const { environment, snapshot, values } = fixture("/squadre");
+    values.set("gal:page-load-recovery:/squadre", String(now));
+    values.set("gal:page-load-recovery:/giocatori", String(now));
+    const storage = { removeItem: vi.fn((key: string) => { values.delete(key); }) };
+    startManualPageLoadRecovery({ ...environment, pathname: snapshot.pathname, storage: () => storage });
+    expect(environment.onRetrying).toHaveBeenLastCalledWith(true);
+    expect(environment.reload).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(150);
+    expect(environment.reload).toHaveBeenCalledOnce();
+    expect(values.has("gal:page-load-recovery:/squadre")).toBe(false);
+    expect(values.has("gal:page-load-recovery:/giocatori")).toBe(true);
+    snapshot.documentStartedAt = Date.now();
+    startPageLoadRecovery(environment);
+    vi.advanceTimersByTime(pageLoadRecoveryDelay);
+    expect(environment.reload).toHaveBeenCalledTimes(2);
+    snapshot.documentStartedAt = Date.now();
+    startPageLoadRecovery(environment);
+    vi.runAllTimers();
+    expect(environment.reload).toHaveBeenCalledTimes(2);
+    expect(environment.onRetrying).toHaveBeenLastCalledWith(false);
+  });
+
+  it("non ricarica né azzera il contatore se smontato prima del tentativo", () => {
+    const { environment } = fixture();
+    const storage = { removeItem: vi.fn() };
+    startManualPageLoadRecovery({ ...environment, pathname: "/", storage: () => storage })();
+    vi.runAllTimers();
+    expect(environment.reload).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("ricarica anche quando sessionStorage non è disponibile", () => {
+    const { environment } = fixture();
+    startManualPageLoadRecovery({ ...environment, pathname: "/", storage: () => { throw new Error("Storage bloccato"); } });
+    vi.runAllTimers();
+    expect(environment.reload).toHaveBeenCalledOnce();
+  });
+
+  it("torna al pulsante se la ricarica manuale genera un errore", () => {
+    const { environment } = fixture();
+    environment.reload.mockImplementation(() => { throw new Error("Reload bloccato"); });
+    startManualPageLoadRecovery({ ...environment, pathname: "/", storage: () => ({ removeItem: vi.fn() }) });
+    vi.runAllTimers();
+    expect(environment.onRetrying).toHaveBeenLastCalledWith(false);
+  });
+});
 
 describe("recupero limitato degli errori di caricamento", () => {
   it.each(["/", "/squadre", "/giocatori", "/movimenti", "/calendario", "/competizioni", "/storico", "/regolamento"])("ritenta la lettura di %s dopo una breve attesa", (path) => {

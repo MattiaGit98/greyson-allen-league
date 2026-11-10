@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import GlobalError from "../app/error";
 
-const screen = vi.hoisted(() => ({ retrying: true }));
-vi.mock("react", async () => ({ ...await vi.importActual<typeof React>("react"), useState: () => [screen.retrying, vi.fn()], useEffect: vi.fn() }));
+const screen = vi.hoisted(() => ({ retrying: true, setState: vi.fn() }));
+vi.mock("react", async () => ({ ...await vi.importActual<typeof React>("react"), useState: () => [screen.retrying, screen.setState], useEffect: vi.fn() }));
 vi.mock("@/lib/page-load-recovery", async () => import("./page-load-recovery"));
 
-beforeEach(() => { screen.retrying = true; vi.stubGlobal("React", React); });
+beforeEach(() => { screen.retrying = true; screen.setState.mockClear(); vi.stubGlobal("React", React); });
 afterEach(() => vi.unstubAllGlobals());
 function render() {
   return renderToStaticMarkup(React.createElement(GlobalError, { error: new Error("Fixture"), reset: vi.fn() }));
@@ -59,13 +59,16 @@ describe("schermate di caricamento ed errore della lega", () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.league-loading-spinner\s*\{ animation: none; \}/);
   });
 
-  it("mantiene la ricarica completa già usata dal pulsante manuale", () => {
+  it("mostra subito il caricamento e richiede un nuovo ciclo al clic manuale", () => {
     screen.retrying = false;
     const element = GlobalError({ error: new Error("Fixture"), reset: vi.fn() });
     const button = element.props.children.props.children[1];
     const reload = vi.fn();
     vi.stubGlobal("window", { location: { reload } });
     button.props.onClick();
-    expect(reload).toHaveBeenCalledOnce();
+    expect(screen.setState).toHaveBeenCalledTimes(2);
+    expect(screen.setState).toHaveBeenNthCalledWith(1, true);
+    expect(screen.setState).toHaveBeenNthCalledWith(2, true);
+    expect(reload).not.toHaveBeenCalled();
   });
 });
